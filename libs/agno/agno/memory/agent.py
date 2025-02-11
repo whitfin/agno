@@ -23,6 +23,13 @@ class AgentRun(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "message": self.message.to_dict() if self.message else None,
+            "messages": [message.to_dict() for message in self.messages] if self.messages else None,
+            "response": self.response.to_dict() if self.response else None,
+        }
+
 
 class MemoryRetrieval(str, Enum):
     last_n = "last_n"
@@ -70,7 +77,6 @@ class AgentMemory(BaseModel):
         _memory_dict = self.model_dump(
             exclude_none=True,
             include={
-                "runs",
                 "update_system_message_on_change",
                 "create_session_summary",
                 "update_session_summary_after_run",
@@ -89,6 +95,9 @@ class AgentMemory(BaseModel):
         # Add messages if they exist
         if self.messages is not None:
             _memory_dict["messages"] = [message.to_dict() for message in self.messages]
+        # Add runs if they exist
+        if self.runs is not None:
+            _memory_dict["runs"] = [run.to_dict() for run in self.runs]
         return _memory_dict
 
     def add_run(self, agent_run: AgentRun) -> None:

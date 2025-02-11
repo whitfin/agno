@@ -90,6 +90,8 @@ class Message(BaseModel):
             message_dict["videos"] = [vid.to_dict() for vid in self.videos]
         if self.audio_output:
             message_dict["audio_output"] = self.audio_output.to_dict()
+
+        message_dict.pop("images", None)
             
         return message_dict
 

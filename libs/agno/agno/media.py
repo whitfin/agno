@@ -63,8 +63,9 @@ class Video(BaseModel):
         return data
     
     def to_dict(self) -> Dict[str, Any]:
+        import base64
         return {
-            "content": str(self.content) if self.content else None,
+            "content": base64.b64encode(self.content).decode('utf-8') if isinstance(self.content, bytes) else self.content,
             "filepath": self.filepath,
             "format": self.format,
         }
@@ -95,8 +96,9 @@ class Audio(BaseModel):
         return data
     
     def to_dict(self) -> Dict[str, Any]:
+        import base64
         return {
-            "content": str(self.content) if self.content else None,
+            "content": base64.b64encode(self.content).decode('utf-8') if isinstance(self.content, bytes) else self.content,
             "filepath": self.filepath,
             "format": self.format,
         }
@@ -148,8 +150,9 @@ class Image(BaseModel):
         return data
     
     def to_dict(self) -> Dict[str, Any]:
+        import base64
         return {
-            "content": str(self.content) if self.content else None,
+            "content": base64.b64encode(self.content).decode('utf-8') if isinstance(self.content, bytes) else self.content,
             "filepath": self.filepath,
             "url": self.url,
             "detail": self.detail,

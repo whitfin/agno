@@ -71,7 +71,6 @@ class AgentMemory(BaseModel):
             exclude_none=True,
             include={
                 "runs",
-                "messages",
                 "update_system_message_on_change",
                 "create_session_summary",
                 "update_session_summary_after_run",
@@ -87,6 +86,9 @@ class AgentMemory(BaseModel):
         # Add memories if they exist
         if self.memories is not None:
             _memory_dict["memories"] = [memory.to_dict() for memory in self.memories]
+        # Add messages if they exist
+        if self.messages is not None:
+            _memory_dict["messages"] = [message.to_dict() for message in self.messages]
         return _memory_dict
 
     def add_run(self, agent_run: AgentRun) -> None:

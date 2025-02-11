@@ -85,7 +85,7 @@ class Message(BaseModel):
         if self.images:
             message_dict["images"] = [img.to_dict() for img in self.images]
         if self.audio:
-            message_dict["audio"] = [aud.to_dict() for aud self.audio]
+            message_dict["audio"] = [aud.to_dict() for aud in self.audio]
         if self.videos:
             message_dict["videos"] = [vid.to_dict() for vid in self.videos]
         if self.audio_output:

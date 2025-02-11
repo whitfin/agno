@@ -44,6 +44,7 @@ web_agent = Agent(
     num_history_responses=5,
     add_datetime_to_instructions=True,
     markdown=True,
+    debug_mode=True
 )
 
 finance_agent = Agent(

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, model_validator
 
@@ -61,6 +61,13 @@ class Video(BaseModel):
             raise ValueError("Only one of `filepath` or `content` should be provided.")
 
         return data
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "content": str(self.content) if self.content else None,
+            "filepath": self.filepath,
+            "format": self.format,
+        }
 
 
 class Audio(BaseModel):
@@ -86,6 +93,13 @@ class Audio(BaseModel):
             raise ValueError("Only one of `filepath` or `content` should be provided.")
 
         return data
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "content": str(self.content) if self.content else None,
+            "filepath": self.filepath,
+            "format": self.format,
+        }
 
 
 class AudioOutput(BaseModel):
@@ -132,3 +146,11 @@ class Image(BaseModel):
             raise ValueError("Only one of `url`, `filepath`, or `content` should be provided.")
 
         return data
+    
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "content": str(self.content) if self.content else None,
+            "filepath": self.filepath,
+            "url": self.url,
+            "detail": self.detail,
+        }

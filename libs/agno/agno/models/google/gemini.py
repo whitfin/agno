@@ -556,7 +556,7 @@ class Gemini(Model):
 
         if message_data.response_parts is not None:
             for part in message_data.response_parts:
-                part_dict = type(part).to_dict(part)
+                part_dict = type(part).serialize_for_models(part)
 
                 # Extract text if present
                 if "text" in part_dict:
@@ -760,7 +760,7 @@ class Gemini(Model):
 
             if message_data.response_parts is not None:
                 for part in message_data.response_parts:
-                    part_dict = type(part).to_dict(part)
+                    part_dict = type(part).serialize_for_models(part)
 
                     # -*- Yield text if present
                     if "text" in part_dict:

@@ -267,7 +267,7 @@ class OpenAIChat(Model):
         if message.tool_calls is not None and len(message.tool_calls) == 0:
             message.tool_calls = None
 
-        return message.to_dict()
+        return message.serialize_for_models()
 
     def invoke(self, messages: List[Message]) -> Union[ChatCompletion, ParsedChatCompletion]:
         """

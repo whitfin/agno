@@ -257,7 +257,7 @@ class Groq(Model):
             # if message.audio is not None:
             #     message = self.add_audio_to_message(message=message, audio=message.audio)
 
-        return message.to_dict()
+        return message.serialize_for_models()
 
     def invoke(self, messages: List[Message]) -> ChatCompletion:
         """

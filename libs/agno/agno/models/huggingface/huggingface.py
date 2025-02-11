@@ -245,7 +245,7 @@ class HuggingFace(Model):
         """
         return self.get_client().chat.completions.create(
             model=self.id,
-            messages=[m.to_dict() for m in messages],
+            messages=[m.serialize_for_models() for m in messages],
             **self.request_kwargs,
         )
 
@@ -261,7 +261,7 @@ class HuggingFace(Model):
         """
         return await self.get_async_client().chat.completions.create(
             model=self.id,
-            messages=[m.to_dict() for m in messages],
+            messages=[m.serialize_for_models() for m in messages],
             **self.request_kwargs,
         )
 
@@ -277,7 +277,7 @@ class HuggingFace(Model):
         """
         yield from self.get_client().chat.completions.create(
             model=self.id,
-            messages=[m.to_dict() for m in messages],  # type: ignore
+            messages=[m.serialize_for_models() for m in messages],  # type: ignore
             stream=True,
             stream_options={"include_usage": True},
             **self.request_kwargs,
@@ -295,7 +295,7 @@ class HuggingFace(Model):
         """
         async_stream = await self.get_async_client().chat.completions.create(
             model=self.id,
-            messages=[m.to_dict() for m in messages],
+            messages=[m.serialize_for_models() for m in messages],
             stream=True,
             stream_options={"include_usage": True},
             **self.request_kwargs,

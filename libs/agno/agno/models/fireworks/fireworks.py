@@ -40,7 +40,7 @@ class Fireworks(OpenAILike):
         """
         yield from self.get_client().chat.completions.create(
             model=self.id,
-            messages=[m.to_dict() for m in messages],  # type: ignore
+            messages=[m.serialize_for_models() for m in messages],  # type: ignore
             stream=True,
             **self.request_kwargs,
         )  # type: ignore

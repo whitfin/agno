@@ -78,6 +78,22 @@ class Message(BaseModel):
         return ""
 
     def to_dict(self) -> Dict[str, Any]:
+        """Returns the message as a dictionary."""
+        message_dict = self.model_dump(exclude_none=True)
+        
+        # Convert media objects to dictionaries
+        if self.images:
+            message_dict["images"] = [img.to_dict() for img in self.images]
+        if self.audio:
+            message_dict["audio"] = [aud.to_dict() for aud self.audio]
+        if self.videos:
+            message_dict["videos"] = [vid.to_dict() for vid in self.videos]
+        if self.audio_output:
+            message_dict["audio_output"] = self.audio_output.to_dict()
+            
+        return message_dict
+
+    def serialize_for_models(self) -> Dict[str, Any]:
         _dict = self.model_dump(
             exclude_none=True,
             include={"role", "content", "audio", "name", "tool_call_id", "tool_calls"},

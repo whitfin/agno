@@ -1,9 +1,11 @@
-from agno.agent import Agent
-from agno.models.openai import OpenAIChat
-from agno.tools.models_labs import ModelsLabTools, FileType
-from agno.storage.agent.sqlite import SqliteAgentStorage
+import os
+from uuid import uuid4
+
+import requests
 from agno.agent import Agent, RunResponse
-from agno.utils.audio import write_audio_to_file
+from agno.models.openai import OpenAIChat
+from agno.tools.models_labs import FileType, ModelsLabTools
+from agno.utils.log import logger
 
 agent = Agent(
     name="ModelsLab Music Agent",
@@ -20,21 +22,21 @@ agent = Agent(
         "- The structure (intro, verses, chorus, bridge, etc.)",
         "Create rich, descriptive prompts that capture the desired musical elements.",
         "Focus on generating high-quality, complete instrumental pieces.",
-        "Keep responses simple and only confirm when music is generated successfully.",
-        "Give the music link in the response",
     ],
     markdown=True,
     debug_mode=True,
 )
 
-music: RunResponse = agent.run(
-    "Generate a 30 second classical music piece"
-)
-if music.response_audio is not None:
-    write_audio_to_file(
-        audio=music.response_audio.content, filename="tmp/sample_music.wav"
-    )
+music: RunResponse = agent.run("Generate a 30 second classical music piece")
 
-# agent.print_response(
-#     "Generate a 30 second classical music piece"
-# )
+save_dir = "audio_generations"
+
+if music.audio is not None and len(music.audio) > 0:
+    url = music.audio[0].url
+    response = requests.get(url)
+    # Create tmp directory if it doesn't exist
+    os.makedirs(save_dir, exist_ok=True)
+    filename = f"{save_dir}/sample_music{uuid4()}.wav"
+    with open(filename, "wb") as f:
+        f.write(response.content)
+    logger.info(f"Music saved to {filename}")

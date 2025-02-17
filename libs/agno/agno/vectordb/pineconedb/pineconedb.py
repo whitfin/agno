@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 
 try:
-    # Only import the version first to check compatibility
     from packaging import version
     from pinecone import __version__
 

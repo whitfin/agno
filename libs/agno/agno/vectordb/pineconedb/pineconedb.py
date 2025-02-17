@@ -1,10 +1,26 @@
 from typing import Any, Dict, List, Optional, Union
 
 try:
+    import pinecone
+
+    # Check Pinecone version
+    from packaging import version
     from pinecone import Pinecone, PodSpec, ServerlessSpec
     from pinecone.config import Config
+
+    if version.parse(pinecone.__version__).major >= 6:
+        import warnings
+
+        warnings.warn(
+            "We do not yet support Pinecone v6.x.x. We are actively working to achieve compatibility. "
+            "In the meantime, we recommend using Pinecone v5.4.2 for the best experience. Please run pip install pinecone==5.4.2",
+            UserWarning,
+        )
+        raise RuntimeError("Incompatible Pinecone version detected. Execution halted.")
+
 except ImportError:
     raise ImportError("The `pinecone` package is not installed, please install using `pip install pinecone`.")
+
 
 from agno.document import Document
 from agno.embedder import Embedder

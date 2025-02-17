@@ -13,7 +13,7 @@ try:
 
         warnings.warn(
             "We do not yet support Pinecone v6.x.x. We are actively working to achieve compatibility. "
-            "In the meantime, we recommend using Pinecone v5.4.2 for the best experience. Please run pip install pinecone==5.4.2",
+            "In the meantime, we recommend using Pinecone v5.4.2 for the best experience. Please run `pip install pinecone==5.4.2`",
             UserWarning,
         )
         raise RuntimeError("Incompatible Pinecone version detected. Execution halted.")

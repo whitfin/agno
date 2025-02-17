@@ -485,6 +485,6 @@ class MongoDb(VectorDb):
 
     async def async_drop(self) -> None:
         raise NotImplementedError(f"Async not supported on {self.__class__.__name__}.")
-    
+
     async def async_exists(self) -> bool:
         raise NotImplementedError(f"Async not supported on {self.__class__.__name__}.")

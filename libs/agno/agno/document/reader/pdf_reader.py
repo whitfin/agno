@@ -1,7 +1,7 @@
+import asyncio
 from pathlib import Path
 from time import sleep
 from typing import IO, Any, List, Union
-import asyncio
 
 from agno.document.base import Document
 from agno.document.reader.base import Reader
@@ -21,6 +21,7 @@ def _build_document(doc_name: str, page_number: int, page: Any) -> Document:
         content=page.extract_text(),
     )
 
+
 def _build_image_document(doc_name: str, page_number: int, content: Any) -> Document:
     return Document(
         name=doc_name,
@@ -29,20 +30,14 @@ def _build_image_document(doc_name: str, page_number: int, content: Any) -> Docu
         content=content,
     )
 
-class BasePdfReader(Reader):
 
+class BasePdfReader(Reader):
     def _build_chunked_documents(self, documents: List[Document]) -> List[Document]:
-        chunked_documents = []
+        chunked_documents: List[Document] = []
         for document in documents:
             chunked_documents.extend(self.chunk_document(document))
         return chunked_documents
 
-    async def _async_build_chunked_documents(self, documents: List[Document]) -> List[Document]:
-        chunked_documents = []
-        for document in documents:
-            chunks = self.chunk_document, document
-            chunked_documents.extend(chunks)
-        return chunked_documents
 
 
 class PDFReader(BasePdfReader):
@@ -62,8 +57,7 @@ class PDFReader(BasePdfReader):
         doc_reader = DocumentReader(pdf)
 
         documents = [
-            _build_document(doc_name, page_number, page)
-            for page_number, page in enumerate(doc_reader.pages, start=1)
+            _build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)
         ]
         if self.chunk:
             return self._build_chunked_documents(documents)
@@ -83,8 +77,7 @@ class PDFReader(BasePdfReader):
 
         # Process pages in parallel using asyncio.gather
         documents = [
-            _build_document(doc_name, page_number, page)
-            for page_number, page in enumerate(doc_reader.pages, start=1)
+            _build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)
         ]
 
         if self.chunk:
@@ -130,8 +123,7 @@ class PDFUrlReader(BasePdfReader):
         doc_reader = DocumentReader(BytesIO(response.content))
 
         documents = [
-            _build_document(doc_name, page_number, page)
-            for page_number, page in enumerate(doc_reader.pages, start=1)
+            _build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)
         ]
         if self.chunk:
             return self._build_chunked_documents(documents)
@@ -174,8 +166,7 @@ class PDFUrlReader(BasePdfReader):
         doc_reader = DocumentReader(BytesIO(response.content))
 
         documents = [
-            _build_document(doc_name, page_number, page)
-            for page_number, page in enumerate(doc_reader.pages, start=1)
+            _build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)
         ]
 
         if self.chunk:
@@ -230,9 +221,7 @@ class PDFImageReader(BasePdfReader):
             images_text: str = "\n".join(images_text_list)
             content = page_text + "\n" + images_text
 
-            documents.append(
-                _build_image_document(doc_name, page_number, content)
-            )
+            documents.append(_build_image_document(doc_name, page_number, content))
 
         if self.chunk:
             return self._build_chunked_documents(documents)
@@ -274,9 +263,7 @@ class PDFImageReader(BasePdfReader):
                 ocr_result, _ = ocr(image_data)
                 return [item[1] for item in ocr_result] if ocr_result else []
 
-            image_tasks = [
-                process_image(image.data) for image in page.images
-            ]
+            image_tasks = [process_image(image.data) for image in page.images]
             images_results = await asyncio.gather(*image_tasks)
 
             for result in images_results:
@@ -288,10 +275,7 @@ class PDFImageReader(BasePdfReader):
             return _build_image_document(doc_name, page_number, content)
 
         documents = await asyncio.gather(
-            *[
-                process_page(page_number, page)
-                for page_number, page in enumerate(doc_reader.pages, start=1)
-            ]
+            *[process_page(page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)]
         )
 
         if self.chunk:
@@ -347,9 +331,7 @@ class PDFUrlImageReader(BasePdfReader):
             content = page_text + "\n" + images_text
 
             # Append the document
-            documents.append(
-                _build_image_document(doc_name, page_number, content)
-            )
+            documents.append(_build_image_document(doc_name, page_number, content))
 
         # Optionally chunk documents
         if self.chunk:
@@ -392,9 +374,7 @@ class PDFUrlImageReader(BasePdfReader):
                 ocr_result, _ = ocr(image_data)
                 return [item[1] for item in ocr_result] if ocr_result else []
 
-            image_tasks = [
-                process_image(image.data) for image in page.images
-            ]
+            image_tasks = [process_image(image.data) for image in page.images]
             images_results = await asyncio.gather(*image_tasks)
 
             for result in images_results:
@@ -406,10 +386,7 @@ class PDFUrlImageReader(BasePdfReader):
             return _build_image_document(doc_name, page_number, content)
 
         documents = await asyncio.gather(
-            *[
-                process_page(page_number, page)
-                for page_number, page in enumerate(doc_reader.pages, start=1)
-            ]
+            *[process_page(page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)]
         )
 
         if self.chunk:

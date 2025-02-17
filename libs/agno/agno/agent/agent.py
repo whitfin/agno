@@ -511,7 +511,13 @@ class Agent:
             if self.add_references and message:
                 references = self._build_references(message=message, **kwargs)
         run_messages: RunMessages = self.get_run_messages(
-            message=message, audio=audio, images=images, videos=videos, messages=messages, references=references, **kwargs
+            message=message,
+            audio=audio,
+            images=images,
+            videos=videos,
+            messages=messages,
+            references=references,
+            **kwargs,
         )
         self.run_messages = run_messages
 
@@ -952,7 +958,13 @@ class Agent:
             if self.add_references and message:
                 references = await self._async_build_references(message=message, **kwargs)
         run_messages: RunMessages = self.get_run_messages(
-            message=message, audio=audio, images=images, videos=videos, messages=messages, references=references, **kwargs
+            message=message,
+            audio=audio,
+            images=images,
+            videos=videos,
+            messages=messages,
+            references=references,
+            **kwargs,
         )
         self.run_messages = run_messages
 
@@ -2244,7 +2256,9 @@ class Agent:
         user_message: Optional[Message] = None
         # 4.1 Build user message if message is None, str or list
         if message is None or isinstance(message, str) or isinstance(message, list):
-            user_message = self.get_user_message(message=message, references=references, audio=audio, images=images, videos=videos, **kwargs)
+            user_message = self.get_user_message(
+                message=message, references=references, audio=audio, images=images, videos=videos, **kwargs
+            )
         # 4.2 If message is provided as a Message, use it directly
         elif isinstance(message, Message):
             user_message = message
@@ -2484,12 +2498,12 @@ class Agent:
         from inspect import signature
 
         try:
-            sig = signature(self.retriever)
+            sig = signature(self.retriever)  # type: ignore
             retriever_kwargs: Dict[str, Any] = {}
             if "agent" in sig.parameters:
                 retriever_kwargs = {"agent": self}
             retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
-            return self.retriever(**retriever_kwargs)
+            return self.retriever(**retriever_kwargs)  # type: ignore
         except Exception as e:
             logger.warning(f"Retriever failed: {e}")
             return None
@@ -2526,7 +2540,9 @@ class Agent:
 
         # Get relevant docs using a knowledge base
         if self.knowledge is not None:
-            relevant_docs: List[Document] = await self.knowledge.async_search(query=query, num_documents=num_documents, **kwargs)
+            relevant_docs: List[Document] = await self.knowledge.async_search(
+                query=query, num_documents=num_documents, **kwargs
+            )
             if len(relevant_docs) == 0:
                 return None
             return [doc.to_dict() for doc in relevant_docs]
@@ -2560,6 +2576,7 @@ class Agent:
             return ""
 
         import json
+
         try:
             return json.dumps(context, indent=2, default=str)
         except (TypeError, ValueError, OverflowError) as e:
@@ -3261,11 +3278,12 @@ class Agent:
 
     def _add_message_references(self, references: MessageReferences) -> None:
         """Add the references to the run_response."""
-        if self.run_response.extra_data is None:
-            self.run_response.extra_data = RunResponseExtraData()
-        if self.run_response.extra_data.references is None:
-            self.run_response.extra_data.references = []
-        self.run_response.extra_data.references.append(references)
+        if self.run_response:
+            if self.run_response.extra_data is None:
+                self.run_response.extra_data = RunResponseExtraData()
+            if self.run_response.extra_data.references is None:
+                self.run_response.extra_data.references = []
+            self.run_response.extra_data.references.append(references)
 
     def search_knowledge_base(self, query: str) -> str:
         """Use this function to search the knowledge base for information about a query.

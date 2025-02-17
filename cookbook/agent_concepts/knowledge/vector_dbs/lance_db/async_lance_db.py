@@ -1,10 +1,11 @@
 # install lancedb - `pip install lancedb`
 
 import asyncio
+import time
+
 from agno.agent import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.lancedb import LanceDb
-import time
 
 # Initialize LanceDB
 # By default, it stores data in /tmp/lancedb

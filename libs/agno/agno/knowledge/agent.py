@@ -1,5 +1,5 @@
-from typing import Any, Dict, Iterator, List, Optional
 import asyncio
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -41,7 +41,7 @@ class AgentKnowledge(BaseModel):
         raise NotImplementedError
 
     @property
-    def async_document_lists(self) -> Iterator[List[Document]]:
+    def async_document_lists(self) -> AsyncIterator[List[Document]]:
         """Iterator that yields lists of documents in the knowledge base
         Each object yielded by the iterator is a list of documents.
         """
@@ -267,20 +267,17 @@ class AgentKnowledge(BaseModel):
                 try:
                     # Parallelize existence checks using asyncio.gather
                     existence_checks = await asyncio.gather(
-                        *[self.vector_db.async_doc_exists(document) for document in documents],
-                        return_exceptions=True
+                        *[self.vector_db.async_doc_exists(document) for document in documents], return_exceptions=True
                     )
-                    
+
                     documents_to_load = [
-                        doc for doc, exists in zip(documents, existence_checks)
+                        doc
+                        for doc, exists in zip(documents, existence_checks)
                         if not (isinstance(exists, bool) and exists)
                     ]
                 except NotImplementedError:
                     logger.warning("Vector db does not support async doc_exists")
-                    documents_to_load = [
-                        document for document in documents 
-                        if not self.vector_db.doc_exists(document)
-                    ]
+                    documents_to_load = [document for document in documents if not self.vector_db.doc_exists(document)]
             else:
                 documents_to_load = documents
 
@@ -294,7 +291,7 @@ class AgentKnowledge(BaseModel):
                 logger.info(f"Loaded {len(documents_to_load)} documents to knowledge base")
             else:
                 logger.info("No new documents to load")
-        
+
     def load_document(
         self,
         document: Document,
@@ -327,7 +324,9 @@ class AgentKnowledge(BaseModel):
             skip_existing (bool): If True, skips documents which already exist in the vector db. Defaults to True.
             filters (Optional[Dict[str, Any]]): Filters to add to each row that can be used to limit results during querying. Defaults to None.
         """
-        await self.async_load_documents(documents=[document], upsert=upsert, skip_existing=skip_existing, filters=filters)
+        await self.async_load_documents(
+            documents=[document], upsert=upsert, skip_existing=skip_existing, filters=filters
+        )
 
     def load_dict(
         self,

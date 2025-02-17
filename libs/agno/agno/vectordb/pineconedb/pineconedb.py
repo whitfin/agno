@@ -1,14 +1,11 @@
 from typing import Any, Dict, List, Optional, Union
 
 try:
-    import pinecone
-
-    # Check Pinecone version
+    # Only import the version first to check compatibility
     from packaging import version
-    from pinecone import Pinecone, PodSpec, ServerlessSpec
-    from pinecone.config import Config
+    from pinecone import __version__
 
-    if version.parse(pinecone.__version__).major >= 6:
+    if version.parse(__version__).major >= 6:
         import warnings
 
         warnings.warn(
@@ -17,6 +14,9 @@ try:
             UserWarning,
         )
         raise RuntimeError("Incompatible Pinecone version detected. Execution halted.")
+
+    from pinecone import Pinecone, PodSpec, ServerlessSpec
+    from pinecone.config import Config
 
 except ImportError:
     raise ImportError("The `pinecone` package is not installed, please install using `pip install pinecone`.")

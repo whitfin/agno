@@ -1,4 +1,5 @@
 import time
+from datetime import timedelta
 from typing import Any, Dict, List, Optional, Union
 
 from agno.document import Document
@@ -6,8 +7,6 @@ from agno.embedder import Embedder
 from agno.embedder.openai import OpenAIEmbedder
 from agno.utils.log import logger
 from agno.vectordb.base import VectorDb
-from agno.vectordb.distance import Distance
-from datetime import timedelta
 
 try:
     from hashlib import md5
@@ -16,16 +15,19 @@ except ImportError:
     raise ImportError("`hashlib` not installed. Please install using `pip install hashlib`")
 try:
     from couchbase.cluster import Cluster
-    from couchbase.exceptions import BucketDoesNotExistException, ScopeAlreadyExistsException, SearchIndexNotFoundException
-    from couchbase.exceptions import CollectionNotFoundException
-    from couchbase.options import ClusterOptions, QueryOptions, SearchOptions
-    from couchbase.scope import Scope
     from couchbase.collection import Collection
-    from couchbase.management.search import SearchIndex, ScopeSearchIndexManager, SearchIndexManager
-    from couchbase.vector_search import VectorQuery, VectorSearch
-    from couchbase.result import SearchResult
+    from couchbase.exceptions import (
+        BucketDoesNotExistException,
+        ScopeAlreadyExistsException,
+        SearchIndexNotFoundException,
+    )
+    from couchbase.management.search import ScopeSearchIndexManager, SearchIndex, SearchIndexManager
     from couchbase.n1ql import QueryScanConsistency
+    from couchbase.options import ClusterOptions, QueryOptions, SearchOptions
+    from couchbase.result import SearchResult
+    from couchbase.scope import Scope
     from couchbase.search import SearchRequest
+    from couchbase.vector_search import VectorQuery, VectorSearch
 except ImportError:
     raise ImportError("`couchbase` not installed. Please install using `pip install couchbase`")
 
@@ -66,7 +68,7 @@ class CouchbaseFTS(VectorDb):
         """
         if not bucket_name:
             raise ValueError("Bucket name must not be empty.")
-        
+
         self.bucket_name = bucket_name
         self.scope_name = scope_name
         self.collection_name = collection_name
@@ -84,11 +86,10 @@ class CouchbaseFTS(VectorDb):
             self.search_index_name = search_index.name
             self.search_index_definition = search_index
 
-
         self._cluster = self._get_cluster()
         self._bucket = self._get_bucket()
-        self._scope: Optional[Scope] = None
-        self._collection: Optional[Collection] = None
+        self._scope: Scope = None
+        self._collection: Collection = None
 
     def _get_cluster(self) -> Cluster:
         """Create or retrieve the Couchbase cluster connection."""
@@ -115,20 +116,20 @@ class CouchbaseFTS(VectorDb):
     def _get_or_create_collection_and_scope(self) -> Collection:
         """
         Get or create the scope and collection within the bucket.
-        
-        First checks if scope exists, creates it if not. Then lists collections 
+
+        First checks if scope exists, creates it if not. Then lists collections
         in the scope and creates collection if needed.
-        
+
         Returns:
             Collection: The Couchbase collection object
-            
+
         Raises:
             Exception: If scope or collection creation fails
         """
         # Get all scopes and check if our scope exists
         scopes = self._bucket.collections().get_all_scopes()
         scope_exists = any(scope.name == self.scope_name for scope in scopes)
-        
+
         if not scope_exists:
             try:
                 # Create new scope
@@ -139,15 +140,12 @@ class CouchbaseFTS(VectorDb):
             except Exception as e:
                 logger.error(f"Error creating scope '{self.scope_name}': {e}")
                 raise
-        
+
         # Get scope object
         self._scope = self._bucket.scope(self.scope_name)
-        
+
         # List all collections in the scope
-        collections = next(
-            (scope.collections for scope in scopes if scope.name == self.scope_name), 
-            []
-        )
+        collections = [scope.collections for scope in scopes if scope.name == self.scope_name][0]
         collection_exists = any(coll.name == self.collection_name for coll in collections)
 
         if collection_exists and self.overwrite:
@@ -155,8 +153,7 @@ class CouchbaseFTS(VectorDb):
                 # Drop existing collection if overwrite is True
                 logger.info(f"Dropping existing collection '{self.collection_name}'")
                 self._bucket.collections().drop_collection(
-                    collection_name=self.collection_name,
-                    scope_name=self.scope_name
+                    collection_name=self.collection_name, scope_name=self.scope_name
                 )
                 collection_exists = False
                 time.sleep(1)  # Brief wait after drop
@@ -169,8 +166,7 @@ class CouchbaseFTS(VectorDb):
                 # Create new collection
                 logger.info(f"Creating new collection '{self.collection_name}'")
                 self._bucket.collections().create_collection(
-                    scope_name=self.scope_name,
-                    collection_name=self.collection_name
+                    scope_name=self.scope_name, collection_name=self.collection_name
                 )
             except Exception as e:
                 logger.error(f"Error creating collection: {e}")
@@ -228,10 +224,10 @@ class CouchbaseFTS(VectorDb):
                 if count > -1:
                     logger.info(f"FTS index '{self.search_index_name}' is ready")
                     break
-                #logger.info(f"FTS index '{self.search_index_name}' is not ready yet status: {index['status']}")
+                # logger.info(f"FTS index '{self.search_index_name}' is not ready yet status: {index['status']}")
             except Exception as e:
                 logger.error(f"Error checking index status: {e}")
-            
+
             if time.time() - start_time > self.wait_until_index_ready:
                 raise TimeoutError("Timeout waiting for FTS index to become ready")
             time.sleep(1)
@@ -254,7 +250,7 @@ class CouchbaseFTS(VectorDb):
     def insert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """
         Insert documents into the Couchbase bucket. Fails if any document already exists.
-        
+
         Args:
             documents: List of documents to insert
             filters: Optional filters (not used)
@@ -284,7 +280,7 @@ class CouchbaseFTS(VectorDb):
     def upsert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """
         Update existing documents or insert new ones into the Couchbase bucket.
-        
+
         Args:
             documents: List of documents to upsert
             filters: Optional filters (not used)
@@ -328,7 +324,7 @@ class CouchbaseFTS(VectorDb):
             search_args = {
                 "index": self.search_index_name,
                 "request": request,
-                "options": SearchOptions(limit=limit, fields=["*"])
+                "options": SearchOptions(limit=limit, fields=["*"]),
             }
             if filters:
                 search_args["options"].raw = filters
@@ -337,62 +333,61 @@ class CouchbaseFTS(VectorDb):
                 results = self._cluster.search(**search_args)
             else:
                 results = self._scope.search(**search_args)
-            
+
             return self.__get_doc_from_kv(results)
         except Exception as e:
             logger.error(f"Error during search: {e}")
             return []
-        
 
     def __get_doc_from_kv(self, response: SearchResult) -> List[Document]:
         """
         Convert search results to Document objects by fetching full documents from KV store.
-        
+
         Args:
             response: SearchResult from Couchbase search query
-            
+
         Returns:
             List of Document objects
         """
         documents: List[Document] = []
         search_hits = [(doc.id, doc.score) for doc in response.rows()]
-        
+
         if not search_hits:
             return documents
-        
+
         # Fetch documents from KV store
         ids = [hit[0] for hit in search_hits]
         kv_response = self._collection.get_multi(keys=ids)
-        
+
         if not kv_response.all_ok:
             raise Exception(f"Failed to get documents from KV store: {kv_response.exceptions}")
-        
+
         # Convert results to Documents
         for doc_id, score in search_hits:
             get_result = kv_response.results.get(doc_id)
             if get_result is None or not get_result.success:
                 logger.warning(f"Document {doc_id} not found in KV store")
                 continue
-            
+
             value = get_result.value
-            documents.append(Document(
-                id=doc_id,
-                name=value["name"],
-                content=value["content"],
-                meta_data=value["meta_data"],
-                embedding=value["embedding"],
-            ))
-        
+            documents.append(
+                Document(
+                    id=doc_id,
+                    name=value["name"],
+                    content=value["content"],
+                    meta_data=value["meta_data"],
+                    embedding=value["embedding"],
+                )
+            )
+
         return documents
-    
 
     def drop(self) -> None:
         """Delete the collection from the scope."""
         if self.exists():
             try:
                 self._bucket.collections().drop_collection(
-                    collection_name=self.collection_name,
-                    scope_name=self.scope_name
+                    collection_name=self.collection_name, scope_name=self.scope_name
                 )
                 logger.info(f"Collection '{self.collection_name}' dropped successfully.")
             except Exception as e:
@@ -417,32 +412,32 @@ class CouchbaseFTS(VectorDb):
     def prepare_doc(self, document: Document) -> Dict[str, Any]:
         """
         Prepare a document for insertion into Couchbase.
-        
+
         Args:
             document: Document to prepare
-            
+
         Returns:
             Dictionary containing document data ready for insertion
-            
+
         Raises:
             ValueError: If embedding generation fails
         """
         if not document.content:
             raise ValueError(f"Document {document.name} has no content")
-        
+
         logger.debug(f"Preparing document: {document.name}")
-        
+
         # Generate embedding if needed
         if document.embedding is None:
             document.embed(embedder=self.embedder)
-        
+
         if document.embedding is None:
             raise ValueError(f"Failed to generate embedding for document: {document.name}")
 
         # Clean content and generate ID
         cleaned_content = document.content.replace("\x00", "\ufffd")
         doc_id = md5(cleaned_content.encode("utf-8")).hexdigest()
-        
+
         return {
             "_id": doc_id,
             "name": document.name,
@@ -454,9 +449,9 @@ class CouchbaseFTS(VectorDb):
     def get_count(self) -> int:
         """Get the count of documents in the Couchbase bucket."""
         try:
-            search_indexes = self._cluster.search_indexes()  
+            search_indexes = self._cluster.search_indexes()
             if not self.is_global_level_index:
-                search_indexes = self._scope.search_indexes()  
+                search_indexes = self._scope.search_indexes()
             return search_indexes.get_indexed_documents_count(self.search_index_name)
         except Exception as e:
             logger.error(f"Error getting document count: {e}")
@@ -466,11 +461,10 @@ class CouchbaseFTS(VectorDb):
         """Check if a document exists in the bucket based on its name."""
         try:
             # Use N1QL query to check if document with given name exists
-            query = f'SELECT name FROM {self.bucket_name}.{self.scope_name}.{self.collection_name} WHERE name = $name LIMIT 1'
-            result = self._scope.query(query, QueryOptions(
-                named_parameters={"name": name},
-                scan_consistency=QueryScanConsistency.REQUEST_PLUS
-            ))
+            query = f"SELECT name FROM {self.bucket_name}.{self.scope_name}.{self.collection_name} WHERE name = $name LIMIT 1"
+            result = self._scope.query(
+                query, QueryOptions(named_parameters={"name": name}, scan_consistency=QueryScanConsistency.REQUEST_PLUS)
+            )
             for row in result.rows():
                 return True
             return False

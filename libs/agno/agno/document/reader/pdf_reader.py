@@ -31,7 +31,7 @@ def _build_image_document(doc_name: str, page_number: int, content: Any) -> Docu
     )
 
 
-class BasePdfReader(Reader):
+class BasePDFReader(Reader):
     def _build_chunked_documents(self, documents: List[Document]) -> List[Document]:
         chunked_documents: List[Document] = []
         for document in documents:

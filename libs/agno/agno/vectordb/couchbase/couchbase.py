@@ -20,6 +20,7 @@ try:
         BucketDoesNotExistException,
         ScopeAlreadyExistsException,
         SearchIndexNotFoundException,
+        DocumentNotFoundException,
     )
     from couchbase.management.search import ScopeSearchIndexManager, SearchIndex, SearchIndexManager
     from couchbase.n1ql import QueryScanConsistency
@@ -135,6 +136,7 @@ class CouchbaseFTS(VectorDb):
                 # Create new scope
                 self._bucket.collections().create_scope(self.scope_name)
                 logger.info(f"Created new scope '{self.scope_name}'")
+                scopes = self._bucket.collections().get_all_scopes()
             except ScopeAlreadyExistsException:
                 logger.info(f"Scope '{self.scope_name}' already exists")
             except Exception as e:
@@ -226,11 +228,10 @@ class CouchbaseFTS(VectorDb):
                     break
                 # logger.info(f"FTS index '{self.search_index_name}' is not ready yet status: {index['status']}")
             except Exception as e:
-                logger.error(f"Error checking index status: {e}")
-
-            if time.time() - start_time > self.wait_until_index_ready:
-                raise TimeoutError("Timeout waiting for FTS index to become ready")
-            time.sleep(1)
+                if time.time() - start_time > self.wait_until_index_ready:
+                    logger.error(f"Error checking index status: {e}")
+                    raise TimeoutError("Timeout waiting for FTS index to become ready")
+                time.sleep(1)
 
     def create(self) -> None:
         """Create the collection and FTS index if they don't exist."""
@@ -240,12 +241,7 @@ class CouchbaseFTS(VectorDb):
     def doc_exists(self, document: Document) -> bool:
         """Check if a document exists in the bucket based on its content."""
         doc_id = md5(document.content.encode("utf-8")).hexdigest()
-        try:
-            result = self._collection.get(doc_id)
-            return result.success and result.value is not None
-        except Exception as e:
-            logger.error(f"Error checking document existence: {e}")
-            return False
+        return self.id_exists(doc_id)
 
     def insert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -275,7 +271,6 @@ class CouchbaseFTS(VectorDb):
                     logger.warning(f"Bulk write error while inserting documents: {result.exceptions}")
             except Exception as e:
                 logger.error(f"Error during bulk insert: {e}")
-                raise
 
     def upsert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -305,7 +300,6 @@ class CouchbaseFTS(VectorDb):
                     logger.warning(f"Bulk write error while upserting documents {result.exceptions}")
             except Exception as e:
                 logger.error(f"Error during bulk upsert: {e}")
-                raise
 
     def search(self, query: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Document]:
         """Search the Couchbase bucket for documents relevant to the query."""
@@ -337,7 +331,7 @@ class CouchbaseFTS(VectorDb):
             return self.__get_doc_from_kv(results)
         except Exception as e:
             logger.error(f"Error during search: {e}")
-            return []
+            raise
 
     def __get_doc_from_kv(self, response: SearchResult) -> List[Document]:
         """
@@ -404,8 +398,13 @@ class CouchbaseFTS(VectorDb):
     def exists(self) -> bool:
         """Check if the collection exists."""
         try:
-            self._scope.collection(self.collection_name)
-            return True
+            scopes = self._bucket.collections().get_all_scopes()
+            for scope in scopes:
+                if scope.name == self.scope_name:
+                    for collection in scope.collections:
+                        if collection.name == self.collection_name:
+                            return True
+            return False
         except Exception:
             return False
 
@@ -475,7 +474,10 @@ class CouchbaseFTS(VectorDb):
     def id_exists(self, id: str) -> bool:
         """Check if a document exists in the bucket based on its ID."""
         try:
-            result = self._collection.get(id)
-            return result.success and result.content is not None
-        except Exception:
+            result = self._collection.exists(id)
+            if not result.exists:
+                logger.debug(f"Document 'does not exist': {id}")
+            return result.exists
+        except Exception as e:
+            logger.error(f"Error checking document existence: {e}")
             return False

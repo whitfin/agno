@@ -1,20 +1,23 @@
 # install couchbase-sdk - `pip install couchbase`
 
 from agno.agent import Agent
+from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.couchbase import CouchbaseFTS
-from couchbase.options import ClusterOptions
+from couchbase.options import ClusterOptions, KnownConfigProfiles
 from couchbase.auth import PasswordAuthenticator
-from couchbase.management.search import SearchIndex, SearchField, VectorParams
-
+from couchbase.management.search import SearchIndex
+import os
+import time
 # Couchbase connection settings
-username = "Administrator"  # Replace with your username
-password = "password"      # Replace with your password
-connection_string = "couchbase://localhost"
+username = os.getenv("COUCHBASE_USER")  # Replace with your username
+password = os.getenv("COUCHBASE_PASSWORD")     # Replace with your password
+connection_string = os.getenv("COUCHBASE_CONNECTION_STRING")
 
 # Create cluster options with authentication
 auth = PasswordAuthenticator(username, password)
 cluster_options = ClusterOptions(auth)
+cluster_options.apply_profile(KnownConfigProfiles.WanDevelopment)
 
 # Define the vector search index
 search_index = SearchIndex(
@@ -110,6 +113,7 @@ knowledge_base = PDFUrlKnowledgeBase(
         couchbase_connection_string=connection_string,
         cluster_options=cluster_options,
         search_index=search_index,
+        embedder=OpenAIEmbedder(id="text-embedding-3-large", dimensions=3072, api_key=os.getenv("OPENAI_API_KEY")),
         wait_until_index_ready=60,
         overwrite=True
     ),
@@ -118,6 +122,7 @@ knowledge_base = PDFUrlKnowledgeBase(
 # Load the knowledge base
 knowledge_base.load(recreate=True)
 
+time.sleep(20) # wait for the vector index to be sync with kv
 # Create and use the agent
 agent = Agent(knowledge=knowledge_base, show_tool_calls=True)
 agent.print_response("How to make Thai curry?", markdown=True)

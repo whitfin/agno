@@ -18,9 +18,9 @@ try:
     from couchbase.collection import Collection
     from couchbase.exceptions import (
         BucketDoesNotExistException,
+        DocumentNotFoundException,
         ScopeAlreadyExistsException,
         SearchIndexNotFoundException,
-        DocumentNotFoundException,
     )
     from couchbase.management.search import ScopeSearchIndexManager, SearchIndex, SearchIndexManager
     from couchbase.n1ql import QueryScanConsistency

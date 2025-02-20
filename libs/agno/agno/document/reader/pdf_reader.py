@@ -30,6 +30,7 @@ def _build_image_document(doc_name: str, page_number: int, content: Any) -> Docu
         content=content,
     )
 
+
 def process_image_page(doc_name: str, page_number: int, page: Any) -> Document:
     try:
         import rapidocr_onnxruntime as rapidocr
@@ -58,6 +59,7 @@ def process_image_page(doc_name: str, page_number: int, page: Any) -> Document:
     # Append the document
     return _build_image_document(doc_name, page_number, content)
 
+
 async def async_process_image_page(doc_name: str, page_number: int, page: Any) -> Document:
     try:
         import rapidocr_onnxruntime as rapidocr
@@ -85,6 +87,7 @@ async def async_process_image_page(doc_name: str, page_number: int, page: Any) -
     content = page_text + "\n" + images_text
 
     return _build_image_document(doc_name, page_number, content)
+
 
 class BasePDFReader(Reader):
     def _build_chunked_documents(self, documents: List[Document]) -> List[Document]:
@@ -128,9 +131,15 @@ class PDFReader(BasePDFReader):
         logger.info(f"Reading: {doc_name}")
         doc_reader = DocumentReader(pdf)
 
+        async def _process_document(doc_name: str, page_number: int, page: Any) -> Document:
+            return _build_document(doc_name, page_number, page)
+
         # Process pages in parallel using asyncio.gather
         documents = await asyncio.gather(
-            *[_build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)]
+            *[
+                _process_document(doc_name, page_number, page)
+                for page_number, page in enumerate(doc_reader.pages, start=1)
+            ]
         )
 
         if self.chunk:
@@ -195,7 +204,6 @@ class PDFUrlReader(BasePDFReader):
 
         logger.info(f"Reading: {url}")
 
-
         async with httpx.AsyncClient() as client:
             # Retry the request up to 3 times with exponential backoff
             for attempt in range(3):
@@ -219,8 +227,15 @@ class PDFUrlReader(BasePDFReader):
         doc_name = url.split("/")[-1].split(".")[0].replace("/", "_").replace(" ", "_")
         doc_reader = DocumentReader(BytesIO(response.content))
 
+        async def _process_document(doc_name: str, page_number: int, page: Any) -> Document:
+            return _build_document(doc_name, page_number, page)
+
+        # Process pages in parallel using asyncio.gather
         documents = await asyncio.gather(
-            *[_build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)]
+            *[
+                _process_document(doc_name, page_number, page)
+                for page_number, page in enumerate(doc_reader.pages, start=1)
+            ]
         )
 
         if self.chunk:
@@ -271,7 +286,10 @@ class PDFImageReader(BasePDFReader):
         doc_reader = DocumentReader(pdf)
 
         documents = await asyncio.gather(
-            *[async_process_image_page(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)]
+            *[
+                async_process_image_page(doc_name, page_number, page)
+                for page_number, page in enumerate(doc_reader.pages, start=1)
+            ]
         )
 
         if self.chunk:
@@ -287,6 +305,7 @@ class PDFUrlImageReader(BasePDFReader):
             raise ValueError("No url provided")
 
         from io import BytesIO
+
         import httpx
 
         # Read the PDF from the URL
@@ -313,8 +332,8 @@ class PDFUrlImageReader(BasePDFReader):
             raise ValueError("No url provided")
 
         from io import BytesIO
-        import httpx
 
+        import httpx
 
         logger.info(f"Reading: {url}")
 
@@ -326,7 +345,10 @@ class PDFUrlImageReader(BasePDFReader):
         doc_reader = DocumentReader(BytesIO(response.content))
 
         documents = await asyncio.gather(
-            *[async_process_image_page(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)]
+            *[
+                async_process_image_page(doc_name, page_number, page)
+                for page_number, page in enumerate(doc_reader.pages, start=1)
+            ]
         )
 
         if self.chunk:

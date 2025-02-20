@@ -1,4 +1,4 @@
-from typing import Iterator, List, Union, AsyncIterator
+from typing import AsyncIterator, Iterator, List, Union
 
 from agno.document import Document
 from agno.document.reader.pdf_reader import PDFUrlImageReader, PDFUrlReader

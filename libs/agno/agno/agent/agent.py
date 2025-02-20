@@ -427,16 +427,18 @@ class Agent:
     def set_monitoring(self) -> None:
         """Overwrite the monitoring and telemetry settings based on the AGNO_MONITOR and AGNO_TELEMETRY environment variables."""
         agno_monitor_var = getenv("AGNO_MONITOR")
-        if agno_monitor_var is not None and agno_monitor_var.lower() == "true":
-            self.monitoring = True
-        else:
-            self.monitoring = False
+        if agno_monitor_var is not None:
+            if agno_monitor_var.lower() == "true":
+                self.monitoring = True
+            else:
+                self.monitoring = False
 
         agno_telemetry_var = getenv("AGNO_TELEMETRY")
-        if agno_telemetry_var is not None and agno_telemetry_var.lower() == "true":
-            self.telemetry = True
-        else:
-            self.telemetry = False
+        if agno_telemetry_var is not None:
+            if agno_telemetry_var.lower() == "true":
+                self.telemetry = True
+            else:
+                self.telemetry = False
 
     def initialize_agent(self) -> None:
         self.set_debug()

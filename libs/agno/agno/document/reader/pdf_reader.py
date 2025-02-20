@@ -13,24 +13,6 @@ except ImportError:
     raise ImportError("`pypdf` not installed. Please install it via `pip install pypdf`.")
 
 
-def _build_document(doc_name: str, page_number: int, page: Any) -> Document:
-    return Document(
-        name=doc_name,
-        id=f"{doc_name}_{page_number}",
-        meta_data={"page": page_number},
-        content=page.extract_text(),
-    )
-
-
-def _build_image_document(doc_name: str, page_number: int, content: Any) -> Document:
-    return Document(
-        name=doc_name,
-        id=f"{doc_name}_{page_number}",
-        meta_data={"page": page_number},
-        content=content,
-    )
-
-
 def process_image_page(doc_name: str, page_number: int, page: Any) -> Document:
     try:
         import rapidocr_onnxruntime as rapidocr
@@ -57,7 +39,12 @@ def process_image_page(doc_name: str, page_number: int, page: Any) -> Document:
     content = page_text + "\n" + images_text
 
     # Append the document
-    return _build_image_document(doc_name, page_number, content)
+    return Document(
+        name=doc_name,
+        id=f"{doc_name}_{page_number}",
+        meta_data={"page": page_number},
+        content=content,
+    )
 
 
 async def async_process_image_page(doc_name: str, page_number: int, page: Any) -> Document:
@@ -86,7 +73,12 @@ async def async_process_image_page(doc_name: str, page_number: int, page: Any) -
     images_text = "\n".join(images_text_list)
     content = page_text + "\n" + images_text
 
-    return _build_image_document(doc_name, page_number, content)
+    return Document(
+        name=doc_name,
+        id=f"{doc_name}_{page_number}",
+        meta_data={"page": page_number},
+        content=content,
+    )
 
 
 class BasePDFReader(Reader):
@@ -112,9 +104,16 @@ class PDFReader(BasePDFReader):
         logger.info(f"Reading: {doc_name}")
         doc_reader = DocumentReader(pdf)
 
-        documents = [
-            _build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)
-        ]
+        documents = []
+        for page_number, page in enumerate(doc_reader.pages, start=1):
+            documents.append(
+                Document(
+                    name=doc_name,
+                    id=f"{doc_name}_{page_number}",
+                    meta_data={"page": page_number},
+                    content=page.extract_text(),
+                )
+            )
         if self.chunk:
             return self._build_chunked_documents(documents)
         return documents
@@ -132,7 +131,12 @@ class PDFReader(BasePDFReader):
         doc_reader = DocumentReader(pdf)
 
         async def _process_document(doc_name: str, page_number: int, page: Any) -> Document:
-            return _build_document(doc_name, page_number, page)
+            return Document(
+                name=doc_name,
+                id=f"{doc_name}_{page_number}",
+                meta_data={"page": page_number},
+                content=page.extract_text(),
+            )
 
         # Process pages in parallel using asyncio.gather
         documents = await asyncio.gather(
@@ -184,9 +188,16 @@ class PDFUrlReader(BasePDFReader):
         doc_name = url.split("/")[-1].split(".")[0].replace("/", "_").replace(" ", "_")
         doc_reader = DocumentReader(BytesIO(response.content))
 
-        documents = [
-            _build_document(doc_name, page_number, page) for page_number, page in enumerate(doc_reader.pages, start=1)
-        ]
+        documents = []
+        for page_number, page in enumerate(doc_reader.pages, start=1):
+            documents.append(
+                Document(
+                    name=doc_name,
+                    id=f"{doc_name}_{page_number}",
+                    meta_data={"page": page_number},
+                    content=page.extract_text(),
+                )
+            )
         if self.chunk:
             return self._build_chunked_documents(documents)
         return documents
@@ -228,7 +239,12 @@ class PDFUrlReader(BasePDFReader):
         doc_reader = DocumentReader(BytesIO(response.content))
 
         async def _process_document(doc_name: str, page_number: int, page: Any) -> Document:
-            return _build_document(doc_name, page_number, page)
+            return Document(
+                name=doc_name,
+                id=f"{doc_name}_{page_number}",
+                meta_data={"page": page_number},
+                content=page.extract_text(),
+            )
 
         # Process pages in parallel using asyncio.gather
         documents = await asyncio.gather(

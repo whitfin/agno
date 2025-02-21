@@ -43,7 +43,14 @@ class Perplexity(OpenAILike):
         if self.session is None:
             self.session = httpx.AsyncClient(timeout=self.timeout)
 
-    def _prepare_chat_request(self, messages, temperature, max_tokens, stream, **kwargs):
+    def _prepare_chat_request(
+        self,
+        messages: List[Message],
+        temperature: float,
+        max_tokens: Optional[int],
+        stream: bool,
+        **kwargs: Any
+    ) -> Dict[str, Any]:
         """Prepare request payload with Perplexity-specific parameters"""
         payload = {
             "model": self.id,

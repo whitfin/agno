@@ -30,7 +30,7 @@ class Perplexity(OpenAILike):
 
     id: str = "sonar"
     name: str = "Perplexity"
-    provider: str = f"Perplexity: {id}"
+    provider: str = ""
     api_key: Optional[str] = getenv("PERPLEXITY_API_KEY")
     base_url: str = "https://api.perplexity.ai/"
     max_tokens: int = 1024
@@ -39,6 +39,7 @@ class Perplexity(OpenAILike):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        self.provider = f"Perplexity: {self.id}"
         if self.session is None:
             self.session = httpx.AsyncClient(timeout=self.timeout)
 

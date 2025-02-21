@@ -3,7 +3,7 @@ import logging
 from dataclasses import dataclass
 from json import loads
 from os import getenv
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 
 import httpx
 
@@ -30,11 +30,11 @@ class Perplexity(OpenAILike):
 
     id: str = "sonar"
     name: str = "Perplexity"
-    provider: str = "Perplexity: " + id
+    provider: str = f"Perplexity: {id}"
     api_key: Optional[str] = getenv("PERPLEXITY_API_KEY")
     base_url: str = "https://api.perplexity.ai/"
     max_tokens: int = 1024
-    session: httpx.AsyncClient | None = None
+    session: Union[httpx.AsyncClient, None] = None
     timeout: float = 60.0  # 60 seconds timeout
 
     def __post_init__(self) -> None:

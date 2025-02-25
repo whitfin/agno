@@ -163,8 +163,6 @@ class Agent:
     # If True, add the current datetime to the instructions to give the agent a sense of time
     # This allows for relative times like "tomorrow" to be used in the prompt
     add_datetime_to_instructions: bool = False
-    # If True, add the session state variables in the user and system messages
-    add_state_in_messages: bool = False
 
     # --- Extra Messages ---
     # A list of extra messages added after the system message and before the user message.
@@ -394,10 +392,10 @@ class Agent:
 
         # Images generated during this session
         self.images: Optional[List[ImageArtifact]] = None
-        # Videos generated during this session
-        self.videos: Optional[List[VideoArtifact]] = None
         # Audio generated during this session
         self.audio: Optional[List[AudioArtifact]] = None
+        # Videos generated during this session
+        self.videos: Optional[List[VideoArtifact]] = None
         # Agent session
         self.agent_session: Optional[AgentSession] = None
 
@@ -807,7 +805,7 @@ class Agent:
         stream: bool = False,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
-        videos: Optional[Sequence[Any]] = None,
+        videos: Optional[Sequence[Video]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: bool = False,
         retries: Optional[int] = None,

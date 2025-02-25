@@ -9,6 +9,7 @@ from agno.utils.log import logger
 
 try:
     from pypdf import PdfReader as DocumentReader  # noqa: F401
+    from pypdf.errors import PdfStreamError
 except ImportError:
     raise ImportError("`pypdf` not installed. Please install it via `pip install pypdf`.")
 
@@ -102,7 +103,12 @@ class PDFReader(BasePDFReader):
             doc_name = "pdf"
 
         logger.info(f"Reading: {doc_name}")
-        doc_reader = DocumentReader(pdf)
+
+        try:
+            doc_reader = DocumentReader(pdf)
+        except PdfStreamError as e:
+            logger.error(f"Error reading PDF: {e}")
+            return []
 
         documents = []
         for page_number, page in enumerate(doc_reader.pages, start=1):
@@ -128,7 +134,12 @@ class PDFReader(BasePDFReader):
             doc_name = "pdf"
 
         logger.info(f"Reading: {doc_name}")
-        doc_reader = DocumentReader(pdf)
+        
+        try:
+            doc_reader = DocumentReader(pdf)
+        except PdfStreamError as e:
+            logger.error(f"Error reading PDF: {e}")
+            return []
 
         async def _process_document(doc_name: str, page_number: int, page: Any) -> Document:
             return Document(
@@ -280,6 +291,7 @@ class PDFImageReader(BasePDFReader):
         documents = []
         for page_number, page in enumerate(doc_reader.pages, start=1):
             documents.append(process_image_page(doc_name, page_number, page))
+        
 
         if self.chunk:
             return self._build_chunked_documents(documents)
@@ -335,8 +347,6 @@ class PDFUrlImageReader(BasePDFReader):
         for page_number, page in enumerate(doc_reader.pages, start=1):
             documents.append(process_image_page(doc_name, page_number, page))
 
-        # Process each page of the PDF
-        documents = []
         # Optionally chunk documents
         if self.chunk:
             return self._build_chunked_documents(documents)

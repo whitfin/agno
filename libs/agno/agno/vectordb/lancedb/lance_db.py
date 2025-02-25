@@ -23,9 +23,11 @@ class LanceDb(VectorDb):
 
     Args:
         uri: The URI of the LanceDB database.
-        table: The LanceDB table instance to use.
-        table_name: The name of the LanceDB table to use.
         connection: The LanceDB connection to use.
+        table: The LanceDB table instance to use.
+        async_connection: The LanceDB async connection to use.
+        async_table: The LanceDB async table instance to use.
+        table_name: The name of the LanceDB table to use.
         api_key: The API key to use for the LanceDB connection.
         embedder: The embedder to use when embedding the document contents.
         search_type: The search type to use when searching for documents.
@@ -46,9 +48,11 @@ class LanceDb(VectorDb):
     def __init__(
         self,
         uri: lancedb.URI = "/tmp/lancedb",
-        table: Optional[lancedb.db.LanceTable] = None,
-        table_name: Optional[str] = None,
         connection: Optional[lancedb.LanceDBConnection] = None,
+        table: Optional[lancedb.db.LanceTable] = None,
+        async_connection: Optional[lancedb.AsyncConnection] = None,
+        async_table: Optional[lancedb.db.AsyncTable] = None,
+        table_name: Optional[str] = None,
         api_key: Optional[str] = None,
         embedder: Optional[Embedder] = None,
         search_type: SearchType = SearchType.vector,
@@ -78,9 +82,10 @@ class LanceDb(VectorDb):
         # LanceDB connection details
         self.uri: lancedb.URI = uri
         self.connection: lancedb.LanceDBConnection = connection or lancedb.connect(uri=self.uri, api_key=api_key)
-
         self.table: Optional[lancedb.db.LanceTable] = table
-        self.table_name: Optional[str] = table_name
+
+        self.async_connection: lancedb.AsyncConnection = async_connection
+        self.async_table: Optional[lancedb.db.AsyncTable] = async_table
 
         if table_name and table_name in self.connection.table_names():
             # Open the table if it exists
@@ -198,20 +203,7 @@ class LanceDb(VectorDb):
         Returns:
             bool: True if document exists, False otherwise
         """
-        try:
-            await self._get_async_connection()
-            if self.table is not None:
-                cleaned_content = document.content.replace("\x00", "\ufffd")
-                doc_id = md5(cleaned_content.encode()).hexdigest()
-
-                result = await self.async_table.search().where(f"{self._id}='{doc_id}'").to_arrow()  # type: ignore
-                return len(result) > 0
-
-        except Exception as e:
-            logger.debug(f"Error checking document existence: {e}")
-            return False
-
-        return False
+        return self.doc_exists(document)
 
     def insert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -351,6 +343,7 @@ class LanceDb(VectorDb):
             List[Document]: List of matching documents
         """
         # TODO: Search is not yet supported in async (https://github.com/lancedb/lancedb/pull/2049)
+        self.table = self.connection.open_table(name=self.table_name)
         if self.search_type == SearchType.vector:
             return self.vector_search(query, limit)
         elif self.search_type == SearchType.keyword:
@@ -380,6 +373,7 @@ class LanceDb(VectorDb):
             results.nprobes(self.nprobes)
 
         results = results.to_pandas()
+
         search_results = self._build_search_results(results)
 
         if self.reranker:
@@ -478,16 +472,22 @@ class LanceDb(VectorDb):
 
     def exists(self) -> bool:
         if self.connection:
-            if self.table_name in self.connection.table_names():
-                return True
+            return self.table_name in self.connection.table_names()
         return False
-
+    
     async def async_exists(self) -> bool:
         """Check if the table exists asynchronously."""
         conn = await self._get_async_connection()
         table_names = await conn.table_names()
         return self.table_name in table_names
 
+    async def async_get_count(self) -> int:
+        """Get the number of rows in the table asynchronously."""
+        await self._get_async_connection()
+        if self.async_table is not None:
+            return await self.async_table.count_rows()
+        return 0
+    
     def get_count(self) -> int:
         if self.exists() and self.table:
             return self.table.count_rows()

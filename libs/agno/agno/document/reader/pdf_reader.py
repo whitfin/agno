@@ -134,7 +134,7 @@ class PDFReader(BasePDFReader):
             doc_name = "pdf"
 
         logger.info(f"Reading: {doc_name}")
-        
+
         try:
             doc_reader = DocumentReader(pdf)
         except PdfStreamError as e:
@@ -291,7 +291,6 @@ class PDFImageReader(BasePDFReader):
         documents = []
         for page_number, page in enumerate(doc_reader.pages, start=1):
             documents.append(process_image_page(doc_name, page_number, page))
-        
 
         if self.chunk:
             return self._build_chunked_documents(documents)

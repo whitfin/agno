@@ -1,4 +1,5 @@
 import pytest
+
 from agno.agent import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.lancedb.lance_db import LanceDb
@@ -30,7 +31,7 @@ def test_pdf_url_knowledge_base():
     response = agent.run("Show me how to make Tom Kha Gai", markdown=True)
 
     assert "Tom Kha Gai" in response.content
-    
+
     # Clean up
     vector_db.drop()
 
@@ -62,6 +63,6 @@ async def test_pdf_url_knowledge_base_async():
 
     assert "Tom Kha Gai" in response.content
     assert any(ingredient in response.content.lower() for ingredient in ["coconut", "chicken", "galangal"])
-    
+
     # Clean up
     await vector_db.async_drop()

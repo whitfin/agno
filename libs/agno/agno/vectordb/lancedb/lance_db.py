@@ -474,7 +474,7 @@ class LanceDb(VectorDb):
         if self.connection:
             return self.table_name in self.connection.table_names()
         return False
-    
+
     async def async_exists(self) -> bool:
         """Check if the table exists asynchronously."""
         conn = await self._get_async_connection()
@@ -487,7 +487,7 @@ class LanceDb(VectorDb):
         if self.async_table is not None:
             return await self.async_table.count_rows()
         return 0
-    
+
     def get_count(self) -> int:
         if self.exists() and self.table:
             return self.table.count_rows()

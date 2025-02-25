@@ -1,6 +1,6 @@
 from agno.document.reader.website_reader import WebsiteReader
 
-reader =  WebsiteReader(max_depth=3, max_links=10)
+reader = WebsiteReader(max_depth=3, max_links=10)
 
 try:
     print("Starting read...")

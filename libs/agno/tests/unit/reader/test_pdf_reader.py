@@ -2,14 +2,14 @@ import asyncio
 from io import BytesIO
 from pathlib import Path
 
-import pytest
 import httpx
+import pytest
 
 from agno.document.reader.pdf_reader import (
-    PDFReader,
-    PDFUrlReader,
     PDFImageReader,
+    PDFReader,
     PDFUrlImageReader,
+    PDFUrlReader,
 )
 
 
@@ -18,18 +18,18 @@ def sample_pdf_path(tmp_path_factory) -> Path:
     # Use tmp_path_factory for session-scoped temporary directory
     tmp_path = tmp_path_factory.mktemp("pdf_tests")
     pdf_path = tmp_path / "ThaiRecipes.pdf"
-    
+
     # Only download if file doesn't exist
     if not pdf_path.exists():
         url = "https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
-        
+
         # Download the PDF file
         response = httpx.get(url)
         response.raise_for_status()
-        
+
         # Save to temporary location
         pdf_path.write_bytes(response.content)
-    
+
     return pdf_path
 
 

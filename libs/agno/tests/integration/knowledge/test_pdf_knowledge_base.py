@@ -1,7 +1,9 @@
 from pathlib import Path
+
 import pytest
+
 from agno.agent import Agent
-from agno.knowledge.pdf  import PDFKnowledgeBase
+from agno.knowledge.pdf import PDFKnowledgeBase
 from agno.vectordb.lancedb.lance_db import LanceDb
 
 
@@ -11,7 +13,7 @@ def test_pdf_knowledge_base():
         uri="tmp/lancedb",
     )
 
-# Create a knowledge base with the PDFs from the data/pdfs directory
+    # Create a knowledge base with the PDFs from the data/pdfs directory
     knowledge_base = PDFKnowledgeBase(
         path=str(Path(__file__).parent / "data"),
         vector_db=vector_db,
@@ -28,7 +30,7 @@ def test_pdf_knowledge_base():
     response = agent.run("Show me how to make Tom Kha Gai", markdown=True)
 
     assert "Tom Kha Gai" in response.content
-    
+
     # Clean up
     vector_db.drop()
 
@@ -57,6 +59,6 @@ async def test_pdf_knowledge_base_async():
 
     assert "Tom Kha Gai" in response.content
     assert any(ingredient in response.content.lower() for ingredient in ["coconut", "chicken", "galangal"])
-    
+
     # Clean up
     await vector_db.async_drop()

@@ -35,6 +35,7 @@ class PDFKnowledgeBase(AgentKnowledge):
             if _pdf_path.name in self.exclude_files:
                 return
             yield self.reader.read(pdf=_pdf_path)
+
     @property
     async def async_document_lists(self) -> AsyncIterator[List[Document]]:
         """Iterate over PDFs and yield lists of documents.

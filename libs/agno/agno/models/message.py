@@ -249,7 +249,15 @@ class Message(BaseModel):
         elif level == "error":
             _logger = logger.error
 
-        _logger(f"============== {self.role} ==============")
+        try:
+            import shutil
+            terminal_width = shutil.get_terminal_size().columns
+        except Exception:
+            terminal_width = 80  # fallback width
+
+        header = f" {self.role} "
+        _logger(f"{header.center(terminal_width-20, '=')}")
+
         if self.name:
             _logger(f"Name: {self.name}")
         if self.tool_call_id:
@@ -270,8 +278,9 @@ class Message(BaseModel):
         if self.audio:
             _logger(f"Audio Files added: {len(self.audio)}")
 
+        metrics_header = ' TOOL METRICS ' if self.role == 'tool' else ' METRICS '
         if metrics and self.metrics is not None and self.metrics != MessageMetrics():
-            _logger("**************** METRICS ****************")
+            _logger(f"{metrics_header.center(terminal_width-20, '*')}")
             if self.metrics.input_tokens:
                 _logger(f"* Input tokens:                {self.metrics.input_tokens}")
             if self.metrics.output_tokens:
@@ -290,7 +299,7 @@ class Message(BaseModel):
                 _logger(f"* Time to first token:         {self.metrics.time_to_first_token:.4f}s")
             if self.metrics.additional_metrics:
                 _logger(f"* Additional metrics:          {self.metrics.additional_metrics}")
-            _logger("**************** METRICS ******************")
+            _logger(f"{metrics_header.center(terminal_width-20, '*')}")
 
     def content_is_valid(self) -> bool:
         """Check if the message content is valid."""

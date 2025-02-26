@@ -39,7 +39,7 @@ from agno.storage.agent.base import AgentStorage
 from agno.storage.agent.session import AgentSession
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
-from agno.utils.log import logger, set_log_level_to_debug, set_log_level_to_info
+from agno.utils.log import center_header, logger, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.message import get_text_from_message
 from agno.utils.safe_formatter import SafeFormatter
 from agno.utils.string import parse_structured_output
@@ -407,13 +407,13 @@ class Agent:
     def set_agent_id(self) -> str:
         if self.agent_id is None:
             self.agent_id = str(uuid4())
-        logger.debug(f"*********** Agent ID: {self.agent_id} ***********")
+        logger.debug(center_header(f"Agent ID: {self.agent_id}"))
         return self.agent_id
 
     def set_session_id(self) -> str:
         if self.session_id is None or self.session_id == "":
             self.session_id = str(uuid4())
-        logger.debug(f"*********** Session ID: {self.session_id} ***********")
+        logger.debug(center_header(f"Session ID: {self.session_id}"))
         return self.session_id
 
     def set_debug(self) -> None:
@@ -451,6 +451,7 @@ class Agent:
     @property
     def has_team(self) -> bool:
         return self.team is not None and len(self.team) > 0
+
 
     def _run(
         self,
@@ -491,7 +492,7 @@ class Agent:
         self.run_id = str(uuid4())
         self.run_response = RunResponse(run_id=self.run_id, session_id=self.session_id, agent_id=self.agent_id)
 
-        logger.debug(f"*********** Agent Run Start: {self.run_response.run_id} ***********")
+        logger.debug(center_header(f"Agent Run Start: {self.run_response.run_id}"))
 
         # 2. Update the Model and resolve context
         self.update_model()
@@ -813,6 +814,7 @@ class Agent:
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
 
+
         # If no retries are set, use the agent's default retries
         if retries is None:
             retries = self.retries
@@ -906,6 +908,17 @@ class Agent:
                     import time
 
                     time.sleep(delay)
+            except KeyboardInterrupt:
+                # Create a cancelled response
+                cancelled_response = RunResponse(
+                    run_id=self.run_id or str(uuid4()),
+                    session_id=self.session_id,
+                    agent_id=self.agent_id,
+                    content="Operation cancelled by user",
+                    event=RunEvent.run_cancelled,
+                )
+                return cancelled_response
+            
 
         # If we get here, all retries failed
         if last_exception is not None:
@@ -1340,6 +1353,15 @@ class Agent:
                     import time
 
                     time.sleep(delay)
+            except KeyboardInterrupt:
+                # Create a cancelled response
+                return RunResponse(
+                    run_id=self.run_id or str(uuid4()),
+                    session_id=self.session_id,
+                    agent_id=self.agent_id,
+                    content="Operation cancelled by user",
+                    event=RunEvent.run_cancelled,
+                )
 
         # If we get here, all retries failed
         if last_exception is not None:

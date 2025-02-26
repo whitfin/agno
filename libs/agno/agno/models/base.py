@@ -11,7 +11,7 @@ from agno.media import AudioResponse
 from agno.models.message import Message, MessageMetrics
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.tools.function import Function, FunctionCall
-from agno.utils.log import logger
+from agno.utils.log import center_header, logger
 from agno.utils.timer import Timer
 from agno.utils.tools import get_function_call_for_tool_call
 
@@ -156,7 +156,7 @@ class Model(ABC):
         Returns:
             ModelResponse: The model's response
         """
-        logger.debug(f"---------- {self.get_provider()} Response Start ----------")
+        logger.debug(center_header(f" {self.get_provider()} Response Start ", symbol="-"))
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -192,7 +192,7 @@ class Model(ABC):
                     messages=messages, function_call_results=function_call_results, **model_response.extra or {}
                 )
 
-                logger.debug(f"---------- {self.get_provider()} Response ----------")
+                logger.debug(center_header(f" {self.get_provider()} Response ", symbol="-"))
                 self._log_messages(messages)
 
                 # Check if we should stop after tool calls
@@ -965,7 +965,7 @@ class Model(ABC):
             model_response.content = ""
         if model_response.tool_calls is None:
             model_response.tool_calls = []
-
+        
         function_calls_to_run: List[FunctionCall] = self.get_function_calls_to_run(assistant_message, messages)
         if self.show_tool_calls:
             self._show_tool_calls(function_calls_to_run, model_response)

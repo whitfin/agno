@@ -5,8 +5,9 @@
 
 from typing import List
 
-from agno.agent import Agent
+from agno import Agent, Team
 from agno.models.openai import OpenAIChat
+from agno.run.team import TeamRunResponse
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
@@ -40,10 +41,12 @@ article_reader = Agent(
     tools=[Newspaper4kTools()],
 )
 
-hn_team = Agent(
-    name="Hackernews Team",
+
+hn_team = Team(
+    name="HackerNews Team",
+    mode="coordinate",
     model=OpenAIChat("gpt-4o"),
-    team=[hn_researcher, web_searcher, article_reader],
+    members=[hn_researcher, web_searcher, article_reader],
     instructions=[
         "First, search hackernews for what the user is asking about.",
         "Then, ask the article reader to read the links for the stories to get more information.",
@@ -54,8 +57,10 @@ hn_team = Agent(
     response_model=Article,
     show_tool_calls=True,
     markdown=True,
-    debug_mode=True,
+    verbose=True,
 )
-hn_team.print_response(
-    "Write an article about the top 2 stories on hackernews", stream=True
+
+response: TeamRunResponse = hn_team.run(
+    "Write an article about the top 2 stories on hackernews"
 )
+print(response.content)

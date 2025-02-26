@@ -2833,7 +2833,7 @@ class Agent:
                     reasoning_steps=[ReasoningStep(result=groq_reasoning_message.content)],
                     reasoning_agent_messages=[groq_reasoning_message],
                 )
-            # Use o-3 for reasoning
+            # Use OpenAI o3 for reasoning
             elif reasoning_model.__class__.__name__ == "OpenAIChat" and reasoning_model.id.startswith("o3"):
                 from agno.reasoning.openai import get_openai_reasoning, get_openai_reasoning_agent
 
@@ -2871,6 +2871,8 @@ class Agent:
                     tools=self.tools,
                     structured_outputs=self.structured_outputs,
                     monitoring=self.monitoring,
+                    telemetry=self.telemetry,
+                    debug_mode=self.debug_mode,
                 )
 
             # Validate reasoning agent

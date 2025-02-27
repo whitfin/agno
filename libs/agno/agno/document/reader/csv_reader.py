@@ -95,7 +95,7 @@ class CSVReader(Reader):
                 documents = [
                     Document(
                         name=csv_name,
-                        id=f"{csv_name}_1",
+                        id=csv_name,
                         content=csv_content,
                     )
                 ]

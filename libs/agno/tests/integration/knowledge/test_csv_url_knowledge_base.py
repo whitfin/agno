@@ -25,7 +25,7 @@ def test_pdf_url_knowledge_base():
 
     assert vector_db.exists()
 
-    assert vector_db.get_count() == 2 
+    assert vector_db.get_count() == 2
     # Create and use the agent
     agent = Agent(knowledge=knowledge_base)
     response = agent.run("Give me top rated movies", markdown=True)
@@ -56,7 +56,7 @@ async def test_pdf_url_knowledge_base_async():
     await knowledge_base.aload(recreate=True)
 
     assert await vector_db.async_exists()
-    assert await vector_db.async_get_count() == 57  
+    assert await vector_db.async_get_count() == 57
 
     # Create and use the agent
     agent = Agent(knowledge=knowledge_base)

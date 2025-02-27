@@ -17,7 +17,7 @@ class CSVUrlKnowledgeBase(AgentKnowledge):
                 yield self.reader.read(url=url)
             else:
                 logger.error(f"Unsupported URL: {url}")
-    
+
     @property
     async def async_document_lists(self) -> AsyncIterator[List[Document]]:
         for url in self.urls:

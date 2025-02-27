@@ -36,7 +36,6 @@ class CSVKnowledgeBase(AgentKnowledge):
 
     @property
     async def async_document_lists(self) -> AsyncIterator[List[Document]]:
-
         _csv_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
 
         if _csv_path.exists() and _csv_path.is_dir():

@@ -13,13 +13,13 @@ def test_pdf_knowledge_base():
         uri="tmp/lancedb",
     )
 
-    print(f"check path{str(Path(__file__).parent / "data")}")
+    print(f"check path{str(Path(__file__).parent / 'data')}")
     # Create a knowledge base with the CSVs from the data/csvs directory
     knowledge_base = CSVKnowledgeBase(
-    path=str(Path(__file__).parent / "data"),
-    vector_db=vector_db,
-)
-    knowledge_base.reader.chunk= False
+        path=str(Path(__file__).parent / "data"),
+        vector_db=vector_db,
+    )
+    knowledge_base.reader.chunk = False
 
     knowledge_base.load(recreate=True)
 
@@ -29,7 +29,9 @@ def test_pdf_knowledge_base():
 
     # Create and use the agent
     agent = Agent(knowledge=knowledge_base)
-    response = agent.run("Tell me about the the summary of the data passed in the knowledge base in the csv", markdown=True)
+    response = agent.run(
+        "Tell me about the the summary of the data passed in the knowledge base in the csv", markdown=True
+    )
 
     assert "knowledge base" in response.content
 
@@ -51,7 +53,7 @@ async def test_pdf_knowledge_base_async():
     )
 
     await knowledge_base.aload(recreate=True)
-    knowledge_base.reader.chunk= False
+    knowledge_base.reader.chunk = False
 
     assert await vector_db.async_exists()
     # for 101 rows 6 pages

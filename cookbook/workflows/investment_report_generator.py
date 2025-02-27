@@ -31,12 +31,12 @@ from shutil import rmtree
 from textwrap import dedent
 from typing import Iterator
 
-from agno import Agent, RunResponse
+from agno.agent import Agent, RunResponse
+from agno.workflow import Workflow
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage
 from agno.tools.yfinance import YFinanceTools
 from agno.utils.log import logger
 from agno.utils.pprint import pprint_run_response
-from agno.workflow import Workflow
 
 reports_dir = Path(__file__).parent.joinpath("reports", "investment")
 if reports_dir.is_dir():

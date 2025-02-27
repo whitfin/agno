@@ -26,7 +26,7 @@ from textwrap import dedent
 from typing import Optional
 
 import typer
-from agno import Agent, AgentMemory
+from agno.agent import Agent, AgentMemory
 from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.models.openai import OpenAIChat
 from agno.storage.agent.sqlite import SqliteAgentStorage

@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Iterator
 
-from agno import Agent, RunResponse
+from agno import Agent, RunResponse, Workflow
 from agno.models.openai import OpenAIChat
 from agno.run.response import RunEvent
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage
@@ -15,7 +15,6 @@ from agno.utils.log import logger
 from agno.utils.pprint import pprint_run_response
 from agno.utils.string import hash_string_sha256
 from agno.utils.web import open_html_file
-from agno.workflow import Workflow
 from pydantic import BaseModel, Field
 
 games_dir = Path(__file__).parent.joinpath("games")

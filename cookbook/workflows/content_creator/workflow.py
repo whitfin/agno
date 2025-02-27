@@ -1,12 +1,11 @@
 import json
 from typing import List, Optional
 
-from agno import Agent, RunResponse
+from agno import Agent, RunResponse, Workflow
 from agno.models.openai import OpenAIChat
 from agno.run.response import RunEvent
 from agno.tools.firecrawl import FirecrawlTools
 from agno.utils.log import logger
-from agno.workflow import Workflow
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 

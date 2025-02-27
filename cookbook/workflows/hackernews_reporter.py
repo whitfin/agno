@@ -6,11 +6,10 @@ import json
 from typing import Iterator
 
 import httpx
-from agno import Agent, RunResponse
+from agno import Agent, RunResponse, Workflow
 from agno.tools.newspaper4k import Newspaper4kTools
 from agno.utils.log import logger
 from agno.utils.pprint import pprint_run_response
-from agno.workflow import Workflow
 
 
 class HackerNewsReporter(Workflow):

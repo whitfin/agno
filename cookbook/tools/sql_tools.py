@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.sql import SQLTools
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"

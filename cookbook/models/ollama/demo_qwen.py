@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.ollama import Ollama
 from agno.tools.duckduckgo import DuckDuckGoTools
 

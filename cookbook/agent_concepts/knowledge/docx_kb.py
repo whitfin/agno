@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.docx import DocxKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 

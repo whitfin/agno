@@ -6,7 +6,7 @@ Steps:
 3. Run: `python cookbook/models/cohere/memory.py` to run the agent
 """
 
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.db.postgres import PgMemoryDb
 from agno.models.cohere import Cohere
 from agno.storage.agent.postgres import PostgresAgentStorage

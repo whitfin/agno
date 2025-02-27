@@ -1,5 +1,5 @@
 from typing import Iterator  # noqa
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.google import Gemini
 
 agent = Agent(model=Gemini(id="gemini-2.0-flash-exp"), markdown=True)

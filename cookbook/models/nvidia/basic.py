@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.nvidia import Nvidia
 
 agent = Agent(model=Nvidia(id="meta/llama-3.3-70b-instruct"), markdown=True)

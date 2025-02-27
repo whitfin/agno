@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.searxng import Searxng
 
 # Initialize Searxng with your Searxng instance URL
@@ -15,6 +15,6 @@ agent = Agent(tools=[searxng])
 
 # Example: Ask the agent to search using Searxng
 agent.print_response("""
-Please search for information about artificial intelligence 
+Please search for information about artificial intelligence
 and summarize the key points from the top results
 """)

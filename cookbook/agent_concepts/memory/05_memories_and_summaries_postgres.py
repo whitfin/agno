@@ -5,7 +5,7 @@ Steps:
 2. Run: `pip install openai sqlalchemy 'psycopg[binary]' pgvector` to install the dependencies
 """
 
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.db.postgres import PgMemoryDb
 from agno.models.openai import OpenAIChat
 from agno.storage.agent.postgres import PostgresAgentStorage

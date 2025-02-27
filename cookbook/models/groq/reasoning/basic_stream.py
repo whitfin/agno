@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.models.groq import Groq
 
 agent = Agent(model=Groq(id="deepseek-r1-distill-llama-70b-specdec"), markdown=True)

@@ -19,7 +19,7 @@ Example Usage:
 
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.mlx_transcribe import MLXTranscribeTools
 

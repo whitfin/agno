@@ -26,7 +26,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Tuple
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.anthropic import Claude
 from agno.models.google import Gemini
 from agno.models.groq import Groq

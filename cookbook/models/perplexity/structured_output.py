@@ -1,6 +1,6 @@
 from typing import List
 
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.perplexity import Perplexity
 from pydantic import BaseModel, Field
 

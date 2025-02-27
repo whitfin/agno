@@ -6,7 +6,7 @@ Steps:
 3. Run: `python cookbook/storage/mongodb_storage.py` to run the agent
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.storage.agent.mongodb import MongoDbAgentStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 

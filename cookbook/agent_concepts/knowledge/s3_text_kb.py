@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.s3.text import S3TextKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 

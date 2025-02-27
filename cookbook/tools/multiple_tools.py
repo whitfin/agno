@@ -1,6 +1,6 @@
 """Run `pip install openai duckduckgo-search yfinance` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools

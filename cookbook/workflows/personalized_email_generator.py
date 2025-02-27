@@ -54,7 +54,7 @@ from datetime import datetime
 from textwrap import dedent
 from typing import Dict, Iterator, List, Optional
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage
 from agno.tools.exa import ExaTools

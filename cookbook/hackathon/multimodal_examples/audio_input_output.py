@@ -1,5 +1,5 @@
 import httpx
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Audio
 from agno.models.openai import OpenAIChat
 from agno.utils.audio import write_audio_to_file

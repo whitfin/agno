@@ -4,7 +4,7 @@ Basic async example using Mistral.
 
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.mistral.mistral import MistralChat
 
 agent = Agent(

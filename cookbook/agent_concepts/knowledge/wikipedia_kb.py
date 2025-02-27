@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.wikipedia import WikipediaKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 

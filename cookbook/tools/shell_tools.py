@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.shell import ShellTools
 
 agent = Agent(tools=[ShellTools()], show_tool_calls=True)

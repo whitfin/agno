@@ -23,7 +23,7 @@ Example prompts to try:
 from datetime import datetime
 from textwrap import dedent
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.exa import ExaTools
 

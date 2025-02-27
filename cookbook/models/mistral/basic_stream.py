@@ -1,6 +1,6 @@
 import os
 
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.mistral import MistralChat
 
 agent = Agent(

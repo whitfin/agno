@@ -4,7 +4,7 @@ pip install langchain langchain-community langchain-openai langchain-chroma agno
 
 import pathlib
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.langchain import LangChainKnowledgeBase
 from langchain.text_splitter import CharacterTextSplitter
 from langchain_chroma import Chroma

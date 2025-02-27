@@ -1,7 +1,7 @@
 import json
 from typing import List, Optional
 
-from agno.agent import Agent, RunResponse
+from agno import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.run.response import RunEvent
 from agno.tools.firecrawl import FirecrawlTools

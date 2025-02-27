@@ -1,6 +1,6 @@
 """Run `pip install duckduckgo-search` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.fireworks import Fireworks
 from agno.tools.duckduckgo import DuckDuckGoTools
 

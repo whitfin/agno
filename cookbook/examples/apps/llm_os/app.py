@@ -2,7 +2,7 @@ from typing import List
 
 import nest_asyncio
 import streamlit as st
-from agno.agent import Agent
+from agno import Agent
 from agno.document import Document
 from agno.document.reader.pdf_reader import PDFReader
 from agno.document.reader.website_reader import WebsiteReader

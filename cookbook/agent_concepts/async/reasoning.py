@@ -1,6 +1,6 @@
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.cli.console import console
 from agno.models.openai import OpenAIChat
 

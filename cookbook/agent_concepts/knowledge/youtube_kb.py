@@ -1,6 +1,6 @@
 from os import getenv
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.youtube import YouTubeKnowledgeBase, YouTubeReader
 from agno.vectordb.qdrant import Qdrant
 

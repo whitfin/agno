@@ -7,7 +7,7 @@ Steps:
 
 import json
 
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.models.openai import OpenAIChat
 from agno.storage.agent.sqlite import SqliteAgentStorage

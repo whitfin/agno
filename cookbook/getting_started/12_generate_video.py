@@ -16,7 +16,7 @@ Remember to set your ModelsLabs API key in the environment variable `MODELS_LAB_
 
 from textwrap import dedent
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.models_labs import ModelsLabTools
 

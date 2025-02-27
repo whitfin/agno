@@ -26,7 +26,7 @@ from typing import List, Optional
 
 import inquirer
 import typer
-from agno.agent import Agent
+from agno import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.url import UrlKnowledge
 from agno.models.openai import OpenAIChat
@@ -130,7 +130,7 @@ def create_agent(
         3. **Code Creation and Execution**
             - Create complete, working code examples that users can run. For example:
             ```python
-            from agno.agent import Agent
+            from agno import Agent
             from agno.tools.duckduckgo import DuckDuckGoTools
 
             agent = Agent(tools=[DuckDuckGoTools()])

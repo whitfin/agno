@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.groq import Groq
 from agno.tools.exa import ExaTools
 

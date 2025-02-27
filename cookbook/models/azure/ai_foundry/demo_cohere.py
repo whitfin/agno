@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.azure import AzureAIFoundry
 
 agent = Agent(model=AzureAIFoundry(id="Cohere-command-r-08-2024"), markdown=True)

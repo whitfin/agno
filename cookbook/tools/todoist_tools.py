@@ -12,7 +12,7 @@ Usage:
 - Or provide them when creating the TodoistTools instance
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.todoist import TodoistTools
 

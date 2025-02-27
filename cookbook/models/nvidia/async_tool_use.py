@@ -4,7 +4,7 @@ Async example using Mistral with tool calls.
 
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.nvidia import Nvidia
 from agno.tools.duckduckgo import DuckDuckGoTools
 

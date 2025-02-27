@@ -1,4 +1,4 @@
-from agno.agent import AgentKnowledge
+from agno import AgentKnowledge
 from agno.embedder.fireworks import FireworksEmbedder
 from agno.vectordb.pgvector import PgVector
 

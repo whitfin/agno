@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse
+from agno import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.utils.pprint import pprint_run_response
 from mem0 import MemoryClient

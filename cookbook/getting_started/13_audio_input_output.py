@@ -16,7 +16,7 @@ Run `pip install openai requests agno` to install dependencies.
 from textwrap import dedent
 
 import requests
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Audio
 from agno.models.openai import OpenAIChat
 from agno.utils.audio import write_audio_to_file

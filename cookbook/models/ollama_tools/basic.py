@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.ollama import OllamaTools
 
 agent = Agent(model=OllamaTools(id="llama3.1:8b"), markdown=True)

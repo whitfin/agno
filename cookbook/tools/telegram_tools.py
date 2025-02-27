@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.telegram import TelegramTools
 
 # How to get the token and chat_id:

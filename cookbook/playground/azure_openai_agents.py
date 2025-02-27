@@ -3,7 +3,7 @@
 from datetime import datetime
 from textwrap import dedent
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.azure.openai_chat import AzureOpenAI
 from agno.playground import Playground, serve_playground_app
 from agno.storage.agent.sqlite import SqliteAgentStorage

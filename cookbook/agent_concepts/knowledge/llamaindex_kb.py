@@ -6,7 +6,7 @@ from pathlib import Path
 from shutil import rmtree
 
 import httpx
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.llamaindex import LlamaIndexKnowledgeBase
 from llama_index.core import (
     SimpleDirectoryReader,

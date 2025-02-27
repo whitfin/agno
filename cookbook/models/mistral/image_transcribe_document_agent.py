@@ -2,7 +2,7 @@
 This agent transcribes an old written document from an image.
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Image
 from agno.models.mistral.mistral import MistralChat
 

@@ -48,7 +48,7 @@ analysis and research. Use the insights to refine your concept and business plan
 import json
 from typing import Iterator, Optional
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage
 from agno.tools.googlesearch import GoogleSearchTools

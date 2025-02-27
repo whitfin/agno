@@ -6,7 +6,7 @@ Example spreadsheet: https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBd
 The ID is the URL of the spreadsheet and the range is the sheet name and the range of cells to read.
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.googlesheets import GoogleSheetsTools
 
 SAMPLE_SPREADSHEET_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"

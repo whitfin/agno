@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import List
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.arxiv import ArxivTools
 from agno.tools.exa import ExaTools

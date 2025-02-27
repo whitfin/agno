@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Iterator
 
-from agno.agent import Agent, RunResponse
+from agno import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.run.response import RunEvent
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage

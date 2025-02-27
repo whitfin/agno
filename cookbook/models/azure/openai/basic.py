@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.azure import AzureOpenAI
 
 agent = Agent(model=AzureOpenAI(id="gpt-4o-mini"), markdown=True)

@@ -2,7 +2,7 @@
 
 from os import getenv
 
-from agno.agent import Agent
+from agno import Agent
 from agno.storage.agent.singlestore import SingleStoreAgentStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 from sqlalchemy.engine import create_engine

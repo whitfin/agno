@@ -1,6 +1,6 @@
 from typing import List
 
-from agno.agent import Agent
+from agno import Agent
 
 
 def get_instructions(agent: Agent) -> List[str]:

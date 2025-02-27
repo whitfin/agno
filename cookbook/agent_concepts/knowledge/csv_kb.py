@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.csv import CSVKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 

@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.cli.console import console
 from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat

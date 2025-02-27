@@ -1,4 +1,4 @@
-from agno.agent import AgentKnowledge
+from agno import AgentKnowledge
 from agno.embedder.voyageai import VoyageAIEmbedder
 from agno.vectordb.pgvector import PgVector
 

@@ -3,7 +3,7 @@
 2. Run the script: `python cookbook/playground/groq_agents.py`
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.groq import Groq
 from agno.playground import Playground, serve_playground_app
 from agno.storage.agent.sqlite import SqliteAgentStorage

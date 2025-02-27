@@ -6,7 +6,7 @@ Steps:
 3. Run: `python cookbook/models/ollama/memory.py` to run the agent
 """
 
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.db.postgres import PgMemoryDb
 from agno.models.ollama.chat import Ollama
 from agno.storage.agent.postgres import PostgresAgentStorage

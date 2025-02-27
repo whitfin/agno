@@ -1,7 +1,7 @@
 from typing import Optional
 
 import typer
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.lancedb import LanceDb
 from agno.vectordb.search import SearchType

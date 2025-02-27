@@ -1,7 +1,7 @@
 import asyncio
 from typing import Iterator  # noqa
 
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.together import Together
 
 agent = Agent(

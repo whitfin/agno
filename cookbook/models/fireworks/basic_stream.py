@@ -1,5 +1,5 @@
 from typing import Iterator  # noqa
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.fireworks import Fireworks
 
 agent = Agent(

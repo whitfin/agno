@@ -1,6 +1,6 @@
 # install chromadb - `pip install chromadb`
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.chroma import ChromaDb
 

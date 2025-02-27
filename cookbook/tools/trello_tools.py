@@ -18,7 +18,7 @@ Step 3: Generate a Token
 3. Copy the generated Token. Store as TRELLO_TOKEN.
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.trello import TrelloTools
 
 agent = Agent(

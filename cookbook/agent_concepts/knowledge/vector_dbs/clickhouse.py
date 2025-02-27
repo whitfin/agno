@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.storage.agent.sqlite import SqliteAgentStorage
 from agno.vectordb.clickhouse import Clickhouse

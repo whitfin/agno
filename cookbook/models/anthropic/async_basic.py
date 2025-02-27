@@ -4,7 +4,7 @@ Basic async example using Claude.
 
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.anthropic import Claude
 
 agent = Agent(

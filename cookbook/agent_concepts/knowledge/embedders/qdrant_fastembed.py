@@ -1,4 +1,4 @@
-from agno.agent import AgentKnowledge
+from agno import AgentKnowledge
 from agno.embedder.fastembed import FastEmbedEmbedder
 from agno.vectordb.pgvector import PgVector
 

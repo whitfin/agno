@@ -7,7 +7,7 @@
 import subprocess
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Video
 from agno.models.google import Gemini
 from agno.utils.log import logger

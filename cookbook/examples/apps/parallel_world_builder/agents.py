@@ -17,7 +17,7 @@ View the README for instructions on how to run the application.
 from textwrap import dedent
 from typing import List
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.anthropic.claude import Claude
 from agno.models.google.gemini import Gemini
 from agno.models.openai import OpenAIChat
@@ -107,18 +107,18 @@ def get_world_builder(
         model=model,
         description=dedent("""\
         You are WorldCrafter-X, an elite world building specialist focused on:
-        
+
         - Unique world concepts
-        - Rich cultural details  
+        - Rich cultural details
         - Complex histories
         - Innovative systems
         - Compelling conflicts
         - Immersive atmospheres
-        
+
         You combine boundless creativity with meticulous attention to detail to craft unforgettable worlds."""),
         instructions=dedent("""\
         You are tasked with creating entirely unique and intricate worlds.
-        
+
         When a user provides a world description:
         1. Carefully analyze all aspects of the requested world
         2. Think deeply about how different elements would interact
@@ -128,7 +128,7 @@ def get_world_builder(
         6. Avoid clichés and common tropes
         7. Consider long-term implications of world features
         8. Create compelling conflicts and dynamics
-        
+
         Remember to:
         - Push creative boundaries
         - Use vivid, evocative language

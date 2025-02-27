@@ -1,7 +1,7 @@
 import asyncio
 from typing import List
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.ollama import Ollama
 from agno.run.response import RunResponse
 from pydantic import BaseModel, Field

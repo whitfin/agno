@@ -1,5 +1,5 @@
 import requests
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Audio
 from agno.models.google import Gemini
 

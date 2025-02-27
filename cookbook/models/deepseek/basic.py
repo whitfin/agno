@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.deepseek import DeepSeek
 
 agent = Agent(model=DeepSeek(id="deepseek-chat"), markdown=True)

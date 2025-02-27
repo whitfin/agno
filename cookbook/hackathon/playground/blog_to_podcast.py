@@ -6,7 +6,7 @@
 Docs on Agent UI: https://docs.agno.com/agent-ui
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.playground import Playground, serve_playground_app
 from agno.storage.agent.sqlite import SqliteAgentStorage

@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.pandas import PandasTools
 
 # Create an agent with PandasTools

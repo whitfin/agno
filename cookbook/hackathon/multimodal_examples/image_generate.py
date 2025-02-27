@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse
+from agno import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.tools.dalle import DalleTools
 from agno.utils.log import logger

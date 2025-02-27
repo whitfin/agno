@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.sleep import SleepTools
 
 # Create an Agent with the Sleep tool

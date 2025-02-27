@@ -2,7 +2,7 @@
 
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.ollama import OllamaTools
 from agno.tools.duckduckgo import DuckDuckGoTools
 

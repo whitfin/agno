@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.arxiv import ArxivTools
 
 agent = Agent(tools=[ArxivTools()], show_tool_calls=True)

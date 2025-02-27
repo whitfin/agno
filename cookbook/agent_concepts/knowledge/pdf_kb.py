@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf import PDFKnowledgeBase, PDFReader
 from agno.vectordb.pgvector import PgVector
 

@@ -1,6 +1,6 @@
 """Run `pip install duckduckgo-search sqlalchemy pgvector pypdf openai boto3` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.models.aws import Claude
 from agno.vectordb.pgvector import PgVector

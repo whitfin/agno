@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.spider import SpiderTools
 
 agent = Agent(tools=[SpiderTools(optional_params={"proxy_enabled": True})])

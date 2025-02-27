@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.newspaper4k import Newspaper4kTools
 
 agent = Agent(tools=[Newspaper4kTools()], debug_mode=True, show_tool_calls=True)

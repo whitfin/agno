@@ -1,6 +1,6 @@
 """Run `pip install requests` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.models_labs import ModelsLabTools
 
 # Create an Agent with the ModelsLabs tool

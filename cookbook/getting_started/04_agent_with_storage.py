@@ -19,7 +19,7 @@ from textwrap import dedent
 from typing import List, Optional
 
 import typer
-from agno.agent import Agent
+from agno import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.models.openai import OpenAIChat

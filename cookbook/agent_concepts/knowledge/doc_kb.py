@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.document.base import Document
 from agno.knowledge.document import DocumentKnowledgeBase
 from agno.vectordb.pgvector import PgVector

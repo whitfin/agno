@@ -5,7 +5,7 @@ pip install openai exa-py agno firecrawl
 from datetime import datetime, timedelta
 from textwrap import dedent
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.exa import ExaTools
 from agno.tools.firecrawl import FirecrawlTools

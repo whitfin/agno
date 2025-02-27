@@ -1,7 +1,7 @@
 """Readme Examples
 Run `pip install openai duckduckgo-search yfinance lancedb tantivy pypdf agno` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.models.openai import OpenAIChat

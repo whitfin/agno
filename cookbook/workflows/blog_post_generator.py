@@ -30,7 +30,7 @@ import json
 from textwrap import dedent
 from typing import Dict, Iterator, Optional
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage
 from agno.tools.duckduckgo import DuckDuckGoTools

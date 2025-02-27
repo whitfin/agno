@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.wikipedia import WikipediaTools
 
 agent = Agent(tools=[WikipediaTools()], show_tool_calls=True)

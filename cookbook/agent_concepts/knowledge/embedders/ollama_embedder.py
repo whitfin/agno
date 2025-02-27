@@ -1,4 +1,4 @@
-from agno.agent import AgentKnowledge
+from agno import AgentKnowledge
 from agno.embedder.ollama import OllamaEmbedder
 from agno.vectordb.pgvector import PgVector
 

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from agno.agent import Agent
+from agno import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.qdrant import Qdrant

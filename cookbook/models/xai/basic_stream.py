@@ -1,5 +1,5 @@
 from typing import Iterator  # noqa
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.xai import xAI
 
 agent = Agent(model=xAI(id="grok-beta"), markdown=True)

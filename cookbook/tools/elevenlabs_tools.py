@@ -2,7 +2,7 @@
 pip install elevenlabs
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.eleven_labs import ElevenLabsTools
 

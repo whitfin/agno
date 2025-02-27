@@ -28,7 +28,7 @@ Example prompts for `AgnoAssistVoice`:
 from pathlib import Path
 from textwrap import dedent
 
-from agno.agent import Agent
+from agno import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.url import UrlKnowledge
 from agno.models.openai import OpenAIChat
@@ -87,7 +87,7 @@ _instructions = dedent("""\
     3. **Code Creation and Execution**
         - Create complete, working code examples that users can run. For example:
         ```python
-        from agno.agent import Agent
+        from agno import Agent
         from agno.tools.duckduckgo import DuckDuckGoTools
 
         agent = Agent(tools=[DuckDuckGoTools()])

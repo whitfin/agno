@@ -2,7 +2,7 @@ from typing import Optional
 
 import streamlit as st
 from agents import World, get_world_builder
-from agno.agent import Agent
+from agno import Agent
 from agno.utils.log import logger
 from utils import add_message, display_tool_calls, sidebar_widget
 

@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.scrapegraph import ScrapeGraphTools
 
 # Example 1: Default behavior - only smartscraper enabled

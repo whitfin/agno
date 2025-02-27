@@ -5,7 +5,7 @@
 
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.file import FileTools
 from agno.tools.newspaper4k import Newspaper4kTools

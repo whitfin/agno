@@ -2,7 +2,7 @@
 pip install openai duckduckgo-search newspaper4k lxml_html_clean agno
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.groq import Groq
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.newspaper4k import Newspaper4kTools

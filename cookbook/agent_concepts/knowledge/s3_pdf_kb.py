@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.s3.pdf import S3PDFKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 

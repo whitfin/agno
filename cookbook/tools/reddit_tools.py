@@ -24,7 +24,7 @@ Steps to get Reddit credentials:
 
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.reddit import RedditTools
 
 agent = Agent(

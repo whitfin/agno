@@ -6,7 +6,7 @@ Steps:
 3. Run: `python cookbook/models/mistral/memory.py` to run the agent
 """
 
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.db.postgres import PgMemoryDb
 from agno.models.mistral.mistral import MistralChat
 from agno.storage.agent.postgres import PostgresAgentStorage

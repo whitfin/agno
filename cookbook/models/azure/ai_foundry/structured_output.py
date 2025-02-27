@@ -1,6 +1,6 @@
 from typing import List
 
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.azure import AzureAIFoundry
 from pydantic import BaseModel, Field
 from rich.pretty import pprint  # noqa

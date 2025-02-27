@@ -40,7 +40,7 @@ the Zoom API through natural language commands.
 
 import os
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.zoom import ZoomTools
 

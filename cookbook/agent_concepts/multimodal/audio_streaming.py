@@ -3,7 +3,7 @@ import wave
 from pathlib import Path
 from typing import Iterator
 
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.openai import OpenAIChat
 
 # Audio Configuration

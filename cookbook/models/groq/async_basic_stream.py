@@ -1,6 +1,6 @@
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.groq import Groq
 
 agent = Agent(

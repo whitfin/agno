@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.perplexity import Perplexity
 
 agent = Agent(model=Perplexity(id="sonar-pro"), markdown=True)

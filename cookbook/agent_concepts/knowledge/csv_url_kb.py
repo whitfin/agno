@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.csv_url import CSVUrlKnowledgeBase
 from agno.vectordb.pgvector import PgVector
 

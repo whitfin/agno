@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.zendesk import ZendeskTools
 
 agent = Agent(tools=[ZendeskTools()], show_tool_calls=True)

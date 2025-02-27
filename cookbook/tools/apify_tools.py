@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.apify import ApifyTools
 
 agent = Agent(tools=[ApifyTools()], show_tool_calls=True)

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import httpx
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.csv_toolkit import CsvTools
 
 url = "https://agno-public.s3.amazonaws.com/demo_data/IMDB-Movie-Data.csv"

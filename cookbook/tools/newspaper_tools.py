@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.newspaper import NewspaperTools
 
 agent = Agent(tools=[NewspaperTools()])

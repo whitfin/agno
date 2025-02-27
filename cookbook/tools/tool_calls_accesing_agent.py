@@ -1,7 +1,7 @@
 import json
 
 import httpx
-from agno.agent import Agent
+from agno import Agent
 
 
 def get_top_hackernews_stories(agent: Agent) -> str:

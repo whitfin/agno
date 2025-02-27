@@ -13,7 +13,7 @@ Prerequisites:
 
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.crawl4ai import Crawl4aiTools
 from agno.tools.google_maps import GoogleMapTools
 
@@ -46,7 +46,7 @@ agent.print_response(
 # Example 2: Directions
 print("\n=== Directions Example ===")
 agent.print_response(
-    """Get driving directions from 'Phoenix Sky Harbor Airport' to 'Desert Botanical Garden', 
+    """Get driving directions from 'Phoenix Sky Harbor Airport' to 'Desert Botanical Garden',
     avoiding highways if possible""",
     markdown=True,
     stream=True,
@@ -55,7 +55,7 @@ agent.print_response(
 # Example 3: Address Validation and Geocoding
 print("\n=== Address Validation and Geocoding Example ===")
 agent.print_response(
-    """Please validate and geocode this address: 
+    """Please validate and geocode this address:
     '1600 Amphitheatre Parkway, Mountain View, CA'""",
     markdown=True,
     stream=True,
@@ -74,7 +74,7 @@ agent.print_response(
 # Example 5: Nearby Places and Details
 print("\n=== Nearby Places Example ===")
 agent.print_response(
-    """Find coffee shops near Arizona State University Tempe campus. 
+    """Find coffee shops near Arizona State University Tempe campus.
     Include ratings and opening hours if available.""",
     markdown=True,
     stream=True,
@@ -94,7 +94,7 @@ print("\n=== Multi-step Route Planning Example ===")
 agent.print_response(
     """Plan a route with multiple stops in Phoenix:
     Start: Phoenix Sky Harbor Airport
-    Stops: 
+    Stops:
     1. Arizona Science Center
     2. Heard Museum
     3. Desert Botanical Garden

@@ -31,7 +31,7 @@ from shutil import rmtree
 from textwrap import dedent
 from typing import Iterator
 
-from agno.agent import Agent, RunResponse
+from agno import Agent, RunResponse
 from agno.storage.workflow.sqlite import SqliteWorkflowStorage
 from agno.tools.yfinance import YFinanceTools
 from agno.utils.log import logger

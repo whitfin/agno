@@ -9,7 +9,7 @@ You can use either Weaviate Cloud or a local instance.
 Weaviate Cloud Setup:
 1. Create account at https://console.weaviate.cloud/
 2. Create a cluster and copy the "REST endpoint" and "Admin" API Key. Then set environment variables:
-    export WCD_URL="your-cluster-url" 
+    export WCD_URL="your-cluster-url"
     export WCD_API_KEY="your-api-key"
 
 Local Development Setup:
@@ -24,7 +24,7 @@ Local Development Setup:
 3. Remember to set `local=True` on the Weaviate instantiation.
 """
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.search import SearchType
 from agno.vectordb.weaviate import Distance, VectorIndex, Weaviate

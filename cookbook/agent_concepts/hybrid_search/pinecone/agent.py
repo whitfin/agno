@@ -3,7 +3,7 @@ from typing import Optional
 
 import nltk  # type: ignore
 import typer
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.pineconedb import PineconeDb
 from rich.prompt import Prompt

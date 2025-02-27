@@ -1,4 +1,4 @@
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.cohere import Cohere
 
 agent = Agent(model=Cohere(id="command-r-08-2024"), markdown=True)

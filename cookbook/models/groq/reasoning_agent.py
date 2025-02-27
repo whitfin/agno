@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.models.groq import Groq
 
 # Create a reasoning agent that uses:

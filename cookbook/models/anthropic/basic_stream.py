@@ -1,5 +1,5 @@
 from typing import Iterator  # noqa
-from agno.agent import Agent, RunResponse  # noqa
+from agno import Agent, RunResponse  # noqa
 from agno.models.anthropic import Claude
 
 agent = Agent(model=Claude(id="claude-3-5-sonnet-20241022"), markdown=True)

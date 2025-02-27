@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.file import FileTools
 
 agent = Agent(tools=[FileTools(Path("tmp/file"))], show_tool_calls=True)

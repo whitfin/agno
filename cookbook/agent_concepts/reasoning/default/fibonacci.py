@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 
 task = "Give me steps to write a python script for fibonacci series"

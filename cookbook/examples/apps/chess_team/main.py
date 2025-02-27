@@ -1,6 +1,6 @@
 from typing import Dict
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.openai import OpenAIChat
 from agno.utils.log import logger
 from chess_board import ChessBoard
@@ -55,7 +55,7 @@ class ChessGame:
                          - Stalemate: If there are no legal moves but the king is not in check
                          - Draw: If there's insufficient material or threefold repetition
                        3. Provide a clear explanation of the game-ending condition if found
-                       
+
                        Respond with one of these formats:
                        - "CONTINUE" if the game should continue
                        - "CHECKMATE - [color] wins" if there's a checkmate

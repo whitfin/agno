@@ -1,6 +1,6 @@
 """Run `pip install ollama duckduckgo-search yfinance pypdf sqlalchemy 'fastapi[standard]' youtube-transcript-api agno` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.ollama import Ollama
 from agno.playground import Playground, serve_playground_app
 from agno.storage.agent.sqlite import SqliteAgentStorage

@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.confluence import ConfluenceTools
 
 agent = Agent(

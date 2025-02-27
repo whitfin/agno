@@ -4,7 +4,7 @@ Async example using DeepSeek with tool calls.
 
 import asyncio
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.deepseek import DeepSeek
 from agno.tools.duckduckgo import DuckDuckGoTools
 

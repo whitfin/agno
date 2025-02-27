@@ -20,7 +20,7 @@ from textwrap import dedent
 from typing import Iterator
 
 import httpx
-from agno.agent import Agent
+from agno import Agent
 from agno.exceptions import StopAgentRun
 from agno.tools import FunctionCall, tool
 from rich.console import Console

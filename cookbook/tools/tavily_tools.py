@@ -1,4 +1,4 @@
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.tavily import TavilyTools
 
 agent = Agent(tools=[TavilyTools()], show_tool_calls=True)

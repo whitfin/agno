@@ -17,7 +17,7 @@ Steps:
 
 import os
 
-from agno.agent import Agent
+from agno import Agent
 from agno.tools.webex import WebexTools
 
 agent = Agent(tools=[WebexTools()], show_tool_calls=True)

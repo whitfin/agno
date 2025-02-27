@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Optional
 
 # Importing the Agent and model classes
-from agno.agent import Agent
+from agno import Agent
 from agno.models.anthropic import Claude
 from agno.models.google import Gemini
 from agno.models.groq import Groq

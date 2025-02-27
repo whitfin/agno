@@ -6,7 +6,7 @@ Steps:
 3. Run: `python cookbook/models/anthropic/memory.py` to run the agent
 """
 
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.db.postgres import PgMemoryDb
 from agno.models.anthropic import Claude
 from agno.storage.agent.postgres import PostgresAgentStorage

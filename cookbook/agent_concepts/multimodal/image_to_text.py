@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Image
 from agno.models.openai import OpenAIChat
 

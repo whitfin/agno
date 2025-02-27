@@ -1,6 +1,6 @@
 """Build a Web Search Agent using xAI."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.xai import xAI
 from agno.tools.duckduckgo import DuckDuckGoTools
 

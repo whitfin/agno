@@ -26,7 +26,7 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional
 
-from agno.agent import Agent
+from agno import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.combined import CombinedKnowledgeBase
 from agno.knowledge.json import JSONKnowledgeBase

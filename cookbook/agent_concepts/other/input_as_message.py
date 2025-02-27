@@ -1,4 +1,4 @@
-from agno.agent import Agent, Message
+from agno import Agent, Message
 
 Agent().print_response(
     Message(

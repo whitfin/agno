@@ -1,6 +1,6 @@
 import asyncio
 
-from agno.agent import Agent, RunResponse
+from agno import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 from rich.pretty import pprint

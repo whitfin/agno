@@ -1,6 +1,6 @@
 """Run `pip install duckduckgo-search sqlalchemy pgvector pypdf openai groq` to install dependencies."""
 
-from agno.agent import Agent
+from agno import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.models.groq import Groq
 from agno.vectordb.pgvector import PgVector

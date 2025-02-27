@@ -10,12 +10,12 @@ detailed professional analysis along with patient-friendly explanations.
 
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.models.google import Gemini
 from agno.tools.duckduckgo import DuckDuckGoTools
 
 # Base prompt that defines the agent's expertise and response structure
-BASE_PROMPT = """You are a highly skilled medical imaging expert with extensive knowledge in radiology 
+BASE_PROMPT = """You are a highly skilled medical imaging expert with extensive knowledge in radiology
 and diagnostic imaging. Your role is to provide comprehensive, accurate, and ethical analysis of medical images.
 
 Key Responsibilities:

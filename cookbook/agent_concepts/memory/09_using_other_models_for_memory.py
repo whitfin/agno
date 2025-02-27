@@ -26,7 +26,7 @@ from textwrap import dedent
 from typing import List, Optional
 
 import typer
-from agno.agent import Agent, AgentMemory
+from agno import Agent, AgentMemory
 from agno.memory.classifier import MemoryClassifier
 from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.manager import MemoryManager

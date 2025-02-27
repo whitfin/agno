@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agno.agent import Agent
+from agno import Agent
 from agno.media import Image
 from agno.models.xai import xAI
 from agno.tools.duckduckgo import DuckDuckGoTools

@@ -57,7 +57,7 @@ class CSVReader(Reader):
         self, file: Union[Path, IO[Any]], delimiter: str = ",", quotechar: str = '"', page_size: int = 1000
     ) -> List[Document]:
         """
-        Read a CSV file asynchronously, processing pages of rows in parallel.
+        Read a CSV file asynchronously, processing batches of rows concurrently.
 
         Args:
             file: Path or file-like object

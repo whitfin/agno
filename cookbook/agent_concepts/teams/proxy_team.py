@@ -2,6 +2,7 @@ from textwrap import dedent
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
+from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
 
@@ -16,8 +17,6 @@ web_agent = Agent(
 
     {Answer to the user's question}
     """),
-    # This will make the agent respond directly to the user, rather than through the team leader.
-    respond_directly=True,
     markdown=True,
 )
 
@@ -35,18 +34,19 @@ finance_agent = Agent(
 
     {Answer to the user's question}
     """),
-    # This will make the agent respond directly to the user, rather than through the team leader.
-    respond_directly=True,
     markdown=True,
 )
 
-agent_team = Agent(
-    team=[web_agent, finance_agent],
-    instructions=["Always include sources", "Use tables to display data"],
+agent_team = Team(
+    name="Agent Team",
+    mode="proxy",
+    model=OpenAIChat("gpt-4o"),
+    members=[web_agent, finance_agent],
     markdown=True,
     debug_mode=True,
 )
 
-agent_team.print_response(
-    "Summarize analyst recommendations and share the latest news for NVDA", stream=True
+response =agent_team.run(
+    "What is the latest news on NVidia?"
 )
+print(response.content)

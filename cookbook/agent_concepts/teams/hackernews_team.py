@@ -57,10 +57,9 @@ hn_team = Team(
     response_model=Article,
     show_tool_calls=True,
     markdown=True,
-    verbose=True,
+    debug_mode=True,
 )
 
-response: TeamRunResponse = hn_team.run(
+hn_team.print_response(
     "Write an article about the top 2 stories on hackernews"
 )
-print(response.content)

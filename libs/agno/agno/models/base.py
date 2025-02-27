@@ -11,7 +11,7 @@ from agno.media import AudioResponse
 from agno.models.message import Message, MessageMetrics
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.tools.function import Function, FunctionCall
-from agno.utils.log import center_header, logger
+from agno.utils.log import get_logger
 from agno.utils.timer import Timer
 from agno.utils.tools import get_function_call_for_tool_call
 
@@ -156,7 +156,8 @@ class Model(ABC):
         Returns:
             ModelResponse: The model's response
         """
-        logger.debug(center_header(f" {self.get_provider()} Response Start ", symbol="-"))
+        logger = get_logger()
+        logger.debug(f" {self.get_provider()} Response Start ", center=True, symbol="-")
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -192,7 +193,7 @@ class Model(ABC):
                     messages=messages, function_call_results=function_call_results, **model_response.extra or {}
                 )
 
-                logger.debug(center_header(f" {self.get_provider()} Response ", symbol="-"))
+                logger.debug(f" {self.get_provider()} Response ", center=True, symbol="-")
                 self._log_messages(messages)
 
                 # Check if we should stop after tool calls
@@ -205,7 +206,7 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f"---------- {self.get_provider()} Response End ----------")
+        logger.debug(f" {self.get_provider()} Response End ", center=True, symbol="-")
         return model_response
 
     async def aresponse(self, messages: List[Message]) -> ModelResponse:
@@ -218,7 +219,8 @@ class Model(ABC):
         Returns:
             ModelResponse: The model's response
         """
-        logger.debug(f"---------- {self.get_provider()} Async Response Start ----------")
+        logger = get_logger()
+        logger.debug(f" {self.get_provider()} Async Response Start ", center=True, symbol="-")
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -258,7 +260,7 @@ class Model(ABC):
                 if any(m.stop_after_tool_call for m in function_call_results):
                     break
 
-                logger.debug(f"---------- {self.get_provider()} Async Response ----------")
+                logger.debug(f" {self.get_provider()} Async Response ", center=True, symbol="-")
                 self._log_messages(messages)
 
                 # Continue loop to get next response
@@ -267,7 +269,7 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f"---------- {self.get_provider()} Async Response End ----------")
+        logger.debug(f" {self.get_provider()} Async Response End ", center=True, symbol="-")
         return model_response
 
     def _process_model_response(
@@ -303,7 +305,7 @@ class Model(ABC):
         messages.append(assistant_message)
 
         # Log response and metrics
-        assistant_message.log()
+        assistant_message.log(metrics=True)
 
         # Update model response with assistant message content and audio
         if assistant_message.content is not None:
@@ -441,7 +443,8 @@ class Model(ABC):
         Returns:
             Iterator[ModelResponse]: Iterator of model responses
         """
-        logger.debug(f"---------- {self.get_provider()} Response Stream Start ----------")
+        logger = get_logger()
+        logger.debug(f" {self.get_provider()} Response Stream Start ", center=True, symbol="-")
         self._log_messages(messages)
 
         while True:
@@ -468,7 +471,7 @@ class Model(ABC):
 
             # Add assistant message to messages
             messages.append(assistant_message)
-            assistant_message.log()
+            assistant_message.log(metrics=True)
 
             # Handle tool calls if present
             if assistant_message.tool_calls is not None:
@@ -491,7 +494,7 @@ class Model(ABC):
                     messages=messages, function_call_results=function_call_results, **stream_data.extra
                 )
 
-                logger.debug(f"---------- {self.get_provider()} Response Stream ----------")
+                logger.debug(f" {self.get_provider()} Response Stream ", center=True, symbol="-")
                 self._log_messages(messages)
 
                 # Check if we should stop after tool calls
@@ -504,7 +507,7 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f"---------- {self.get_provider()} Response Stream End ----------")
+        logger.debug(f" {self.get_provider()} Response Stream End ", center=True, symbol="-")
 
     async def aprocess_response_stream(
         self, messages: List[Message], assistant_message: Message, stream_data: MessageData
@@ -529,7 +532,8 @@ class Model(ABC):
         Returns:
             AsyncIterator[ModelResponse]: Async iterator of model responses
         """
-        logger.debug(f"---------- {self.get_provider()} Async Response Stream Start ----------")
+        logger = get_logger()
+        logger.debug(f" {self.get_provider()} Async Response Stream Start ", center=True, symbol="-")
         self._log_messages(messages)
 
         while True:
@@ -579,7 +583,7 @@ class Model(ABC):
                     messages=messages, function_call_results=function_call_results, **stream_data.extra
                 )
 
-                logger.debug(f"---------- {self.get_provider()} Async Response Stream ----------")
+                logger.debug(f" {self.get_provider()} Async Response Stream ", center=True, symbol="-")
                 self._log_messages(messages)
 
                 # Check if we should stop after tool calls
@@ -592,7 +596,7 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f"---------- {self.get_provider()} Async Response Stream End ----------")
+        logger.debug(f" {self.get_provider()} Async Response Stream End ", center=True, symbol="-")
 
     def _populate_stream_data_and_assistant_message(
         self, stream_data: MessageData, assistant_message: Message, model_response: ModelResponse
@@ -712,7 +716,7 @@ class Model(ABC):
                     try:
                         additional_messages.append(Message(**m))
                     except Exception as e:
-                        logger.warning(f"Failed to convert dict to Message: {e}")
+                        get_logger().warning(f"Failed to convert dict to Message: {e}")
 
         if a_exc.stop_execution:
             for m in additional_messages:
@@ -771,7 +775,7 @@ class Model(ABC):
                 # Set function call success to False if an exception occurred
                 function_call_success = False
             except Exception as e:
-                logger.error(f"Error executing function {fc.function.name}: {e}")
+                get_logger().error(f"Error executing function {fc.function.name}: {e}")
                 function_call_success = False
                 raise e
 
@@ -831,7 +835,7 @@ class Model(ABC):
         except AgentRunException as e:
             success = e  # Pass the exception through to be handled by caller
         except Exception as e:
-            logger.error(f"Error executing function {function_call.function.name}: {e}")
+            get_logger().error(f"Error executing function {function_call.function.name}: {e}")
             success = False
             raise e
 
@@ -867,7 +871,7 @@ class Model(ABC):
         for result in results:
             # If result is an exception, skip processing it
             if isinstance(result, BaseException):
-                logger.error(f"Error during function call: {result}")
+                get_logger().error(f"Error during function call: {result}")
                 raise result
 
             # Unpack result
@@ -1047,7 +1051,8 @@ class Model(ABC):
         Log messages for debugging.
         """
         for m in messages:
-            m.log()
+            # Don't log metrics for input messages
+            m.log(metrics=False)
 
     def get_system_message_for_model(self) -> Optional[str]:
         return self.system_prompt

@@ -33,7 +33,30 @@ class ColoredRichHandler(RichHandler):
                 return Text(record.levelname, style=color)
         return super().get_level_text(record)
 
-def get_logger(logger_name: str, source_type: Optional[str] = None) -> logging.Logger:
+class AgnoLogger(logging.Logger):
+    def __init__(self, name: str, level: int = logging.NOTSET):
+        super().__init__(name, level)
+
+    def debug(self, msg: str, center: bool = False, symbol: str = "*", *args, **kwargs):
+        if center:
+            msg = center_header(str(msg), symbol)
+        super().debug(msg, *args, **kwargs)
+
+    def info(self, msg: str, center: bool = False, symbol: str = "*", *args, **kwargs):
+        if center:
+            msg = center_header(str(msg), symbol)
+        super().info(msg, *args, **kwargs)
+
+def build_logger(logger_name: str, source_type: Optional[str] = None) -> AgnoLogger:
+    # Set the custom logger class as the default for this logger
+    logging.setLoggerClass(AgnoLogger)
+    
+    # Create logger with custom class
+    _logger = logging.getLogger(logger_name)
+    
+    # Reset logger class to default to avoid affecting other loggers
+    logging.setLoggerClass(logging.Logger)
+    
     # https://rich.readthedocs.io/en/latest/reference/logging.html#rich.logging.RichHandler
     # https://rich.readthedocs.io/en/latest/logging.html#handle-exceptions
     rich_handler = ColoredRichHandler(
@@ -50,16 +73,17 @@ def get_logger(logger_name: str, source_type: Optional[str] = None) -> logging.L
         )
     )
 
-    _logger = logging.getLogger(logger_name)
     _logger.addHandler(rich_handler)
     _logger.setLevel(logging.INFO)
     _logger.propagate = False
     return _logger
 
 
-logger: logging.Logger = get_logger(LOGGER_NAME, source_type="agent")
+agent_logger: logging.Logger = build_logger(LOGGER_NAME, source_type="agent")
+team_logger: logging.Logger = build_logger(TEAM_LOGGER_NAME, source_type="team")
 
-team_logger: logging.Logger = get_logger(TEAM_LOGGER_NAME, source_type="team")
+# Set the default logger to the agent logger
+logger: logging.Logger = agent_logger
 
 def set_log_level_to_debug(source_type: Optional[str] = None):
     _logger = logging.getLogger(LOGGER_NAME if source_type is None else f"{LOGGER_NAME}-{source_type}")
@@ -79,4 +103,17 @@ def center_header(message: str, symbol: str = "*") -> str:
         terminal_width = 80  # fallback width
 
     header = f" {message} "
-    return f"{header.center(terminal_width-10, symbol)}"
+    return f"{header.center(terminal_width-20, symbol)}"
+
+def use_team_logger():
+    """Switch the default logger to use team_logger"""
+    global logger
+    logger = team_logger
+
+def use_agent_logger():
+    """Switch the default logger to use the default agent logger"""
+    global logger
+    logger = agent_logger
+
+def get_logger():
+    return logger

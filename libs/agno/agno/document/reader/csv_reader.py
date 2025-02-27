@@ -81,6 +81,7 @@ class CSVReader(Reader):
                 file.seek(0)
                 file_content_io = io.StringIO(file.read().decode("utf-8"))  # type: ignore
 
+            
             csv_name = Path(file.name).stem if isinstance(file, Path) else file.name.split(".")[0]
 
             # First pass to count rows and detect if the file is small enough for single-document mode
@@ -104,7 +105,8 @@ class CSVReader(Reader):
                 pages = []
                 for i in range(0, total_rows, page_size):
                     pages.append(rows[i : i + page_size])
-
+                
+               
                 async def _process_page(page_number: int, page_rows: List[List[str]]) -> Document:
                     """Process a page of rows into a document"""
                     start_row = (page_number - 1) * page_size + 1

@@ -304,5 +304,3 @@ class TestCSVUrlReaderWithURL:
         assert documents[1].id == "employees_page1_2"  # Corrected ID format
 
 
-if __name__ == "__main__":
-    pytest.main(["-v"])

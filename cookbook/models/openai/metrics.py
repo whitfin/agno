@@ -7,7 +7,7 @@ from agno.utils.pprint import pprint_run_response
 from rich.pretty import pprint
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.5-preview"),
     tools=[YFinanceTools(stock_price=True)],
     markdown=True,
     show_tool_calls=True,

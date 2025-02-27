@@ -6,7 +6,7 @@ from agno.models.openai import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.5-preview"),
     tools=[DuckDuckGoTools()],
     markdown=True,
 )

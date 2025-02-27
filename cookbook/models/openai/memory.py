@@ -14,7 +14,7 @@ from rich.pretty import pprint
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.5-preview"),
     # Store the memories and summary in a database
     memory=AgentMemory(
         db=PgMemoryDb(table_name="agent_memory", db_url=db_url),

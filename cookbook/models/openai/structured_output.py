@@ -27,14 +27,14 @@ class MovieScript(BaseModel):
 
 # Agent that uses JSON mode
 json_mode_agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.5-preview"),
     description="You write movie scripts.",
     response_model=MovieScript,
 )
 
 # Agent that uses structured outputs
 structured_output_agent = Agent(
-    model=OpenAIChat(id="gpt-4o-2024-08-06"),
+    model=OpenAIChat(id="gpt-4.5-preview"),
     description="You write movie scripts.",
     response_model=MovieScript,
     structured_outputs=True,

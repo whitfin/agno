@@ -2,7 +2,7 @@ from typing import Iterator  # noqa
 from agno.agent import Agent, RunResponse  # noqa
 from agno.models.openai import OpenAIChat
 
-agent = Agent(model=OpenAIChat(id="gpt-4o"), markdown=True)
+agent = Agent(model=OpenAIChat(id="gpt-4.5-preview"), markdown=True)
 
 # Get the response in a variable
 # run_response: Iterator[RunResponse] = agent.run("Share a 2 sentence horror story", stream=True)

@@ -14,7 +14,7 @@ knowledge_base = PDFUrlKnowledgeBase(
 knowledge_base.load(recreate=True)  # Comment out after first run
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="gpt-4.5-preview"),
     knowledge=knowledge_base,
     show_tool_calls=True,
 )

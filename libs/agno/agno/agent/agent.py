@@ -44,6 +44,7 @@ from agno.utils.message import get_text_from_message
 from agno.utils.safe_formatter import SafeFormatter
 from agno.utils.string import parse_structured_output
 from agno.utils.timer import Timer
+from agno.utils.response import create_panel, escape_markdown_tags
 
 
 @dataclass(init=False)
@@ -3421,24 +3422,6 @@ class Agent:
     # Print Response
     ###########################################################################
 
-    def create_panel(self, content, title, border_style="blue"):
-        from rich.box import HEAVY
-        from rich.panel import Panel
-
-        return Panel(
-            content, title=title, title_align="left", border_style=border_style, box=HEAVY, expand=True, padding=(1, 1)
-        )
-
-    def escape_markdown_tags(self, content: str, tags: Set[str]) -> str:
-        """Escape special tags in markdown content."""
-        escaped_content = content
-        for tag in tags:
-            # Escape opening tag
-            escaped_content = escaped_content.replace(f"<{tag}>", f"&lt;{tag}&gt;")
-            # Escape closing tag
-            escaped_content = escaped_content.replace(f"</{tag}>", f"&lt;/{tag}&gt;")
-        return escaped_content
-
     def print_response(
         self,
         message: Optional[Union[List, Dict, str, Message]] = None,
@@ -3493,7 +3476,7 @@ class Agent:
                     render = True
                     # Convert message to a panel
                     message_content = get_text_from_message(message)
-                    message_panel = self.create_panel(
+                    message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
                         border_style="cyan",
@@ -3517,7 +3500,7 @@ class Agent:
                     response_content_stream: Union[str, Markdown] = _response_content
                     # Escape special tags before markdown conversion
                     if self.markdown:
-                        escaped_content = self.escape_markdown_tags(_response_content, tags_to_include_in_markdown)
+                        escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
                         response_content_stream = Markdown(escaped_content)
 
                     panels = [status]
@@ -3526,7 +3509,7 @@ class Agent:
                         render = True
                         # Convert message to a panel
                         message_content = get_text_from_message(message)
-                        message_panel = self.create_panel(
+                        message_panel = create_panel(
                             content=Text(message_content, style="green"),
                             title="Message",
                             border_style="cyan",
@@ -3558,7 +3541,7 @@ class Agent:
                                     step_content.append(
                                         Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
                                     )
-                            reasoning_panel = self.create_panel(
+                            reasoning_panel = create_panel(
                                 content=step_content, title=f"Reasoning step {i}", border_style="green"
                             )
                             panels.append(reasoning_panel)
@@ -3568,7 +3551,7 @@ class Agent:
                     if len(_response_thinking) > 0:
                         render = True
                         # Create panel for thinking
-                        thinking_panel = self.create_panel(
+                        thinking_panel = create_panel(
                             content=Text(_response_thinking),
                             title=f"Thinking ({response_timer.elapsed:.1f}s)",
                             border_style="green",
@@ -3580,7 +3563,7 @@ class Agent:
                     if len(_response_content) > 0:
                         render = True
                         # Create panel for response
-                        response_panel = self.create_panel(
+                        response_panel = create_panel(
                             content=response_content_stream,
                             title=f"Response ({response_timer.elapsed:.1f}s)",
                             border_style="blue",
@@ -3605,7 +3588,7 @@ class Agent:
                 if message and show_message:
                     # Convert message to a panel
                     message_content = get_text_from_message(message)
-                    message_panel = self.create_panel(
+                    message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
                         border_style="cyan",
@@ -3655,7 +3638,7 @@ class Agent:
                                 step_content.append(
                                     Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
                                 )
-                        reasoning_panel = self.create_panel(
+                        reasoning_panel = create_panel(
                             content=step_content, title=f"Reasoning step {i}", border_style="green"
                         )
                         panels.append(reasoning_panel)
@@ -3663,7 +3646,7 @@ class Agent:
 
                 if isinstance(run_response, RunResponse) and run_response.thinking is not None:
                     # Create panel for thinking
-                    thinking_panel = self.create_panel(
+                    thinking_panel = create_panel(
                         content=Text(run_response.thinking),
                         title=f"Thinking ({response_timer.elapsed:.1f}s)",
                         border_style="green",
@@ -3675,7 +3658,7 @@ class Agent:
                 if isinstance(run_response, RunResponse):
                     if isinstance(run_response.content, str):
                         if self.markdown:
-                            escaped_content = self.escape_markdown_tags(
+                            escaped_content = escape_markdown_tags(
                                 run_response.content, tags_to_include_in_markdown
                             )
                             response_content_batch = Markdown(escaped_content)
@@ -3695,7 +3678,7 @@ class Agent:
                             get_logger().warning(f"Failed to convert response to JSON: {e}")
 
                 # Create panel for response
-                response_panel = self.create_panel(
+                response_panel = create_panel(
                     content=response_content_batch,
                     title=f"Response ({response_timer.elapsed:.1f}s)",
                     border_style="blue",
@@ -3760,7 +3743,7 @@ class Agent:
                     render = True
                     # Convert message to a panel
                     message_content = get_text_from_message(message)
-                    message_panel = self.create_panel(
+                    message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
                         border_style="cyan",
@@ -3785,7 +3768,7 @@ class Agent:
                     response_content_stream: Union[str, Markdown] = _response_content
                     # Escape special tags before markdown conversion
                     if self.markdown:
-                        escaped_content = self.escape_markdown_tags(_response_content, tags_to_include_in_markdown)
+                        escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
                         response_content_stream = Markdown(escaped_content)
 
                     panels = [status]
@@ -3794,7 +3777,7 @@ class Agent:
                         render = True
                         # Convert message to a panel
                         message_content = get_text_from_message(self.format_message_with_state_variables(message))
-                        message_panel = self.create_panel(
+                        message_panel = create_panel(
                             content=Text(message_content, style="green"),
                             title="Message",
                             border_style="cyan",
@@ -3826,7 +3809,7 @@ class Agent:
                                     step_content.append(
                                         Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
                                     )
-                            reasoning_panel = self.create_panel(
+                            reasoning_panel = create_panel(
                                 content=step_content, title=f"Reasoning step {i}", border_style="green"
                             )
                             panels.append(reasoning_panel)
@@ -3836,7 +3819,7 @@ class Agent:
                     if len(_response_thinking) > 0:
                         render = True
                         # Create panel for thinking
-                        thinking_panel = self.create_panel(
+                        thinking_panel = create_panel(
                             content=Text(_response_thinking),
                             title=f"Thinking ({response_timer.elapsed:.1f}s)",
                             border_style="green",
@@ -3848,7 +3831,7 @@ class Agent:
                     if len(_response_content) > 0:
                         render = True
                         # Create panel for response
-                        response_panel = self.create_panel(
+                        response_panel = create_panel(
                             content=response_content_stream,
                             title=f"Response ({response_timer.elapsed:.1f}s)",
                             border_style="blue",
@@ -3873,7 +3856,7 @@ class Agent:
                 if message and show_message:
                     # Convert message to a panel
                     message_content = get_text_from_message(message)
-                    message_panel = self.create_panel(
+                    message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
                         border_style="cyan",
@@ -3923,7 +3906,7 @@ class Agent:
                                 step_content.append(
                                     Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
                                 )
-                        reasoning_panel = self.create_panel(
+                        reasoning_panel = create_panel(
                             content=step_content, title=f"Reasoning step {i}", border_style="green"
                         )
                         panels.append(reasoning_panel)
@@ -3931,7 +3914,7 @@ class Agent:
 
                 if isinstance(run_response, RunResponse) and run_response.thinking is not None:
                     # Create panel for thinking
-                    thinking_panel = self.create_panel(
+                    thinking_panel = create_panel(
                         content=Text(run_response.thinking),
                         title=f"Thinking ({response_timer.elapsed:.1f}s)",
                         border_style="green",
@@ -3943,7 +3926,7 @@ class Agent:
                 if isinstance(run_response, RunResponse):
                     if isinstance(run_response.content, str):
                         if self.markdown:
-                            escaped_content = self.escape_markdown_tags(
+                            escaped_content = escape_markdown_tags(
                                 run_response.content, tags_to_include_in_markdown
                             )
                             response_content_batch = Markdown(escaped_content)
@@ -3963,7 +3946,7 @@ class Agent:
                             get_logger().warning(f"Failed to convert response to JSON: {e}")
 
                 # Create panel for response
-                response_panel = self.create_panel(
+                response_panel = create_panel(
                     content=response_content_batch,
                     title=f"Response ({response_timer.elapsed:.1f}s)",
                     border_style="blue",

@@ -266,9 +266,9 @@ class Message(BaseModel):
             _logger(f"<thinking>\n{self.thinking}\n</thinking>")
         if self.content:
             if isinstance(self.content, str) or isinstance(self.content, list):
-                _logger(self.content)
+                _logger(self.content+"\n")
             elif isinstance(self.content, dict):
-                _logger(json.dumps(self.content, indent=2))
+                _logger(json.dumps(self.content, indent=2)+"\n")
         if self.tool_calls:
             _logger("\n".join([
                 "Tool Calls:",

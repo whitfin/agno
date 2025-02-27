@@ -1,7 +1,7 @@
 from collections import defaultdict, deque, ChainMap
 from dataclasses import asdict, dataclass
 from os import getenv
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Literal, Optional, Sequence, Type, Union, overload, \
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Literal, Optional, Sequence, Set, Type, Union, overload, \
     Tuple
 from uuid import uuid4
 
@@ -23,8 +23,11 @@ from agno.run.messages import RunMessages
 from agno.run.response import RunEvent, RunResponse, RunResponseExtraData
 from agno.tools.toolkit import Toolkit
 from agno.utils.log import get_logger, set_log_level_to_debug, set_log_level_to_info, use_agent_logger, use_team_logger
+from agno.utils.message import get_text_from_message
+from agno.utils.response import create_panel, escape_markdown_tags
 from agno.utils.safe_formatter import SafeFormatter
 from agno.utils.string import parse_structured_output
+from agno.utils.timer import Timer
 
 
 @dataclass(init=False)
@@ -443,7 +446,7 @@ class Team:
                             try:
                                 structured_output = parse_structured_output(current_run_response.content, self.response_model)
 
-                                # Update RunResponse
+                                # Update TeamRunResponse
                                 if structured_output is not None:
                                     current_run_response.content = structured_output
                                     current_run_response.content_type = self.response_model.__name__
@@ -559,7 +562,7 @@ class Team:
         # 4. Get the model response for the team leader
         model_response: ModelResponse = self.model.response(messages=run_messages.messages)
 
-        # 5. Update RunResponse
+        # 5. Update TeamRunResponse
         # Handle structured outputs
         if self.response_model is not None and not self.json_response_mode and model_response.parsed is not None:
             # Update the run_response content with the structured output
@@ -590,9 +593,9 @@ class Team:
 
         # Build a list of messages that should be added to the RunResponse
         messages_for_run_response = [m for m in run_messages.messages if m.add_to_agent_memory]
-        # Update the RunResponse messages
+        # Update the TeamRunResponse messages
         run_response.messages = messages_for_run_response
-        # Update the RunResponse metrics
+        # Update the TeamRunResponse metrics
         run_response.metrics = self._aggregate_metrics_from_messages(messages_for_run_response)
 
         # 6. Update Team Memory
@@ -649,7 +652,7 @@ class Team:
         4. Reason about the task if reasoning is enabled
         5. Start the Run by yielding a RunStarted event
         6. Generate a response from the Model (includes running function calls)
-        7. Update RunResponse
+        7. Update TeamRunResponse
         8. Update Agent Memory
 
         """
@@ -728,6 +731,9 @@ class Team:
         """Run the Team and return the response."""
         pass
 
+    ###########################################################################
+    # Print Response
+    ###########################################################################
 
     def print_response(
         self,
@@ -737,13 +743,302 @@ class Team:
         markdown: bool = False,
         show_message: bool = True,
         show_reasoning: bool = True,
+        show_reasoning_verbose: bool = False,
+        console: Optional[Any] = None,
+        tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         **kwargs: Any,
     ) -> None:
-        pass
+        if markdown:
+            self.markdown = True
 
+        if self.response_model is not None:
+            markdown = False
+            self.markdown = False
+            stream = False
+        
+        if stream:
+            self._print_response_stream(message=message,
+                                        console=console,
+                                        show_message=show_message,
+                                        show_reasoning=show_reasoning,
+                                        show_reasoning_verbose=show_reasoning_verbose,
+                                        tags_to_include_in_markdown=tags_to_include_in_markdown,
+                                        audio=audio,
+                                        images=images,
+                                        videos=videos,
+                                        **kwargs)
+        else:
+            self._print_response(message=message,
+                                console=console,
+                                show_message=show_message,
+                                show_reasoning=show_reasoning,
+                                show_reasoning_verbose=show_reasoning_verbose,
+                                tags_to_include_in_markdown=tags_to_include_in_markdown,
+                                audio=audio,
+                                images=images,
+                                videos=videos,
+                                **kwargs)
+
+    def _print_response(self,
+                        message: Optional[Union[List, Dict, str, Message]] = None,
+                        console: Optional[Any] = None,
+                        show_message: bool = True,
+                        show_reasoning: bool = True,
+                        show_reasoning_verbose: bool = False,
+                        tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
+                        audio: Optional[Sequence[Audio]] = None,
+                        images: Optional[Sequence[Image]] = None,
+                        videos: Optional[Sequence[Video]] = None,
+                        **kwargs: Any,
+                        ) -> None:
+        import json
+        from rich.json import JSON
+        from rich.live import Live
+        from rich.status import Status
+        from rich.text import Text
+        from rich.console import Group
+        from rich.markdown import Markdown
+
+        with Live(console=console) as live_console:
+                status = Status("Thinking...", spinner="aesthetic", speed=0.4, refresh_per_second=10)
+                live_console.update(status)
+
+                response_timer = Timer()
+                response_timer.start()
+                # Panels to be rendered
+                panels = [status]
+                # First render the message panel if the message is not None
+                if message and show_message:
+                    # Convert message to a panel
+                    message_content = get_text_from_message(message)
+                    message_panel = create_panel(
+                        content=Text(message_content, style="green"),
+                        title="Message",
+                        border_style="cyan",
+                    )
+                    panels.append(message_panel)
+                    live_console.update(Group(*panels))
+
+                # Run the agent
+                run_response: TeamRunResponse = self.run(
+                    message=message,
+                    audio=audio,
+                    images=images,
+                    videos=videos,
+                    stream=False,
+                    **kwargs,
+                )
+                response_timer.stop()
+
+                # Handle reasoning
+                reasoning_steps = []
+                if (
+                    isinstance(run_response, TeamRunResponse)
+                    and run_response.extra_data is not None
+                    and run_response.extra_data.reasoning_steps is not None
+                ):
+                    reasoning_steps = run_response.extra_data.reasoning_steps
+
+                if len(reasoning_steps) > 0 and show_reasoning:
+                    # Create panels for reasoning steps
+                    for i, step in enumerate(reasoning_steps, 1):
+                        # Build step content
+                        step_content = Text.assemble()
+                        if step.title is not None:
+                            step_content.append(f"{step.title}\n", "bold")
+                        if step.action is not None:
+                            step_content.append(f"{step.action}\n", "dim")
+                        if step.result is not None:
+                            step_content.append(Text.from_markup(step.result, style="dim"))
+
+                        if show_reasoning_verbose:
+                            # Add detailed reasoning information if available
+                            if step.reasoning is not None:
+                                step_content.append(
+                                    Text.from_markup(f"\n[bold]Reasoning:[/bold] {step.reasoning}", style="dim")
+                                )
+                            if step.confidence is not None:
+                                step_content.append(
+                                    Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
+                                )
+                        reasoning_panel = create_panel(
+                            content=step_content, title=f"Reasoning step {i}", border_style="green"
+                        )
+                        panels.append(reasoning_panel)
+                    live_console.update(Group(*panels))
+
+                if isinstance(run_response, TeamRunResponse) and run_response.thinking is not None:
+                    # Create panel for thinking
+                    thinking_panel = create_panel(
+                        content=Text(run_response.thinking),
+                        title=f"Thinking ({response_timer.elapsed:.1f}s)",
+                        border_style="green",
+                    )
+                    panels.append(thinking_panel)
+                    live_console.update(Group(*panels))
+
+                response_content_batch: Union[str, JSON, Markdown] = ""
+                if isinstance(run_response, TeamRunResponse):
+                    if isinstance(run_response.content, str):
+                        if self.markdown:
+                            escaped_content = escape_markdown_tags(
+                                run_response.content, tags_to_include_in_markdown
+                            )
+                            response_content_batch = Markdown(escaped_content)
+                        else:
+                            response_content_batch = run_response.get_content_as_string(indent=4)
+                    elif self.response_model is not None and isinstance(run_response.content, BaseModel):
+                        try:
+                            response_content_batch = JSON(
+                                run_response.content.model_dump_json(exclude_none=True), indent=2
+                            )
+                        except Exception as e:
+                            get_logger().warning(f"Failed to convert response to JSON: {e}")
+                    else:
+                        try:
+                            response_content_batch = JSON(json.dumps(run_response.content), indent=4)
+                        except Exception as e:
+                            get_logger().warning(f"Failed to convert response to JSON: {e}")
+
+                # Create panel for response
+                response_panel = create_panel(
+                    content=response_content_batch,
+                    title=f"Response ({response_timer.elapsed:.1f}s)",
+                    border_style="blue",
+                )
+                panels.append(response_panel)
+
+                # Final update to remove the "Thinking..." status
+                panels = [p for p in panels if not isinstance(p, Status)]
+                live_console.update(Group(*panels))
+
+    def _print_response_stream(self, 
+                               message: Optional[Union[List, Dict, str, Message]] = None,
+                                console: Optional[Any] = None,
+                               show_message: bool = True,
+                               show_reasoning: bool = True,
+                                show_reasoning_verbose: bool = False,
+                               tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
+                                audio: Optional[Sequence[Audio]] = None,
+                                images: Optional[Sequence[Image]] = None,
+                                videos: Optional[Sequence[Video]] = None,
+                                **kwargs: Any,
+                               ) -> None:
+        
+        from rich.live import Live
+        from rich.status import Status
+        from rich.text import Text
+        from rich.console import Group
+        from rich.markdown import Markdown
+
+        _response_content: str = ""
+        _response_thinking: str = ""
+        reasoning_steps: List[ReasoningStep] = []
+
+        with Live(console=console) as live_console:
+            status = Status("Thinking...", spinner="aesthetic", speed=0.4, refresh_per_second=10)
+            live_console.update(status)
+            response_timer = Timer()
+            response_timer.start()
+            # Flag which indicates if the panels should be rendered
+            render = False
+            # Panels to be rendered
+            panels = [status]
+            # First render the message panel if the message is not None
+            if message and show_message:
+                render = True
+                # Convert message to a panel
+                message_content = get_text_from_message(message)
+                message_panel = create_panel(
+                    content=Text(message_content, style="green"),
+                    title="Message",
+                    border_style="cyan",
+                )
+                panels.append(message_panel)
+            if render:
+                live_console.update(Group(*panels))
+
+            # Get response from the team
+            for resp in self.run(
+                message=message, audio=audio, images=images, videos=videos, stream=True, **kwargs
+            ):
+                if isinstance(resp, TeamRunResponse):
+                    if resp.event == RunEvent.run_response:
+                        # TODO: handle tool calls
+                        if isinstance(resp.content, str):
+                            _response_content += resp.content
+                        if resp.thinking is not None:
+                            _response_thinking += resp.thinking
+                    if resp.extra_data is not None and resp.extra_data.reasoning_steps is not None:
+                        reasoning_steps = resp.extra_data.reasoning_steps
+
+                response_content_stream: Union[str, Markdown] = _response_content
+                # Escape special tags before markdown conversion
+                if self.markdown:
+                    escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
+                    response_content_stream = Markdown(escaped_content)
+
+                if len(reasoning_steps) > 0 and show_reasoning:
+                    render = True
+                    # Create panels for reasoning steps
+                    for i, step in enumerate(reasoning_steps, 1):
+                        # Build step content
+                        step_content = Text.assemble()
+                        if step.title is not None:
+                            step_content.append(f"{step.title}\n", "bold")
+                        if step.action is not None:
+                            step_content.append(f"{step.action}\n", "dim")
+                        if step.result is not None:
+                            step_content.append(Text.from_markup(step.result, style="dim"))
+
+                        if show_reasoning_verbose:
+                            # Add detailed reasoning information if available
+                            if step.reasoning is not None:
+                                step_content.append(
+                                    Text.from_markup(f"\n[bold]Reasoning:[/bold] {step.reasoning}", style="dim")
+                                )
+                            if step.confidence is not None:
+                                step_content.append(
+                                    Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
+                                )
+                        reasoning_panel = create_panel(
+                            content=step_content, title=f"Reasoning step {i}", border_style="green"
+                        )
+                        panels.append(reasoning_panel)
+                if render:
+                    live_console.update(Group(*panels))
+
+                if len(_response_thinking) > 0:
+                    render = True
+                    # Create panel for thinking
+                    thinking_panel = create_panel(
+                        content=Text(_response_thinking),
+                        title=f"Thinking ({response_timer.elapsed:.1f}s)",
+                        border_style="green",
+                    )
+                    panels.append(thinking_panel)
+                if render:
+                    live_console.update(Group(*panels))
+
+                if len(_response_content) > 0:
+                    render = True
+                    # Create panel for response
+                    response_panel = create_panel(
+                        content=response_content_stream,
+                        title=f"Response ({response_timer.elapsed:.1f}s)",
+                        border_style="blue",
+                    )
+                    panels.append(response_panel)
+                if render:
+                    live_console.update(Group(*panels))
+            response_timer.stop()
+
+            # Final update to remove the "Thinking..." status
+            panels = [p for p in panels if not isinstance(p, Status)]
+            live_console.update(Group(*panels))
 
     async def aprint_response(
         self,
@@ -760,6 +1055,10 @@ class Team:
     ) -> None:
         pass
 
+
+    ###########################################################################
+    # Helpers
+    ###########################################################################
 
     def _calculate_session_metrics(self, messages: List[Message]) -> SessionMetrics:
         session_metrics = SessionMetrics()
@@ -1699,11 +1998,12 @@ class Team:
                                   images: Optional[Sequence[Image]] = None,
                                   videos: Optional[Sequence[Video]] = None,
                                   audio: Optional[Sequence[Audio]] = None) -> Callable:
-        def _forward_task_to_member(agent_name: str) -> Iterator[str]:
+        def _forward_task_to_member(agent_name: str, expected_output: str) -> Iterator[str]:
             """
             Use this function to forward the request to the nominated agent.
             Args:
                 agent_name (str): The name of the agent to transfer the task to.
+                expected_output (str): The expected output from the agent.
             Returns:
                 str: The result of the delegated task.
             """
@@ -1720,17 +2020,32 @@ class Team:
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
 
+            member_agent_task = f"{message.get_content_string()}\n\n<expected_output>\n{expected_output}\n</expected_output>"
+
             # 2. Get the response from the member agent
             if stream:
-                member_agent_run_response_stream = member_agent.run(message, images=images, videos=videos, audio=audio, stream=True)
+                member_agent_run_response_stream = member_agent.run(member_agent_task, images=images, videos=videos, audio=audio, stream=True)
                 for member_agent_run_response_chunk in member_agent_run_response_stream:
                     yield member_agent_run_response_chunk.content
             else:
-                member_agent_run_response = member_agent.run(message, images=images, videos=videos, audio=audio, stream=False)
+                member_agent_run_response = member_agent.run(member_agent_task, images=images, videos=videos, audio=audio, stream=False)
+                print("MEMBER RESPONSE", member_agent_run_response)
                 if member_agent_run_response.content is None:
                     yield "No response from the member agent."
-                else:
+                elif isinstance(member_agent_run_response.content, str):
                     yield member_agent_run_response.content
+                elif issubclass(type(member_agent_run_response.content), BaseModel):
+                    try:
+                        yield member_agent_run_response.content.model_dump_json(indent=2)
+                    except Exception as e:
+                        yield str(e)
+                else:
+                    try:
+                        import json
+
+                        yield json.dumps(member_agent_run_response.content, indent=2)
+                    except Exception as e:
+                        yield str(e)
 
             # Afterwards, switch back to the team logger
             use_team_logger()
@@ -1773,8 +2088,20 @@ class Team:
                 member_agent_run_response = await member_agent.arun(message, images=images, videos=videos, audio=audio, stream=False)
                 if member_agent_run_response.content is None:
                     yield "No response from the member agent."
-                else:
+                elif isinstance(member_agent_run_response.content, str):
                     yield member_agent_run_response.content
+                elif issubclass(type(member_agent_run_response.content), BaseModel):
+                    try:
+                        yield member_agent_run_response.content.model_dump_json(indent=2)
+                    except Exception as e:
+                        yield str(e)
+                else:
+                    try:
+                        import json
+
+                        yield json.dumps(member_agent_run_response.content, indent=2)
+                    except Exception as e:
+                        yield str(e)
 
             # Afterwards, switch back to the team logger
             use_team_logger()

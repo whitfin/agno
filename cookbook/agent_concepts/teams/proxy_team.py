@@ -46,7 +46,6 @@ agent_team = Team(
     debug_mode=True,
 )
 
-response =agent_team.run(
+agent_team.print_response(
     "What is the latest news on NVidia?"
 )
-print(response.content)

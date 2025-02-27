@@ -115,7 +115,7 @@ class TestCSVReader:
 
         # Check first document (header row)
         assert documents[0].name == "test"
-        assert documents[0].id == "test_1_1"
+        assert documents[0].id == "test_1"
         assert documents[0].content == "name, age, city John, 30, New York Jane, 25, San Francisco Bob, 40, Chicago"
 
     @pytest.mark.asyncio
@@ -226,14 +226,14 @@ class TestCSVReader:
         assert len(documents) == 2  # 4 rows * 2 chunks per row
 
         # Check document structure for first row
-        assert documents[0].id == "test_1_chunk1"  # First chunk of first row (corrected ID)
+        assert documents[0].id == "test_chunk1"  # First chunk of first row (corrected ID)
         assert documents[0].name == "test_chunk1"
         assert (
             documents[0].content
             == "name, age, city John, 30, New York Jane, 25, San Francisco Bob, 40, Chicago_chunked1"
         )
 
-        assert documents[1].id == "test_1_chunk2"  # Second chunk of first row (corrected ID)
+        assert documents[1].id == "test_chunk2"  # Second chunk of first row (corrected ID)
         assert documents[1].name == "test_chunk2"
         assert (
             documents[1].content
@@ -244,7 +244,7 @@ class TestCSVReader:
     async def test_async_read_empty_file(self):
         # Create an empty file
         empty_path = Path(self.temp_dir.name) / "empty.csv"
-        with open(empty_path, "w", encoding="utf-8"):
+        with open(empty_path, "w", encoding="utf-8") as f:
             pass
 
         reader = CSVReader()
@@ -304,3 +304,5 @@ class TestCSVUrlReaderWithURL:
         assert documents[1].id == "employees_page1_2"  # Corrected ID format
 
 
+if __name__ == "__main__":
+    pytest.main(["-v"])

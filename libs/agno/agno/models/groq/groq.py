@@ -556,7 +556,7 @@ class Groq(Model):
             processed_audio = self._format_audio_for_message(audio_obj)
             if processed_audio is None:
                 raise ValueError("Failed to process audio data")
-            audio_bytes: bytes = processed_audio
+            audio_bytes = processed_audio
             if not file_format and audio_obj.format:
                 file_format = audio_obj.format
         elif isinstance(audio_data, Audio):
@@ -564,11 +564,11 @@ class Groq(Model):
             processed_audio = self._format_audio_for_message(audio_data)
             if processed_audio is None:
                 raise ValueError("Failed to process audio data")
-            audio_bytes: bytes = processed_audio
+            audio_bytes = processed_audio
             if not file_format and audio_data.format:
                 file_format = audio_data.format
         else:
-            audio_bytes: bytes = audio_data
+            audio_bytes = audio_data
 
         params: Dict[str, Any] = {}
         if language:
@@ -621,7 +621,7 @@ class Groq(Model):
             processed_audio = self._format_audio_for_message(audio_obj)
             if processed_audio is None:
                 raise ValueError("Failed to process audio data")
-            audio_bytes: bytes = processed_audio
+            audio_bytes = processed_audio
             if not file_format and audio_obj.format:
                 file_format = audio_obj.format
         elif isinstance(audio_data, Audio):
@@ -629,12 +629,11 @@ class Groq(Model):
             processed_audio = self._format_audio_for_message(audio_data)
             if processed_audio is None:
                 raise ValueError("Failed to process audio data")
-            audio_bytes: bytes = processed_audio
+            audio_bytes = processed_audio
             if not file_format and audio_data.format:
                 file_format = audio_data.format
         else:
-            # Handle raw bytes
-            audio_bytes: bytes = audio_data
+            audio_bytes = audio_data
 
         # Prepare parameters
         params: Dict[str, Any] = {}

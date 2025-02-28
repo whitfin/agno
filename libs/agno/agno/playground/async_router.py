@@ -3,6 +3,7 @@ from dataclasses import asdict
 from io import BytesIO
 from typing import AsyncGenerator, List, Optional, cast
 
+import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -146,6 +147,7 @@ def get_async_playground_router(
         session_id: Optional[str] = Form(None),
         user_id: Optional[str] = Form(None),
         files: Optional[List[UploadFile]] = File(None),
+        transcribe_audio: bool = Form(False),
     ):
         logger.debug(f"AgentRunRequest: {message} {session_id} {user_id} {agent_id}")
         agent = get_agent_by_id(agent_id, agents)
@@ -170,6 +172,7 @@ def get_async_playground_router(
 
         base64_images: List[Image] = []
         base64_audios: List[Audio] = []
+        audio_transcriptions: List[str] = []
 
         if files:
             for file in files:
@@ -181,10 +184,28 @@ def get_async_playground_router(
                     except Exception as e:
                         logger.error(f"Error processing image {file.filename}: {e}")
                         continue
-                elif file.content_type in ["audio/wav", "audio/mp3", "audio/mpeg"]:
+                elif file.content_type in ["audio/wav", "audio/mp3", "audio/mpeg", "audio/ogg"]:
                     try:
+                        # Process the audio file
                         base64_audio = await process_audio(file)
                         base64_audios.append(base64_audio)
+                        
+                        # If transcribe_audio is enabled and the model is Groq, transcribe the audio
+                        if transcribe_audio:
+                            # Check if the model is Groq
+                            from agno.models.groq.groq import Groq
+                            if hasattr(new_agent_instance.model, 'provider') and new_agent_instance.model.provider == "Groq" and isinstance(new_agent_instance.model, Groq):
+                                logger.info(f"Transcribing audio file: {file.filename}")
+                                
+                                try:
+                                    # Transcribe the audio directly using the model's transcription method
+                                    # The transcription will be handled in the format_message method
+                                    # so we don't need to do anything special here
+                                    logger.info("Audio will be transcribed during message processing")
+                                except Exception as e:
+                                    logger.error(f"Error during audio transcription setup: {str(e)}")
+                            else:
+                                logger.info("Audio transcription is only supported with Groq models")
                     except Exception as e:
                         logger.error(f"Error processing audio {file.filename}: {e}")
                         continue
@@ -241,6 +262,14 @@ def get_async_playground_router(
                             new_agent_instance.knowledge.load_documents(file_content)
                     else:
                         raise HTTPException(status_code=400, detail="Unsupported file type")
+
+        # Append transcriptions to the message if any
+        if audio_transcriptions:
+            transcription_text = "\n\n".join([f"Audio Transcription: {t}" for t in audio_transcriptions])
+            if message:
+                message = f"{message}\n\n{transcription_text}"
+            else:
+                message = transcription_text
 
         if stream:
             return StreamingResponse(
@@ -469,5 +498,116 @@ def get_async_playground_router(
 
         workflow.delete_session(session_id)
         return JSONResponse(content={"message": f"successfully deleted workflow {workflow.name}"})
+
+    @playground_router.post("/transcribe")
+    async def transcribe_audio_file(
+        file: UploadFile = File(...),
+        agent_id: Optional[str] = Form(None),
+        language: Optional[str] = Form(None),
+        prompt: Optional[str] = Form(None),
+        response_format: Optional[str] = Form("text"),
+        temperature: Optional[float] = Form(None),
+    ):
+        """
+        Transcribe an audio file using the Groq API.
+        
+        Args:
+            file: The audio file to transcribe
+            agent_id: Optional agent ID to use for transcription (must be a Groq model)
+            language: Optional language code (ISO-639-1)
+            prompt: Optional text to guide the model
+            response_format: Format of the response (text, json, srt, verbose_json)
+            temperature: Sampling temperature between 0 and 1
+            
+        Returns:
+            The transcription result
+        """
+        if not file:
+            raise HTTPException(status_code=400, detail="No file provided")
+            
+        if file.content_type not in ["audio/wav", "audio/mp3", "audio/mpeg", "audio/ogg"]:
+            raise HTTPException(status_code=400, detail="Unsupported file type. Must be wav, mp3, or ogg")
+            
+        # Get the file format
+        file_format = None
+        if file.filename and "." in file.filename:
+            file_format = file.filename.split(".")[-1].lower()
+        elif file.content_type:
+            file_format = file.content_type.split("/")[-1]
+            
+        logger.info(f"Processing audio file: {file.filename} (format: {file_format})")
+            
+        # Process the audio file into an Audio object
+        try:
+            audio_obj = await process_audio(file)
+            if not audio_obj or not audio_obj.content:
+                raise ValueError("Failed to process audio file - no content")
+            
+            logger.info(f"Audio processed successfully. Size: {len(audio_obj.content)} bytes")
+        except Exception as e:
+            logger.error(f"Error processing audio file: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=400, detail=f"Error processing audio file: {str(e)}")
+            
+        # Get the Groq model
+        groq_model = None
+        if agent_id:
+            try:
+                agent = get_agent_by_id(agent_id, agents)
+                if agent is None:
+                    raise HTTPException(status_code=404, detail="Agent not found")
+                    
+                if not hasattr(agent.model, 'provider') or agent.model.provider != "Groq":
+                    raise HTTPException(status_code=400, detail="Agent must use a Groq model")
+                    
+                from agno.models.groq.groq import Groq
+                if isinstance(agent.model, Groq):
+                    groq_model = agent.model
+                    logger.info(f"Using Groq model from agent: {agent_id}")
+                else:
+                    raise HTTPException(status_code=400, detail="Agent must use a Groq model")
+            except Exception as e:
+                logger.error(f"Error getting agent model: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error getting agent model: {str(e)}")
+        else:
+            # Create a new Groq model instance
+            try:
+                from agno.models.groq.groq import Groq
+                groq_model = Groq()
+                logger.info("Created new Groq model instance")
+            except Exception as e:
+                logger.error(f"Error creating Groq model: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"Error creating Groq model: {str(e)}")
+            
+        try:
+            # Transcribe the audio using the Audio object
+            logger.info("Starting audio transcription...")
+            transcription = await groq_model.atranscribe_audio(
+                audio_data=audio_obj,
+                file_format=file_format,
+                language=language,
+                prompt=prompt,
+                response_format=response_format,
+                temperature=temperature
+            )
+            
+            # Return the transcription
+            result = {"transcription": transcription.text if hasattr(transcription, "text") else transcription}
+            logger.info(f"Transcription successful: {result['transcription'][:100]}...")
+            return result
+        except httpx.ConnectError as e:
+            logger.error(f"Connection error when calling Groq API: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise HTTPException(
+                status_code=503, 
+                detail=f"Connection error when calling Groq API: {str(e)}. Please check your network connection and API endpoint."
+            )
+        except Exception as e:
+            logger.error(f"Error transcribing audio: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            raise HTTPException(status_code=500, detail=f"Error transcribing audio: {str(e)}")
 
     return playground_router

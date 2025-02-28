@@ -16,6 +16,7 @@ from agno.tools.eleven_labs import ElevenLabsTools
 from agno.tools.fal import FalTools
 from agno.tools.giphy import GiphyTools
 from agno.tools.models_labs import ModelsLabTools
+from agno.models.groq import Groq
 
 image_agent_storage_file: str = "tmp/image_agent.db"
 
@@ -168,6 +169,22 @@ audio_agent = Agent(
     ),
 )
 
+audio_understanding_agent = Agent(
+    name="Audio Understanding Agent",
+    agent_id="audio_understanding_agent",
+    model=Groq(id="llama3-8b-8192"),
+    description="You are an AI agent that can understand audio.",
+    instructions=[
+        "When the user asks you to understand audio, use the `transcribe_audio` tool to understand the audio.",
+    ],
+    markdown=True,
+    debug_mode=True,
+    add_history_to_messages=True,
+    add_datetime_to_instructions=True,
+    storage=SqliteAgentStorage(
+        table_name="audio_understanding_agent", db_file=image_agent_storage_file
+    ),
+)
 
 app = Playground(
     agents=[
@@ -178,6 +195,7 @@ app = Playground(
         fal_agent,
         gif_agent,
         audio_agent,
+        audio_understanding_agent,
     ]
 ).get_app(use_async=False)
 

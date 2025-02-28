@@ -381,8 +381,8 @@ class Team:
         **kwargs: Any,
     ) -> Union[TeamRunResponse, Iterator[TeamRunResponse]]:
         """Run the Team and return the response."""
-        logger = get_logger()
         self._initialize_team()
+        logger = get_logger()
 
         retries = retries or 3
         if retries < 1:
@@ -403,13 +403,6 @@ class Team:
             if self.evaluate_responses is None:
                 logger.debug("Setting `evaluate_responses` to True in `collaborative` mode")
                 self.evaluate_responses = True
-
-            if self.update_team_context:
-                # Add the `set_team_context` tool to all members
-                for member in self.members:
-                    if member.tools is None:
-                        member.tools = []
-                    member.tools.append(self.set_team_context)
 
         # Configure the model for runs
         self._configure_model(show_tool_calls=show_tool_calls)
@@ -438,9 +431,8 @@ class Team:
 
             # TODO: Read from storage
             # self.read_from_storage()
-
-            logger.debug(f" Team Run Start: {current_run_response.run_id} ", center=True)
-            logger.debug(f" Mode: {self.mode}", center=True)
+            logger.debug(f" Team Run Start: {self.run_id} ", center=True)
+            logger.debug(f" Mode: '{self.mode}' ", center=True)
             logger.debug("")
 
             # Set run_input
@@ -474,6 +466,9 @@ class Team:
             # Prepare built-in tools
             _built_in_tools: List[Union[Function, Callable]] = []
 
+            if self.read_team_history:
+                _built_in_tools.append(self._get_team_history)
+
             if self.mode == "router":
                 forward_task_func: Function = self.get_forward_task_function(message=run_messages.user_message, stream=False, async_mode=False, images=images, videos=videos, audio=audio)
                 _built_in_tools.append(forward_task_func)
@@ -481,21 +476,23 @@ class Team:
             elif self.mode == "coordinator":
                 _built_in_tools.append(self.get_transfer_task_function(stream=False, async_mode=False, images=images, videos=videos, audio=audio))
                 self.model.tool_choice = "required"
+
+                if self.update_team_context:
+                    _built_in_tools.append(self.set_team_context)
             elif self.mode == "collaborative":
-                _built_in_tools.append(self._stop_collaborative_run)
+                stop_collaborative_run_func = Function.from_callable(self._stop_collaborative_run, strict=True)
+                stop_collaborative_run_func.stop_after_tool_call = True
+                _built_in_tools.append(stop_collaborative_run_func)
 
-            if self.read_team_history:
-                _built_in_tools.append(self._get_team_history)
-
-            if self.update_team_context:
-                _built_in_tools.append(self.set_team_context)
+                if self.update_team_context:
+                    set_team_context_func = Function.from_callable(self.set_team_context, strict=True)
+                    set_team_context_func.stop_after_tool_call = True
+                    _built_in_tools.append(set_team_context_func)
 
             self._add_tools_to_model(self.model, tools=_built_in_tools)
 
-
             # Run the team
             try:
-
                 # (Optional) Run the member agents in collaborative mode
                 if self.mode == "collaborative":
                     if self.update_team_context:
@@ -517,26 +514,43 @@ class Team:
                     while True:
                         for member_agent in self.members:
                             # Run all the member agents, round-robin style. The team context is updated after each member agent run.
-                            self._run_member_agent(member_agent, message=run_messages.user_message, images=images, videos=videos, audio=audio)
+                            member_agent_response = self._run_member_agent(member_agent, message=run_messages.user_message, images=images, videos=videos, audio=audio)
+
+                            if self.update_team_context:
+                                updated_context_message =  Message(
+                                        content=f"<member_agent_response>\n{member_agent_response}\n</member_agent_response>\n\nUpdate the team context.",
+                                        role="user"
+                                    )
+
+                                run_messages.user_message = updated_context_message
+                                run_messages.messages.append(updated_context_message)
+
+                                # Let the model set the team context
+                                if stream:
+                                    resp = self._run_stream(
+                                        run_response=current_run_response,
+                                        run_messages=run_messages,
+                                        stream_intermediate_steps=stream_intermediate_steps,
+                                    )
+                                    for response in resp:
+                                        yield response
+                                else:
+                                    self._run(
+                                        run_response=current_run_response,
+                                        run_messages=run_messages,
+                                    )
 
                         # If we are evaluating responses, add a message to the run_messages asking the team leader to evaluate the responses
                         if self.evaluate_responses:
                             team_context_str = self.memory.get_team_context_str()
 
                             evaluation_message =  Message(
-                                    content=f"<team context>\n{team_context_str}\n</team context>\n\nEvaluate the responses from the member agents. Call _stop_collaborative_run(stop=True) if the task is complete.",
+                                    content=f"<context>\n{team_context_str}\n</context>\n\nEvaluate the responses from the member agents. Call _stop_collaborative_run(stop=True) if the task is complete.",
                                     role="user"
                                 )
 
-                            # Refresh the run messages
-                            run_messages: RunMessages = self.get_run_messages(
-                                run_response=current_run_response,
-                                message=evaluation_message,
-                                audio=audio,
-                                images=images,
-                                videos=videos,
-                                **kwargs,
-                            )
+                            run_messages.user_message = evaluation_message
+                            run_messages.messages.append(evaluation_message)
 
                             if stream:
                                 resp = self._run_stream(
@@ -563,27 +577,35 @@ class Team:
                             responses = []
                             for member_agent in self.members:
                                 responses.append(member_agent.run_response.content)
-                            current_run_response.content = responses
+                            if not current_run_response.content:
+                                current_run_response.content = responses
+                            else:
+                                current_run_response.content += responses
                             break
-
-
                 else:
-
                     if stream:
                         resp = self._run_stream(
                             run_response=current_run_response,
                             run_messages=run_messages,
                             stream_intermediate_steps=stream_intermediate_steps,
                         )
-
+                        for response in resp:
+                            yield response
                         # Update agent run response
                         self.run_response = current_run_response
+
+                        logger.debug(f"Team Run End: {self.run_response.run_id}", center=True)
+                        logger.debug("")
+
                         return resp
                     else:
                         self._run(
                             run_response=current_run_response,
                             run_messages=run_messages,
                         )
+
+                        logger.debug(f"Team Run End: {self.run_response.run_id}", center=True)
+                        logger.debug("")
 
                         # Update agent run response
                         self.run_response = current_run_response
@@ -719,9 +741,6 @@ class Team:
 
         # Log Team Run
         # self._log_team_run()
-
-        logger.debug(f"Team Run End: {self.run_response.run_id}", center=True)
-        logger.debug("")
 
         if self.response_model is not None:
             if isinstance(run_response.content, str) and self.parse_response:
@@ -923,9 +942,6 @@ class Team:
 
         # Log Team Run
         # self._log_team_run()
-
-        logger.debug(f"Team Run End: {self.run_response.run_id}", center=True)
-        logger.debug("")
 
     @overload
     async def arun(
@@ -1234,9 +1250,10 @@ class Team:
                 live_console.update(Group(*panels))
 
             # Get response from the team
-            for resp in self.run(
+            stream_resp = self.run(
                 message=message, audio=audio, images=images, videos=videos, stream=True, **kwargs
-            ):
+            )
+            for resp in stream_resp:
                 if isinstance(resp, TeamRunResponse):
                     if resp.event == RunEvent.run_response:
                         # TODO: handle tool calls
@@ -1789,8 +1806,9 @@ class Team:
             )
 
         elif self.mode == "collaborative":
+            system_message_content += "You are leading a collaborative team of Agents:\n"
+            system_message_content += self._get_members_system_message_content()
             system_message_content += (
-                "- You are leading a collaborative team of Agents.\n"
                 "- Take all the responses from the other Agents into accountm and evaluate whether the task has been completed.\n"
                 "- If you feel the task has been completed, you can stop and respond to the user.\n"
             )
@@ -2303,21 +2321,23 @@ class Team:
         # TODO: Implement this
         return team_context
 
-    def set_team_context(self, text: str) -> None:
+    def set_team_context(self, text: str) -> str:
         """Set the team's shared context with the given text.
 
         Args:
             text (str): The text to set as the team context.
         """
         self.memory.set_team_context_text(text)
+        return "Team context updated."
 
-    def _stop_collaborative_run(self, stop: Optional[bool] = True) -> None:
+    def _stop_collaborative_run(self, stop: Optional[bool] = True) -> str:
         """Stop the collaborative run.
 
         Args:
             stop (bool): Whether to stop the run. (Default: True)
         """
         self._stop_run = stop
+        return "Stopped the collaborative run."
 
     def get_transfer_task_function(self,
                                    stream: bool = False,

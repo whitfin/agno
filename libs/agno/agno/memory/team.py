@@ -73,7 +73,7 @@ class TeamMemory:
                 response=run_response,
             )
         )
-        get_logger().debug(f"Updated team context with member name: {member_name}, task: {task}")
+        get_logger().debug(f"Updated team context with member name: {member_name}")
 
     def set_team_context_text(self, text: str) -> None:
         if self.team_context:

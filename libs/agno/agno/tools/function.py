@@ -4,7 +4,7 @@ from docstring_parser import parse
 from pydantic import BaseModel, Field, validate_call
 
 from agno.exceptions import AgentRunException
-from agno.utils.log import logger
+from agno.utils.log import get_logger
 
 T = TypeVar("T")
 
@@ -120,7 +120,7 @@ class Function(BaseModel):
 
             # logger.debug(f"JSON schema for {function_name}: {parameters}")
         except Exception as e:
-            logger.warning(f"Could not parse args for {function_name}: {e}", exc_info=True)
+            get_logger().warning(f"Could not parse args for {function_name}: {e}", exc_info=True)
         return cls(
             name=function_name,
             description=get_entrypoint_docstring(entrypoint=c),
@@ -192,7 +192,7 @@ class Function(BaseModel):
 
             # logger.debug(f"JSON schema for {self.name}: {parameters}")
         except Exception as e:
-            logger.warning(f"Could not parse args for {self.name}: {e}", exc_info=True)
+            get_logger().warning(f"Could not parse args for {self.name}: {e}", exc_info=True)
 
         self.description = self.description or get_entrypoint_docstring(self.entrypoint)
         if not params_set_by_user:
@@ -269,15 +269,16 @@ class FunctionCall(BaseModel):
                 trimmed_arguments[k] = v
 
         call_str = f"{self.function.name}({', '.join([f'{k}={v}' for k, v in trimmed_arguments.items()])})"
-        
+
         # If call string is too long, truncate arguments
         if len(call_str) > term_width:
             return f"{self.function.name}(...)"
-            
+
         return call_str
 
     def _handle_pre_hook(self):
         """Handles the pre-hook for the function call."""
+        logger = get_logger()
         if self.function.pre_hook is not None:
             try:
                 from inspect import signature
@@ -300,6 +301,7 @@ class FunctionCall(BaseModel):
 
     def _handle_post_hook(self):
         """Handles the post-hook for the function call."""
+        logger = get_logger()
         if self.function.post_hook is not None:
             try:
                 from inspect import signature
@@ -339,6 +341,7 @@ class FunctionCall(BaseModel):
         Returns True if the function call was successful, False otherwise.
         The result of the function call is stored in self.result.
         """
+        logger = get_logger()
         if self.function.entrypoint is None:
             return False
 
@@ -389,6 +392,7 @@ class FunctionCall(BaseModel):
         Returns True if the function call was successful, False otherwise.
         The result of the function call is stored in self.result.
         """
+        logger = get_logger()
         if self.function.entrypoint is None:
             return False
 

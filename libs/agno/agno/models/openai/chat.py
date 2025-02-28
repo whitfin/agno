@@ -291,6 +291,7 @@ class OpenAIChat(Model):
         if message.content is None:
             message_dict["content"] = None
 
+
         return message_dict
 
     def invoke(self, messages: List[Message]) -> Union[ChatCompletion, ParsedChatCompletion]:

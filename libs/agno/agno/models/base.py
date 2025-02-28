@@ -169,6 +169,7 @@ class Model(ABC):
                 messages=messages,
                 model_response=model_response,
             )
+            
 
             # Handle tool calls if present
             if has_tool_calls:
@@ -201,9 +202,8 @@ class Model(ABC):
                 self.format_function_call_results(
                     messages=messages, function_call_results=function_call_results, **model_response.extra or {}
                 )
-
-                logger.debug(f" {self.get_provider()} Response ", center=True, symbol="-")
-                self._log_messages(messages)
+                for function_call_result in function_call_results:
+                    function_call_result.log(metrics=True)
 
                 # Check if we should stop after tool calls
                 if any(m.stop_after_tool_call for m in function_call_results):
@@ -273,13 +273,13 @@ class Model(ABC):
                 self.format_function_call_results(
                     messages=messages, function_call_results=function_call_results, **model_response.extra or {}
                 )
+                for function_call_result in function_call_results:
+                    function_call_result.log(metrics=True)
 
                 # Check if we should stop after tool calls
                 if any(m.stop_after_tool_call for m in function_call_results):
                     break
 
-                logger.debug(f" {self.get_provider()} Async Response ", center=True, symbol="-")
-                self._log_messages(messages)
 
                 # Continue loop to get next response
                 continue
@@ -514,8 +514,8 @@ class Model(ABC):
                     messages=messages, function_call_results=function_call_results, **stream_data.extra
                 )
 
-                logger.debug(f" {self.get_provider()} Response Stream ", center=True, symbol="-")
-                self._log_messages(messages)
+                for function_call_result in function_call_results:
+                    function_call_result.log(metrics=True)
 
                 # Check if we should stop after tool calls
                 if any(m.stop_after_tool_call for m in function_call_results):
@@ -605,8 +605,8 @@ class Model(ABC):
                     messages=messages, function_call_results=function_call_results, **stream_data.extra
                 )
 
-                logger.debug(f" {self.get_provider()} Async Response Stream ", center=True, symbol="-")
-                self._log_messages(messages)
+                for function_call_result in function_call_results:
+                    function_call_result.log(metrics=True)
 
                 # Check if we should stop after tool calls
                 if any(m.stop_after_tool_call for m in function_call_results):

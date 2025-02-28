@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from os import getenv
-from typing import Any, Dict, Iterator, List, Optional, Union
-import httpx
 from pathlib import Path
+from typing import Any, Dict, Iterator, List, Optional, Union
+
+import httpx
 
 from agno.exceptions import ModelProviderError
 from agno.media import Audio
@@ -16,9 +17,9 @@ try:
     from groq import APIError, APIResponseValidationError, APIStatusError
     from groq import AsyncGroq as AsyncGroqClient
     from groq import Groq as GroqClient
+    from groq.types.audio import Transcription
     from groq.types.chat import ChatCompletion
     from groq.types.chat.chat_completion_chunk import ChatCompletionChunk, ChoiceDelta, ChoiceDeltaToolCall
-    from groq.types.audio import Transcription
 except (ModuleNotFoundError, ImportError):
     raise ImportError("`groq` not installed. Please install using `pip install groq`")
 
@@ -234,31 +235,15 @@ class Groq(Model):
                 message_dict["content"].extend(images_to_message(images=message.images))
 
         if message.audio is not None and len(message.audio) > 0:
-            # Audio is now supported through transcription API
-            logger.info("Audio input detected. Transcribing audio...")
             try:
-                # Try to transcribe the audio
-                transcription_result = self.transcribe_audio(message.audio)
-                
-                # If successful, add the transcription to the message
-                if transcription_result and hasattr(transcription_result, "text"):
-                    transcription_text = transcription_result.text
-                    
-                    # If there's existing content, append the transcription
-                    if isinstance(message.content, str) and message.content:
-                        combined_content = f"{message.content}\n\nAudio Transcription: {transcription_text}"
-                        message_dict["content"] = combined_content
-                    else:
-                        # Otherwise, just use the transcription
-                        message_dict["content"] = f"Audio Transcription: {transcription_text}"
-                    
-                    logger.info(f"Audio transcription successful: {transcription_text[:100]}...")
-                else:
-                    logger.warning("Audio transcription did not return expected result format")
+                transcription_result: Any = self.transcribe_audio(
+                    message.audio, model="whisper-large-v3-turbo", response_format="text"
+                )
+
+                # If there's existing content, append the transcription
+                message_dict["content"] = f"Audio Transcription: {transcription_result}"
             except Exception as e:
                 logger.error(f"Error transcribing audio: {str(e)}")
-                # Keep the original content if transcription fails
-                logger.warning("Continuing with original message content without transcription")
 
         if message.videos is not None:
             logger.warning("Video input is currently unsupported.")
@@ -517,236 +502,157 @@ class Groq(Model):
         Returns:
             Optional[bytes]: The formatted audio data as bytes, or None if formatting failed.
         """
-
-        print("audio from groq - ", audio)
-
         # Case 1: Audio is a bytes object
         if audio.content and isinstance(audio.content, bytes):
             return audio.content
-        
+
         # Case 2: Audio is a URL
         elif audio.url is not None and audio.audio_url_content is not None:
-            try:
-                return audio.audio_url_content
-            except Exception as e:
-                logger.warning(f"Failed to download audio from {audio.url}: {e}")
-                return None
+            return audio.audio_url_content
 
         # Case 3: Audio is a local file path
         elif audio.filepath is not None:
-            try:
-                audio_path = audio.filepath if isinstance(audio.filepath, Path) else Path(audio.filepath)
-                if audio_path.exists() and audio_path.is_file():
-                    with open(audio_path, "rb") as f:
-                        return f.read()
-                else:
-                    logger.error(f"Audio file {audio_path} does not exist.")
-                    return None
-            except Exception as e:
-                logger.warning(f"Failed to load audio from {audio.filepath}: {e}")
+            audio_path = audio.filepath if isinstance(audio.filepath, Path) else Path(audio.filepath)
+            logger.info(f"Attempting to read audio from file: {audio_path}")
+            if audio_path.exists() and audio_path.is_file():
+                with open(audio_path, "rb") as f:
+                    content = f.read()
+                    return content
+            else:
                 return None
         else:
-            logger.warning(f"Unknown audio type: {type(audio)}")
+            logger.warning(f"Unknown audio type or no content available: {type(audio)}")
             return None
 
-    def transcribe_audio(self, audio_data: Union[bytes, Audio], file_format: Optional[str] = None, 
-                         language: Optional[str] = None, prompt: Optional[str] = None, 
-                         response_format: Optional[str] = None, temperature: Optional[float] = None) -> Transcription:
+    def transcribe_audio(
+        self,
+        audio_data: Union[bytes, Audio, List[Audio]],
+        file_format: Optional[str] = None,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: Optional[str] = "text",
+        temperature: Optional[float] = None,
+        model: str = "whisper-large-v3-turbo",
+    ) -> Transcription:
         """
         Transcribe audio data using the Groq API.
 
         Args:
-            audio_data (Union[bytes, Audio]): The audio data to transcribe, either as bytes or an Audio object.
-            file_format (Optional[str]): The format of the audio file (e.g., 'mp3', 'wav', 'ogg').
-            language (Optional[str]): The language of the audio (ISO-639-1 format).
-            prompt (Optional[str]): An optional text to guide the model's style or continue a previous audio segment.
-            response_format (Optional[str]): The format of the transcription output (e.g., 'json', 'text', 'srt', 'verbose_json').
-            temperature (Optional[float]): The sampling temperature, between 0 and 1.
+            audio_data: The audio data to transcribe, either as bytes, an Audio object, or a list of Audio objects.
+            file_format: The format of the audio file (e.g., 'mp3', 'wav', 'ogg').
+            language: The language of the audio (ISO-639-1 format).
+            prompt: An optional text to guide the model's style or continue a previous audio segment.
+            response_format: The format of the transcription output ('json', 'text', 'verbose_json').
+            temperature: The sampling temperature, between 0 and 1.
+            model: The model to use for transcription ('whisper-large-v3-turbo', 'distil-whisper-large-v3-en', 'whisper-large-v3').
 
         Returns:
             Transcription: The transcription response from the API.
         """
-        try:
-            # Process audio data if it's an Audio object
-            if isinstance(audio_data, list) and len(audio_data) > 0:
-                # Handle list of Audio objects
-                audio_obj = audio_data[0]  # Use the first audio object
-                processed_audio = self._format_audio_for_message(audio_obj)
-                if processed_audio is None:
-                    raise ValueError("Failed to process audio data")
-                audio_bytes = processed_audio
-                if not file_format and audio_obj.format:
-                    file_format = audio_obj.format
-            elif isinstance(audio_data, Audio):
-                # Handle single Audio object
-                processed_audio = self._format_audio_for_message(audio_data)
-                if processed_audio is None:
-                    raise ValueError("Failed to process audio data")
-                audio_bytes = processed_audio
-                if not file_format and audio_data.format:
-                    file_format = audio_data.format
-            else:
-                # Handle raw bytes
-                audio_bytes = audio_data
+        # Process audio data if it's an Audio object
+        if isinstance(audio_data, list) and len(audio_data) > 0:
+            # Handle list of Audio objects
+            audio_obj = audio_data[0]  # Use the first audio object
+            processed_audio = self._format_audio_for_message(audio_obj)
+            if processed_audio is None:
+                raise ValueError("Failed to process audio data")
+            audio_bytes: bytes = processed_audio
+            if not file_format and audio_obj.format:
+                file_format = audio_obj.format
+        elif isinstance(audio_data, Audio):
+            # Handle single Audio object
+            processed_audio = self._format_audio_for_message(audio_data)
+            if processed_audio is None:
+                raise ValueError("Failed to process audio data")
+            audio_bytes: bytes = processed_audio
+            if not file_format and audio_data.format:
+                file_format = audio_data.format
+        else:
+            audio_bytes: bytes = audio_data
 
-            # Prepare parameters
-            params = {}
-            if language:
-                params["language"] = language
-            if prompt:
-                params["prompt"] = prompt
-            if response_format:
-                params["response_format"] = response_format
-            if temperature is not None:
-                params["temperature"] = temperature
-            
-            # Create file object
-            file_name = f"audio.{file_format}" if file_format else "audio.mp3"
-            
-            # Get client with proper API key
-            client = self.get_client()
-            
-            # Log request details for debugging
-            logger.debug(f"Sending transcription request to Groq API with file format: {file_format}")
-            logger.debug(f"Audio data size: {len(audio_bytes) if audio_bytes else 'None'} bytes")
-            
-            # Call the API
-            response = client.audio.transcriptions.create(
-                file=(file_name, audio_bytes),
-                model="whisper-large-v3",  # Currently the only model supported by Groq
-                **params
-            )
-            
-            logger.debug(f"Transcription successful: {response.text[:100]}...")
-            return response
-            
-        except (APIResponseValidationError, APIStatusError) as e:
-            logger.error(f"Error calling Groq transcription API: {str(e)}")
-            if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                logger.error(f"Response text: {e.response.text}")
-            raise ModelProviderError(
-                message=e.response.text if hasattr(e, 'response') and hasattr(e.response, 'text') else str(e),
-                status_code=e.response.status_code if hasattr(e, 'response') and hasattr(e.response, 'status_code') else None,
-                model_name=self.name,
-                model_id=self.id
-            ) from e
-        except APIError as e:
-            logger.error(f"Error calling Groq transcription API: {str(e)}")
-            raise ModelProviderError(
-                message=e.message if hasattr(e, 'message') else str(e),
-                model_name=self.name,
-                model_id=self.id
-            ) from e
-        except httpx.ConnectError as e:
-            logger.error(f"Connection error when calling Groq API: {str(e)}")
-            raise ModelProviderError(
-                message=f"Connection error when calling Groq API: {str(e)}. Please check your network connection and API endpoint.",
-                model_name=self.name,
-                model_id=self.id
-            ) from e
-        except Exception as e:
-            logger.error(f"Unexpected error calling Groq transcription API: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            raise ModelProviderError(message=str(e), model_name=self.name, model_id=self.id) from e
+        params: Dict[str, Any] = {}
+        if language:
+            params["language"] = language
+        if prompt:
+            params["prompt"] = prompt
+        if response_format:
+            params["response_format"] = response_format
+        if temperature is not None:
+            params["temperature"] = temperature
 
-    async def atranscribe_audio(self, audio_data: Union[bytes, Audio], file_format: Optional[str] = None, 
-                               language: Optional[str] = None, prompt: Optional[str] = None, 
-                               response_format: Optional[str] = None, temperature: Optional[float] = None) -> Transcription:
+        file_format = file_format or "mp3"  # Default to mp3 if no format is specified
+        file_name = f"audio.{file_format}"
+
+        client = self.get_client()
+
+        response = client.audio.transcriptions.create(file=(file_name, audio_bytes), model=model, **params)
+
+        return response
+
+    async def atranscribe_audio(
+        self,
+        audio_data: Union[bytes, Audio, List[Audio]],
+        file_format: Optional[str] = None,
+        language: Optional[str] = None,
+        prompt: Optional[str] = None,
+        response_format: Optional[str] = "json",
+        temperature: Optional[float] = None,
+        model: str = "whisper-large-v3-turbo",
+    ) -> Transcription:
         """
         Asynchronously transcribe audio data using the Groq API.
 
         Args:
-            audio_data (Union[bytes, Audio]): The audio data to transcribe, either as bytes or an Audio object.
-            file_format (Optional[str]): The format of the audio file (e.g., 'mp3', 'wav', 'ogg').
-            language (Optional[str]): The language of the audio (ISO-639-1 format).
-            prompt (Optional[str]): An optional text to guide the model's style or continue a previous audio segment.
-            response_format (Optional[str]): The format of the transcription output (e.g., 'json', 'text', 'srt', 'verbose_json').
-            temperature (Optional[float]): The sampling temperature, between 0 and 1.
+            audio_data: The audio data to transcribe, either as bytes, an Audio object, or a list of Audio objects.
+            file_format: The format of the audio file (e.g., 'mp3', 'wav', 'ogg').
+            language: The language of the audio (ISO-639-1 format).
+            prompt: An optional text to guide the model's style or continue a previous audio segment.
+            response_format: The format of the transcription output ('json', 'text', 'verbose_json').
+            temperature: The sampling temperature, between 0 and 1.
+            model: The model to use for transcription ('whisper-large-v3-turbo', 'distil-whisper-large-v3-en', 'whisper-large-v3').
 
         Returns:
             Transcription: The transcription response from the API.
         """
-        try:
-            # Process audio data if it's an Audio object
-            if isinstance(audio_data, list) and len(audio_data) > 0:
-                # Handle list of Audio objects
-                audio_obj = audio_data[0]  # Use the first audio object
-                processed_audio = self._format_audio_for_message(audio_obj)
-                if processed_audio is None:
-                    raise ValueError("Failed to process audio data")
-                audio_bytes = processed_audio
-                if not file_format and audio_obj.format:
-                    file_format = audio_obj.format
-            elif isinstance(audio_data, Audio):
-                # Handle single Audio object
-                processed_audio = self._format_audio_for_message(audio_data)
-                if processed_audio is None:
-                    raise ValueError("Failed to process audio data")
-                audio_bytes = processed_audio
-                if not file_format and audio_data.format:
-                    file_format = audio_data.format
-            else:
-                # Handle raw bytes
-                audio_bytes = audio_data
+        # Process audio data if it's an Audio object
+        if isinstance(audio_data, list) and len(audio_data) > 0:
+            # Handle list of Audio objects
+            audio_obj = audio_data[0]  # Use the first audio object
+            processed_audio = self._format_audio_for_message(audio_obj)
+            if processed_audio is None:
+                raise ValueError("Failed to process audio data")
+            audio_bytes: bytes = processed_audio
+            if not file_format and audio_obj.format:
+                file_format = audio_obj.format
+        elif isinstance(audio_data, Audio):
+            # Handle single Audio object
+            processed_audio = self._format_audio_for_message(audio_data)
+            if processed_audio is None:
+                raise ValueError("Failed to process audio data")
+            audio_bytes: bytes = processed_audio
+            if not file_format and audio_data.format:
+                file_format = audio_data.format
+        else:
+            # Handle raw bytes
+            audio_bytes: bytes = audio_data
 
-            # Prepare parameters
-            params = {}
-            if language:
-                params["language"] = language
-            if prompt:
-                params["prompt"] = prompt
-            if response_format:
-                params["response_format"] = response_format
-            if temperature is not None:
-                params["temperature"] = temperature
-            
-            # Create file object
-            file_name = f"audio.{file_format}" if file_format else "audio.mp3"
-            
-            # Get async client with proper API key
-            client = self.get_async_client()
-            
-            # Log request details for debugging
-            logger.debug(f"Sending async transcription request to Groq API with file format: {file_format}")
-            logger.debug(f"Audio data size: {len(audio_bytes) if audio_bytes else 'None'} bytes")
-            
-            # Call the API
-            response = await client.audio.transcriptions.create(
-                file=(file_name, audio_bytes),
-                model="whisper-large-v3",  # Currently the only model supported by Groq
-                **params
-            )
-            
-            logger.debug(f"Async transcription successful: {response.text[:100]}...")
-            return response
-            
-        except (APIResponseValidationError, APIStatusError) as e:
-            logger.error(f"Error calling Groq transcription API: {str(e)}")
-            if hasattr(e, 'response') and hasattr(e.response, 'text'):
-                logger.error(f"Response text: {e.response.text}")
-            raise ModelProviderError(
-                message=e.response.text if hasattr(e, 'response') and hasattr(e.response, 'text') else str(e),
-                status_code=e.response.status_code if hasattr(e, 'response') and hasattr(e.response, 'status_code') else None,
-                model_name=self.name,
-                model_id=self.id
-            ) from e
-        except APIError as e:
-            logger.error(f"Error calling Groq transcription API: {str(e)}")
-            raise ModelProviderError(
-                message=e.message if hasattr(e, 'message') else str(e),
-                model_name=self.name,
-                model_id=self.id
-            ) from e
-        except httpx.ConnectError as e:
-            logger.error(f"Connection error when calling Groq API: {str(e)}")
-            raise ModelProviderError(
-                message=f"Connection error when calling Groq API: {str(e)}. Please check your network connection and API endpoint.",
-                model_name=self.name,
-                model_id=self.id
-            ) from e
-        except Exception as e:
-            logger.error(f"Unexpected error calling Groq transcription API: {str(e)}")
-            import traceback
-            logger.error(traceback.format_exc())
-            raise ModelProviderError(message=str(e), model_name=self.name, model_id=self.id) from e
+        # Prepare parameters
+        params: Dict[str, Any] = {}
+        if language:
+            params["language"] = language
+        if prompt:
+            params["prompt"] = prompt
+        if response_format:
+            params["response_format"] = response_format
+        if temperature is not None:
+            params["temperature"] = temperature
+
+        # Create file object with proper filename
+        file_name = f"audio.{file_format}" if file_format else "audio.mp3"
+
+        # Get async client with proper API key
+        client = self.get_async_client()
+
+        response = await client.audio.transcriptions.create(file=(file_name, audio_bytes), model=model, **params)
+
+        return response

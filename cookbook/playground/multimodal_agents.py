@@ -7,6 +7,7 @@ Docs on Agent UI: https://docs.agno.com/agent-ui
 """
 
 from agno.agent import Agent
+from agno.models.groq import Groq
 from agno.models.openai import OpenAIChat
 from agno.models.response import FileType
 from agno.playground import Playground, serve_playground_app
@@ -16,7 +17,6 @@ from agno.tools.eleven_labs import ElevenLabsTools
 from agno.tools.fal import FalTools
 from agno.tools.giphy import GiphyTools
 from agno.tools.models_labs import ModelsLabTools
-from agno.models.groq import Groq
 
 image_agent_storage_file: str = "tmp/image_agent.db"
 

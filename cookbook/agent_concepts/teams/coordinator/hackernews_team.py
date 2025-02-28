@@ -1,13 +1,13 @@
 """
 1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
-2. Run: `python cookbook/teams/01_hn_team.py` to run the agent
+2. Run: `python cookbook/teams/coordinator/hackernews_team.py` to run the agent
 """
 
 from typing import List
 
 from agno import Agent, Team
 from agno.models.openai import OpenAIChat
-from agno.run.team import TeamRunResponse
+from agno.run.team import TeamRunResponse  # type: ignore
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
@@ -44,7 +44,7 @@ article_reader = Agent(
 
 hn_team = Team(
     name="HackerNews Team",
-    mode="coordinate",
+    mode="coordinator",
     model=OpenAIChat("gpt-4o"),
     members=[hn_researcher, web_searcher, article_reader],
     instructions=[
@@ -58,6 +58,7 @@ hn_team = Team(
     show_tool_calls=True,
     markdown=True,
     debug_mode=True,
+    verbose=True,
 )
 
 hn_team.print_response(

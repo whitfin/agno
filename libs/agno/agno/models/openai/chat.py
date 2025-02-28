@@ -195,6 +195,7 @@ class OpenAIChat(Model):
 
             if self.tool_choice is not None:
                 request_params["tool_choice"] = self.tool_choice
+        
         # Add additional request params if provided
         if self.request_params:
             request_params.update(self.request_params)

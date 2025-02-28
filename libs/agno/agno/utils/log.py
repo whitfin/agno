@@ -26,6 +26,10 @@ class ColoredRichHandler(RichHandler):
         self.source_type = source_type
 
     def get_level_text(self, record: logging.LogRecord) -> Text:
+        # Return empty Text if message is empty
+        if not record.msg:
+            return Text("")
+            
         level_name = record.levelname.lower()
         if self.source_type and self.source_type in LOG_STYLES:
             if level_name in LOG_STYLES[self.source_type]:

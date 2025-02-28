@@ -158,6 +158,8 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Response Start ", center=True, symbol="-")
+        logger.debug("")
+
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -182,11 +184,18 @@ class Model(ABC):
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
+
                     if (
                         function_call_response.event == ModelResponseEvent.tool_call_completed.value
                         and function_call_response.tool_calls is not None
                     ):
                         model_response.tool_calls.extend(function_call_response.tool_calls)
+                    elif function_call_response.event not in [
+                        ModelResponseEvent.tool_call_started.value,
+                        ModelResponseEvent.tool_call_completed.value,
+                    ]:
+                        if function_call_response.content:
+                            model_response.content += function_call_response.content
 
                 # Format and add results to messages
                 self.format_function_call_results(
@@ -207,6 +216,7 @@ class Model(ABC):
             break
 
         logger.debug(f" {self.get_provider()} Response End ", center=True, symbol="-")
+        logger.debug("")
         return model_response
 
     async def aresponse(self, messages: List[Message]) -> ModelResponse:
@@ -221,6 +231,8 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Async Response Start ", center=True, symbol="-")
+        logger.debug("")
+
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -250,6 +262,12 @@ class Model(ABC):
                         and function_call_response.tool_calls is not None
                     ):
                         model_response.tool_calls.extend(function_call_response.tool_calls)
+                    elif function_call_response.event not in [
+                        ModelResponseEvent.tool_call_started.value,
+                        ModelResponseEvent.tool_call_completed.value,
+                    ]:
+                        if function_call_response.content:
+                            model_response.content += function_call_response.content
 
                 # Format and add results to messages
                 self.format_function_call_results(
@@ -270,6 +288,7 @@ class Model(ABC):
             break
 
         logger.debug(f" {self.get_provider()} Async Response End ", center=True, symbol="-")
+        logger.debug("")
         return model_response
 
     def _process_model_response(
@@ -445,6 +464,7 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Response Stream Start ", center=True, symbol="-")
+        logger.debug("")
         self._log_messages(messages)
 
         while True:
@@ -508,6 +528,7 @@ class Model(ABC):
             break
 
         logger.debug(f" {self.get_provider()} Response Stream End ", center=True, symbol="-")
+        logger.debug("")
 
     async def aprocess_response_stream(
         self, messages: List[Message], assistant_message: Message, stream_data: MessageData
@@ -534,6 +555,7 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Async Response Stream Start ", center=True, symbol="-")
+        logger.debug("")
         self._log_messages(messages)
 
         while True:
@@ -597,6 +619,7 @@ class Model(ABC):
             break
 
         logger.debug(f" {self.get_provider()} Async Response Stream End ", center=True, symbol="-")
+        logger.debug("")
 
     def _populate_stream_data_and_assistant_message(
         self, stream_data: MessageData, assistant_message: Message, model_response: ModelResponse

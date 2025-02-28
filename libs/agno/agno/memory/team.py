@@ -10,7 +10,7 @@ from agno.memory.agent import AgentRun
 from agno.models.message import Message
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.utils.log import logger
+from agno.utils.log import get_logger, logger
 
 @dataclass
 class TeamRun:
@@ -37,6 +37,7 @@ class TeamMemberInteraction:
 class TeamContext:
     # List of team member interaction, represented as a request and a response
     member_interactions: List[TeamMemberInteraction] = field(default_factory=list)
+    text: Optional[str] = None
 
 @dataclass
 class TeamMemory:
@@ -62,7 +63,7 @@ class TeamMemory:
             _memory_dict["runs"] = [run.to_dict() for run in self.runs]
         return _memory_dict
 
-    def update_team_context(self, member_name: str, task: str, run_response: RunResponse) -> None:
+    def add_interaction_to_team_context(self, member_name: str, task: str, run_response: RunResponse) -> None:
         if self.team_context is None:
             self.team_context = TeamContext()
         self.team_context.member_interactions.append(
@@ -72,41 +73,60 @@ class TeamMemory:
                 response=run_response,
             )
         )
+        get_logger().debug(f"Updated team context with member name: {member_name}, task: {task}")
 
-    def get_team_context_dict(self) -> List[Dict[str, Any]]:
-        team_context_dict = []
-        for interaction in self.team_context.member_interactions:
+    def set_team_context_text(self, text: str) -> None:
+        if self.team_context:
+            self.team_context.text = text
+        else:
+            self.team_context = TeamContext(text=text)
 
-            response_dict = interaction.response.to_dict()
-            team_context_dict.append({
-                "member_name": interaction.member_name,
-                "task": interaction.task,
-                "response": response_dict.get("content", "")
-            })
-        return team_context_dict
+    def get_team_context_str(self) -> str:
+        team_context_str = ""
+        if self.team_context:
+            if self.team_context.text:
+                team_context_str += f"<team context>\n{self.team_context.text}\n</team context>\n"
+
+            if self.team_context.member_interactions:
+                team_context_str += "<member interactions>\n"
+                for interaction in self.team_context.member_interactions:
+                    response_dict = interaction.response.to_dict()
+
+                    team_context_str += f"Member: {interaction.member_name}\n"
+                    team_context_str += f"Task: {interaction.task}\n"
+                    team_context_str += f"Response: {response_dict.get('content', '')}\n"
+                    team_context_str += "\n"
+                team_context_str += "</member interactions>\n"
+        return team_context_str
     
     def get_team_context_images(self) -> List[ImageArtifact]:
         images = []
-        for interaction in self.team_context.member_interactions:
-            images.extend(interaction.response.images)
+        if self.team_context and self.team_context.member_interactions:
+            for interaction in self.team_context.member_interactions:
+                if interaction.response.images:
+                    images.extend(interaction.response.images)
         return images
     
     def get_team_context_videos(self) -> List[VideoArtifact]:
         videos = []
-        for interaction in self.team_context.member_interactions:
-            videos.extend(interaction.response.videos)
+        if self.team_context and self.team_context.member_interactions:
+            for interaction in self.team_context.member_interactions:
+                if interaction.response.videos:
+                    videos.extend(interaction.response.videos)
         return videos
     
     def get_team_context_audio(self) -> List[AudioArtifact]:
         audio = []
-        for interaction in self.team_context.member_interactions:
-            audio.extend(interaction.response.audio)
+        if self.team_context and self.team_context.member_interactions:
+            for interaction in self.team_context.member_interactions:
+                if interaction.response.audio:
+                    audio.extend(interaction.response.audio)
         return audio
 
     def add_team_run(self, agent_run: TeamRun) -> None:
         """Adds an AgentRun to the runs list."""
         self.runs.append(agent_run)
-        logger.debug("Added AgentRun to AgentMemory")
+        get_logger().debug("Added AgentRun to AgentMemory")
 
     def add_system_message(self, message: Message, system_message_role: str = "system") -> None:
         """Add the system messages to the messages list"""
@@ -125,7 +145,7 @@ class TeamMemory:
                     self.messages[system_message_index].content != message.content
                     and self.update_system_message_on_change
                 ):
-                    logger.info("Updating system message in memory with new content")
+                    get_logger().info("Updating system message in memory with new content")
                     self.messages[system_message_index] = message
             else:
                 # Add the system message to the messages list
@@ -134,7 +154,7 @@ class TeamMemory:
     def add_messages(self, messages: List[Message]) -> None:
         """Add a list of messages to the messages list."""
         self.messages.extend(messages)
-        logger.debug(f"Added {len(messages)} Messages to AgentMemory")
+        get_logger().debug(f"Added {len(messages)} Messages to AgentMemory")
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """Returns the messages list as a list of dictionaries."""
@@ -172,7 +192,7 @@ class TeamMemory:
 
                 messages_from_history.append(message)
 
-        logger.debug(f"Getting messages from previous runs: {len(messages_from_history)}")
+        get_logger().debug(f"Getting messages from previous runs: {len(messages_from_history)}")
         return messages_from_history
 
     def get_all_messages(

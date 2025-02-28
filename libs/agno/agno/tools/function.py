@@ -250,19 +250,30 @@ class FunctionCall(BaseModel):
 
     # Error while parsing arguments or running the function.
     error: Optional[str] = None
-
     def get_call_str(self) -> str:
         """Returns a string representation of the function call."""
+        import shutil
+
+        # Get terminal width, default to 80 if can't determine
+        term_width = shutil.get_terminal_size().columns or 80
+        max_arg_len = max(20, (term_width - len(self.function.name) - 4) // 2)
+
         if self.arguments is None:
             return f"{self.function.name}()"
 
         trimmed_arguments = {}
         for k, v in self.arguments.items():
-            if isinstance(v, str) and len(v) > 100:
+            if isinstance(v, str) and len(str(v)) > max_arg_len:
                 trimmed_arguments[k] = "..."
             else:
                 trimmed_arguments[k] = v
+
         call_str = f"{self.function.name}({', '.join([f'{k}={v}' for k, v in trimmed_arguments.items()])})"
+        
+        # If call string is too long, truncate arguments
+        if len(call_str) > term_width:
+            return f"{self.function.name}(...)"
+            
         return call_str
 
     def _handle_pre_hook(self):

@@ -266,18 +266,22 @@ class Message(BaseModel):
             _logger(f"<thinking>\n{self.thinking}\n</thinking>")
         if self.content:
             if isinstance(self.content, str) or isinstance(self.content, list):
-                _logger(self.content+"\n")
+                _logger(self.content)
             elif isinstance(self.content, dict):
-                _logger(json.dumps(self.content, indent=2)+"\n")
+                _logger(json.dumps(self.content, indent=2))
         if self.tool_calls:
-            _logger("\n".join([
-                "Tool Calls:",
-                *[f"  - ID: '{tool_call.get('id', 'Unknown')}'\n"
-                  f"    Name: '{tool_call.get('function', {}).get('name', 'Unknown')}'\n"
-                  f"    Arguments: {tool_call.get('function', {}).get('arguments', 'Unknown')}"
-                  f"\n"
-                  for tool_call in self.tool_calls]
-            ]))
+            tool_calls_str = "Tool Calls:\n"
+            for tool_call in self.tool_calls:
+                tool_calls_str += f"  - ID: '{tool_call.get('id', 'Unknown')}'\n"
+                tool_calls_str += f"    Name: '{tool_call.get('function', {}).get('name', 'Unknown')}'\n"
+                tool_call_arguments = tool_call.get('function', {}).get('arguments')
+                arguments = []
+                if tool_call_arguments:
+                    for k, v in json.loads(tool_call_arguments).items():
+                        arguments.append(f"{k}: {v}")
+                    tool_calls_str += f"    Arguments: '{', '.join(arguments)}'\n"
+            
+            _logger(tool_calls_str)
         if self.images:
             _logger(f"Images added: {len(self.images)}")
         if self.videos:
@@ -287,7 +291,7 @@ class Message(BaseModel):
 
         metrics_header = ' TOOL METRICS ' if self.role == 'tool' else ' METRICS '
         if metrics and self.metrics is not None and self.metrics != MessageMetrics():
-            _logger(f"{metrics_header.center(terminal_width-20, '*')}")
+            _logger(metrics_header, center=True, symbol="*")
             
             # Combine token metrics into a single line
             token_metrics = []
@@ -311,7 +315,9 @@ class Message(BaseModel):
                 _logger(f"* Time to first token:         {self.metrics.time_to_first_token:.4f}s")
             if self.metrics.additional_metrics:
                 _logger(f"* Additional metrics:          {self.metrics.additional_metrics}")
-            _logger(f"{metrics_header.center(terminal_width-20, '*')}")
+            _logger(metrics_header, center=True, symbol="*")
+        
+        _logger("")
 
     def content_is_valid(self) -> bool:
         """Check if the message content is valid."""

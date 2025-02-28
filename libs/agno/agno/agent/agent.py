@@ -482,6 +482,7 @@ class Agent:
         11. Save session to storage
         12. Save output to file if save_response_to_file is set
         """
+        logger = get_logger()
         # 1. Prepare the Agent for the run
         # 1.1 Initialize the Agent
         self.initialize_agent()
@@ -493,7 +494,8 @@ class Agent:
         self.run_id = str(uuid4())
         self.run_response = RunResponse(run_id=self.run_id, session_id=self.session_id, agent_id=self.agent_id)
 
-        get_logger().debug(f"Agent Run Start: {self.run_response.run_id}", center=True)
+        logger.debug(f"Agent Run Start: {self.run_response.run_id}", center=True)
+        logger.debug("")
 
         # 2. Update the Model and resolve context
         self.update_model()
@@ -716,9 +718,9 @@ class Agent:
                     try:
                         mp = Message(**_im)
                     except Exception as e:
-                        get_logger().warning(f"Failed to validate message: {e}")
+                        logger.warning(f"Failed to validate message: {e}")
                 else:
-                    get_logger().warning(f"Unsupported message type: {type(_im)}")
+                    logger.warning(f"Unsupported message type: {type(_im)}")
                     continue
 
                 # Add the message to the AgentRun
@@ -729,7 +731,7 @@ class Agent:
                     if self.memory.create_user_memories and self.memory.update_user_memories_after_run:
                         self.memory.update_memory(input=mp.get_content_string())
                 else:
-                    get_logger().warning("Unable to add message to memory")
+                    logger.warning("Unable to add message to memory")
         # Add AgentRun to memory
         self.memory.add_run(agent_run)
         # Update the session summary if needed
@@ -759,7 +761,7 @@ class Agent:
         # Log Agent Run
         self.log_agent_run()
 
-        get_logger().debug(f"*********** Agent Run End: {self.run_response.run_id} ***********")
+        logger.debug(f" Agent Run End: {self.run_response.run_id} ", center=True, symbol="*")
         if self.stream_intermediate_steps:
             yield self.create_run_response(
                 content=self.run_response.content,
@@ -814,7 +816,7 @@ class Agent:
         **kwargs: Any,
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
-
+        logger = get_logger()
 
         # If no retries are set, use the agent's default retries
         if retries is None:
@@ -828,10 +830,10 @@ class Agent:
                 if self.response_model is not None and self.parse_response:
                     # Set show_tool_calls=False if we have response_model
                     self.show_tool_calls = False
-                    get_logger().debug("Setting show_tool_calls=False as response_model is set")
+                    logger.debug("Setting show_tool_calls=False as response_model is set")
 
                     # Set stream=False and run the agent
-                    get_logger().debug("Setting stream=False as response_model is set")
+                    logger.debug("Setting stream=False as response_model is set")
                     self.stream = False
                     run_response: RunResponse = next(
                         self._run(
@@ -865,11 +867,11 @@ class Agent:
                                     self.run_response.content = structured_output
                                     self.run_response.content_type = self.response_model.__name__
                             else:
-                                get_logger().warning("Failed to convert response to response_model")
+                                logger.warning("Failed to convert response to response_model")
                         except Exception as e:
-                            get_logger().warning(f"Failed to convert response to output model: {e}")
+                            logger.warning(f"Failed to convert response to output model: {e}")
                     else:
-                        get_logger().warning("Something went wrong. Run response content is not a string")
+                        logger.warning("Something went wrong. Run response content is not a string")
                     return run_response
                 else:
                     if stream and self.is_streamable:
@@ -897,7 +899,7 @@ class Agent:
                         )
                         return next(resp)
             except ModelProviderError as e:
-                get_logger().warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
+                logger.warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 if isinstance(e, StopAgentRun):
                     raise e
                 last_exception = e
@@ -923,7 +925,7 @@ class Agent:
 
         # If we get here, all retries failed
         if last_exception is not None:
-            get_logger().error(
+            logger.error(
                 f"Failed after {num_attempts} attempts. Last error using {last_exception.model_name}({last_exception.model_id})"
             )
             raise last_exception
@@ -958,7 +960,7 @@ class Agent:
         11. Save session to storage
         12. Save output to file if save_response_to_file is set
         """
-
+        logger = get_logger()
         # 1. Prepare the Agent for the run
         # 1.1 Initialize the Agent
         self.initialize_agent()
@@ -970,7 +972,8 @@ class Agent:
         self.run_id = str(uuid4())
         self.run_response = RunResponse(run_id=self.run_id, session_id=self.session_id, agent_id=self.agent_id)
 
-        get_logger().debug(f"*********** Async Agent Run Start: {self.run_response.run_id} ***********")
+        logger.debug(f"*********** Async Agent Run Start: {self.run_response.run_id} ***********")
+        logger.debug("")
 
         # 2. Update the Model and resolve context
         self.update_model()
@@ -1194,9 +1197,9 @@ class Agent:
                     try:
                         mp = Message(**_im)
                     except Exception as e:
-                        get_logger().warning(f"Failed to validate message: {e}")
+                        logger.warning(f"Failed to validate message: {e}")
                 else:
-                    get_logger().warning(f"Unsupported message type: {type(_im)}")
+                    logger.warning(f"Unsupported message type: {type(_im)}")
                     continue
 
                 # Add the message to the AgentRun
@@ -1207,7 +1210,7 @@ class Agent:
                     if self.memory.create_user_memories and self.memory.update_user_memories_after_run:
                         await self.memory.aupdate_memory(input=mp.get_content_string())
                 else:
-                    get_logger().warning("Unable to add message to memory")
+                    logger.warning("Unable to add message to memory")
         # Add AgentRun to memory
         self.memory.add_run(agent_run)
         # Update the session summary if needed
@@ -1262,7 +1265,7 @@ class Agent:
         **kwargs: Any,
     ) -> Any:
         """Async Run the Agent and return the response."""
-
+        logger = get_logger()
         # If no retries are set, use the agent's default retries
         if retries is None:
             retries = self.retries
@@ -1270,16 +1273,16 @@ class Agent:
         last_exception = None
         num_attempts = retries + 1
         for attempt in range(num_attempts):
-            get_logger().debug(f"Attempt {attempt + 1}/{num_attempts}")
+            logger.debug(f"Attempt {attempt + 1}/{num_attempts}")
             try:
                 # If a response_model is set, return the response as a structured output
                 if self.response_model is not None and self.parse_response:
                     # Set show_tool_calls=False if we have response_model
                     self.show_tool_calls = False
-                    get_logger().debug("Setting show_tool_calls=False as response_model is set")
+                    logger.debug("Setting show_tool_calls=False as response_model is set")
 
                     # Set stream=False and run the agent
-                    get_logger().debug("Setting stream=False as response_model is set")
+                    logger.debug("Setting stream=False as response_model is set")
                     run_response = await self._arun(
                         message=message,
                         stream=False,
@@ -1310,11 +1313,11 @@ class Agent:
                                     self.run_response.content = structured_output
                                     self.run_response.content_type = self.response_model.__name__
                             else:
-                                get_logger().warning("Failed to convert response to response_model")
+                                logger.warning("Failed to convert response to response_model")
                         except Exception as e:
-                            get_logger().warning(f"Failed to convert response to output model: {e}")
+                            logger.warning(f"Failed to convert response to output model: {e}")
                     else:
-                        get_logger().warning("Something went wrong. Run response content is not a string")
+                        logger.warning("Something went wrong. Run response content is not a string")
                     return run_response
                 else:
                     if stream and self.is_streamable:
@@ -1342,7 +1345,7 @@ class Agent:
                         )
                         return await resp.__anext__()
             except ModelProviderError as e:
-                get_logger().warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
+                logger.warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 if isinstance(e, StopAgentRun):
                     raise e
                 last_exception = e
@@ -1366,7 +1369,7 @@ class Agent:
 
         # If we get here, all retries failed
         if last_exception is not None:
-            get_logger().error(
+            logger.error(
                 f"Failed after {num_attempts} attempts. Last error using {last_exception.model_name}({last_exception.model_id})"
             )
             raise last_exception
@@ -1437,12 +1440,13 @@ class Agent:
         return agent_tools
 
     def add_tools_to_model(self, model: Model) -> None:
+        logger = get_logger()
         # Skip if functions_for_model is not None
         if self._functions_for_model is None or self._tools_for_model is None:
             # Get Agent tools
             agent_tools = self.get_tools()
             if agent_tools is not None and len(agent_tools) > 0:
-                get_logger().debug("Processing tools for model")
+                logger.debug("Processing tools for model")
                 # Check if we need strict mode for the model
                 strict = False
                 if self.response_model is not None and self.structured_outputs and model.supports_structured_outputs:
@@ -1463,7 +1467,7 @@ class Agent:
                                     func.strict = True
                                 self._functions_for_model[name] = func
                                 self._tools_for_model.append({"type": "function", "function": func.to_dict()})
-                                get_logger().debug(f"Included function {name} from {tool.name}")
+                                logger.debug(f"Included function {name} from {tool.name}")
 
                     elif isinstance(tool, Function):
                         if tool.name not in self._functions_for_model:
@@ -1473,7 +1477,7 @@ class Agent:
                                 tool.strict = True
                             self._functions_for_model[tool.name] = tool
                             self._tools_for_model.append({"type": "function", "function": tool.to_dict()})
-                            get_logger().debug(f"Included function {tool.name}")
+                            logger.debug(f"Included function {tool.name}")
 
                     elif callable(tool):
                         try:
@@ -1485,9 +1489,9 @@ class Agent:
                                     func.strict = True
                                 self._functions_for_model[func.name] = func
                                 self._tools_for_model.append({"type": "function", "function": func.to_dict()})
-                                get_logger().debug(f"Included function {func.name}")
+                                logger.debug(f"Included function {func.name}")
                         except Exception as e:
-                            get_logger().warning(f"Could not add function {tool}: {e}")
+                            logger.warning(f"Could not add function {tool}: {e}")
 
                 # Set tools on the model
                 model.set_tools(tools=self._tools_for_model)
@@ -1495,13 +1499,14 @@ class Agent:
                 model.set_functions(functions=self._functions_for_model)
 
     def update_model(self) -> None:
+        logger = get_logger()
         # Use the default Model (OpenAIChat) if no model is provided
         if self.model is None:
             try:
                 from agno.models.openai import OpenAIChat
             except ModuleNotFoundError as e:
-                get_logger().exception(e)
-                get_logger().error(
+                logger.exception(e)
+                logger.error(
                     "Agno agents use `openai` as the default model provider. "
                     "Please provide a `model` or install `openai`."
                 )
@@ -1512,7 +1517,7 @@ class Agent:
         if self.response_model is not None:
             # This will pass the pydantic model to the model
             if self.structured_outputs and self.model.supports_structured_outputs:
-                get_logger().debug("Setting Model.response_format to Agent.response_model")
+                logger.debug("Setting Model.response_format to Agent.response_model")
                 self.model.response_format = self.response_model
                 self.model.structured_outputs = True
             else:
@@ -1620,6 +1625,7 @@ class Agent:
         from agno.memory.memory import Memory
         from agno.memory.summary import SessionSummary
         from agno.utils.merge_dict import merge_dictionaries
+        logger = get_logger()
 
         # Get the agent_id, user_id and session_id from the database
         if self.agent_id is None and session.agent_id is not None:
@@ -1707,25 +1713,25 @@ class Agent:
                     try:
                         self.memory.runs = [AgentRun(**m) for m in session.memory["runs"]]
                     except Exception as e:
-                        get_logger().warning(f"Failed to load runs from memory: {e}")
+                        logger.warning(f"Failed to load runs from memory: {e}")
                 if "messages" in session.memory:
                     try:
                         self.memory.messages = [Message(**m) for m in session.memory["messages"]]
                     except Exception as e:
-                        get_logger().warning(f"Failed to load messages from memory: {e}")
+                        logger.warning(f"Failed to load messages from memory: {e}")
                 if "summary" in session.memory:
                     try:
                         self.memory.summary = SessionSummary(**session.memory["summary"])
                     except Exception as e:
-                        get_logger().warning(f"Failed to load session summary from memory: {e}")
+                        logger.warning(f"Failed to load session summary from memory: {e}")
                 if "memories" in session.memory:
                     try:
                         self.memory.memories = [Memory(**m) for m in session.memory["memories"]]
                     except Exception as e:
-                        get_logger().warning(f"Failed to load user memories: {e}")
+                        logger.warning(f"Failed to load user memories: {e}")
             except Exception as e:
-                get_logger().warning(f"Failed to load AgentMemory: {e}")
-        get_logger().debug(f"-*- AgentSession loaded: {session.session_id}")
+                logger.warning(f"Failed to load AgentMemory: {e}")
+        logger.debug(f"-*- AgentSession loaded: {session.session_id}")
 
     def read_from_storage(self) -> Optional[AgentSession]:
         """Load the AgentSession from storage
@@ -2217,6 +2223,7 @@ class Agent:
             message=message, audio=audio, images=images, videos=videos, messages=messages, **kwargs
         )
         """
+        logger = get_logger()
         # Initialize the RunMessages object
         run_messages = RunMessages()
         self.memory = cast(AgentMemory, self.memory)
@@ -2246,10 +2253,10 @@ class Agent:
                         run_messages.messages.append(_m_parsed)
                         run_messages.extra_messages.append(_m_parsed)
                     except Exception as e:
-                        get_logger().warning(f"Failed to validate message: {e}")
+                        logger.warning(f"Failed to validate message: {e}")
             # Add the extra messages to the run_response
             if len(messages_to_add_to_run_response) > 0:
-                get_logger().debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
+                logger.debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
                 if self.run_response.extra_data is None:
                     self.run_response.extra_data = RunResponseExtraData(add_messages=messages_to_add_to_run_response)
                 else:
@@ -2273,7 +2280,7 @@ class Agent:
                 for _msg in history_copy:
                     _msg.from_history = True
 
-                get_logger().debug(f"Adding {len(history_copy)} messages from history")
+                logger.debug(f"Adding {len(history_copy)} messages from history")
 
                 if self.run_response.extra_data is None:
                     self.run_response.extra_data = RunResponseExtraData(history=history_copy)
@@ -2297,7 +2304,7 @@ class Agent:
             try:
                 user_message = Message.model_validate(message)
             except Exception as e:
-                get_logger().warning(f"Failed to validate message: {e}")
+                logger.warning(f"Failed to validate message: {e}")
         # Add user message to run_messages
         if user_message is not None:
             run_messages.user_message = user_message
@@ -2318,7 +2325,7 @@ class Agent:
                             run_messages.extra_messages = []
                         run_messages.extra_messages.append(Message.model_validate(_m))
                     except Exception as e:
-                        get_logger().warning(f"Failed to validate message: {e}")
+                        logger.warning(f"Failed to validate message: {e}")
 
         return run_messages
 
@@ -2356,6 +2363,7 @@ class Agent:
     def _deep_copy_field(self, field_name: str, field_value: Any) -> Any:
         """Helper method to deep copy a field based on its type."""
         from copy import copy, deepcopy
+        logger = get_logger()
 
         # For memory and reasoning_agent, use their deep_copy methods
         if field_name in ("memory", "reasoning_agent"):
@@ -2366,11 +2374,11 @@ class Agent:
             try:
                 return deepcopy(field_value)
             except Exception as e:
-                get_logger().warning(f"Failed to deepcopy field: {field_name} - {e}")
+                logger.warning(f"Failed to deepcopy field: {field_name} - {e}")
                 try:
                     return copy(field_value)
                 except Exception as e:
-                    get_logger().warning(f"Failed to copy field: {field_name} - {e}")
+                    logger.warning(f"Failed to copy field: {field_name} - {e}")
                     return field_value
 
         # For compound types, attempt a deep copy
@@ -2378,11 +2386,11 @@ class Agent:
             try:
                 return deepcopy(field_value)
             except Exception as e:
-                get_logger().warning(f"Failed to deepcopy field: {field_name} - {e}")
+                logger.warning(f"Failed to deepcopy field: {field_name} - {e}")
                 try:
                     return copy(field_value)
                 except Exception as e:
-                    get_logger().warning(f"Failed to copy field: {field_name} - {e}")
+                    logger.warning(f"Failed to copy field: {field_name} - {e}")
                     return field_value
 
         # For pydantic models, attempt a model_copy
@@ -2390,11 +2398,11 @@ class Agent:
             try:
                 return field_value.model_copy(deep=True)
             except Exception as e:
-                get_logger().warning(f"Failed to deepcopy field: {field_name} - {e}")
+                logger.warning(f"Failed to deepcopy field: {field_name} - {e}")
                 try:
                     return field_value.model_copy(deep=False)
                 except Exception as e:
-                    get_logger().warning(f"Failed to copy field: {field_name} - {e}")
+                    logger.warning(f"Failed to copy field: {field_name} - {e}")
                     return field_value
 
         # For other types, attempt a shallow copy first
@@ -2803,6 +2811,7 @@ class Agent:
     ###########################################################################
 
     def reason(self, run_messages: RunMessages) -> Iterator[RunResponse]:
+        logger = get_logger()
         # Yield a reasoning started event
         if self.stream_intermediate_steps:
             yield self.create_run_response(content="Reasoning started", event=RunEvent.reasoning_started)
@@ -2813,7 +2822,7 @@ class Agent:
         if reasoning_model is None and self.model is not None:
             reasoning_model = self.model.__class__(id=self.model.id)
         if reasoning_model is None:
-            get_logger().warning("Reasoning error. Reasoning model is None, continuing regular session...")
+            logger.warning("Reasoning error. Reasoning model is None, continuing regular session...")
             return
 
         # If a reasoning model is provided, use it to generate reasoning
@@ -2829,7 +2838,7 @@ class Agent:
                     reasoning_agent=ds_reasoning_agent, messages=run_messages.get_input_messages()
                 )
                 if ds_reasoning_message is None:
-                    get_logger().warning("Reasoning error. Reasoning response is None, continuing regular session...")
+                    logger.warning("Reasoning error. Reasoning response is None, continuing regular session...")
                     return
                 run_messages.messages.append(ds_reasoning_message)
                 # Add reasoning step to the Agent's run_response
@@ -2848,7 +2857,7 @@ class Agent:
                     reasoning_agent=groq_reasoning_agent, messages=run_messages.get_input_messages()
                 )
                 if groq_reasoning_message is None:
-                    get_logger().warning("Reasoning error. Reasoning response is None, continuing regular session...")
+                    logger.warning("Reasoning error. Reasoning response is None, continuing regular session...")
                     return
                 run_messages.messages.append(groq_reasoning_message)
                 # Add reasoning step to the Agent's run_response
@@ -2867,7 +2876,7 @@ class Agent:
                     reasoning_agent=openai_reasoning_agent, messages=run_messages.get_input_messages()
                 )
                 if openai_reasoning_message is None:
-                    get_logger().warning("Reasoning error. Reasoning response is None, continuing regular session...")
+                    logger.warning("Reasoning error. Reasoning response is None, continuing regular session...")
                     return
                 run_messages.messages.append(openai_reasoning_message)
                 # Add reasoning step to the Agent's run_response
@@ -2876,7 +2885,7 @@ class Agent:
                     reasoning_agent_messages=[openai_reasoning_message],
                 )
             else:
-                get_logger().info(
+                logger.info(
                     f"Reasoning model: {reasoning_model.__class__.__name__} is not a native reasoning model, adding manual CoT"
                 )
         # If no reasoning model is provided, use the default reasoning approach
@@ -2900,12 +2909,12 @@ class Agent:
 
             # Validate reasoning agent
             if reasoning_agent is None:
-                get_logger().warning("Reasoning error. Reasoning agent is None, continuing regular session...")
+                logger.warning("Reasoning error. Reasoning agent is None, continuing regular session...")
                 return
             # Ensure the reasoning agent response model is ReasoningSteps
             if reasoning_agent.response_model is not None and not isinstance(reasoning_agent.response_model, type):
                 if not issubclass(reasoning_agent.response_model, ReasoningSteps):
-                    get_logger().warning(
+                    logger.warning(
                         "Reasoning agent response model should be `ReasoningSteps`, continuing regular session..."
                     )
                 return
@@ -2917,9 +2926,9 @@ class Agent:
             next_action = NextAction.CONTINUE
             reasoning_messages: List[Message] = []
             all_reasoning_steps: List[ReasoningStep] = []
-            get_logger().debug("==== Starting Reasoning ====")
+            logger.debug("==== Starting Reasoning ====")
             while next_action == NextAction.CONTINUE and step_count < self.reasoning_max_steps:
-                get_logger().debug(f"==== Step {step_count} ====")
+                logger.debug(f"==== Step {step_count} ====")
                 step_count += 1
                 try:
                     # Run the reasoning agent
@@ -2927,11 +2936,11 @@ class Agent:
                         messages=run_messages.get_input_messages()
                     )
                     if reasoning_agent_response.content is None or reasoning_agent_response.messages is None:
-                        get_logger().warning("Reasoning error. Reasoning response is empty, continuing regular session...")
+                        logger.warning("Reasoning error. Reasoning response is empty, continuing regular session...")
                         break
 
                     if reasoning_agent_response.content.reasoning_steps is None:
-                        get_logger().warning("Reasoning error. Reasoning steps are empty, continuing regular session...")
+                        logger.warning("Reasoning error. Reasoning steps are empty, continuing regular session...")
                         break
 
                     reasoning_steps: List[ReasoningStep] = reasoning_agent_response.content.reasoning_steps
@@ -2963,11 +2972,11 @@ class Agent:
                     if next_action == NextAction.FINAL_ANSWER:
                         break
                 except Exception as e:
-                    get_logger().error(f"Reasoning error: {e}")
+                    logger.error(f"Reasoning error: {e}")
                     break
 
-            get_logger().debug(f"Total Reasoning steps: {len(all_reasoning_steps)}")
-            get_logger().debug("==== Reasoning finished====")
+            logger.debug(f"Total Reasoning steps: {len(all_reasoning_steps)}")
+            logger.debug("==== Reasoning finished====")
 
             # Update the messages_for_model to include reasoning messages
             update_messages_with_reasoning(
@@ -2984,6 +2993,7 @@ class Agent:
             )
 
     async def areason(self, run_messages: RunMessages) -> Any:
+        logger = get_logger()
         # Yield a reasoning started event
         if self.stream_intermediate_steps:
             yield self.create_run_response(content="Reasoning started", event=RunEvent.reasoning_started)
@@ -2994,7 +3004,7 @@ class Agent:
         if reasoning_model is None and self.model is not None:
             reasoning_model = self.model.__class__(id=self.model.id)
         if reasoning_model is None:
-            get_logger().warning("Reasoning error. Reasoning model is None, continuing regular session...")
+            logger.warning("Reasoning error. Reasoning model is None, continuing regular session...")
             return
 
         # If a reasoning model is provided, use it to generate reasoning
@@ -3010,7 +3020,7 @@ class Agent:
                     reasoning_agent=ds_reasoning_agent, messages=run_messages.get_input_messages()
                 )
                 if ds_reasoning_message is None:
-                    get_logger().warning("Reasoning error. Reasoning response is None, continuing regular session...")
+                    logger.warning("Reasoning error. Reasoning response is None, continuing regular session...")
                     return
                 run_messages.messages.append(ds_reasoning_message)
                 # Add reasoning step to the Agent's run_response
@@ -3029,7 +3039,7 @@ class Agent:
                     reasoning_agent=groq_reasoning_agent, messages=run_messages.get_input_messages()
                 )
                 if groq_reasoning_message is None:
-                    get_logger().warning("Reasoning error. Reasoning response is None, continuing regular session...")
+                    logger.warning("Reasoning error. Reasoning response is None, continuing regular session...")
                     return
                 run_messages.messages.append(groq_reasoning_message)
                 # Add reasoning step to the Agent's run_response
@@ -3048,7 +3058,7 @@ class Agent:
                     reasoning_agent=openai_reasoning_agent, messages=run_messages.get_input_messages()
                 )
                 if openai_reasoning_message is None:
-                    get_logger().warning("Reasoning error. Reasoning response is None, continuing regular session...")
+                    logger.warning("Reasoning error. Reasoning response is None, continuing regular session...")
                     return
                 run_messages.messages.append(openai_reasoning_message)
                 # Add reasoning step to the Agent's run_response
@@ -3057,7 +3067,7 @@ class Agent:
                     reasoning_agent_messages=[openai_reasoning_message],
                 )
             else:
-                get_logger().info(
+                logger.info(
                     f"Reasoning model: {reasoning_model.__class__.__name__} is not a native reasoning model, adding manual CoT"
                 )
         # If no reasoning model is provided, use the default reasoning approach
@@ -3079,12 +3089,12 @@ class Agent:
 
             # Validate reasoning agent
             if reasoning_agent is None:
-                get_logger().warning("Reasoning error. Reasoning agent is None, continuing regular session...")
+                logger.warning("Reasoning error. Reasoning agent is None, continuing regular session...")
                 return
             # Ensure the reasoning agent response model is ReasoningSteps
             if reasoning_agent.response_model is not None and not isinstance(reasoning_agent.response_model, type):
                 if not issubclass(reasoning_agent.response_model, ReasoningSteps):
-                    get_logger().warning(
+                    logger.warning(
                         "Reasoning agent response model should be `ReasoningSteps`, continuing regular session..."
                     )
                 return
@@ -3096,9 +3106,9 @@ class Agent:
             next_action = NextAction.CONTINUE
             reasoning_messages: List[Message] = []
             all_reasoning_steps: List[ReasoningStep] = []
-            get_logger().debug("==== Starting Reasoning ====")
+            logger.debug("==== Starting Reasoning ====")
             while next_action == NextAction.CONTINUE and step_count < self.reasoning_max_steps:
-                get_logger().debug(f"==== Step {step_count} ====")
+                logger.debug(f"==== Step {step_count} ====")
                 step_count += 1
                 try:
                     # Run the reasoning agent
@@ -3106,11 +3116,11 @@ class Agent:
                         messages=run_messages.get_input_messages()
                     )
                     if reasoning_agent_response.content is None or reasoning_agent_response.messages is None:
-                        get_logger().warning("Reasoning error. Reasoning response is empty, continuing regular session...")
+                        logger.warning("Reasoning error. Reasoning response is empty, continuing regular session...")
                         break
 
                     if reasoning_agent_response.content.reasoning_steps is None:
-                        get_logger().warning("Reasoning error. Reasoning steps are empty, continuing regular session...")
+                        logger.warning("Reasoning error. Reasoning steps are empty, continuing regular session...")
                         break
 
                     reasoning_steps: List[ReasoningStep] = reasoning_agent_response.content.reasoning_steps
@@ -3142,11 +3152,11 @@ class Agent:
                     if next_action == NextAction.FINAL_ANSWER:
                         break
                 except Exception as e:
-                    get_logger().error(f"Reasoning error: {e}")
+                    logger.error(f"Reasoning error: {e}")
                     break
 
-            get_logger().debug(f"Total Reasoning steps: {len(all_reasoning_steps)}")
-            get_logger().debug("==== Reasoning finished====")
+            logger.debug(f"Total Reasoning steps: {len(all_reasoning_steps)}")
+            logger.debug("==== Reasoning finished====")
 
             # Update the messages_for_model to include reasoning messages
             update_messages_with_reasoning(

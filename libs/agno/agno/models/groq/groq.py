@@ -236,11 +236,10 @@ class Groq(Model):
 
         if message.audio is not None and len(message.audio) > 0:
             try:
-                transcription_result: Any = self.transcribe_audio(
+                transcription_result = self.transcribe_audio(
                     message.audio, model="whisper-large-v3-turbo", response_format="text"
                 )
 
-                # If there's existing content, append the transcription
                 message_dict["content"] = f"Audio Transcription: {transcription_result}"
             except Exception as e:
                 logger.error(f"Error transcribing audio: {str(e)}")

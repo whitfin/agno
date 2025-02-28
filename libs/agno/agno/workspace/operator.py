@@ -33,10 +33,15 @@ TEMPLATE_TO_REPO_MAP: Dict[WorkspaceStarterTemplate, str] = {
     WorkspaceStarterTemplate.agent_app: "https://github.com/agno-agi/agent-app.git",
     WorkspaceStarterTemplate.agent_api: "https://github.com/agno-agi/agent-api.git",
 }
+# Default branches to use for each template
+TEMPLATE_TO_BRANCH_MAP: Dict[WorkspaceStarterTemplate, str] = {
+    WorkspaceStarterTemplate.agent_app: "main",
+    WorkspaceStarterTemplate.agent_api: "main",
+}
 
 
 def create_workspace(
-    name: Optional[str] = None, template: Optional[str] = None, url: Optional[str] = None
+    name: Optional[str] = None, template: Optional[str] = None, url: Optional[str] = None, branch: Optional[str] = None
 ) -> Optional[WorkspaceConfig]:
     """Creates a new workspace and returns the WorkspaceConfig.
 
@@ -65,6 +70,7 @@ def create_workspace(
 
     ws_dir_name: Optional[str] = name
     repo_to_clone: Optional[str] = url
+    branch_to_checkout: Optional[str] = branch
     ws_template = WorkspaceStarterTemplate.agent_app
     templates = list(WorkspaceStarterTemplate.__members__.values())
 
@@ -93,6 +99,10 @@ def create_workspace(
 
         logger.debug(f"Selected Template: {ws_template.value}")
         repo_to_clone = TEMPLATE_TO_REPO_MAP.get(ws_template)
+
+        # Set default branch if not specified
+        if branch_to_checkout is None:
+            branch_to_checkout = TEMPLATE_TO_BRANCH_MAP.get(ws_template)
 
     if ws_dir_name is None:
         default_ws_name = "agent-app"
@@ -127,6 +137,12 @@ def create_workspace(
             str(ws_root_path),
             progress=GitCloneProgress(),  # type: ignore
         )
+
+        # Checkout specific branch if specified
+        if branch_to_checkout:
+            logger.debug(f"Checking out branch: {branch_to_checkout}")
+            _cloned_git_repo.git.checkout(branch_to_checkout)
+
     except Exception as e:
         logger.error(e)
         return None

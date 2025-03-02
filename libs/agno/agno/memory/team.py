@@ -81,13 +81,13 @@ class TeamMemory:
         else:
             self.team_context = TeamContext(text=text)
 
-    def get_team_context_str(self) -> str:
+    def get_team_context_str(self, include_member_interactions: bool = False) -> str:
         team_context_str = ""
         if self.team_context:
             if self.team_context.text:
                 team_context_str += f"<team context>\n{self.team_context.text}\n</team context>\n"
 
-            if self.team_context.member_interactions:
+            if include_member_interactions and self.team_context.member_interactions:
                 team_context_str += "<member interactions>\n"
                 for interaction in self.team_context.member_interactions:
                     response_dict = interaction.response.to_dict()

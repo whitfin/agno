@@ -21,7 +21,7 @@ class TeamRun:
     def to_dict(self) -> Dict[str, Any]:
         response = {
             "message": self.message.to_dict() if self.message else None,
-            "member_runs": [run.to_dict() for run in self.member_runs] if self.member_runs else None,
+            "member_responses": [run.to_dict() for run in self.member_runs] if self.member_runs else None,
             "response": self.response.to_dict() if self.response else None,
         }
         return {k: v for k, v in response.items() if v is not None}
@@ -98,7 +98,7 @@ class TeamMemory:
                     team_context_str += "\n"
                 team_context_str += "</member interactions>\n"
         return team_context_str
-    
+
     def get_team_context_images(self) -> List[ImageArtifact]:
         images = []
         if self.team_context and self.team_context.member_interactions:
@@ -106,7 +106,7 @@ class TeamMemory:
                 if interaction.response.images:
                     images.extend(interaction.response.images)
         return images
-    
+
     def get_team_context_videos(self) -> List[VideoArtifact]:
         videos = []
         if self.team_context and self.team_context.member_interactions:
@@ -114,7 +114,7 @@ class TeamMemory:
                 if interaction.response.videos:
                     videos.extend(interaction.response.videos)
         return videos
-    
+
     def get_team_context_audio(self) -> List[AudioArtifact]:
         audio = []
         if self.team_context and self.team_context.member_interactions:

@@ -1240,7 +1240,7 @@ class Agent:
         # Log Agent Run
         await self.alog_agent_run()
 
-        get_logger().debug(f"*********** Agent Run End: {self.run_response.run_id} ***********")
+        get_logger().debug(f" Agent Run End: {self.run_response.run_id} ", center=True, symbol="*")
         if self.stream_intermediate_steps:
             yield self.create_run_response(
                 content=self.run_response.content,

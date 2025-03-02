@@ -22,7 +22,7 @@ class TeamRunResponse:
     metrics: Optional[Dict[str, Any]] = None
     model: Optional[str] = None
 
-    member_runs: List[RunResponse] = field(default_factory=list)
+    member_responses: List[RunResponse] = field(default_factory=list)
 
     run_id: Optional[str] = None
     team_id: Optional[str] = None
@@ -87,7 +87,7 @@ class TeamRunResponse:
             return json.dumps(self.content, **kwargs)
 
     def add_member_run(self, run_response: RunResponse) -> None:
-        self.member_runs.append(run_response)
+        self.member_responses.append(run_response)
         if run_response.images is not None:
             if self.images is None:
                 self.images = []

@@ -32,25 +32,25 @@ player_2 = Agent(
 
 agent_team = Team(
     name="Tic Tac Toe Team",
-    mode="collaborative",
+    mode="coordinator",
     model=OpenAIChat("gpt-4o"),
     members=[player_1, player_2],
     instructions=[
         "You are a games master.",
         "You have to stop the game when one of the players has won.",
         "Initialize the board state as empty.",
-        "Store the board state between runs.",
+        "Store the board state between turns of the members.",
         "Show the updated board state in your response each time."
     ],
     send_team_context_to_members=True,
     update_team_context=True,
     show_tool_calls=True,
     markdown=True,
-    verbose=True,
+    show_members_responses=True,
 )
 
 agent_team.print_response(
-    message="Play Tic Tac Toe",
+    message="Start the Tic Tac Toe game",
     stream=True,
     stream_intermediate_steps=True,
 )

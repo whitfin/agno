@@ -65,6 +65,6 @@ editor = Team(
     send_team_context_to_members=True,
     markdown=True,
     debug_mode=True,
-    verbose=True,
+    show_members_responses=True,
 )
 editor.print_response("Write an article about latest developments in AI.")

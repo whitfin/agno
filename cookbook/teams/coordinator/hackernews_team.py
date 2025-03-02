@@ -58,7 +58,7 @@ hn_team = Team(
     show_tool_calls=True,
     markdown=True,
     debug_mode=True,
-    verbose=True,
+    show_members_responses=True,
 )
 
 hn_team.print_response(

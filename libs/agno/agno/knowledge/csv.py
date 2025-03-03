@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import AsyncIterator, Iterator, List, Optional, Union
+from typing import AsyncIterator, Iterator, List, Union
 
 from pydantic import Field
 

@@ -3,9 +3,10 @@ import csv
 import io
 import os
 from pathlib import Path
-from time import sleep
 from typing import IO, Any, List, Union
 from urllib.parse import urlparse
+
+from agno.utils.http import async_fetch_with_retry, fetch_with_retry
 
 try:
     import aiofiles
@@ -141,30 +142,9 @@ class CSVUrlReader(Reader):
         if not url:
             raise ValueError("No URL provided")
 
-        try:
-            import httpx
-        except ImportError:
-            raise ImportError("`httpx` not installed")
-
         logger.info(f"Reading: {url}")
         # Retry the request up to 3 times with exponential backoff
-        for attempt in range(3):
-            try:
-                response = httpx.get(url)
-                break
-            except httpx.RequestError as e:
-                if attempt == 2:  # Last attempt
-                    logger.error(f"Failed to fetch CSV after 3 attempts: {e}")
-                    raise
-                wait_time = 2**attempt  # Exponential backoff: 1, 2, 4 seconds
-                logger.warning(f"Request failed, retrying in {wait_time} seconds...")
-                sleep(wait_time)
-
-        try:
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
-            raise
+        response = fetch_with_retry(url)
 
         parsed_url = urlparse(url)
         filename = os.path.basename(parsed_url.path) or "data.csv"
@@ -189,26 +169,8 @@ class CSVUrlReader(Reader):
 
         logger.info(f"Reading async: {url}")
 
-        async def _fetch_with_retry(client: httpx.AsyncClient) -> httpx.Response:
-            # Retry the request up to 3 times with exponential backoff
-            for attempt in range(3):
-                try:
-                    response = await client.get(url)
-                    response.raise_for_status()
-                    return response
-                except httpx.RequestError as e:
-                    if attempt == 2:  # Last attempt
-                        logger.error(f"Failed to fetch CSV after 3 attempts: {e}")
-                        raise
-                    wait_time = 2**attempt  # Exponential backoff: 1, 2, 4 seconds
-                    logger.warning(f"Request failed, retrying in {wait_time} seconds...")
-                    await asyncio.sleep(wait_time)
-                except httpx.HTTPStatusError as e:
-                    logger.error(f"HTTP error occurred: {e.response.status_code} - {e.response.text}")
-                    raise
-
         async with httpx.AsyncClient() as client:
-            response = await _fetch_with_retry(client)
+            response = async_fetch_with_retry(url, client=client)
 
             parsed_url = urlparse(url)
             filename = os.path.basename(parsed_url.path) or "data.csv"

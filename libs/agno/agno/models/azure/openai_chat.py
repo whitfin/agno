@@ -62,6 +62,7 @@ class AzureOpenAI(OpenAILike):
             "organization": self.organization,
             "azure_endpoint": self.azure_endpoint,
             "azure_deployment": self.azure_deployment,
+            "base_url": self.base_url,
             "azure_ad_token": self.azure_ad_token,
             "azure_ad_token_provider": self.azure_ad_token_provider,
             "http_client": self.http_client,

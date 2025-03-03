@@ -125,16 +125,8 @@ class CSVReader(Reader):
                     *[_process_page(page_number, page) for page_number, page in enumerate(pages, start=1)]
                 )
 
-            # Apply chunking if needed
             if self.chunk:
-
-                async def _chunk_document(doc: Document) -> List[Document]:
-                    return await asyncio.to_thread(self.chunk_document, doc)
-
-                # Process chunks in parallel
-                chunked_lists = await asyncio.gather(*[_chunk_document(doc) for doc in documents])
-                # Flatten the list of lists
-                return [doc for sublist in chunked_lists for doc in sublist]
+                documents = await self.chunk_documents_async(documents)
 
             return documents
         except Exception as e:

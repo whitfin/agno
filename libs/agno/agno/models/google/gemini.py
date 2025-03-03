@@ -148,13 +148,6 @@ def _format_function_definitions(tools_list):
 
 
 @dataclass
-class GeminiResponseUsage:
-    input_tokens: int = 0
-    output_tokens: int = 0
-    total_tokens: int = 0
-
-
-@dataclass
 class Gemini(Model):
     """
     Gemini model class for Google's Generative AI models.
@@ -173,8 +166,6 @@ class Gemini(Model):
     provider: str = "Google"
 
     supports_structured_outputs: bool = True
-
-    assistant_message_role: str = "model"
 
     # Request parameters
     function_declarations: Optional[List[Any]] = None
@@ -207,6 +198,14 @@ class Gemini(Model):
 
     # Gemini client
     client: Optional[GeminiClient] = None
+
+    # The role to map the message role to.
+    role_map = {
+        "system": "system",
+        "user": "user",
+        "model": "assistant",
+        "tool": "tool",
+    }
 
     def get_client(self) -> GeminiClient:
         """
@@ -437,6 +436,8 @@ class Gemini(Model):
                 system_message = message.content
                 continue
 
+            role = "model" if role == "assistant" else role
+
             # Add content to the message for the model
             content = message.content
             # Initialize message_parts to be used for Gemini
@@ -642,7 +643,8 @@ class Gemini(Model):
                 combined_content.append(result.content)
                 combined_function_result.append({"tool_name": result.tool_name, "content": result.content})
 
-        messages.append(Message(role="tool", content=combined_content, tool_calls=combined_function_result))
+        if combined_content:
+            messages.append(Message(role="tool", content=combined_content, tool_calls=combined_function_result))
 
     def parse_provider_response(self, response: GenerateContentResponse) -> ModelResponse:
         """
@@ -662,7 +664,7 @@ class Gemini(Model):
 
             # Add role
             if response_message.role is not None:
-                model_response.role = response_message.role
+                model_response.role = self.role_map[response_message.role]
 
             # Add content
             if response_message.parts is not None:
@@ -688,11 +690,11 @@ class Gemini(Model):
         # Extract usage metadata if present
         if hasattr(response, "usage_metadata") and response.usage_metadata is not None:
             usage: GenerateContentResponseUsageMetadata = response.usage_metadata
-            model_response.response_usage = GeminiResponseUsage(
-                input_tokens=usage.prompt_token_count or 0,
-                output_tokens=usage.candidates_token_count or 0,
-                total_tokens=usage.total_token_count or 0,
-            )
+            model_response.response_usage = {
+                "input_tokens": usage.prompt_token_count or 0,
+                "output_tokens": usage.candidates_token_count or 0,
+                "total_tokens": usage.total_token_count or 0,
+            }
 
         return model_response
 
@@ -700,6 +702,10 @@ class Gemini(Model):
         model_response = ModelResponse()
 
         response_message: Content = response_delta.candidates[0].content
+
+        # Add role
+        if response_message.role is not None:
+            model_response.role = self.role_map[response_message.role]
 
         if response_message.parts is not None:
             for part in response_message.parts:
@@ -724,10 +730,10 @@ class Gemini(Model):
         # Extract usage metadata if present
         if hasattr(response_delta, "usage_metadata") and response_delta.usage_metadata is not None:
             usage: GenerateContentResponseUsageMetadata = response_delta.usage_metadata
-            model_response.response_usage = GeminiResponseUsage(
-                input_tokens=usage.prompt_token_count or 0,
-                output_tokens=usage.candidates_token_count or 0,
-                total_tokens=usage.total_token_count or 0,
-            )
+            model_response.response_usage = {
+                "input_tokens": usage.prompt_token_count or 0,
+                "output_tokens": usage.candidates_token_count or 0,
+                "total_tokens": usage.total_token_count or 0,
+            }
 
         return model_response

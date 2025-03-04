@@ -1064,6 +1064,8 @@ class Model(ABC):
             assistant_message: Message to update with metrics
             response_usage: Usage data from model provider
         """
+
+        # Standard token metrics
         if isinstance(response_usage, dict):
             if "input_tokens" in response_usage:
                 assistant_message.metrics.input_tokens = response_usage.get("input_tokens", 0)

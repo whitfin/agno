@@ -751,7 +751,7 @@ class Agent:
             self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
 
         # Log Agent Run
-        self.log_agent_run()
+        self._log_agent_run()
 
         logger.debug(f" Agent Run End: {self.run_response.run_id} ", center=True, symbol="*")
         if self.stream_intermediate_steps:
@@ -1247,7 +1247,7 @@ class Agent:
             self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
 
         # Log Agent Run
-        await self.alog_agent_run()
+        await self._alog_agent_run()
 
         get_logger().debug(f" Agent Run End: {self.run_response.run_id} ", center=True, symbol="*")
         if self.stream_intermediate_steps:
@@ -1988,7 +1988,7 @@ class Agent:
         # 3.3.3 Then add the Agent role if provided
         if self.role is not None:
             system_message_content += f"<your_role>\n{self.role}\n</your_role>\n\n"
-        
+
         # 3.3.5 Then add instructions for the Agent
         if len(instructions) > 0:
             system_message_content += "<instructions>"
@@ -3194,7 +3194,7 @@ class Agent:
             create_agent_session(
                 session=AgentSessionCreate(
                     session_id=agent_session.session_id,
-                    agent_data=agent_session.monitoring_data() if self.monitoring else agent_session.telemetry_data(),
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
                 ),
                 monitor=self.monitoring,
             )
@@ -3212,7 +3212,7 @@ class Agent:
             await acreate_agent_session(
                 session=AgentSessionCreate(
                     session_id=agent_session.session_id,
-                    agent_data=agent_session.monitoring_data() if self.monitoring else agent_session.telemetry_data(),
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
                 ),
                 monitor=self.monitoring,
             )
@@ -3250,7 +3250,7 @@ class Agent:
 
         return run_data
 
-    def log_agent_run(self) -> None:
+    def _log_agent_run(self) -> None:
         self.set_monitoring()
 
         if not self.telemetry and not self.monitoring:
@@ -3267,14 +3267,14 @@ class Agent:
                     run_id=self.run_id,
                     run_data=run_data,
                     session_id=agent_session.session_id,
-                    agent_data=agent_session.monitoring_data() if self.monitoring else agent_session.telemetry_data(),
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
                 ),
                 monitor=self.monitoring,
             )
         except Exception as e:
             get_logger().debug(f"Could not create agent event: {e}")
 
-    async def alog_agent_run(self) -> None:
+    async def _alog_agent_run(self) -> None:
         self.set_monitoring()
 
         if not self.telemetry and not self.monitoring:
@@ -3291,7 +3291,7 @@ class Agent:
                     run_id=self.run_id,
                     run_data=run_data,
                     session_id=agent_session.session_id,
-                    agent_data=agent_session.monitoring_data() if self.monitoring else agent_session.telemetry_data(),
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
                 ),
                 monitor=self.monitoring,
             )

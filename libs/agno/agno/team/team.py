@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from agno.memory.team import TeamMemory, TeamRun
 from agno.run.team import TeamRunResponse
+from agno.storage.team.session import TeamSession
 from agno.tools.function import Function, get_entrypoint_docstring
 
 from agno.agent import Agent
@@ -268,7 +269,7 @@ class Team:
         self.videos: Optional[List[VideoArtifact]] = None
 
         # Team session
-        # self.team_session: Optional[TeamSession] = None
+        self.team_session: Optional[TeamSession] = None
 
         self._formatter: Optional[SafeFormatter] = None
 
@@ -640,7 +641,7 @@ class Team:
         # self.write_to_storage()
 
         # Log Team Run
-        # self._log_team_run()
+        self._log_team_run()
 
         if self.response_model is not None:
             if isinstance(run_response.content, str) and self.parse_response:
@@ -844,7 +845,7 @@ class Team:
         # self.write_to_storage()
 
         # Log Team Run
-        # self._log_team_run()
+        self._log_team_run()
 
         logger.debug(f" Team Run End: {self.run_id} ", center=True, symbol="*")
         logger.debug("")
@@ -1278,7 +1279,7 @@ class Team:
             if member.agent_id == agent_id:
                 return member.name
         return agent_id
-    
+
     def _parse_response_content(self, run_response: Union[TeamRunResponse, RunResponse], tags_to_include_in_markdown: Optional[Set[str]] = None) -> str:
         from rich.markdown import Markdown
         from rich.json import JSON
@@ -1303,7 +1304,7 @@ class Team:
                 return JSON(json.dumps(run_response.content), indent=4)
             except Exception as e:
                 get_logger().warning(f"Failed to convert response to JSON: {e}")
-    
+
     def cli_app(
         self,
         message: Optional[str] = None,
@@ -1786,7 +1787,7 @@ class Team:
                 "You can update the context of the team if you feel it is necessary.\n"
             )
 
-        
+
 
         if self.name is not None:
             system_message_content += f"Your name is: {self.name}.\n\n"
@@ -1795,7 +1796,7 @@ class Team:
             system_message_content += (
                 f"<success_criteria>\nThe team will be considered successful if the following criteria are met: {self.success_criteria}\nStop the team run when the criteria are met.\n</success_criteria>\n\n"
             )
-        
+
 
         if self.description is not None:
             system_message_content += f"<description>{self.description}</description>\n\n"
@@ -2220,7 +2221,7 @@ class Team:
 
                 # Update the team state
                 self._update_team_state(member_agent.run_response)
-            
+
             # Afterward, switch back to the team logger
             use_team_logger()
 
@@ -2308,7 +2309,7 @@ class Team:
 
                 # Update the team state
                 self._update_team_state(member_agent.run_response)
-                
+
             # Afterward, switch back to the team logger
             use_team_logger()
 
@@ -2659,48 +2660,123 @@ class Team:
     ###########################################################################
 
     # TODO: How should this work?
-    # def _log_team_run(self) -> None:
-    #     logger = get_logger()
-    #     if not self.telemetry and not self.monitoring:
-    #         return
-    #
-    #     from agno.api.agent import AgentRunCreate, create_agent_run
-    #
-    #     try:
-    #         run_data = self._create_run_data()
-    #         team_session: TeamSession = self.team_session or self.get_team_session()
-    #
-    #         create_agent_run(
-    #             run=AgentRunCreate(
-    #                 run_id=self.run_id,
-    #                 run_data=run_data,
-    #                 session_id=team_session.session_id,
-    #                 agent_data=team_session.monitoring_data() if self.monitoring else team_session.telemetry_data(),
-    #             ),
-    #             monitor=self.monitoring,
-    #         )
-    #     except Exception as e:
-    #         logger.debug(f"Could not create agent event: {e}")
-    #
-    # async def _alog_team_run(self) -> None:
-    #     logger = get_logger()
-    #     if not self.telemetry and not self.monitoring:
-    #         return
-    #
-    #     from agno.api.agent import AgentRunCreate, acreate_agent_run
-    #
-    #     try:
-    #         run_data = self._create_run_data()
-    #         team_session: TeamSession = self.team_session or self.get_team_session()
-    #
-    #         await acreate_agent_run(
-    #             run=AgentRunCreate(
-    #                 run_id=self.run_id,
-    #                 run_data=run_data,
-    #                 session_id=team_session.session_id,
-    #                 agent_data=team_session.monitoring_data() if self.monitoring else team_session.telemetry_data(),
-    #             ),
-    #             monitor=self.monitoring,
-    #         )
-    #     except Exception as e:
-    #         logger.debug(f"Could not create agent event: {e}")
+
+    def _create_run_data(self) -> Dict[str, Any]:
+        """Create and return the run data dictionary."""
+        run_response_format = "text"
+        if self.response_model is not None:
+            run_response_format = "json"
+        elif self.markdown:
+            run_response_format = "markdown"
+
+        functions = {}
+        if self.model is not None and self.model._functions is not None:
+            functions = {
+                f_name: func.to_dict() for f_name, func in self.model._functions.items() if isinstance(func, Function)
+            }
+
+        run_data: Dict[str, Any] = {
+            "functions": functions,
+            "metrics": self.run_response.metrics,
+        }
+
+        if self.monitoring:
+            run_data.update(
+                {
+                    "run_input": self.run_input,
+                    "run_response": self.run_response.to_dict(),
+                    "run_response_format": run_response_format,
+                }
+            )
+
+        return run_data
+
+    def _get_team_data(self) -> Dict[str, Any]:
+        team_data: Dict[str, Any] = {}
+        if self.name is not None:
+            team_data["name"] = self.name
+        if self.team_id is not None:
+            team_data["team_id"] = self.team_id
+        if self.members is not None:
+            team_data["member_ids"] = [member.agent_id for member in self.members]
+        if self.model is not None:
+            team_data["model"] = self.model.to_dict()
+        return team_data
+
+    def _get_session_data(self) -> Dict[str, Any]:
+        session_data: Dict[str, Any] = {}
+        if self.session_name is not None:
+            session_data["session_name"] = self.session_name
+        if self.session_state is not None and len(self.session_state) > 0:
+            session_data["session_state"] = self.session_state
+        if self.session_metrics is not None:
+            session_data["session_metrics"] = asdict(self.session_metrics) if self.session_metrics is not None else None
+        if self.images is not None:
+            session_data["images"] = [img.model_dump() for img in self.images]  # type: ignore
+        if self.videos is not None:
+            session_data["videos"] = [vid.model_dump() for vid in self.videos]  # type: ignore
+        if self.audio is not None:
+            session_data["audio"] = [aud.model_dump() for aud in self.audio]  # type: ignore
+        return session_data
+
+    def _get_team_session(self) -> TeamSession:
+        from time import time
+
+        """Get an TeamSession object, which can be saved to the database"""
+        return TeamSession(
+            session_id=self.session_id,
+            team_id=self.team_id,
+            member_ids=[member.agent_id for member in self.members],
+            user_id=self.user_id,
+            memory=self.memory.to_dict() if self.memory is not None else None,
+            team_data=self._get_team_data(),
+            session_data=self._get_session_data(),
+            extra_data=self.extra_data,
+            created_at=int(time()),
+        )
+
+    def _log_team_run(self) -> None:
+        logger = get_logger()
+        if not self.telemetry and not self.monitoring:
+            return
+
+        from agno.api.team import TeamRunCreate, create_team_run
+
+        try:
+            run_data = self._create_run_data()
+            team_session: TeamSession = self.team_session or self._get_team_session()
+
+            create_team_run(
+                run=TeamRunCreate(
+                    run_id=self.run_id,
+                    run_data=run_data,
+                    session_id=team_session.session_id,
+                    team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            logger.debug(f"Could not create team event: {e}")
+
+    async def _alog_team_run(self) -> None:
+        logger = get_logger()
+        if not self.telemetry and not self.monitoring:
+            return
+
+        from agno.api.team import TeamRunCreate, acreate_team_run
+
+        try:
+            run_data = self._create_run_data()
+            team_session: TeamSession = self.team_session or self._get_team_session()
+
+            await acreate_team_run(
+                run=TeamRunCreate(
+                    run_id=self.run_id,
+                    run_data=run_data,
+                    session_id=team_session.session_id,
+                    team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            logger.debug(f"Could not create team event: {e}")

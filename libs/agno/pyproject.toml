@@ -83,9 +83,7 @@ singlestore = ["sqlalchemy"]
 # Dependencies for Knowledge
 pdf = ["pypdf", "rapidocr_onnxruntime"]
 docx = ["python-docx"]
-
-# Dependencies for reader
-csv_async = ["aiofiles"]
+csv = ["aiofiles"]
 
 # Dependencies for Performance
 performance = ["memory_profiler"]
@@ -150,6 +148,7 @@ vectordbs = [
 knowledge = [
   "agno[pdf]",
   "agno[docx]",
+  "agno[csv]"
 ]
 
 # All libraries for testing

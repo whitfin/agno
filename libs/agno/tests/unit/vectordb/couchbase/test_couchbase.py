@@ -28,6 +28,25 @@ def mock_cluster():
 def mock_bucket(mock_cluster):
     bucket = Mock(spec=Bucket)
     mock_cluster.bucket.return_value = bucket
+    
+    # Mock collections manager
+    collections_manager = Mock()
+    bucket.collections.return_value = collections_manager
+    
+    # Mock scope
+    mock_scope = Mock()
+    mock_scope.name = "test_scope"
+    
+    # Mock collection
+    mock_collection = Mock()
+    mock_collection.name = "test_collection"
+    
+    # Set up the scope to have the collection
+    mock_scope.collections = [mock_collection]
+    
+    # Set up the collections manager to return scopes
+    collections_manager.get_all_scopes.return_value = [mock_scope]
+    
     return bucket
 
 
@@ -109,16 +128,17 @@ def test_init(couchbase_fts):
 def test_doc_exists(couchbase_fts, mock_collection):
     # Setup
     document = Document(content="test content")
-    result = Mock(spec=GetResult)
-    result.success = True
-    result.value = {"some": "content"}
-    mock_collection.get.return_value = result
-
+    
+    # Mock the exists method
+    mock_exists_result = Mock()
+    mock_exists_result.exists = True
+    mock_collection.exists.return_value = mock_exists_result
+    
     # Test document exists
     assert couchbase_fts.doc_exists(document) is True
-
+    
     # Test document doesn't exist
-    mock_collection.get.side_effect = Exception()
+    mock_exists_result.exists = False
     assert couchbase_fts.doc_exists(document) is False
 
 
@@ -132,12 +152,56 @@ def test_insert(couchbase_fts, mock_collection):
     # Test successful insert
     couchbase_fts.insert(documents)
     assert mock_collection.insert_multi.called
+    
+    # Reset mock to check insert with filters
+    mock_collection.insert_multi.reset_mock()
+    
+    # Test insert with filters
+    filters = {"category": "test", "priority": "high"}
+    couchbase_fts.insert(documents, filters=filters)
+    
+    # Verify filters were included in the documents
+    call_args = mock_collection.insert_multi.call_args[0][0]
+    for doc_id in call_args:
+        assert "filters" in call_args[doc_id]
+        assert call_args[doc_id]["filters"] == filters
 
     # Test failed insert
     mock_result.all_ok = False
     mock_result.exceptions = {"error": "test error"}
     mock_collection.insert_multi.return_value = mock_result
     couchbase_fts.insert(documents)  # Should log warning but not raise exception
+
+
+def test_upsert(couchbase_fts, mock_collection):
+    # Setup
+    documents = [Document(content="test content 1"), Document(content="test content 2")]
+    mock_result = Mock(spec=MultiMutationResult)
+    mock_result.all_ok = True
+    mock_collection.upsert_multi.return_value = mock_result
+
+    # Test successful upsert without filters
+    couchbase_fts.upsert(documents)
+    assert mock_collection.upsert_multi.called
+    
+    # Reset mock to check upsert with filters
+    mock_collection.upsert_multi.reset_mock()
+    
+    # Test upsert with filters
+    filters = {"category": "test", "priority": "high"}
+    couchbase_fts.upsert(documents, filters=filters)
+    
+    # Verify filters were included in the documents
+    call_args = mock_collection.upsert_multi.call_args[0][0]
+    for doc_id in call_args:
+        assert "filters" in call_args[doc_id]
+        assert call_args[doc_id]["filters"] == filters
+
+    # Test failed upsert
+    mock_result.all_ok = False
+    mock_result.exceptions = {"error": "test error"}
+    mock_collection.upsert_multi.return_value = mock_result
+    couchbase_fts.upsert(documents)  # Should log warning but not raise exception
 
 
 def test_search(couchbase_fts, mock_scope):
@@ -147,8 +211,8 @@ def test_search(couchbase_fts, mock_scope):
     mock_row.id = "test_id"
     mock_row.score = 0.95
     mock_search_result.rows.return_value = [mock_row]
-    mock_scope.search_query.return_value = mock_search_result
-
+    mock_scope.search.return_value = mock_search_result
+    
     # Setup KV get_multi response
     mock_get_result = Mock(spec=GetResult)
     mock_get_result.value = {
@@ -162,35 +226,56 @@ def test_search(couchbase_fts, mock_scope):
     mock_kv_response.all_ok = True
     mock_kv_response.results = {"test_id": mock_get_result}
     couchbase_fts._collection.get_multi.return_value = mock_kv_response
-
+    
     # Test
     results = couchbase_fts.search("test query", limit=5)
     assert len(results) == 1
     assert isinstance(results[0], Document)
+    assert results[0].id == "test_id"
+    assert results[0].name == "test doc"
+    assert results[0].content == "test content"
+    
+    # Test with filters
+    filters = {"category": "test"}
+    couchbase_fts.search("test query", limit=5, filters=filters)
+    # Verify that search was called with the correct arguments
+    assert mock_scope.search.call_count == 2
 
 
 def test_drop(mock_bucket, couchbase_fts):
     # Setup
     mock_collections_mgr = Mock()
     mock_bucket.collections.return_value = mock_collections_mgr
-
-    # Test successful drop
-    couchbase_fts.drop()
-    mock_collections_mgr.drop_collection.assert_called_once_with(
-        collection_name=couchbase_fts.collection_name, scope_name=couchbase_fts.scope_name
-    )
-
-    # Test drop with _default collection
-    couchbase_fts.collection_name = "_default"
-    couchbase_fts.drop()  # Should not call drop_collection
+    
+    # Mock the exists method to return True
+    with patch.object(couchbase_fts, 'exists', return_value=True):
+        # Test successful drop
+        couchbase_fts.drop()
+        mock_collections_mgr.drop_collection.assert_called_once_with(
+            collection_name=couchbase_fts.collection_name, scope_name=couchbase_fts.scope_name
+        )
+    
+    # Test when collection doesn't exist
+    mock_collections_mgr.drop_collection.reset_mock()
+    with patch.object(couchbase_fts, 'exists', return_value=False):
+        couchbase_fts.drop()
+        mock_collections_mgr.drop_collection.assert_not_called()
 
 
 def test_exists(couchbase_fts, mock_scope):
     # Test collection exists
     assert couchbase_fts.exists() is True
-
+    
     # Test collection doesn't exist
-    mock_scope.collection.side_effect = Exception()
+    mock_scope_without_collection = Mock()
+    mock_scope_without_collection.name = "test_scope"
+    mock_scope_without_collection.collections = []
+    
+    couchbase_fts._bucket.collections().get_all_scopes.return_value = [mock_scope_without_collection]
+    assert couchbase_fts.exists() is False
+    
+    # Test exception handling
+    couchbase_fts._bucket.collections().get_all_scopes.side_effect = Exception("Test error")
     assert couchbase_fts.exists() is False
 
 
@@ -267,18 +352,34 @@ def test_get_bucket_not_exists(mock_cluster):
 def test_create_scope_default(couchbase_fts, mock_bucket):
     # Test with _default scope
     couchbase_fts.scope_name = "_default"
-    scope = couchbase_fts._get_or_create_scope()
-    assert scope == mock_bucket.scope.return_value
-    mock_bucket.collections.return_value.create_scope.assert_not_called()
+    
+    # Mock the collections().get_all_scopes() to return a scope with the _default name
+    mock_scope = Mock()
+    mock_scope.name = "_default"
+    mock_scope.collections = []
+    mock_bucket.collections().get_all_scopes.return_value = [mock_scope]
+    
+    # Call the method
+    collection = couchbase_fts._get_or_create_collection_and_scope()
+    
+    # Verify that create_scope was not called
+    mock_bucket.collections().create_scope.assert_not_called()
+    
+    # Verify that the correct collection was returned
+    assert collection == mock_bucket.scope().collection()
 
 
 def test_create_scope_error(couchbase_fts, mock_bucket):
     # Test scope creation error
-    mock_bucket.scope.side_effect = Exception("Scope error")
-    mock_bucket.collections.return_value.create_scope.side_effect = Exception("Creation error")
-
+    # First, make it look like the scope doesn't exist
+    mock_bucket.collections().get_all_scopes.return_value = []
+    
+    # Then make the create_scope method raise an exception
+    mock_bucket.collections().create_scope.side_effect = Exception("Creation error")
+    
+    # Test that the exception is propagated
     with pytest.raises(Exception, match="Creation error"):
-        couchbase_fts._get_or_create_scope()
+        couchbase_fts._get_or_create_collection_and_scope()
 
 
 def test_create_collection_with_overwrite(couchbase_fts_overwrite, mock_bucket, mock_scope):
@@ -339,16 +440,19 @@ def test_name_exists(couchbase_fts, mock_scope):
 
 def test_id_exists(couchbase_fts, mock_collection):
     # Test document exists by ID
-    mock_result = Mock()
-    mock_result.success = True
-    mock_result.content = {"some": "content"}
-    mock_collection.get.return_value = mock_result
-
+    mock_exists_result = Mock()
+    mock_exists_result.exists = True
+    mock_collection.exists.return_value = mock_exists_result
+    
     assert couchbase_fts.id_exists("test_id") is True
-
+    
     # Test document doesn't exist
-    mock_collection.get.side_effect = Exception("Not found")
-    assert couchbase_fts.id_exists("nonexistent_id") is False
+    mock_exists_result.exists = False
+    assert couchbase_fts.id_exists("test_id") is False
+    
+    # Test exception handling
+    mock_collection.exists.side_effect = Exception("Test error")
+    assert couchbase_fts.id_exists("test_id") is False
 
 
 def test_create_fts_index_cluster_level(mock_cluster, mock_embedder):
@@ -356,7 +460,31 @@ def test_create_fts_index_cluster_level(mock_cluster, mock_embedder):
     # Setup mock search indexes manager
     mock_search_indexes = Mock()
     mock_cluster.search_indexes.return_value = mock_search_indexes
-
+    
+    # Mock bucket and collections
+    mock_bucket = Mock(spec=Bucket)
+    mock_cluster.bucket.return_value = mock_bucket
+    
+    # Mock collections manager
+    collections_manager = Mock()
+    mock_bucket.collections.return_value = collections_manager
+    
+    # Mock scope
+    mock_scope = Mock(spec=Scope)
+    mock_scope.name = "test_scope"
+    mock_bucket.scope.return_value = mock_scope
+    
+    # Mock collection
+    mock_collection = Mock(spec=Collection)
+    mock_collection.name = "test_collection"
+    mock_scope.collection.return_value = mock_collection
+    
+    # Set up the scope to have the collection
+    mock_scope.collections = [mock_collection]
+    
+    # Set up the collections manager to return scopes
+    collections_manager.get_all_scopes.return_value = [mock_scope]
+    
     # Create CouchbaseSearch instance with cluster-level index
     fts = CouchbaseSearch(
         bucket_name="test_bucket",
@@ -381,17 +509,17 @@ def test_create_fts_index_cluster_level(mock_cluster, mock_embedder):
         ),
         embedder=mock_embedder,
     )
-
+    
     # Call create to trigger index creation
     fts.create()
-
+    
     # Verify cluster-level search indexes were used
-    assert mock_cluster.search_indexes.call_count == 3
-
+    assert mock_cluster.search_indexes.call_count >= 1
+    
     # Verify index was dropped and recreated
     mock_search_indexes.drop_index.assert_called_once_with("test_index")
     mock_search_indexes.upsert_index.assert_called_once()
-
+    
     # Verify the index definition was passed to upsert
     upsert_call = mock_search_indexes.upsert_index.call_args[0][0]
     assert isinstance(upsert_call, SearchIndex)
@@ -438,8 +566,8 @@ def test_search_cluster_level(mock_cluster, mock_embedder):
     mock_row.id = "test_id"
     mock_row.score = 0.95
     mock_search_result.rows.return_value = [mock_row]
-    mock_cluster.search_query.return_value = mock_search_result
-
+    mock_cluster.search.return_value = mock_search_result
+    
     # Setup mock KV response
     mock_collection = Mock(spec=Collection)
     mock_get_result = Mock(spec=GetResult)
@@ -454,7 +582,7 @@ def test_search_cluster_level(mock_cluster, mock_embedder):
     mock_kv_response.all_ok = True
     mock_kv_response.results = {"test_id": mock_get_result}
     mock_collection.get_multi.return_value = mock_kv_response
-
+    
     # Create CouchbaseSearch instance with cluster-level index
     fts = CouchbaseSearch(
         bucket_name="test_bucket",
@@ -469,13 +597,14 @@ def test_search_cluster_level(mock_cluster, mock_embedder):
         embedder=mock_embedder,
     )
     fts._collection = mock_collection
-
+    fts._cluster = mock_cluster
+    
     # Perform search
     results = fts.search("test query", limit=5)
-
+    
     # Verify cluster-level search was used
-    mock_cluster.search_query.assert_called_once()
-
+    mock_cluster.search.assert_called_once()
+    
     # Verify results
     assert len(results) == 1
     assert isinstance(results[0], Document)

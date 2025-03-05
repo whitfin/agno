@@ -15,7 +15,7 @@ from agno.vectordb.couchbase.couchbase import CouchbaseSearch
 pytestmark = pytest.mark.skipif(
     not all(
         [
-            os.getenv("COUCHBASE_HOST"),
+            os.getenv("COUCHBASE_CONNECTION_STRING"),
             os.getenv("COUCHBASE_USER"),
             os.getenv("COUCHBASE_PASSWORD"),
             os.getenv("OPENAI_API_KEY"),
@@ -132,11 +132,12 @@ def couchbase_db(
     cluster_options: ClusterOptions, search_index: SearchIndex, embedder: OpenAIEmbedder
 ) -> Generator[CouchbaseSearch, None, None]:
     """Create a test database and clean up after tests."""
+    print(f"COUCHBASE_CONNECTION_STRING: {os.getenv('COUCHBASE_CONNECTION_STRING')}")
     db = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
-        couchbase_connection_string=os.getenv("COUCHBASE_HOST", ""),
+        couchbase_connection_string=os.getenv("COUCHBASE_CONNECTION_STRING"),
         cluster_options=cluster_options,
         search_index=search_index,
         embedder=embedder,
@@ -146,6 +147,12 @@ def couchbase_db(
 
     try:
         db.create()
+        
+        # Create a secondary index on the name field
+        index_query = f"CREATE INDEX idx_name ON `{db.collection_name}` (name)"
+        db._scope.query(index_query).execute()
+        print(f"Created secondary index on name field: idx_name")
+        
         yield db
     finally:
         db.delete()
@@ -221,7 +228,7 @@ def test_cluster_level_index(cluster_options: ClusterOptions, search_index: Sear
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
-        couchbase_connection_string=os.getenv("COUCHBASE_HOST", ""),
+        couchbase_connection_string=os.getenv("COUCHBASE_CONNECTION_STRING", ""),
         cluster_options=cluster_options,
         search_index=search_index,
         embedder=embedder,

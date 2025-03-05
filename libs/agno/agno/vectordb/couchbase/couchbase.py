@@ -249,7 +249,7 @@ class CouchbaseSearch(VectorDb):
 
         Args:
             documents: List of documents to insert
-            filters: Optional filters (not used)
+            filters: Optional filters to apply to the documents
         """
         logger.info(f"Inserting {len(documents)} documents")
 
@@ -257,7 +257,8 @@ class CouchbaseSearch(VectorDb):
         for document in documents:
             try:
                 doc_data = self.prepare_doc(document)
-                doc_data["filters"] = filters
+                if filters:
+                    doc_data["filters"] = filters
                 docs_to_insert[doc_data["_id"]] = doc_data
                 del doc_data["_id"]
             except Exception as e:
@@ -279,7 +280,7 @@ class CouchbaseSearch(VectorDb):
 
         Args:
             documents: List of documents to upsert
-            filters: Optional filters (not used)
+            filters: Optional filters to apply to the documents
         """
         logger.info(f"Upserting {len(documents)} documents")
 
@@ -287,7 +288,8 @@ class CouchbaseSearch(VectorDb):
         for document in documents:
             try:
                 doc_data = self.prepare_doc(document)
-                doc_data["filters"] = filters
+                if filters:
+                    doc_data["filters"] = filters
                 docs_to_upsert[doc_data["_id"]] = doc_data
                 del doc_data["_id"]
             except Exception as e:

@@ -3,7 +3,7 @@
 from agno.agent import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
-from agno.vectordb.couchbase import CouchbaseFTS
+from agno.vectordb.couchbase import CouchbaseSearch
 from couchbase.options import ClusterOptions, KnownConfigProfiles
 from couchbase.auth import PasswordAuthenticator
 from couchbase.management.search import SearchIndex
@@ -106,7 +106,7 @@ search_index = SearchIndex(
 
 knowledge_base = PDFUrlKnowledgeBase(
     urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"],
-    vector_db=CouchbaseFTS(
+    vector_db=CouchbaseSearch(
         bucket_name="recipe_bucket",
         scope_name="recipe_scope", 
         collection_name="recipes",

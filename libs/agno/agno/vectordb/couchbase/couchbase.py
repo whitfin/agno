@@ -33,7 +33,7 @@ except ImportError:
     raise ImportError("`couchbase` not installed. Please install using `pip install couchbase`")
 
 
-class CouchbaseFTS(VectorDb):
+class CouchbaseSearch(VectorDb):
     """
     Couchbase Vector Database implementation with FTS (Full Text Search) index support.
     """
@@ -53,7 +53,7 @@ class CouchbaseFTS(VectorDb):
         **kwargs,
     ):
         """
-        Initialize the CouchbaseFTS with Couchbase connection details.
+        Initialize the CouchbaseSearch with Couchbase connection details.
 
         Args:
             bucket_name (str): Name of the Couchbase bucket.
@@ -257,6 +257,7 @@ class CouchbaseFTS(VectorDb):
         for document in documents:
             try:
                 doc_data = self.prepare_doc(document)
+                doc_data["filters"] = filters
                 docs_to_insert[doc_data["_id"]] = doc_data
                 del doc_data["_id"]
             except Exception as e:
@@ -286,6 +287,7 @@ class CouchbaseFTS(VectorDb):
         for document in documents:
             try:
                 doc_data = self.prepare_doc(document)
+                doc_data["filters"] = filters
                 docs_to_upsert[doc_data["_id"]] = doc_data
                 del doc_data["_id"]
             except Exception as e:

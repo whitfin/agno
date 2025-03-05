@@ -9,7 +9,7 @@ from couchbase.options import ClusterOptions, KnownConfigProfiles
 
 from agno.document import Document
 from agno.embedder.openai import OpenAIEmbedder
-from agno.vectordb.couchbase.couchbase import CouchbaseFTS
+from agno.vectordb.couchbase.couchbase import CouchbaseSearch
 
 # Skip all tests if environment variables not set
 pytestmark = pytest.mark.skipif(
@@ -130,9 +130,9 @@ def search_index() -> SearchIndex:
 @pytest.fixture
 def couchbase_db(
     cluster_options: ClusterOptions, search_index: SearchIndex, embedder: OpenAIEmbedder
-) -> Generator[CouchbaseFTS, None, None]:
+) -> Generator[CouchbaseSearch, None, None]:
     """Create a test database and clean up after tests."""
-    db = CouchbaseFTS(
+    db = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
@@ -162,7 +162,7 @@ def test_documents() -> list[Document]:
     ]
 
 
-def test_insert_and_search(couchbase_db: CouchbaseFTS, test_documents: list[Document]):
+def test_insert_and_search(couchbase_db: CouchbaseSearch, test_documents: list[Document]):
     """Test basic insert and search functionality."""
     # Insert documents
     print(f"Inserting documents: {test_documents}")
@@ -178,7 +178,7 @@ def test_insert_and_search(couchbase_db: CouchbaseFTS, test_documents: list[Docu
     assert "fox" in results[0].content.lower()
 
 
-def test_document_exists(couchbase_db: CouchbaseFTS, test_documents: list[Document]):
+def test_document_exists(couchbase_db: CouchbaseSearch, test_documents: list[Document]):
     """Test document existence checks."""
     # Insert one document
     couchbase_db.insert([test_documents.copy()[0]])
@@ -190,7 +190,7 @@ def test_document_exists(couchbase_db: CouchbaseFTS, test_documents: list[Docume
     assert not couchbase_db.name_exists(test_documents[1].name)
 
 
-def test_upsert(couchbase_db: CouchbaseFTS, test_documents: list[Document]):
+def test_upsert(couchbase_db: CouchbaseSearch, test_documents: list[Document]):
     """Test upsert functionality."""
     # Initial insert
     couchbase_db.insert([test_documents.copy()[0]])
@@ -217,7 +217,7 @@ def test_upsert(couchbase_db: CouchbaseFTS, test_documents: list[Document]):
 
 def test_cluster_level_index(cluster_options: ClusterOptions, search_index: SearchIndex, embedder: OpenAIEmbedder):
     """Test operations with cluster-level index."""
-    db = CouchbaseFTS(
+    db = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",

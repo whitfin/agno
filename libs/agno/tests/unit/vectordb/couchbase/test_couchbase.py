@@ -12,7 +12,7 @@ from couchbase.result import GetResult, MultiMutationResult
 from couchbase.scope import Scope
 
 from agno.document import Document
-from agno.vectordb.couchbase.couchbase import CouchbaseFTS, OpenAIEmbedder
+from agno.vectordb.couchbase.couchbase import CouchbaseSearch, OpenAIEmbedder
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ def mock_embedder():
 
 @pytest.fixture
 def couchbase_fts(mock_collection, mock_embedder):
-    fts = CouchbaseFTS(
+    fts = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
@@ -74,7 +74,7 @@ def couchbase_fts(mock_collection, mock_embedder):
 
 @pytest.fixture
 def couchbase_fts_overwrite(mock_collection, mock_embedder):
-    fts = CouchbaseFTS(
+    fts = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
@@ -225,7 +225,7 @@ def test_get_count(mock_scope, couchbase_fts):
 
 def test_init_empty_bucket_name():
     with pytest.raises(ValueError, match="Bucket name must not be empty."):
-        CouchbaseFTS(
+        CouchbaseSearch(
             bucket_name="",
             scope_name="test_scope",
             collection_name="test_collection",
@@ -240,7 +240,7 @@ def test_get_cluster_connection_error():
         mock_cluster.side_effect = Exception("Connection failed")
 
         with pytest.raises(ConnectionError, match="Failed to connect to Couchbase"):
-            CouchbaseFTS(
+            CouchbaseSearch(
                 bucket_name="test_bucket",
                 scope_name="test_scope",
                 collection_name="test_collection",
@@ -254,7 +254,7 @@ def test_get_bucket_not_exists(mock_cluster):
     mock_cluster.bucket.side_effect = BucketDoesNotExistException("Bucket does not exist")
 
     with pytest.raises(BucketDoesNotExistException):
-        CouchbaseFTS(
+        CouchbaseSearch(
             bucket_name="nonexistent_bucket",
             scope_name="test_scope",
             collection_name="test_collection",
@@ -357,8 +357,8 @@ def test_create_fts_index_cluster_level(mock_cluster, mock_embedder):
     mock_search_indexes = Mock()
     mock_cluster.search_indexes.return_value = mock_search_indexes
 
-    # Create CouchbaseFTS instance with cluster-level index
-    fts = CouchbaseFTS(
+    # Create CouchbaseSearch instance with cluster-level index
+    fts = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
@@ -405,8 +405,8 @@ def test_get_count_cluster_level(mock_cluster, mock_embedder):
     mock_search_indexes.get_indexed_documents_count.return_value = 42
     mock_cluster.search_indexes.return_value = mock_search_indexes
 
-    # Create CouchbaseFTS instance with cluster-level index
-    fts = CouchbaseFTS(
+    # Create CouchbaseSearch instance with cluster-level index
+    fts = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",
@@ -455,8 +455,8 @@ def test_search_cluster_level(mock_cluster, mock_embedder):
     mock_kv_response.results = {"test_id": mock_get_result}
     mock_collection.get_multi.return_value = mock_kv_response
 
-    # Create CouchbaseFTS instance with cluster-level index
-    fts = CouchbaseFTS(
+    # Create CouchbaseSearch instance with cluster-level index
+    fts = CouchbaseSearch(
         bucket_name="test_bucket",
         scope_name="test_scope",
         collection_name="test_collection",

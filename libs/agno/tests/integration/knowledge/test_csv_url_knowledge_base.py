@@ -5,7 +5,7 @@ from agno.knowledge.csv_url import CSVUrlKnowledgeBase
 from agno.vectordb.lancedb.lance_db import LanceDb
 
 
-def test_pdf_url_knowledge_base():
+def test_csv_url_knowledge_base():
     vector_db = LanceDb(
         table_name="recipes_2s3",
         uri="tmp/lancedb",
@@ -37,7 +37,7 @@ def test_pdf_url_knowledge_base():
 
 
 @pytest.mark.asyncio
-async def test_pdf_url_knowledge_base_async():
+async def test_csv_url_knowledge_base_async():
     vector_db = LanceDb(
         table_name="recipes_async_2s",
         uri="tmp/lancedb",

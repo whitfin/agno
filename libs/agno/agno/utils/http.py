@@ -44,8 +44,11 @@ async def async_fetch_with_retry(
     """Asynchronous HTTP GET with retry logic."""
 
     async def _fetch():
-        async with client or httpx.AsyncClient() as local_client:
-            return await local_client.get(url)
+        if client is None:
+            async with httpx.AsyncClient() as local_client:
+                return await local_client.get(url)
+        else:
+            return await client.get(url)
 
     for attempt in range(max_retries):
         try:

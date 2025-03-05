@@ -170,7 +170,7 @@ class CSVUrlReader(Reader):
         logger.info(f"Reading async: {url}")
 
         async with httpx.AsyncClient() as client:
-            response = async_fetch_with_retry(url, client=client)
+            response = await async_fetch_with_retry(url, client=client)
 
             parsed_url = urlparse(url)
             filename = os.path.basename(parsed_url.path) or "data.csv"

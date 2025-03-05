@@ -7,7 +7,7 @@ from agno.knowledge.csv import CSVKnowledgeBase
 from agno.vectordb.lancedb.lance_db import LanceDb
 
 
-def test_pdf_knowledge_base():
+def test_csv_knowledge_base():
     vector_db = LanceDb(
         table_name="employees",
         uri="tmp/lancedb",
@@ -40,7 +40,7 @@ def test_pdf_knowledge_base():
 
 
 @pytest.mark.asyncio
-async def test_pdf_knowledge_base_async():
+async def test_csv_knowledge_base_async():
     vector_db = LanceDb(
         table_name="employees_async_c",
         uri="tmp/lancedb",

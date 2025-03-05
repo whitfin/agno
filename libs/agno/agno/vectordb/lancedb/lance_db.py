@@ -84,7 +84,7 @@ class LanceDb(VectorDb):
         self.connection: lancedb.LanceDBConnection = connection or lancedb.connect(uri=self.uri, api_key=api_key)
         self.table: Optional[lancedb.db.LanceTable] = table
 
-        self.async_connection: lancedb.AsyncConnection = async_connection
+        self.async_connection: Optional[lancedb.AsyncConnection] = async_connection
         self.async_table: Optional[lancedb.db.AsyncTable] = async_table
 
         if table_name and table_name in self.connection.table_names():
@@ -95,23 +95,26 @@ class LanceDb(VectorDb):
             self._id = self.table.schema.names[1]  # type: ignore
 
         # LanceDB table details
-        if table is not None:
-            if not isinstance(table, lancedb.db.LanceTable):
-                raise ValueError(
-                    "table should be an instance of lancedb.db.LanceTable, ",
-                    f"got {type(table)}",
-                )
-            self.table = table
-            self.table_name = self.table.name
-            self._vector_col = self.table.schema.names[0]
-            self._id = self.tbl.schema.names[1]  # type: ignore
-        else:
-            if not table_name:
-                raise ValueError("Either table or table_name should be provided.")
-            self.table_name = table_name
-            self._id = "id"
-            self._vector_col = "vector"
-            self.table = self._init_table()
+
+        if self.table is None:
+            # LanceDB table details
+            if table:
+                if not isinstance(table, lancedb.db.LanceTable):
+                    raise ValueError(
+                        "table should be an instance of lancedb.db.LanceTable, ",
+                        f"got {type(table)}",
+                    )
+                self.table = table
+                self.table_name = self.table.name
+                self._vector_col = self.table.schema.names[0]
+                self._id = self.tbl.schema.names[1]  # type: ignore
+            else:
+                if not table_name:
+                    raise ValueError("Either table or table_name should be provided.")
+                self.table_name = table_name
+                self._id = "id"
+                self._vector_col = "vector"
+                self.table = self._init_table()
 
         self.reranker: Optional[Reranker] = reranker
         self.nprobes: Optional[int] = nprobes
@@ -203,6 +206,8 @@ class LanceDb(VectorDb):
         Returns:
             bool: True if document exists, False otherwise
         """
+        if self.connection:
+            self.table = self.connection.open_table(name=self.table_name)
         return self.doc_exists(document)
 
     def insert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
@@ -213,11 +218,12 @@ class LanceDb(VectorDb):
             documents (List[Document]): List of documents to insert
             filters (Optional[Dict[str, Any]]): Filters to apply while inserting documents
         """
-        logger.debug(f"Inserting {len(documents)} documents")
-        data = []
         if len(documents) <= 0:
-            logger.debug("No documents to insert")
+            logger.info("No documents to insert")
             return
+        
+        logger.info(f"Inserting {len(documents)} documents")
+        data = []
 
         for document in documents:
             document.embed(embedder=self.embedder)
@@ -261,13 +267,13 @@ class LanceDb(VectorDb):
             documents (List[Document]): List of documents to insert
             filters (Optional[Dict[str, Any]]): Filters to apply while inserting documents
         """
-        logger.debug(f"Inserting {len(documents)} documents")
-        data = []
         if len(documents) <= 0:
             logger.debug("No documents to insert")
             return
 
-        # Prepare documents for insertion
+        logger.info(f"Inserting {len(documents)} documents")
+        data = []
+
         for document in documents:
             document.embed(embedder=self.embedder)
             cleaned_content = document.content.replace("\x00", "\ufffd")
@@ -318,6 +324,35 @@ class LanceDb(VectorDb):
         await self.async_insert(documents, filters)
 
     def search(self, query: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Document]:
+        if self.connection:
+            self.table = self.connection.open_table(name=self.table_name)
+        if self.search_type == SearchType.vector:
+            return self.vector_search(query, limit)
+        elif self.search_type == SearchType.keyword:
+            return self.keyword_search(query, limit)
+        elif self.search_type == SearchType.hybrid:
+            return self.hybrid_search(query, limit)
+        else:
+            logger.error(f"Invalid search type '{self.search_type}'.")
+            return []
+
+    async def async_search(
+        self, query: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None
+    ) -> List[Document]:
+        """
+        Asynchronously search for documents matching the query.
+
+        Args:
+            query (str): Query string to search for
+            limit (int): Maximum number of results to return
+            filters (Optional[Dict[str, Any]]): Filters to apply to the search
+
+        Returns:
+            List[Document]: List of matching documents
+        """
+        # TODO: Search is not yet supported in async (https://github.com/lancedb/lancedb/pull/2049)
+        if self.connection:
+            self.table = self.connection.open_table(name=self.table_name)
         if self.search_type == SearchType.vector:
             return self.vector_search(query, limit)
         elif self.search_type == SearchType.keyword:

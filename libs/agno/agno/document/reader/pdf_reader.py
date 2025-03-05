@@ -161,7 +161,6 @@ class PDFReader(BasePDFReader):
             return self._build_chunked_documents(documents)
         return documents
 
-
 class PDFUrlReader(BasePDFReader):
     """Reader for PDF files from URL"""
 
@@ -191,7 +190,7 @@ class PDFUrlReader(BasePDFReader):
         if self.chunk:
             return self._build_chunked_documents(documents)
         return documents
-
+    
     async def async_read(self, url: str) -> List[Document]:
         if not url:
             raise ValueError("No url provided")
@@ -231,8 +230,7 @@ class PDFUrlReader(BasePDFReader):
         if self.chunk:
             return self._build_chunked_documents(documents)
         return documents
-
-
+    
 class PDFImageReader(BasePDFReader):
     """Reader for PDF files with text and images extraction"""
 

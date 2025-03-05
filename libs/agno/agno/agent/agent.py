@@ -31,6 +31,7 @@ from agno.media import Audio, AudioArtifact, AudioResponse, Image, ImageArtifact
 from agno.memory.agent import AgentMemory, AgentRun
 from agno.models.base import Model
 from agno.models.message import Message, MessageReferences
+from agno.models.openai.like import OpenAILike
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
 from agno.run.messages import RunMessages
@@ -508,6 +509,9 @@ class Agent:
         run_messages: RunMessages = self.get_run_messages(
             message=message, audio=audio, images=images, videos=videos, messages=messages, **kwargs
         )
+        if len(run_messages.messages) == 0:
+            logger.error("No messages to be sent to the model.")
+
         self.run_messages = run_messages
 
         # 5. Reason about the task if reasoning is enabled
@@ -545,11 +549,24 @@ class Agent:
                         model_response.thinking = (model_response.thinking or "") + model_response_chunk.thinking
                         self.run_response.thinking = model_response.thinking
 
+                    if model_response_chunk.redacted_thinking is not None:
+                        model_response.redacted_thinking = (
+                            model_response.redacted_thinking or ""
+                        ) + model_response_chunk.redacted_thinking
+
+                        # We only have thinking on response
+                        self.run_response.thinking = model_response.redacted_thinking
+
                     # Only yield if we have content or thinking to show
-                    if model_response_chunk.content is not None or model_response_chunk.thinking is not None:
+                    if (
+                        model_response_chunk.content is not None
+                        or model_response_chunk.thinking is not None
+                        or model_response_chunk.redacted_thinking is not None
+                    ):
                         yield self.create_run_response(
                             content=model_response_chunk.content,
                             thinking=model_response_chunk.thinking,
+                            redacted_thinking=model_response_chunk.redacted_thinking,
                             created_at=model_response_chunk.created_at,
                         )
 
@@ -643,6 +660,11 @@ class Agent:
             # Update the run_response thinking with the model response thinking
             if model_response.thinking is not None:
                 self.run_response.thinking = model_response.thinking
+            if model_response.redacted_thinking is not None:
+                if self.run_response.thinking is None:
+                    self.run_response.thinking = model_response.redacted_thinking
+                else:
+                    self.run_response.thinking += model_response.redacted_thinking
 
             # Update the run_response tools with the model response tools
             if model_response.tool_calls is not None:
@@ -698,6 +720,7 @@ class Agent:
         # Create an AgentRun object to add to memory
         agent_run = AgentRun(response=self.run_response)
         agent_run.message = run_messages.user_message
+
         # Update the memories with the user message if needed
         if (
             self.memory.create_user_memories
@@ -972,6 +995,8 @@ class Agent:
         run_messages: RunMessages = self.get_run_messages(
             message=message, audio=audio, images=images, videos=videos, messages=messages, **kwargs
         )
+        if len(run_messages.messages) == 0:
+            logger.error("No messages to be sent to the model.")
         self.run_messages = run_messages
 
         # 5. Reason about the task if reasoning is enabled
@@ -1011,11 +1036,23 @@ class Agent:
                         model_response.thinking = (model_response.thinking or "") + model_response_chunk.thinking
                         self.run_response.thinking = model_response.thinking
 
+                    if model_response_chunk.redacted_thinking is not None:
+                        model_response.redacted_thinking = (
+                            model_response.redacted_thinking or ""
+                        ) + model_response_chunk.redacted_thinking
+                        # We only have thinking on response
+                        self.run_response.thinking = model_response.redacted_thinking
+
                     # Only yield if we have content or thinking to show
-                    if model_response_chunk.content is not None or model_response_chunk.thinking is not None:
+                    if (
+                        model_response_chunk.content is not None
+                        or model_response_chunk.thinking is not None
+                        or model_response_chunk.redacted_thinking is not None
+                    ):
                         yield self.create_run_response(
                             content=model_response_chunk.content,
                             thinking=model_response_chunk.thinking,
+                            redacted_thinking=model_response_chunk.redacted_thinking,
                             created_at=model_response_chunk.created_at,
                         )
 
@@ -1109,6 +1146,11 @@ class Agent:
             # Update the run_response thinking with the model response thinking
             if model_response.thinking is not None:
                 self.run_response.thinking = model_response.thinking
+            if model_response.redacted_thinking is not None:
+                if self.run_response.thinking is None:
+                    self.run_response.thinking = model_response.redacted_thinking
+                else:
+                    self.run_response.thinking += model_response.redacted_thinking
 
             # Update the run_response tools with the model response tools
             if model_response.tool_calls is not None:
@@ -1356,17 +1398,19 @@ class Agent:
         content: Optional[Any] = None,
         *,
         thinking: Optional[str] = None,
+        redacted_thinking: Optional[str] = None,
         event: RunEvent = RunEvent.run_response,
         content_type: Optional[str] = None,
         created_at: Optional[int] = None,
     ) -> RunResponse:
         self.run_response = cast(RunResponse, self.run_response)
+        thinking_combined = (thinking or "") + (redacted_thinking or "")
         rr = RunResponse(
             run_id=self.run_id,
             session_id=self.session_id,
             agent_id=self.agent_id,
             content=content,
-            thinking=thinking,
+            thinking=thinking_combined if thinking_combined else None,
             tools=self.run_response.tools,
             audio=self.run_response.audio,
             images=self.run_response.images,
@@ -2834,8 +2878,10 @@ class Agent:
                     reasoning_steps=[ReasoningStep(result=groq_reasoning_message.content)],
                     reasoning_agent_messages=[groq_reasoning_message],
                 )
-            # Use o-3 for reasoning
-            elif reasoning_model.__class__.__name__ == "OpenAIChat" and reasoning_model.id.startswith("o3"):
+            # Use o-3 or OpenAILike with deepseek model for reasoning
+            elif (reasoning_model.__class__.__name__ == "OpenAIChat" and reasoning_model.id.startswith("o3")) or (
+                isinstance(reasoning_model, OpenAILike) and "deepseek-r1" in reasoning_model.id.lower()
+            ):
                 from agno.reasoning.openai import get_openai_reasoning, get_openai_reasoning_agent
 
                 openai_reasoning_agent = self.reasoning_agent or get_openai_reasoning_agent(
@@ -3014,7 +3060,10 @@ class Agent:
                     reasoning_agent_messages=[groq_reasoning_message],
                 )
             # Use o-3 for reasoning
-            elif reasoning_model.__class__.__name__ == "OpenAIChat" and reasoning_model.id.startswith("o"):
+            elif (reasoning_model.__class__.__name__ == "OpenAIChat" and reasoning_model.id.startswith("o3")) or (
+                isinstance(reasoning_model, OpenAILike) and "deepseek" in reasoning_model.id.lower()
+            ):
+                # elif reasoning_model.__class__.__name__ == "OpenAIChat" and reasoning_model.id.startswith("o"):
                 from agno.reasoning.openai import aget_openai_reasoning, get_openai_reasoning_agent
 
                 openai_reasoning_agent = self.reasoning_agent or get_openai_reasoning_agent(

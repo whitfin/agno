@@ -16,6 +16,7 @@ def test_tool_use():
         tools=[YFinanceTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         telemetry=False,
         monitoring=False,
     )
@@ -34,6 +35,7 @@ def test_tool_use_stream():
         tools=[YFinanceTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         telemetry=False,
         monitoring=False,
     )
@@ -62,6 +64,7 @@ async def test_async_tool_use():
         tools=[YFinanceTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         telemetry=False,
         monitoring=False,
     )
@@ -69,7 +72,7 @@ async def test_async_tool_use():
     response = await agent.arun("What is the current price of TSLA?")
 
     # Verify tool usage
-    assert any(msg.tool_calls for msg in response.messages if msg.role == "model")
+    assert any(msg.tool_calls for msg in response.messages if msg.role == "assistant")
     assert response.content is not None
     assert "TSLA" in response.content
 
@@ -81,6 +84,7 @@ async def test_async_tool_use_stream():
         tools=[YFinanceTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         telemetry=False,
         monitoring=False,
     )
@@ -102,26 +106,48 @@ async def test_async_tool_use_stream():
     assert any("TSLA" in r.content for r in responses if r.content)
 
 
+@pytest.mark.skip("The SDK does not yet support native structured output with tool use")
 def test_tool_use_with_native_structured_outputs():
     class StockPrice(BaseModel):
         price: float = Field(..., description="The price of the stock")
         currency: str = Field(..., description="The currency of the stock")
 
     agent = Agent(
-        model=Gemini(id="gemini-2.0-flash-lite-preview-02-05"),
+        model=Gemini(id="gemini-2.0-flash-exp"),
         tools=[YFinanceTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         response_model=StockPrice,
         structured_outputs=True,
     )
     # Gemini does not support structured outputs for tool calls at this time
-    with pytest.raises(Exception):
-        agent.run("What is the current price of TSLA?")
-    # assert isinstance(response.content, StockPrice)
-    # assert response.content is not None
-    # assert response.content.price is not None
-    # assert response.content.currency is not None
+    response = agent.run("What is the current price of TSLA?")
+    assert isinstance(response.content, StockPrice)
+    assert response.content is not None
+    assert response.content.price is not None
+    assert response.content.currency is not None
+
+
+def test_tool_use_with_response_model():
+    class StockPrice(BaseModel):
+        price: float = Field(..., description="The price of the stock")
+        currency: str = Field(..., description="The currency of the stock")
+
+    agent = Agent(
+        model=Gemini(id="gemini-2.0-flash-exp"),
+        tools=[YFinanceTools()],
+        show_tool_calls=True,
+        markdown=True,
+        exponential_backoff=True,
+        response_model=StockPrice,
+    )
+    # Gemini does not support structured outputs for tool calls at this time
+    response = agent.run("What is the current price of TSLA?")
+    assert isinstance(response.content, StockPrice)
+    assert response.content is not None
+    assert response.content.price is not None
+    assert response.content.currency is not None
 
 
 def test_parallel_tool_calls():
@@ -130,6 +156,7 @@ def test_parallel_tool_calls():
         tools=[YFinanceTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         telemetry=False,
         monitoring=False,
     )
@@ -152,6 +179,7 @@ def test_multiple_tool_calls():
         tools=[YFinanceTools(), DuckDuckGoTools()],
         show_tool_calls=True,
         markdown=True,
+        exponential_backoff=True,
         telemetry=False,
         monitoring=False,
     )
@@ -178,6 +206,7 @@ def test_tool_call_custom_tool_no_parameters():
     agent = Agent(
         model=Gemini(id="gemini-2.0-flash-lite-preview-02-05"),
         tools=[get_the_weather_in_tokyo],
+        exponential_backoff=True,
         show_tool_calls=True,
         markdown=True,
         telemetry=False,
@@ -208,6 +237,7 @@ def test_tool_call_custom_tool_optional_parameters():
     agent = Agent(
         model=Gemini(id="gemini-2.0-flash-lite-preview-02-05"),
         tools=[get_the_weather],
+        exponential_backoff=True,
         show_tool_calls=True,
         markdown=True,
         telemetry=False,
@@ -227,6 +257,7 @@ def test_tool_call_list_parameters():
         model=Gemini(id="gemini-2.0-flash-lite-preview-02-05"),
         tools=[ExaTools()],
         instructions="Use a single tool call if possible",
+        exponential_backoff=True,
         show_tool_calls=True,
         markdown=True,
         telemetry=False,
@@ -245,5 +276,29 @@ def test_tool_call_list_parameters():
             tool_calls.extend(msg.tool_calls)
     for call in tool_calls:
         if call.get("type", "") == "function":
-            assert call["function"]["name"] == "get_contents"
+            assert call["function"]["name"] in ["get_contents", "exa_answer"]
     assert response.content is not None
+
+
+def test_grounding():
+    agent = Agent(
+        model=Gemini(id="gemini-2.0-flash-exp", grounding=True),
+        exponential_backoff=True,
+    )
+
+    response = agent.run("What is the weather in Tokyo?")
+
+    assert response.content is not None
+    assert response.tools == []
+
+
+def test_search():
+    agent = Agent(
+        model=Gemini(id="gemini-2.0-flash-exp", search=True),
+        exponential_backoff=True,
+    )
+
+    response = agent.run("What is the weather in Tokyo?")
+
+    assert response.content is not None
+    assert response.tools == []

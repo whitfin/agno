@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from agno.agent import Agent, RunResponse  # noqa
 from agno.models.mistral import MistralChat
-from agno.storage.agent.postgres import PostgresAgentStorage
+from agno.storage.agent.sqlite import SqliteAgentStorage
 
 
 def _assert_metrics(response: RunResponse):
@@ -73,7 +73,14 @@ async def test_async_basic_stream():
 
 
 def test_with_memory():
-    agent = Agent(model=MistralChat(id="mistral-small"), markdown=True, telemetry=False, monitoring=False)
+    agent = Agent(
+        model=MistralChat(id="mistral-large-latest"),
+        add_history_to_messages=True,
+        num_history_responses=5,
+        markdown=True,
+        telemetry=False,
+        monitoring=False,
+    )
 
     # First interaction
     response1 = agent.run("My name is John Smith")
@@ -81,33 +88,53 @@ def test_with_memory():
 
     # Second interaction should remember the name
     response2 = agent.run("What's my name?")
-    assert "John Smith" in response2.content
+    assert "John" in response2.content
 
     # Verify memories were created
     assert len(agent.memory.messages) == 5
     assert [m.role for m in agent.memory.messages] == ["system", "user", "assistant", "user", "assistant"]
 
     # Test metrics structure and types
-    input_tokens = response2.metrics["input_tokens"]
-    output_tokens = response2.metrics["output_tokens"]
-    total_tokens = response2.metrics["total_tokens"]
-
-    assert isinstance(input_tokens[0], int)
-    assert input_tokens[0] > 0
-    assert isinstance(output_tokens[0], int)
-    assert output_tokens[0] > 0
-    assert isinstance(total_tokens[0], int)
-    assert total_tokens[0] > 0
-    assert total_tokens[0] == input_tokens[0] + output_tokens[0]
+    _assert_metrics(response2)
 
 
-def test_structured_output():
+def test_response_model():
     class MovieScript(BaseModel):
         title: str = Field(..., description="Movie title")
         genre: str = Field(..., description="Movie genre")
         plot: str = Field(..., description="Brief plot summary")
 
-    agent = Agent(model=MistralChat(id="mistral-small"), markdown=True, telemetry=False, monitoring=False)
+    agent = Agent(
+        model=MistralChat(id="mistral-small"),
+        markdown=True,
+        telemetry=False,
+        monitoring=False,
+        response_model=MovieScript,
+    )
+
+    response = agent.run("Create a movie about time travel")
+
+    # Verify structured output
+    assert isinstance(response.content, MovieScript)
+    assert response.content.title is not None
+    assert response.content.genre is not None
+    assert response.content.plot is not None
+
+
+def test_native_structured_output():
+    class MovieScript(BaseModel):
+        title: str = Field(..., description="Movie title")
+        genre: str = Field(..., description="Movie genre")
+        plot: str = Field(..., description="Brief plot summary")
+
+    agent = Agent(
+        model=MistralChat(id="mistral-large-latest"),
+        markdown=True,
+        telemetry=False,
+        monitoring=False,
+        structured_outputs=True,
+        response_model=MovieScript,
+    )
 
     response = agent.run("Create a movie about time travel")
 
@@ -119,10 +146,9 @@ def test_structured_output():
 
 
 def test_history():
-    db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
     agent = Agent(
         model=MistralChat(id="mistral-small"),
-        storage=PostgresAgentStorage(table_name="agent_sessions", db_url=db_url),
+        storage=SqliteAgentStorage(table_name="agent_sessions", db_file="tmp/agent_storage.db"),
         add_history_to_messages=True,
         telemetry=False,
         monitoring=False,

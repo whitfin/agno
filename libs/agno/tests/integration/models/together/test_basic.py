@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from agno.agent import Agent, RunResponse
 from agno.models.together import Together
-from agno.storage.agent.postgres import PostgresAgentStorage
+from agno.storage.agent.sqlite import SqliteAgentStorage
 
 
 def _assert_metrics(response: RunResponse):
@@ -94,6 +94,8 @@ async def test_async_basic_stream():
 def test_with_memory():
     agent = Agent(
         model=Together(id="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"),
+        add_history_to_messages=True,
+        num_history_responses=5,
         markdown=True,
         telemetry=False,
         monitoring=False,
@@ -112,20 +114,10 @@ def test_with_memory():
     assert [m.role for m in agent.memory.messages] == ["system", "user", "assistant", "user", "assistant"]
 
     # Test metrics structure and types
-    input_tokens = response2.metrics["input_tokens"]
-    output_tokens = response2.metrics["output_tokens"]
-    total_tokens = response2.metrics["total_tokens"]
-
-    assert isinstance(input_tokens[0], int)
-    assert input_tokens[0] > 0
-    assert isinstance(output_tokens[0], int)
-    assert output_tokens[0] > 0
-    assert isinstance(total_tokens[0], int)
-    assert total_tokens[0] > 0
-    assert total_tokens[0] == input_tokens[0] + output_tokens[0]
+    _assert_metrics(response2)
 
 
-def test_structured_output():
+def test_response_model():
     class MovieScript(BaseModel):
         title: str = Field(..., description="Movie title")
         genre: str = Field(..., description="Movie genre")
@@ -136,10 +128,10 @@ def test_structured_output():
         markdown=True,
         telemetry=False,
         monitoring=False,
-        structured_outputs=True,
+        response_model=MovieScript,
     )
 
-    response = agent.run("Create a movie about time travel", output_schema=MovieScript)
+    response = agent.run("Create a movie about time travel")
 
     # Verify structured output
     assert isinstance(response.content, MovieScript)
@@ -149,10 +141,9 @@ def test_structured_output():
 
 
 def test_history():
-    db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
     agent = Agent(
         model=Together(id="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"),
-        storage=PostgresAgentStorage(table_name="agent_sessions", db_url=db_url),
+        storage=SqliteAgentStorage(table_name="agent_sessions", db_file="tmp/agent_storage.db"),
         add_history_to_messages=True,
         telemetry=False,
         monitoring=False,

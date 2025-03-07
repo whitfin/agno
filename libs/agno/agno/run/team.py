@@ -62,6 +62,9 @@ class TeamRunResponse:
         if self.response_audio is not None:
             _dict["response_audio"] = self.response_audio.to_dict()
 
+        if self.member_responses:
+            _dict["member_responses"] = [response.to_dict() for response in self.member_responses]
+
         if isinstance(self.content, BaseModel):
             _dict["content"] = self.content.model_dump(exclude_none=True)
 

@@ -2780,3 +2780,39 @@ class Team:
             )
         except Exception as e:
             logger.debug(f"Could not create team event: {e}")
+
+    def _log_agent_session(self):
+        if not (self.telemetry or self.monitoring):
+            return
+
+        from agno.api.team import TeamSessionCreate, create_team_session
+
+        try:
+            team_session: TeamSession = self.team_session or self._get_team_session()
+            create_team_session(
+                session=TeamSessionCreate(
+                    session_id=team_session.session_id,
+                    team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            get_logger().debug(f"Could not create agent monitor: {e}")
+
+    async def _alog_agent_session(self):
+        if not (self.telemetry or self.monitoring):
+            return
+
+        from agno.api.team import TeamSessionCreate, acreate_team_session
+
+        try:
+            team_session: TeamSession = self.team_session or self._get_team_session()
+            await acreate_team_session(
+                session=TeamSessionCreate(
+                    session_id=team_session.session_id,
+                    team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            get_logger().debug(f"Could not create agent monitor: {e}")

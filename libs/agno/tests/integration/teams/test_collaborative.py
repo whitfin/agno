@@ -1,111 +1,90 @@
 import pytest
-from textwrap import dedent
+from typing import List, Optional
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.tools.hackernews import HackerNewsTools
 
 
-def test_collaborative_team_discussion():
-    # Create member agents
-    researcher_1 = Agent(
-        name="Web Researcher",
-        role="Research topics on the web",
-        model=OpenAIChat(id="gpt-4o"),
-        tools=[DuckDuckGoTools()],
-        instructions="Find and summarize web content"
-    )
-
-    researcher_2 = Agent(
-        name="HackerNews Researcher", 
-        model=OpenAIChat(id="gpt-4o"),
-        tools=[HackerNewsTools()],
-        instructions="Find relevant HackerNews discussions"
-    )
-
-    # Create collaborative team
-    team = Team(
-        name="Research Team",
-        mode="collaborative",
-        model=OpenAIChat(id="gpt-4o"),
-        members=[researcher_1, researcher_2],
-        instructions=[
-            "Lead a collaborative discussion between researchers",
-            "Synthesize findings into a coherent response"
-        ],
-        success_criteria="Team reaches consensus on findings",
-        send_team_context_to_members=True,
-        update_team_context=True
-    )
-
-    # Test team discussion
-    response = team.run("What are the latest developments in AI?")
-
-    assert response.content is not None
-    assert len(response.member_responses) == 2
-    assert all(r.content is not None for r in response.member_responses)
-
-
-def test_collaborative_team_with_context():
-    agent_1 = Agent(
+def test_collaborative_team_basic():
+    """Test basic functionality of a collaborative team."""
+    agent1 = Agent(
         name="Agent 1",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Provide initial thoughts"
+        model=OpenAIChat("gpt-4o"),
+        role="First perspective provider",
+        instructions="Provide a perspective on the given topic."
     )
-
-    agent_2 = Agent(
+    
+    agent2 = Agent(
         name="Agent 2",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Build on previous thoughts"
+        model=OpenAIChat("gpt-4o"),
+        role="Second perspective provider",
+        instructions="Provide a different perspective on the given topic."
     )
-
+    
     team = Team(
-        name="Context Team",
+        name="Collaborative Team",
         mode="collaborative",
-        model=OpenAIChat(id="gpt-4o"),
-        members=[agent_1, agent_2],
-        context={"topic": "AI Safety"},
-        add_context=True,
-        send_team_context_to_members=True,
-        update_team_context=True
+        model=OpenAIChat("gpt-4o"),
+        members=[agent1, agent2],
+        instructions=[
+            "Synthesize the perspectives from both team members.",
+            "Provide a balanced view that incorporates insights from both perspectives.",
+            "Only ask the members once for their perspectives."
+        ]
     )
-
-    response = team.run("What are your thoughts on this topic?")
+    
+    response = team.run("What are the pros and cons of remote work?")
     
     assert response.content is not None
+    assert isinstance(response.content, str)
+    assert len(response.content) > 0
     assert len(response.member_responses) == 2
-    assert all("AI Safety" in str(r.content) for r in response.member_responses)
+    assert len(response.tools) == 1
 
 
-def test_collaborative_team_reasoning():
-    agent_1 = Agent(
-        name="First Thinker",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Provide initial analysis"
+
+def test_collaborative_team_with_structured_output():
+    """Test collaborative team with structured output."""
+    from pydantic import BaseModel
+    
+    class DebateResult(BaseModel):
+        topic: str
+        perspective_one: str
+        perspective_two: str
+        conclusion: str
+    
+    agent1 = Agent(
+        name="Perspective One",
+        model=OpenAIChat("gpt-4o"),
+        role="First perspective provider"
     )
-
-    agent_2 = Agent(
-        name="Second Thinker",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Critique and refine analysis"
+    
+    agent2 = Agent(
+        name="Perspective Two",
+        model=OpenAIChat("gpt-4o"),
+        role="Second perspective provider"
     )
-
+    
     team = Team(
-        name="Reasoning Team",
+        name="Debate Team",
         mode="collaborative",
-        model=OpenAIChat(id="gpt-4o"),
-        members=[agent_1, agent_2],
-        instructions="Guide a reasoned discussion",
-        reasoning=True,
-        reasoning_min_steps=2,
-        reasoning_max_steps=4
+        model=OpenAIChat("gpt-4o"),
+        members=[agent1, agent2],
+        instructions=[
+            "Have both agents provide their perspectives on the topic.",
+            "Synthesize their views into a balanced conclusion.",
+            "Only ask the members once for their perspectives."
+        ],
+        response_model=DebateResult
     )
-
-    response = team.run("Analyze the pros and cons of remote work")
-
+    
+    response = team.run("Is artificial general intelligence possible in the next decade?")
+    
     assert response.content is not None
-    assert response.extra_data is not None
-    assert response.extra_data.reasoning_steps is not None
-    assert len(response.extra_data.reasoning_steps) >= 2 
+    assert isinstance(response.content, DebateResult)
+    assert response.content.topic is not None
+    assert response.content.perspective_one is not None
+    assert response.content.perspective_two is not None
+    assert response.content.conclusion is not None 

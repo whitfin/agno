@@ -1,121 +1,169 @@
 import pytest
-from typing import List
-from pydantic import BaseModel
+from typing import List, Optional
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
+from pydantic import BaseModel
 
 
-class Article(BaseModel):
-    title: str
-    summary: str
-    sources: List[str]
-
-
-def test_coordinator_team_task_delegation():
-    searcher = Agent(
-        name="Web Searcher",
-        role="Search the web",
-        model=OpenAIChat(id="gpt-4o"),
-        tools=[DuckDuckGoTools()],
-        instructions="Search for relevant web content"
-    )
-
-    summarizer = Agent(
-        name="Summarizer",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Create concise summaries"
-    )
-
-    team = Team(
-        name="Research Team",
-        mode="coordinator",
-        model=OpenAIChat(id="gpt-4o"),
-        members=[searcher, summarizer],
-        instructions=[
-            "Coordinate research and summarization tasks",
-            "Ensure high quality output"
-        ],
-        response_model=Article
-    )
-
-    response = team.run("Research the latest developments in quantum computing")
-
-    assert isinstance(response.content, Article)
-    assert response.content.title is not None
-    assert response.content.summary is not None
-    assert len(response.content.sources) > 0
-
-
-def test_coordinator_team_sequential_tasks():
+def test_coordinator_team_basic():
+    """Test basic functionality of a coordinator team."""
     researcher = Agent(
-        name="HN Researcher",
-        model=OpenAIChat(id="gpt-4o"),
-        tools=[HackerNewsTools()],
-        instructions="Find relevant HackerNews posts"
-    )
-
-    analyzer = Agent(
-        name="Content Analyzer",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Analyze and synthesize findings"
-    )
-
-    fact_checker = Agent(
-        name="Fact Checker",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Verify information accuracy"
-    )
-
-    team = Team(
-        name="Sequential Team",
-        mode="coordinator",
-        model=OpenAIChat(id="gpt-4o"),
-        members=[researcher, analyzer, fact_checker],
-        instructions=[
-            "Coordinate sequential research, analysis, and verification",
-            "Each agent should build on previous work"
-        ],
-        send_team_context_to_members=True
-    )
-
-    response = team.run("Research and verify claims about a new AI breakthrough")
-
-    assert response.content is not None
-    assert len(response.member_responses) == 3
-    assert all(r.content is not None for r in response.member_responses)
-
-
-def test_coordinator_team_with_success_criteria():
-    agent_1 = Agent(
         name="Researcher",
-        model=OpenAIChat(id="gpt-4o"),
-        tools=[DuckDuckGoTools()],
-        instructions="Research specific claims"
+        model=OpenAIChat("gpt-4o"),
+        role="Research information",
+        tools=[DuckDuckGoTools()]
     )
-
-    agent_2 = Agent(
-        name="Validator",
-        model=OpenAIChat(id="gpt-4o"),
-        instructions="Validate research findings"
+    
+    writer = Agent(
+        name="Writer",
+        model=OpenAIChat("gpt-4o"),
+        role="Write content based on research"
     )
-
+    
     team = Team(
-        name="Validation Team",
+        name="Content Team",
         mode="coordinator",
-        model=OpenAIChat(id="gpt-4o"),
-        members=[agent_1, agent_2],
-        instructions="Coordinate research and validation",
-        success_criteria="All claims must be validated with sources",
+        model=OpenAIChat("gpt-4o"),
+        members=[researcher, writer],
+        instructions=[
+            "First, have the Researcher gather information on the topic.",
+            "Then, have the Writer create content based on the research."
+        ]
+    )
+    
+    response = team.run("Write a short article about climate change solutions")
+    
+    assert response.content is not None
+    assert isinstance(response.content, str)
+    assert len(response.content) > 0
+    assert len(response.member_responses) == 2
+
+
+def test_coordinator_team_with_context_sharing():
+    """Test coordinator team with context sharing between members."""
+    hn_researcher = Agent(
+        name="HackerNews Researcher",
+        model=OpenAIChat("gpt-4o"),
+        role="Gets top stories from hackernews",
+        tools=[HackerNewsTools()]
+    )
+    
+    web_searcher = Agent(
+        name="Web Searcher",
+        model=OpenAIChat("gpt-4o"),
+        role="Searches the web for additional information",
+        tools=[DuckDuckGoTools()]
+    )
+    
+    team = Team(
+        name="News Team",
+        mode="coordinator",
+        model=OpenAIChat("gpt-4o"),
+        members=[hn_researcher, web_searcher],
+        instructions=[
+            "First, search hackernews for what the user is asking about.",
+            "Then, ask the web searcher to search for each story to get more information.",
+            "Finally, provide a thoughtful and engaging summary."
+        ],
         send_team_context_to_members=True,
         update_team_context=True
     )
-
-    response = team.run("Research and validate claims about quantum supremacy")
-
+    
+    response = team.run("Summarize the top story on hackernews")
+    
     assert response.content is not None
-    assert "sources" in str(response.content).lower()
-    assert len(response.member_responses) == 2 
+    assert isinstance(response.content, str)
+    assert len(response.content) > 0
+    assert len(response.member_responses) == 2
+
+
+def test_coordinator_team_with_structured_output():
+    """Test coordinator team with structured output."""
+    class Article(BaseModel):
+        title: str
+        summary: str
+        reference_links: List[str]
+    
+    hn_researcher = Agent(
+        name="HackerNews Researcher",
+        model=OpenAIChat("gpt-4o"),
+        role="Gets top stories from hackernews",
+        tools=[HackerNewsTools()]
+    )
+    
+    web_searcher = Agent(
+        name="Web Searcher",
+        model=OpenAIChat("gpt-4o"),
+        role="Searches the web for additional information",
+        tools=[DuckDuckGoTools()]
+    )
+    
+    team = Team(
+        name="News Team",
+        mode="coordinator",
+        model=OpenAIChat("gpt-4o"),
+        members=[hn_researcher, web_searcher],
+        instructions=[
+            "First, search hackernews for what the user is asking about.",
+            "Then, ask the web searcher to search for each story to get more information.",
+            "Finally, provide a thoughtful and engaging summary."
+        ],
+        response_model=Article,
+        json_response_mode=True
+    )
+    
+    response = team.run("Write an article about the top story on hackernews")
+    
+    assert response.content is not None
+    assert isinstance(response.content, Article)
+    assert response.content.title is not None
+    assert response.content.summary is not None
+    assert response.content.reference_links is not None
+    assert len(response.content.reference_links) > 0
+
+
+def test_coordinator_team_sequential_tasks():
+    """Test coordinator team with sequential task execution."""
+    data_collector = Agent(
+        name="Data Collector",
+        model=OpenAIChat("gpt-4o"),
+        role="Collect data",
+        tools=[DuckDuckGoTools()]
+    )
+    
+    data_analyzer = Agent(
+        name="Data Analyzer",
+        model=OpenAIChat("gpt-4o"),
+        role="Analyze data"
+    )
+    
+    report_writer = Agent(
+        name="Report Writer",
+        model=OpenAIChat("gpt-4o"),
+        role="Write reports based on analysis"
+    )
+    
+    team = Team(
+        name="Research Team",
+        mode="coordinator",
+        model=OpenAIChat("gpt-4o"),
+        members=[data_collector, data_analyzer, report_writer],
+        instructions=[
+            "First, have the Data Collector gather information.",
+            "Then, have the Data Analyzer analyze the collected data.",
+            "Finally, have the Report Writer create a comprehensive report."
+        ],
+        send_team_context_to_members=True,
+        update_team_context=True
+    )
+    
+    response = team.run("Research the impact of AI on job markets")
+    
+    assert response.content is not None
+    assert isinstance(response.content, str)
+    assert len(response.content) > 0
+    assert len(response.member_responses) == 3 

@@ -111,13 +111,26 @@ def setup(
     setup_workspace(ws_root_path=ws_root_path)
 
 
+def validate_env_filter(ctx: typer.Context, param: typer.CallbackParam, value: Optional[str]) -> str:
+    """Ensure the environment filter is provided and valid."""
+    allowed_envs = {"dev", "prd"}
+
+    if not value:
+        raise typer.BadParameter("Environment is required. Use 'dev', 'prd' or 'stg'. Example: ag ws up dev")
+
+    if value not in allowed_envs:
+        raise typer.BadParameter(f"Invalid environment '{value}'. Allowed values: dev, prd, stg.")
+
+    return value
+
+
 @ws_cli.command(short_help="Create resources for the active workspace")
 def up(
+    env_filter: str = typer.Argument(None, help="The environment to deploy to", callback=validate_env_filter),
     resource_filter: Optional[str] = typer.Argument(
         None,
-        help="Resource filter. Format - ENV:INFRA:GROUP:NAME:TYPE",
+        help="Resource filter. Format - INFRA:GROUP:NAME:TYPE",
     ),
-    env_filter: Optional[str] = typer.Option(None, "-e", "--env", metavar="", help="Filter the environment to deploy."),
     infra_filter: Optional[str] = typer.Option(None, "-i", "--infra", metavar="", help="Filter the infra to deploy."),
     group_filter: Optional[str] = typer.Option(
         None, "-g", "--group", metavar="", help="Filter resources using group name."
@@ -288,11 +301,11 @@ def up(
 
 @ws_cli.command(short_help="Delete resources for active workspace")
 def down(
+    env_filter: str = typer.Argument(None, help="The environment to shut down.", callback=validate_env_filter),
     resource_filter: Optional[str] = typer.Argument(
         None,
-        help="Resource filter. Format - ENV:INFRA:GROUP:NAME:TYPE",
+        help="Resource filter. Format - INFRA:GROUP:NAME:TYPE",
     ),
-    env_filter: str = typer.Option(None, "-e", "--env", metavar="", help="Filter the environment to shut down."),
     infra_filter: Optional[str] = typer.Option(
         None, "-i", "--infra", metavar="", help="Filter the infra to shut down."
     ),
@@ -453,11 +466,11 @@ def down(
 
 @ws_cli.command(short_help="Update resources for active workspace")
 def patch(
+    env_filter: str = typer.Argument(None, help="The environment to patch.", callback=validate_env_filter),
     resource_filter: Optional[str] = typer.Argument(
         None,
-        help="Resource filter. Format - ENV:INFRA:GROUP:NAME:TYPE",
+        help="Resource filter. Format - INFRA:GROUP:NAME:TYPE",
     ),
-    env_filter: str = typer.Option(None, "-e", "--env", metavar="", help="Filter the environment to patch."),
     infra_filter: Optional[str] = typer.Option(None, "-i", "--infra", metavar="", help="Filter the infra to patch."),
     group_filter: Optional[str] = typer.Option(
         None, "-g", "--group", metavar="", help="Filter resources using group name."
@@ -623,11 +636,11 @@ def patch(
 
 @ws_cli.command(short_help="Restart resources for active workspace")
 def restart(
+    env_filter: str = typer.Argument(None, help="The environment to restart", callback=validate_env_filter),
     resource_filter: Optional[str] = typer.Argument(
         None,
-        help="Resource filter. Format - ENV:INFRA:GROUP:NAME:TYPE",
+        help="Resource filter. Format - INFRA:GROUP:NAME:TYPE",
     ),
-    env_filter: str = typer.Option(None, "-e", "--env", metavar="", help="Filter the environment to restart."),
     infra_filter: Optional[str] = typer.Option(None, "-i", "--infra", metavar="", help="Filter the infra to restart."),
     group_filter: Optional[str] = typer.Option(
         None, "-g", "--group", metavar="", help="Filter resources using group name."

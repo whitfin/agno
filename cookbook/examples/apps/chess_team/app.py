@@ -291,7 +291,7 @@ Respond with ONLY your chosen move in UCI notation (e.g., 'e2e4').
 Do not include any other text in your response."""
 
             response = st.session_state.team.run(
-                message=task_message,
+                task_message,
                 stream=False,
                 context={
                     "current_player": current_agent_name,
@@ -426,7 +426,6 @@ Do not include any other text in your response.""",
 
             except Exception as e:
                 logger.error(f"Error processing move: {str(e)}")
-                st.error(f"Error processing move: {str(e)}")
                 st.rerun()
     else:
         st.info("👈 Press 'Start Game' to begin!")

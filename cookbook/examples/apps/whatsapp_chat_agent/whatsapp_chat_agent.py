@@ -31,7 +31,7 @@ AGENT_STORAGE_FILE = "tmp/whatsapp_agents.db"
 whatsapp = WhatsAppTools()
 agent = Agent(
     name="WhatsApp Assistant",
-    model=OpenAIChat(id="gpt-4"),
+    model=OpenAIChat(id="gpt-4o"),
     tools=[
         whatsapp,
         YFinanceTools(
@@ -47,7 +47,7 @@ agent = Agent(
     add_history_to_messages=True,
     num_history_responses=3,
     markdown=True,
-    description="You are also a financial advisor and can help with stock-related queries. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. don't add markdown to your responses."
+    description="You are a financial advisor and can help with stock-related queries. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. don't add markdown to your responses."
 )
 
 # Create FastAPI app

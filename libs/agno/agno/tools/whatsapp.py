@@ -1,6 +1,7 @@
-import os
-from typing import Optional, Dict, Any, List
 import json
+import os
+from typing import Any, Dict, List, Optional
+
 import httpx
 from dotenv import load_dotenv
 
@@ -9,6 +10,7 @@ from agno.utils.log import logger
 
 # Try to load from both .env and .envrc
 load_dotenv()
+
 
 class WhatsAppTools(Toolkit):
     """WhatsApp Business API toolkit for sending messages."""
@@ -39,7 +41,9 @@ class WhatsAppTools(Toolkit):
 
         self.phone_number_id = phone_number_id or os.getenv("WHATSAPP_PHONE_NUMBER_ID") or os.getenv("PHONE_NUMBER_ID")
         if not self.phone_number_id:
-            logger.error("WHATSAPP_PHONE_NUMBER_ID not set. Please set the WHATSAPP_PHONE_NUMBER_ID environment variable.")
+            logger.error(
+                "WHATSAPP_PHONE_NUMBER_ID not set. Please set the WHATSAPP_PHONE_NUMBER_ID environment variable."
+            )
 
         # Optional default recipient
         self.default_recipient = recipient_waid or os.getenv("WHATSAPP_RECIPIENT_WAID") or os.getenv("RECIPIENT_WAID")
@@ -59,21 +63,15 @@ class WhatsAppTools(Toolkit):
         config_status = {
             "Core credentials": {
                 "access_token": bool(self.access_token),
-                "phone_number_id": bool(self.phone_number_id)
+                "phone_number_id": bool(self.phone_number_id),
             },
-            "Optional settings": {
-                "default_recipient": bool(self.default_recipient),
-                "api_version": self.version
-            }
+            "Optional settings": {"default_recipient": bool(self.default_recipient), "api_version": self.version},
         }
         logger.debug(f"WhatsApp toolkit configuration status: {json.dumps(config_status, indent=2)}")
 
     def _get_headers(self) -> Dict[str, str]:
         """Get headers for API requests."""
-        return {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
+        return {"Authorization": f"Bearer {self.access_token}", "Content-Type": "application/json"}
 
     def _get_messages_url(self) -> str:
         """Get the messages endpoint URL."""
@@ -89,11 +87,7 @@ class WhatsAppTools(Toolkit):
             API response as dictionary
         """
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self._get_messages_url(),
-                headers=self._get_headers(),
-                json=data
-            )
+            response = await client.post(self._get_messages_url(), headers=self._get_headers(), json=data)
             response.raise_for_status()
             return response.json()
 
@@ -113,11 +107,7 @@ class WhatsAppTools(Toolkit):
         logger.debug(f"Request data: {json.dumps(data, indent=2)}")
         logger.debug(f"Headers: {json.dumps(headers, indent=2)}")
 
-        response = httpx.post(
-            url,
-            headers=headers,
-            json=data
-        )
+        response = httpx.post(url, headers=headers, json=data)
 
         logger.debug(f"Response status code: {response.status_code}")
         logger.debug(f"Response headers: {dict(response.headers)}")
@@ -126,12 +116,7 @@ class WhatsAppTools(Toolkit):
         response.raise_for_status()
         return response.json()
 
-    def send_text_message_sync(
-        self,
-        recipient: Optional[str] = None,
-        text: str = "",
-        preview_url: bool = False
-    ) -> str:
+    def send_text_message_sync(self, recipient: Optional[str] = None, text: str = "", preview_url: bool = False) -> str:
         """Send a text message to a WhatsApp user (synchronous version).
 
         Args:
@@ -157,10 +142,7 @@ class WhatsAppTools(Toolkit):
             "recipient_type": "individual",
             "to": recipient,
             "type": "text",
-            "text": {
-                "preview_url": preview_url,
-                "body": text
-            }
+            "text": {"preview_url": preview_url, "body": text},
         }
 
         try:
@@ -181,7 +163,7 @@ class WhatsAppTools(Toolkit):
         recipient: Optional[str] = None,
         template_name: str = "",
         language_code: str = "en_US",
-        components: Optional[List[Dict[str, Any]]] = None
+        components: Optional[List[Dict[str, Any]]] = None,
     ) -> str:
         """Send a template message to a WhatsApp user (synchronous version).
 
@@ -206,12 +188,7 @@ class WhatsAppTools(Toolkit):
             "messaging_product": "whatsapp",
             "to": recipient,
             "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {
-                    "code": language_code
-                }
-            }
+            "template": {"name": template_name, "language": {"code": language_code}},
         }
 
         if components:

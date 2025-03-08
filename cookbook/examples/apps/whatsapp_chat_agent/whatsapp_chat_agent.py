@@ -1,13 +1,14 @@
+import logging
+import os
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.agent.sqlite import SqliteAgentStorage
 from agno.tools.whatsapp import WhatsAppTools
 from agno.tools.yfinance import YFinanceTools
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
-import os
-import logging
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import PlainTextResponse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,17 +42,18 @@ agent = Agent(
             historical_prices=True,
             company_info=True,
             company_news=True,
-        )
+        ),
     ],
     storage=SqliteAgentStorage(table_name="whatsapp_agent", db_file=AGENT_STORAGE_FILE),
     add_history_to_messages=True,
     num_history_responses=3,
     markdown=True,
-    description="You are a financial advisor and can help with stock-related queries. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. don't add markdown to your responses."
+    description="You are a financial advisor and can help with stock-related queries. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. don't add markdown to your responses.",
 )
 
 # Create FastAPI app
 app = FastAPI()
+
 
 @app.get("/webhook")
 async def verify_webhook(request: Request):
@@ -69,6 +71,7 @@ async def verify_webhook(request: Request):
 
     raise HTTPException(status_code=403, detail="Invalid verify token or mode")
 
+
 @app.post("/webhook")
 async def handle_message(request: Request):
     """Handle incoming WhatsApp messages"""
@@ -77,7 +80,9 @@ async def handle_message(request: Request):
 
         # Validate webhook data
         if body.get("object") != "whatsapp_business_account":
-            logger.warning(f"Received non-WhatsApp webhook object: {body.get('object')}")
+            logger.warning(
+                f"Received non-WhatsApp webhook object: {body.get('object')}"
+            )
             return {"status": "ignored"}
 
         # Process messages
@@ -101,8 +106,7 @@ async def handle_message(request: Request):
                 # Generate and send response
                 response = agent.run(message_text)
                 whatsapp.send_text_message_sync(
-                    recipient=phone_number,
-                    text=response.content
+                    recipient=phone_number, text=response.content
                 )
                 logger.info(f"Response sent to {phone_number}")
 
@@ -112,12 +116,15 @@ async def handle_message(request: Request):
         logger.error(f"Error processing webhook: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 if __name__ == "__main__":
     import uvicorn
 
     logger.info("Starting WhatsApp Bot Server")
     logger.info(f"Webhook URL: {WEBHOOK_URL}")
     logger.info(f"Verify Token: {VERIFY_TOKEN}")
-    logger.info("Make sure your .env file contains WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID")
+    logger.info(
+        "Make sure your .env file contains WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID"
+    )
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

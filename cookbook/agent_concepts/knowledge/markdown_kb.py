@@ -6,7 +6,7 @@ from agno.vectordb.pgvector import PgVector
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
-# Create a knowledge base with the DOCX files from the data/docs directory
+# Create a knowledge base with the Markdown files from the data/markdown directory
 knowledge_base = MarkdownKnowledgeBase(
     path=Path("data/markdown"),
     vector_db=PgVector(

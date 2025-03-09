@@ -12,10 +12,11 @@ def create_team_session(session: TeamSessionCreate, monitor: bool = False) -> No
     logger.debug("--**-- Logging Team Session")
     with api.AuthenticatedClient() as api_client:
         try:
-            api_client.post(
+            response = api_client.post(
                 ApiRoutes.TEAM_SESSION_CREATE if monitor else ApiRoutes.TEAM_TELEMETRY_SESSION_CREATE,
                 json={"session": session.model_dump(exclude_none=True)},
             )
+            response.raise_for_status()
         except Exception as e:
             logger.debug(f"Could not create Team session: {e}")
     return
@@ -28,10 +29,11 @@ def create_team_run(run: TeamRunCreate, monitor: bool = False) -> None:
     logger.debug("--**-- Logging Team Run")
     with api.AuthenticatedClient() as api_client:
         try:
-            api_client.post(
+            response = api_client.post(
                 ApiRoutes.TEAM_RUN_CREATE if monitor else ApiRoutes.TEAM_TELEMETRY_RUN_CREATE,
                 json={"run": run.model_dump(exclude_none=True)},
             )
+            response.raise_for_status()
         except Exception as e:
             logger.debug(f"Could not create Team run: {e}")
     return
@@ -44,10 +46,11 @@ async def acreate_team_session(session: TeamSessionCreate, monitor: bool = False
     logger.debug("--**-- Logging Team Session")
     async with api.AuthenticatedAsyncClient() as api_client:
         try:
-            await api_client.post(
+            response = await api_client.post(
                 ApiRoutes.TEAM_SESSION_CREATE if monitor else ApiRoutes.TEAM_TELEMETRY_SESSION_CREATE,
                 json={"session": session.model_dump(exclude_none=True)},
             )
+            response.raise_for_status()
         except Exception as e:
             logger.debug(f"Could not create Team session: {e}")
 
@@ -59,9 +62,10 @@ async def acreate_team_run(run: TeamRunCreate, monitor: bool = False) -> None:
     logger.debug("--**-- Logging Team Run")
     async with api.AuthenticatedAsyncClient() as api_client:
         try:
-            await api_client.post(
+            response = await api_client.post(
                 ApiRoutes.TEAM_RUN_CREATE if monitor else ApiRoutes.TEAM_TELEMETRY_RUN_CREATE,
                 json={"run": run.model_dump(exclude_none=True)},
             )
+            response.raise_for_status()
         except Exception as e:
             logger.debug(f"Could not create Team run: {e}")

@@ -26,6 +26,7 @@ if not WEBHOOK_URL:
 
 AGENT_STORAGE_FILE = "tmp/whatsapp_agents.db"
 
+
 def get_whatsapp_agent() -> Agent:
     """Returns an instance of the WhatsApp Agent.
 
@@ -50,7 +51,9 @@ def get_whatsapp_agent() -> Agent:
                 company_news=True,
             ),
         ],
-        storage=SqliteAgentStorage(table_name="whatsapp_agent", db_file=AGENT_STORAGE_FILE),
+        storage=SqliteAgentStorage(
+            table_name="whatsapp_agent", db_file=AGENT_STORAGE_FILE
+        ),
         add_history_to_messages=True,
         num_history_responses=3,
         markdown=True,

@@ -1,9 +1,8 @@
 import logging
 
+from agents import VERIFY_TOKEN, get_whatsapp_agent
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
-
-from agents import VERIFY_TOKEN, get_whatsapp_agent
 
 # Configure logging
 logger = logging.getLogger(__name__)

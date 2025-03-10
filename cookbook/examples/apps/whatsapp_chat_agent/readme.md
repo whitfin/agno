@@ -35,16 +35,16 @@ pip install -r requirements.txt
    - Get your WhatsApp Business Account ID and Phone Number ID
 
 4. **Environment Variables**
-   Create a `.env` file in the project root with the following variables:
+   Create a `.envrc` file in the project root with the following variables:
 
-```env
-WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
-WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-WHATSAPP_RECIPIENT_WAID=phone_number_with_country_code  # e.g. +1234567890
-WHATSAPP_WEBHOOK_URL=your_webhook_url
-WHATSAPP_VERIFY_TOKEN=your_custom_verify_token  # Can be any string you choose
-WHATSAPP_WEBHOOK_URL=your_webhook_url
-OPENAI_API_KEY=your_openai_api_key
+```bash
+export WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
+export WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+export WHATSAPP_RECIPIENT_WAID=phone_number_with_country_code  # e.g. +1234567890
+export WHATSAPP_WEBHOOK_URL=your_webhook_url
+export WHATSAPP_VERIFY_TOKEN=your_custom_verify_token  # Can be any string you choose
+export WHATSAPP_WEBHOOK_URL=your_webhook_url
+export OPENAI_API_KEY=your_openai_api_key
 ```
 
 ## Running the Application
@@ -91,7 +91,7 @@ ngrok http 8000
 
 ## Important Notes
 
-- The ngrok URL changes every time you restart ngrok (unless you have a paid account)
+- The ngrok URL changes every time you restart ngrok, You can also use a static ngrok URL by running `ngrok http 8000 --domain=your-custom-domain.com`, you can get a custom domain from [here](https://dashboard.ngrok.com/domains)
 - You'll need to update the Webhook URL in the Meta Developer Portal whenever the ngrok URL changes
 - Keep your WHATSAPP_ACCESS_TOKEN and other credentials secure
 - The bot stores conversation history in a SQLite database in the `tmp` directory

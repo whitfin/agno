@@ -1,55 +1,15 @@
 import logging
-import os
 
-from agno.agent import Agent
-from agno.models.openai import OpenAIChat
-from agno.storage.agent.sqlite import SqliteAgentStorage
-from agno.tools.whatsapp import WhatsAppTools
-from agno.tools.yfinance import YFinanceTools
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
+from agents import VERIFY_TOKEN, get_whatsapp_agent
+
 # Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
-# Configure constants
-VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN")
-if not VERIFY_TOKEN:
-    raise ValueError("WHATSAPP_VERIFY_TOKEN must be set in .envrc")
-
-WEBHOOK_URL = os.getenv("WHATSAPP_WEBHOOK_URL")
-if not WEBHOOK_URL:
-    raise ValueError("WHATSAPP_WEBHOOK_URL must be set in .envrc")
-
-AGENT_STORAGE_FILE = "tmp/whatsapp_agents.db"
-
-# Initialize WhatsApp tools and agent
-whatsapp = WhatsAppTools()
-agent = Agent(
-    name="WhatsApp Assistant",
-    model=OpenAIChat(id="gpt-4o"),
-    tools=[
-        whatsapp,
-        YFinanceTools(
-            stock_price=True,
-            analyst_recommendations=True,
-            stock_fundamentals=True,
-            historical_prices=True,
-            company_info=True,
-            company_news=True,
-        ),
-    ],
-    storage=SqliteAgentStorage(table_name="whatsapp_agent", db_file=AGENT_STORAGE_FILE),
-    add_history_to_messages=True,
-    num_history_responses=3,
-    markdown=True,
-    description="You are a financial advisor and can help with stock-related queries. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. don't add markdown to your responses.",
-)
+# Initialize agent
+agent = get_whatsapp_agent()
 
 # Create FastAPI app
 app = FastAPI()
@@ -103,7 +63,7 @@ async def handle_message(request: Request):
 
                 # Generate and send response
                 response = agent.run(message_text)
-                whatsapp.send_text_message_sync(
+                agent.tools[0].send_text_message_sync(
                     recipient=phone_number, text=response.content
                 )
                 logger.info(f"Response sent to {phone_number}")

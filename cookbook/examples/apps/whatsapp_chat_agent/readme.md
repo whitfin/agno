@@ -52,7 +52,7 @@ export OPENAI_API_KEY=your_openai_api_key
 1. **Start the FastAPI server**
 
 ```bash
-python whatsapp_chat_agent.py
+python app.py
 ```
 
 2. **Start ngrok**

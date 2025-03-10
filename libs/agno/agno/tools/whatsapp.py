@@ -86,8 +86,20 @@ class WhatsAppTools(Toolkit):
         Returns:
             API response as dictionary
         """
+        url = self._get_messages_url()
+        headers = self._get_headers()
+
+        logger.debug(f"Sending WhatsApp request to URL: {url}")
+        logger.debug(f"Request data: {json.dumps(data, indent=2)}")
+        logger.debug(f"Headers: {json.dumps(headers, indent=2)}")
+
         async with httpx.AsyncClient() as client:
-            response = await client.post(self._get_messages_url(), headers=self._get_headers(), json=data)
+            response = await client.post(url, headers=headers, json=data)
+
+            logger.debug(f"Response status code: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
+            logger.debug(f"Response body: {response.text}")
+
             response.raise_for_status()
             return response.json()
 

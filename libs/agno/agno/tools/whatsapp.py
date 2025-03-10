@@ -192,7 +192,7 @@ class WhatsAppTools(Toolkit):
         }
 
         if components:
-            data["template"]["components"] = components # type: ignore[index]
+            data["template"]["components"] = components  # type: ignore[index]
 
         try:
             response = self._send_message_sync(data)

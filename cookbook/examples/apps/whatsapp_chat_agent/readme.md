@@ -18,10 +18,10 @@ This is a WhatsApp chatbot that provides stock market insights and financial adv
 pip install -r requirements.txt
 ```
 
-2. **Set up ngrok**
+2. **Set up ngrok (for development testing only)**
 
    - Download and install ngrok from https://ngrok.com/download
-   - Sign up for a free account and get your authtoken
+   - Sign up for a free account and get your auth-token
    - Authenticate ngrok with your token:
      ```bash
      ngrok config add-authtoken YOUR_AUTH_TOKEN
@@ -40,7 +40,10 @@ pip install -r requirements.txt
 ```env
 WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
 WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_RECIPIENT_WAID=phone_number_with_country_code  # e.g. +1234567890
+WHATSAPP_WEBHOOK_URL=your_webhook_url
 WHATSAPP_VERIFY_TOKEN=your_custom_verify_token  # Can be any string you choose
+WHATSAPP_WEBHOOK_URL=your_webhook_url
 OPENAI_API_KEY=your_openai_api_key
 ```
 

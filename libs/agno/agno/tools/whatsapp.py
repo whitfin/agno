@@ -116,12 +116,12 @@ class WhatsAppTools(Toolkit):
         response.raise_for_status()
         return response.json()
 
-    def send_text_message_sync(self, recipient: Optional[str] = None, text: str = "", preview_url: bool = False) -> str:
+    def send_text_message_sync(self, text: str = "", recipient: Optional[str] = None, preview_url: bool = False) -> str:
         """Send a text message to a WhatsApp user (synchronous version).
 
         Args:
-            recipient: Recipient's WhatsApp ID or phone number (e.g., "+1234567890"). If not provided, uses default_recipient
             text: The text message to send
+            recipient: Recipient's WhatsApp ID or phone number (e.g., "+1234567890"). If not provided, uses default_recipient
             preview_url: Whether to generate previews for links in the message
 
         Returns:

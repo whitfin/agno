@@ -31,21 +31,21 @@ class WhatsAppTools(Toolkit):
         super().__init__(name="whatsapp")
 
         # Core credentials
-        self.access_token = access_token or os.getenv("WHATSAPP_ACCESS_TOKEN") or os.getenv("ACCESS_TOKEN")
+        self.access_token = access_token or os.getenv("WHATSAPP_ACCESS_TOKEN") or os.getenv("WHATSAPP_ACCESS_TOKEN")
         if not self.access_token:
             logger.error("WHATSAPP_ACCESS_TOKEN not set. Please set the WHATSAPP_ACCESS_TOKEN environment variable.")
 
-        self.phone_number_id = phone_number_id or os.getenv("WHATSAPP_PHONE_NUMBER_ID") or os.getenv("PHONE_NUMBER_ID")
+        self.phone_number_id = phone_number_id or os.getenv("WHATSAPP_PHONE_NUMBER_ID") or os.getenv("WHATSAPP_PHONE_NUMBER_ID")
         if not self.phone_number_id:
             logger.error(
                 "WHATSAPP_PHONE_NUMBER_ID not set. Please set the WHATSAPP_PHONE_NUMBER_ID environment variable."
             )
 
         # Optional default recipient
-        self.default_recipient = recipient_waid or os.getenv("WHATSAPP_RECIPIENT_WAID") or os.getenv("RECIPIENT_WAID")
+        self.default_recipient = recipient_waid or os.getenv("WHATSAPP_RECIPIENT_WAID") or os.getenv("WHATSAPP_RECIPIENT_WAID")
 
         # API version
-        self.version = version or os.getenv("WHATSAPP_VERSION") or os.getenv("VERSION", "v22.0")
+        self.version = version or os.getenv("WHATSAPP_VERSION") or os.getenv("WHATSAPP_VERSION", "v22.0")
 
         # Register methods that can be used by the agent
         self.register(self.send_text_message_sync)

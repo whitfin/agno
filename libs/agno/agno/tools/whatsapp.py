@@ -3,13 +3,9 @@ import os
 from typing import Any, Dict, List, Optional
 
 import httpx
-from dotenv import load_dotenv
 
 from agno.tools import Toolkit
 from agno.utils.log import logger
-
-# Try to load from both .env and .envrc
-load_dotenv()
 
 
 class WhatsAppTools(Toolkit):
@@ -201,12 +197,3 @@ class WhatsAppTools(Toolkit):
         except httpx.HTTPStatusError as e:
             logger.error(f"Failed to send WhatsApp template message: {e}")
             raise
-
-    # Keep the async methods for compatibility but mark them as internal
-    async def send_text_message(self, *args, **kwargs):
-        """Internal async version - use send_text_message_sync instead"""
-        return self.send_text_message_sync(*args, **kwargs)
-
-    async def send_template_message(self, *args, **kwargs):
-        """Internal async version - use send_template_message_sync instead"""
-        return self.send_template_message_sync(*args, **kwargs)

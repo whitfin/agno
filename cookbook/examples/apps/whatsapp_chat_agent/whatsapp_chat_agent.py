@@ -62,8 +62,6 @@ async def verify_webhook(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
 
-    logger.info(f"Webhook verification request - Mode: {mode}, Token: {token}")
-
     if mode == "subscribe" and token == VERIFY_TOKEN:
         if not challenge:
             raise HTTPException(status_code=400, detail="No challenge received")
@@ -121,10 +119,4 @@ if __name__ == "__main__":
     import uvicorn
 
     logger.info("Starting WhatsApp Bot Server")
-    logger.info(f"Webhook URL: {WEBHOOK_URL}")
-    logger.info(f"Verify Token: {VERIFY_TOKEN}")
-    logger.info(
-        "Make sure your .env file contains WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID"
-    )
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

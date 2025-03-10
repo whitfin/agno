@@ -68,7 +68,7 @@ ngrok http 8000
    - Set up Webhooks for your WhatsApp Business Account
    - Use the ngrok URL + "/webhook" as your Callback URL
    - Use your WHATSAPP_VERIFY_TOKEN as the Verify Token
-   - Subscribe to the messages webhook
+   - Subscribe to the `messages` webhook
 
 ## Testing the Bot
 

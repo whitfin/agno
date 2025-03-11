@@ -2659,8 +2659,6 @@ class Team:
     # Logging
     ###########################################################################
 
-    # TODO: How should this work?
-
     def _create_run_data(self) -> Dict[str, Any]:
         """Create and return the run data dictionary."""
         run_response_format = "text"
@@ -2698,6 +2696,7 @@ class Team:
         if self.team_id is not None:
             team_data["team_id"] = self.team_id
         if self.members is not None:
+            # TODO: Need to indicate whether member is team or agent
             team_data["member_ids"] = [member.agent_id for member in self.members]
         if self.model is not None:
             team_data["model"] = self.model.to_dict()

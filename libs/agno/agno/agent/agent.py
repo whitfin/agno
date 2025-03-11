@@ -377,16 +377,8 @@ class Agent:
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
 
-        # Handle deprecation warning for team parameter
-        if team is not None:
-            warnings.warn(
-                "The 'team' parameter is deprecated and will be removed in a future version. "
-                "Please use the new 'Team' class instead.",
-                DeprecationWarning,
-                stacklevel=2
-            )
         self.team = team
-        
+
         self.team_data = team_data
         self.role = role
         self.respond_directly = respond_directly
@@ -462,7 +454,7 @@ class Agent:
     @property
     def is_streamable(self) -> bool:
         return self.response_model is None
-    
+
     @property
     def has_team(self) -> bool:
         return self.team is not None and len(self.team) > 0
@@ -1487,7 +1479,7 @@ class Agent:
                 agent_tools.append(self.search_knowledge_base)
             if self.update_knowledge:
                 agent_tools.append(self.add_to_knowledge)
-        
+
         # Add transfer tools
         if self.has_team:
             for agent_index, agent in enumerate(self.team):
@@ -2469,7 +2461,7 @@ class Agent:
         except Exception:
             # If copy fails, return as is
             return field_value
-        
+
     def get_transfer_function(self, member_agent: Agent, index: int) -> Function:
         def _transfer_task_to_agent(
             task_description: str, expected_output: str, additional_information: Optional[str] = None
@@ -2586,7 +2578,7 @@ class Agent:
                     transfer_instructions += f"Available tools: {', '.join(_tools)}\n"
             return transfer_instructions
         return ""
-    
+
     def get_relevant_docs_from_knowledge(
         self, query: str, num_documents: Optional[int] = None, **kwargs
     ) -> Optional[List[Dict[str, Any]]]:

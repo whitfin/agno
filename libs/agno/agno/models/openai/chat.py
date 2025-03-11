@@ -195,7 +195,7 @@ class OpenAIChat(Model):
 
             if self.tool_choice is not None:
                 request_params["tool_choice"] = self.tool_choice
-        
+
         # Add additional request params if provided
         if self.request_params:
             request_params.update(self.request_params)
@@ -280,7 +280,7 @@ class OpenAIChat(Model):
             message_dict["content"] = None
             message_dict["audio"] = {"id": message.audio_output.id}
 
-        if message.videos is not None:
+        if message.videos is not None and len(message.videos) > 0:
             get_logger().warning("Video input is currently unsupported.")
 
         # OpenAI expects the tool_calls to be None if empty, not an empty list
@@ -290,7 +290,6 @@ class OpenAIChat(Model):
         # Manually add the content field even if it is None
         if message.content is None:
             message_dict["content"] = None
-
 
         return message_dict
 

@@ -1,12 +1,10 @@
-from typing import Any, Dict, List
+from typing import List
 
 from agno import Agent, Team
 from agno.models.openai import OpenAIChat
-from agno.models.xai.xai import xAI
-from agno.run.team import TeamRunResponse
 from agno.tools.dalle import DalleTools
 from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.tools.ppt import PowerPointTool
+from agno.tools.powerpoint import PowerPointTool
 from pydantic import BaseModel
 
 

@@ -52,10 +52,10 @@ def _format_image_for_message(image: Image) -> Optional[Dict[str, Any]]:
                 }
                 return image_data
             except Exception as e:
-                logger.warning(f"Failed to download image from {image}: {e}")
+                get_logger().warning(f"Failed to download image from {image}: {e}")
                 return None
         else:
-            logger.warning(f"Unsupported image format: {image}")
+            get_logger().warning(f"Unsupported image format: {image}")
             return None
 
     # Case 2: Image is a local path

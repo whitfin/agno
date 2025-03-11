@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import ChainMap, defaultdict, deque
 from dataclasses import asdict, dataclass
 from os import getenv
@@ -21,7 +22,6 @@ from typing import (
     overload,
 )
 from uuid import uuid4
-import warnings
 
 from pydantic import BaseModel
 
@@ -43,10 +43,10 @@ from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.log import get_logger, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.message import get_text_from_message
+from agno.utils.response import create_panel, escape_markdown_tags
 from agno.utils.safe_formatter import SafeFormatter
 from agno.utils.string import parse_structured_output
 from agno.utils.timer import Timer
-from agno.utils.response import create_panel, escape_markdown_tags
 
 
 @dataclass(init=False)
@@ -168,7 +168,6 @@ class Agent:
     add_datetime_to_instructions: bool = False
     # If True, add the session state variables in the user and system messages
     add_state_in_messages: bool = False
-
 
     # --- Extra Messages ---
     # A list of extra messages added after the system message and before the user message.
@@ -383,10 +382,10 @@ class Agent:
                 "The 'team' parameter is deprecated and will be removed in a future version. "
                 "Please use the new 'Team' class instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         self.team = team
-        
+
         self.team_data = team_data
         self.role = role
         self.respond_directly = respond_directly
@@ -462,11 +461,10 @@ class Agent:
     @property
     def is_streamable(self) -> bool:
         return self.response_model is None
-    
+
     @property
     def has_team(self) -> bool:
         return self.team is not None and len(self.team) > 0
-
 
     def _run(
         self,
@@ -956,7 +954,6 @@ class Agent:
                     event=RunEvent.run_cancelled,
                 )
                 return cancelled_response
-
 
         # If we get here, all retries failed
         if last_exception is not None:
@@ -1487,7 +1484,7 @@ class Agent:
                 agent_tools.append(self.search_knowledge_base)
             if self.update_knowledge:
                 agent_tools.append(self.add_to_knowledge)
-        
+
         # Add transfer tools
         if self.has_team:
             for agent_index, agent in enumerate(self.team):
@@ -1681,6 +1678,7 @@ class Agent:
         from agno.memory.memory import Memory
         from agno.memory.summary import SessionSummary
         from agno.utils.merge_dict import merge_dictionaries
+
         logger = get_logger()
 
         # Get the agent_id, user_id and session_id from the database
@@ -1822,7 +1820,8 @@ class Agent:
                 self.memory.add_run(
                     AgentRun(
                         response=RunResponse(
-                            content=introduction, messages=[Message(role=self.model.assistant_message_role, content=introduction)]
+                            content=introduction,
+                            messages=[Message(role=self.model.assistant_message_role, content=introduction)],
                         )
                     )
                 )
@@ -2419,6 +2418,7 @@ class Agent:
     def _deep_copy_field(self, field_name: str, field_value: Any) -> Any:
         """Helper method to deep copy a field based on its type."""
         from copy import copy, deepcopy
+
         logger = get_logger()
 
         # For memory and reasoning_agent, use their deep_copy methods
@@ -2469,7 +2469,7 @@ class Agent:
         except Exception:
             # If copy fails, return as is
             return field_value
-        
+
     def get_transfer_function(self, member_agent: Agent, index: int) -> Function:
         def _transfer_task_to_agent(
             task_description: str, expected_output: str, additional_information: Optional[str] = None
@@ -2586,7 +2586,7 @@ class Agent:
                     transfer_instructions += f"Available tools: {', '.join(_tools)}\n"
             return transfer_instructions
         return ""
-    
+
     def get_relevant_docs_from_knowledge(
         self, query: str, num_documents: Optional[int] = None, **kwargs
     ) -> Optional[List[Dict[str, Any]]]:
@@ -3730,9 +3730,7 @@ class Agent:
                 if isinstance(run_response, RunResponse):
                     if isinstance(run_response.content, str):
                         if self.markdown:
-                            escaped_content = escape_markdown_tags(
-                                run_response.content, tags_to_include_in_markdown
-                            )
+                            escaped_content = escape_markdown_tags(run_response.content, tags_to_include_in_markdown)
                             response_content_batch = Markdown(escaped_content)
                         else:
                             response_content_batch = run_response.get_content_as_string(indent=4)
@@ -3998,9 +3996,7 @@ class Agent:
                 if isinstance(run_response, RunResponse):
                     if isinstance(run_response.content, str):
                         if self.markdown:
-                            escaped_content = escape_markdown_tags(
-                                run_response.content, tags_to_include_in_markdown
-                            )
+                            escaped_content = escape_markdown_tags(run_response.content, tags_to_include_in_markdown)
                             response_content_batch = Markdown(escaped_content)
                         else:
                             response_content_batch = run_response.get_content_as_string(indent=4)

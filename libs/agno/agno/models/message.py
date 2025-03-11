@@ -258,12 +258,13 @@ class Message(BaseModel):
 
         try:
             import shutil
+
             terminal_width = shutil.get_terminal_size().columns
         except Exception:
             terminal_width = 80  # fallback width
 
         header = f" {self.role} "
-        _logger(f"{header.center(terminal_width-20, '=')}")
+        _logger(f"{header.center(terminal_width - 20, '=')}")
 
         if self.name:
             _logger(f"Name: {self.name}")
@@ -281,13 +282,13 @@ class Message(BaseModel):
             for tool_call in self.tool_calls:
                 tool_calls_str += f"  - ID: '{tool_call.get('id', 'Unknown')}'\n"
                 tool_calls_str += f"    Name: '{tool_call.get('function', {}).get('name', 'Unknown')}'\n"
-                tool_call_arguments = tool_call.get('function', {}).get('arguments')
+                tool_call_arguments = tool_call.get("function", {}).get("arguments")
                 arguments = []
                 if tool_call_arguments:
                     for k, v in json.loads(tool_call_arguments).items():
                         arguments.append(f"{k}: {v}")
                     tool_calls_str += f"    Arguments: '{', '.join(arguments)}'\n"
-            
+
             _logger(tool_calls_str)
         if self.images:
             _logger(f"Images added: {len(self.images)}")
@@ -296,10 +297,10 @@ class Message(BaseModel):
         if self.audio:
             _logger(f"Audio Files added: {len(self.audio)}")
 
-        metrics_header = ' TOOL METRICS ' if self.role == 'tool' else ' METRICS '
+        metrics_header = " TOOL METRICS " if self.role == "tool" else " METRICS "
         if metrics and self.metrics is not None and self.metrics != MessageMetrics():
             _logger(metrics_header, center=True, symbol="*")
-            
+
             # Combine token metrics into a single line
             token_metrics = []
             if self.metrics.input_tokens:
@@ -323,7 +324,7 @@ class Message(BaseModel):
             if self.metrics.additional_metrics:
                 _logger(f"* Additional metrics:          {self.metrics.additional_metrics}")
             _logger(metrics_header, center=True, symbol="*")
-        
+
         _logger("")
 
     def content_is_valid(self) -> bool:

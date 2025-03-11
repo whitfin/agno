@@ -91,7 +91,7 @@ class Video(BaseModel):
             "format": self.format,
         }
         return {k: v for k, v in response_dict.items() if v is not None}
-    
+
     @classmethod
     def from_artifact(cls, artifact: VideoArtifact) -> "Video":
         return cls(url=artifact.url)
@@ -263,7 +263,7 @@ class Image(BaseModel):
         }
 
         return {k: v for k, v in response_dict.items() if v is not None}
-    
+
     @classmethod
     def from_artifact(cls, artifact: ImageArtifact) -> "Image":
         return cls(url=artifact.url)

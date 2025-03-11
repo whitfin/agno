@@ -3,8 +3,12 @@
 import os
 from typing import Any, Dict, List
 
-from pptx import Presentation
-from pptx.util import Inches
+try:
+    from pptx import Presentation
+    from pptx.util import Inches
+except ImportError:
+    raise ImportError("`python-pptx` not installed. Please install using `pip install 'python-pptx'`.")
+
 
 from agno.tools import Toolkit
 from agno.utils.log import logger

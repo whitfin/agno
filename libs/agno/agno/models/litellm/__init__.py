@@ -1,1 +1,1 @@
-from agno.models.litellm.litellm import LiteLLM
+from agno.models.litellm.openai_chat import LiteLLMOpenAI

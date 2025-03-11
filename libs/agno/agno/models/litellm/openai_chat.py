@@ -5,12 +5,12 @@ from agno.models.openai.like import OpenAILike
 
 
 @dataclass
-class LiteLLM(OpenAILike):
+class LiteLLMOpenAI(OpenAILike):
     """
     A class for interacting with LiteLLM.
 
     Attributes:
-        id (str): The id of the LiteLLM model. Default is "huggingface/bigcode/starcoder".
+        id (str): The id of the LiteLLM model. Default is "gpt-4o".
         name (str): The name of this chat model instance. Default is "LiteLLM".
         provider (str): The provider of the model. Default is "LiteLLM".
         base_url (str): The base url to which the requests are sent.

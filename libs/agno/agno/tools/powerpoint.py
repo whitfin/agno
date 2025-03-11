@@ -27,7 +27,6 @@ class PowerPointTool(Toolkit):
                 - "title" (str): Slide title.
                 - "content" (List[str]): Bullet points for the slide.
                 - "image_path" (str, optional): Path to an image to include.
-
             filename (str): The output file name.
 
         Returns:

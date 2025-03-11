@@ -89,6 +89,7 @@ class Model(ABC):
         if self.provider is None and self.name is not None:
             self.provider = f"{self.name} ({self.id})"
 
+
     def to_dict(self) -> Dict[str, Any]:
         fields = {"name", "id", "provider"}
         _dict = {field: getattr(self, field) for field in fields if getattr(self, field) is not None}
@@ -162,6 +163,7 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Response Start ", center=True, symbol="-")
+        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
         logger.debug("")
 
         self._log_messages(messages)
@@ -235,8 +237,8 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Async Response Start ", center=True, symbol="-")
+        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
         logger.debug("")
-
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -482,6 +484,7 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Response Stream Start ", center=True, symbol="-")
+        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
         logger.debug("")
         self._log_messages(messages)
 
@@ -580,6 +583,7 @@ class Model(ABC):
         """
         logger = get_logger()
         logger.debug(f" {self.get_provider()} Async Response Stream Start ", center=True, symbol="-")
+        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
         logger.debug("")
         self._log_messages(messages)
 

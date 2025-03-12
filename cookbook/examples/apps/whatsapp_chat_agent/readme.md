@@ -43,7 +43,6 @@ export WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 export WHATSAPP_RECIPIENT_WAID=phone_number_with_country_code  # e.g. +1234567890
 export WHATSAPP_WEBHOOK_URL=your_webhook_url
 export WHATSAPP_VERIFY_TOKEN=your_custom_verify_token  # Can be any string you choose
-export WHATSAPP_WEBHOOK_URL=your_webhook_url
 export OPENAI_API_KEY=your_openai_api_key
 ```
 

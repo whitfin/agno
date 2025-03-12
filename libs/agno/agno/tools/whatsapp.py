@@ -75,7 +75,7 @@ class WhatsAppTools(Toolkit):
             "Optional settings": {
                 "default_recipient": bool(self.default_recipient),
                 "api_version": self.version,
-                "async_mode": self.async_mode
+                "async_mode": self.async_mode,
             },
         }
         logger.debug(f"WhatsApp toolkit configuration status: {json.dumps(config_status, indent=2)}")
@@ -225,7 +225,9 @@ class WhatsAppTools(Toolkit):
             logger.error(f"Failed to send WhatsApp template message: {e}")
             raise
 
-    async def send_text_message_async(self, text: str = "", recipient: Optional[str] = None, preview_url: bool = False) -> str:
+    async def send_text_message_async(
+        self, text: str = "", recipient: Optional[str] = None, preview_url: bool = False
+    ) -> str:
         """Send a text message to a WhatsApp user (asynchronous version).
 
         Args:

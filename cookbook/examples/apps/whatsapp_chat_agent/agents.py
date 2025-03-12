@@ -4,8 +4,8 @@ import os
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.agent.sqlite import SqliteAgentStorage
+from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.whatsapp import WhatsAppTools
-from agno.tools.yfinance import YFinanceTools
 from dotenv import load_dotenv
 
 # Configure logging
@@ -42,14 +42,7 @@ def get_whatsapp_agent() -> Agent:
         model=OpenAIChat(id="gpt-4o"),
         tools=[
             whatsapp,
-            YFinanceTools(
-                stock_price=True,
-                analyst_recommendations=True,
-                stock_fundamentals=True,
-                historical_prices=True,
-                company_info=True,
-                company_news=True,
-            ),
+            DuckDuckGoTools(),
         ],
         storage=SqliteAgentStorage(
             table_name="whatsapp_agent", db_file=AGENT_STORAGE_FILE
@@ -57,5 +50,5 @@ def get_whatsapp_agent() -> Agent:
         add_history_to_messages=True,
         num_history_responses=3,
         markdown=True,
-        description="You are a financial advisor and can help with stock-related queries. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. don't add markdown to your responses.",
+        description="You are a whatsapp chat agent. You will respond like how people talk to each other on whatsapp, with short sentences and simple language. If user asks you something which requires a web search, use the DuckDuckGoTools to search the web.",
     )

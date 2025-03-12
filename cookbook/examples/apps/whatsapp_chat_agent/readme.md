@@ -1,96 +1,158 @@
-# WhatsApp Chat Agent with Stock Market Insights
+# WhatsApp Business API Integration with AI Agent
 
-This is a WhatsApp chatbot that provides stock market insights and financial advice using the WhatsApp Business API. The bot is built using FastAPI and can be run locally using ngrok for development and testing.
+This is a WhatsApp chatbot that automatically responds to incoming messages using an AI agent. The bot runs on FastAPI and uses the WhatsApp Business API to handle message interactions.
+
+## Features
+
+- Automatically responds to any incoming WhatsApp messages
+- Uses AI to generate contextual responses
+- Handles webhook verification for WhatsApp Business API
+- Supports secure HTTPS communication
+- Logs all interactions for monitoring
 
 ## Prerequisites
 
 - Python 3.7+
-- ngrok account (free tier works fine)
+- ngrok account (for development/testing)
 - WhatsApp Business API access
 - Meta Developer account
 - OpenAI API key
 
-## Setup Instructions
+## Getting WhatsApp Credentials
 
-1. **Install Dependencies**
+1. **Create Meta Developer Account**:
+
+   - Go to [Meta Developer Portal](https://developers.facebook.com/) and create an account
+   - Create a new app at [Meta Apps Dashboard](https://developers.facebook.com/apps/)
+   - Enable WhatsApp integration for your app
+
+2. **Set Up WhatsApp Business API**:
+
+   - Go to your app's WhatsApp Setup page
+   - Find your WhatsApp Business Account ID in Business Settings
+   - Get your Phone Number ID from the WhatsApp > Getting Started page
+   - Generate a permanent access token in App Dashboard > WhatsApp > API Setup
+
+3. **Test Environment Setup**:
+   - Note: Initially, you can only send messages to numbers registered in your test environment
+   - For production, you'll need to submit your app for review
+
+## Environment Setup
+
+Create a `.envrc` file in the project root with these variables:
+
+```bash
+# From Meta Developer Portal
+export WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token    # From App Dashboard > WhatsApp > API Setup
+export WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id      # From WhatsApp > Getting Started
+export WHATSAPP_WEBHOOK_URL=your_webhook_url              # Your ngrok URL + /webhook
+export WHATSAPP_VERIFY_TOKEN=your_verify_token           # Any secure string you choose
+
+# For OpenAI integration
+export OPENAI_API_KEY=your_openai_api_key
+```
+
+## Installation
+
+1. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Set up ngrok (for development testing only)**
-
-   - Download and install ngrok from https://ngrok.com/download
-   - Sign up for a free account and get your auth-token
-   - Authenticate ngrok with your token:
-     ```bash
-     ngrok config add-authtoken YOUR_AUTH_TOKEN
-     ```
-
-3. **Create a Meta Developer Account**
-
-   - Go to https://developers.facebook.com/
-   - Create a new app
-   - Set up WhatsApp in your app
-   - Get your WhatsApp Business Account ID and Phone Number ID
-
-4. **Environment Variables**
-   Create a `.envrc` file in the project root with the following variables:
+2. Set up your environment variables in `.envrc`:
 
 ```bash
-export WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
-export WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
-export WHATSAPP_RECIPIENT_WAID=phone_number_with_country_code  # e.g. +1234567890
-export WHATSAPP_WEBHOOK_URL=your_webhook_url
-export WHATSAPP_VERIFY_TOKEN=your_custom_verify_token  # Can be any string you choose
-export OPENAI_API_KEY=your_openai_api_key
+source .envrc
 ```
 
 ## Running the Application
 
-1. **Start the FastAPI server**
+You need to run two components:
+
+1. **The ngrok tunnel** (in one terminal):
+
+```bash
+ngrok http --domain=your-domain.ngrok-free.app 8000
+```
+
+2. **The FastAPI server** (in another terminal):
 
 ```bash
 python app.py
 ```
 
-2. **Start ngrok**
-   In a new terminal window:
+## WhatsApp Business Setup
 
-```bash
-ngrok http 8000
-```
+1. Go to Meta Developer Portal
+2. Set up your WhatsApp Business account
+3. Configure the webhook:
+   - URL: Your ngrok URL + "/webhook" (e.g., https://your-domain.ngrok-free.app/webhook)
+   - Verify Token: Same as WHATSAPP_VERIFY_TOKEN in your .envrc
+   - Subscribe to the 'messages' webhook field
 
-3. **Configure Webhook**
-   - Copy the HTTPS URL provided by ngrok (e.g., https://xxxx-xx-xx-xxx-xx.ngrok.io)
-   - Go to your Meta Developer Portal
-   - Set up Webhooks for your WhatsApp Business Account
-   - Use the ngrok URL + "/webhook" as your Callback URL
-   - Use your WHATSAPP_VERIFY_TOKEN as the Verify Token
-   - Subscribe to the `messages` webhook
+## How It Works
 
-## Testing the Bot
+1. When someone sends a message to your WhatsApp Business number:
 
-1. Send a message to your WhatsApp Business number
-2. The bot should respond with stock market insights based on your query
-3. You can ask questions about:
-   - Stock prices
-   - Company information
-   - Analyst recommendations
-   - Stock fundamentals
-   - Historical prices
-   - Company news
+   - The message is received via webhook
+   - The AI agent processes the message
+   - A response is automatically generated and sent back
+
+2. The agent can:
+   - Process incoming text messages
+   - Generate contextual responses
+   - Log all interactions
+
+## Monitoring
+
+The application logs important events:
+
+- Server start/stop
+- Incoming messages
+- Response generation
+- Message delivery status
+
+Check the console output for logs.
+
+## Error Handling
+
+The application includes error handling for:
+
+- Invalid webhook verification
+- Message processing errors
+- API communication issues
+
+## Security Notes
+
+- Keep your environment variables secure
+- Don't commit `.envrc` to version control
+- Use HTTPS for all communications
+- Regularly rotate your access tokens
 
 ## Troubleshooting
 
-- Make sure all environment variables are properly set
-- Check the FastAPI logs for any errors
-- Verify that ngrok is running and the webhook URL is correctly configured
-- Ensure your WhatsApp Business API is properly set up and the phone number is verified
+Common issues:
 
-## Important Notes
+1. Webhook verification failing:
 
-- The ngrok URL changes every time you restart ngrok, You can also use a static ngrok URL by running `ngrok http 8000 --domain=your-custom-domain.com`, you can get a custom domain from [here](https://dashboard.ngrok.com/domains)
-- You'll need to update the Webhook URL in the Meta Developer Portal whenever the ngrok URL changes
-- Keep your WHATSAPP_ACCESS_TOKEN and other credentials secure
-- The bot stores conversation history in a SQLite database in the `tmp` directory
+   - Check your VERIFY_TOKEN matches
+   - Ensure ngrok is running
+   - Verify webhook URL is correct
+
+2. Messages not being received:
+
+   - Check webhook subscription status
+   - Verify WhatsApp Business API access
+
+3. No responses being sent:
+   - Verify OpenAI API key
+   - Check WhatsApp access token
+
+## Support
+
+For issues and questions:
+
+1. Check the logs for error messages
+2. Review Meta's WhatsApp Business API documentation
+3. Verify your API credentials and tokens

@@ -6,31 +6,28 @@ This cookbook demonstrates how to use WhatsApp integration with Agno. Before run
 you'll need to complete these setup steps:
 
 1. Create Meta Developer Account
-   - Go to Meta Developer Portal (https://developers.facebook.com/) and create a new account
-   - Create a new app at Meta Apps Dashboard (https://developers.facebook.com/apps/)
-   - Enable WhatsApp integration for your app (https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)
+   - Go to [Meta Developer Portal](https://developers.facebook.com/) and create a new account
+   - Create a new app at [Meta Apps Dashboard](https://developers.facebook.com/apps/)
+   - Enable WhatsApp integration for your app [here](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)
 
 2. Set Up WhatsApp Business API
-   - Get your WhatsApp Business Account ID from Business Settings (https://business.facebook.com/settings/)
-   - Generate a permanent access token in System Users (https://business.facebook.com/settings/system-users)
-   - Set up a test phone number (https://developers.facebook.com/docs/whatsapp/cloud-api/get-started#testing-your-app)
-   - Create a message template in Meta Business Manager (https://business.facebook.com/wa/manage/message-templates/)
+   You can get your WhatsApp Business Account ID from [Business Settings](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started)
 
 3. Configure Environment
    - Set these environment variables:
-     WHATSAPP_ACCESS_TOKEN=your_access_token          # Permanent access token from System Users
-     WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id    # Your WhatsApp test phone number ID
+     WHATSAPP_ACCESS_TOKEN=your_access_token          # Access Token
+     WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id    # Phone Number ID
+     WHATSAPP_RECIPIENT_WAID=your_recipient_waid      # Recipient WhatsApp ID (e.g. 1234567890)
+     WHATSAPP_VERSION=your_whatsapp_version           # WhatsApp API Version (e.g. v22.0)
 
 Important Notes:
-- WhatsApp has a 24-hour messaging window policy
-- You can only send free-form messages to users who have messaged you in the last 24 hours
 - For first-time outreach, you must use pre-approved message templates
-  (https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates)
+  [here](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates)
 - Test messages can only be sent to numbers that are registered in your test environment
 
 The example below shows how to send a template message using Agno's WhatsApp tools.
 For more complex use cases, check out the WhatsApp Cloud API documentation:
-https://developers.facebook.com/docs/whatsapp/cloud-api/overview
+[here](https://developers.facebook.com/docs/whatsapp/cloud-api/overview)
 """
 
 from agno.agent import Agent

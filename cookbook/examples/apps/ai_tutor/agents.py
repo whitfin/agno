@@ -3,13 +3,13 @@ import os
 import re
 from pathlib import Path
 from textwrap import dedent
-from dotenv import load_dotenv
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.exa import ExaTools
 from agno.tools.youtube import YouTubeTools
 from agno.utils.log import logger
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -76,7 +76,7 @@ def get_quiz_agent():
         """,
         model=OpenAIChat(id="gpt-4o"),
         read_chat_history=False,
-        add_history_to_messages=False
+        add_history_to_messages=False,
     )
 
 
@@ -113,7 +113,9 @@ def generate_quiz(learning_path, day):
 
     if json_text:
         try:
-            quiz_json = json.loads(json_text)  # Convert string response into Python list
+            quiz_json = json.loads(
+                json_text
+            )  # Convert string response into Python list
             logger.info(f"\n\nQuiz json: {quiz_json}")
             return quiz_json
         except json.JSONDecodeError:

@@ -1,5 +1,5 @@
 import streamlit as st
-from db import get_users, create_user
+from db import create_user, get_users
 
 
 def authenticate_user(user_id):
@@ -16,7 +16,8 @@ def authenticate_user(user_id):
 
 
 def apply_custom_css():
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         /* Main container styling */
         .main {
@@ -145,4 +146,6 @@ def apply_custom_css():
             color: #FFFFFF;
         }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )

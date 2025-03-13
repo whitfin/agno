@@ -3,6 +3,7 @@ import logging
 from agents import VERIFY_TOKEN, get_whatsapp_agent
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
+from security import validate_webhook_signature
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -33,6 +34,15 @@ async def verify_webhook(request: Request):
 async def handle_message(request: Request):
     """Handle incoming WhatsApp messages"""
     try:
+        # Get raw payload for signature validation
+        payload = await request.body()
+        signature = request.headers.get("X-Hub-Signature-256")
+
+        # Validate webhook signature
+        if not validate_webhook_signature(payload, signature):
+            logger.warning("Invalid webhook signature")
+            raise HTTPException(status_code=403, detail="Invalid signature")
+
         body = await request.json()
 
         # Validate webhook data

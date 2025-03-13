@@ -1,6 +1,6 @@
 from agno.agent.agent import Agent
 from agno.media import Image
-from agno.models.aws import Claude
+from agno.models.aws.claude import Claude
 
 
 def test_image_input():

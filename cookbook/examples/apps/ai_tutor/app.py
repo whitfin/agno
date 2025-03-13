@@ -1,6 +1,7 @@
 import nest_asyncio
 import streamlit as st
 from agents import generate_quiz, learning_path_agent
+from agno.utils.log import logger
 from db import get_learning_path, save_learning_path, save_quiz_result
 from dotenv import load_dotenv
 from utils import apply_custom_css, authenticate_user
@@ -43,7 +44,8 @@ def login_page():
             """
         <div class="form-container">
             <h2 class="form-header">Welcome to Adaptive Tutor</h2>
-            <p style="text-align: center; margin-bottom: 20px;">Your personalized AI learning companion</p>
+            <p style="text-align: center; margin-bottom: 10px;">Your personalized AI learning companion</p>
+            <p style="text-align: center; margin-bottom: 10px;">Built using <a href="https://github.com/agno-agi/agno">Agno</a></p>
         """,
             unsafe_allow_html=True,
         )
@@ -109,8 +111,15 @@ def main():
     # ========================== CHAT MODE (LEARNING PATH) ========================== #
     if app_mode == "💬 Chat with AI Tutor":
         # Initialize Agent & Messages
-        if "learning_path_agent" not in st.session_state:
-            st.session_state["learning_path_agent"] = learning_path_agent()
+        if (
+            "learning_path_agent" not in st.session_state
+            or st.session_state["learning_path_agent"] is None
+        ):
+            logger.info(f"---*--- Creating Adaptive AI Tutor ---*---")
+            path_agent = learning_path_agent()
+            st.session_state["learning_path_agent"] = path_agent
+        else:
+            path_agent = st.session_state["learning_path_agent"]
 
         if "messages" not in st.session_state:
             st.session_state["messages"] = [
@@ -124,47 +133,35 @@ def main():
         st.markdown('<div class="card">', unsafe_allow_html=True)
 
         # Display Chat Messages
-        for i, message in enumerate(st.session_state["messages"]):
-            role_class = (
-                "user-message" if message["role"] == "user" else "agent-message"
-            )
-            avatar = "👤" if message["role"] == "user" else "🤖"
+        for message in st.session_state["messages"]:
+            if message["role"] == "system":
+                continue
+            with st.chat_message(message["role"]):
+                st.write(message["content"])
 
-            st.markdown(
-                f"""
-            <div class="chat-message {role_class}">
-                <div>{avatar}</div>
-                <div>{message["content"]}</div>
-            </div>
-            """,
-                unsafe_allow_html=True,
-            )
+        # Handle user input and generate responses
+        if prompt := st.chat_input("Mention the topic that you want to learn:"):
+            # Display user message first
+            with st.chat_message("user"):
+                st.write(prompt)
 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        # Handle User Input
-        prompt = st.chat_input("Your message...")
-
-        if prompt:
-            # Add user message
-            st.session_state["messages"].append({"role": "user", "content": prompt})
-
-            # Display thinking indicator
-            with st.spinner("AI Tutor is thinking..."):
-                agent = st.session_state["learning_path_agent"]
-                try:
-                    response_text = ""
-                    for chunk in agent.run(prompt, stream=True):
+            # Then display agent response
+            with st.chat_message("agent"):
+                # Create an empty container for the streaming response
+                response_container = st.empty()
+                with st.spinner(
+                    "AI Tutor is thinking..."
+                ):  # Add spinner while generating response
+                    response = ""
+                    for chunk in path_agent.run(prompt, stream=True):
                         if chunk and chunk.content:
-                            response_text += chunk.content
-                except Exception as e:
-                    response_text = f"Error: {str(e)}"
+                            response += chunk.content
+                            # Update the response in real-time
+                            response_container.markdown(response)
 
-            # Add agent response
-            st.session_state["messages"].append(
-                {"role": "agent", "content": response_text}
-            )
-            st.rerun()
+            # Add messages to session state after completion
+            st.session_state["messages"].append({"role": "user", "content": prompt})
+            st.session_state["messages"].append({"role": "agent", "content": response})
 
         # Save Learning Path if Approved (only show if there are messages)
         if len(st.session_state["messages"]) > 1:
@@ -186,7 +183,7 @@ def main():
     # ========================== QUIZ MODE ========================== #
     elif app_mode == "📝 Take a Quiz":
         st.markdown('<div class="quiz-card">', unsafe_allow_html=True)
-        st.markdown("## 📝 Adaptive Quiz")
+        st.markdown("#### 📝 Adaptive Quiz")
 
         learning_path = get_learning_path(st.session_state["user_id"])
         if not learning_path:
@@ -194,7 +191,7 @@ def main():
                 "No learning path found. Please generate one in the Chat mode first."
             )
         else:
-            st.markdown("#### Select which day's content you want to be tested on:")
+            st.markdown("##### Select which day's content you want to be tested on:")
             day = st.number_input("Day Number:", min_value=1)
 
             if st.button("🚀 Generate Quiz", use_container_width=True):

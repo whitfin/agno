@@ -41,7 +41,7 @@ def _format_images_for_message(message: Message, images: Sequence[Image]) -> Lis
                     with open(image.filepath, "rb") as f:
                         image_content = f.read()
             else:
-                logger.warning(f"Unsupported image format: {image}")
+                get_logger().warning(f"Unsupported image format: {image}")
                 continue
 
             if image_content is not None:
@@ -53,7 +53,7 @@ def _format_images_for_message(message: Message, images: Sequence[Image]) -> Lis
                 message_content_with_image.append(image_payload)
 
         except Exception as e:
-            logger.error(f"Failed to process image: {str(e)}")
+            get_logger().error(f"Failed to process image: {str(e)}")
 
     # Update the message content with the images
     return message_content_with_image

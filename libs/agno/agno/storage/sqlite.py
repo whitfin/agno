@@ -5,6 +5,7 @@ from typing import List, Literal, Optional
 from agno.storage.base import Storage
 from agno.storage.session import Session
 from agno.storage.session.agent import AgentSession
+from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
 from agno.utils.log import logger
 
@@ -336,22 +337,19 @@ class SqliteStorage(Storage):
         if not self.auto_upgrade_schema:
             logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
             return
-        
+
         try:
             if self.mode == "agent" and self.table_exists():
                 with self.SqlSession() as sess:
                     # Check if is_member_of_team column exists using SQLite PRAGMA
-                    column_exists_query = text(
-                        f"PRAGMA table_info({self.table_name})"
-                    )
+                    column_exists_query = text(f"PRAGMA table_info({self.table_name})")
                     columns = sess.execute(column_exists_query).fetchall()
-                    column_exists = any(col[1] == 'is_member_of_team' for col in columns)
-                    
+                    column_exists = any(col[1] == "is_member_of_team" for col in columns)
+
                     if not column_exists:
                         logger.info(f"Adding 'is_member_of_team' column to {self.table_name}")
                         alter_table_query = text(
-                            f"ALTER TABLE {self.table_name} "
-                            f"ADD COLUMN is_member_of_team BOOLEAN DEFAULT FALSE"
+                            f"ALTER TABLE {self.table_name} ADD COLUMN is_member_of_team BOOLEAN DEFAULT FALSE"
                         )
                         sess.execute(alter_table_query)
                         sess.commit()
@@ -374,7 +372,7 @@ class SqliteStorage(Storage):
         # Perform schema upgrade if auto_upgrade_schema is enabled
         if self.auto_upgrade_schema:
             self.upgrade_schema()
-        
+
         try:
             with self.SqlSession() as sess, sess.begin():
                 if self.mode == "agent":
@@ -382,7 +380,7 @@ class SqliteStorage(Storage):
                     stmt = sqlite.insert(self.table).values(
                         session_id=session.session_id,
                         agent_id=session.agent_id,  # type: ignore
-                        is_member_of_team=session.is_member_of_team,
+                        is_member_of_team=session.is_member_of_team,  # type: ignore
                         user_id=session.user_id,
                         memory=session.memory,
                         agent_data=session.agent_data,  # type: ignore
@@ -397,7 +395,7 @@ class SqliteStorage(Storage):
                         set_=dict(
                             agent_id=session.agent_id,  # type: ignore
                             user_id=session.user_id,
-                            is_member_of_team=session.is_member_of_team,
+                            is_member_of_team=session.is_member_of_team,  # type: ignore
                             memory=session.memory,
                             agent_data=session.agent_data,  # type: ignore
                             session_data=session.session_data,
@@ -430,7 +428,7 @@ class SqliteStorage(Storage):
                             team_data=session.team_data,  # type: ignore
                             session_data=session.session_data,
                             extra_data=session.extra_data,
-                            updated_at=int(time.time()),    
+                            updated_at=int(time.time()),
                         ),  # The updated value for each column
                     )
                 else:

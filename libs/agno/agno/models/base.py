@@ -175,7 +175,6 @@ class Model(ABC):
                 model_response=model_response,
             )
 
-
             # Handle tool calls if present
             if has_tool_calls:
                 # Prepare function calls
@@ -190,7 +189,6 @@ class Model(ABC):
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
-
                     if (
                         function_call_response.event == ModelResponseEvent.tool_call_completed.value
                         and function_call_response.tool_calls is not None
@@ -284,7 +282,6 @@ class Model(ABC):
                 # Check if we should stop after tool calls
                 if any(m.stop_after_tool_call for m in function_call_results):
                     break
-
 
                 # Continue loop to get next response
                 continue

@@ -55,6 +55,4 @@ hn_team = Team(
     show_members_responses=True,
 )
 
-hn_team.print_response(
-    "Write an article about the top 2 stories on hackernews"
-)
+hn_team.print_response("Write an article about the top 2 stories on hackernews")

@@ -121,7 +121,7 @@ def _format_file_for_message(file: File) -> Optional[Dict[str, Any]]:
 
                 media_type = mimetypes.guess_type(file.filepath)[0]
                 if media_type != "application/pdf":
-                    logger.error(f"Unsupported file type: {media_type}")
+                    get_logger().error(f"Unsupported file type: {media_type}")
             return {
                 "type": "document",
                 "source": {
@@ -131,7 +131,7 @@ def _format_file_for_message(file: File) -> Optional[Dict[str, Any]]:
                 },
             }
         else:
-            logger.error(f"Document file not found: {file}")
+            get_logger().error(f"Document file not found: {file}")
             return None
     # Case 3: Document is base64 encoded content
     elif file.content is not None:

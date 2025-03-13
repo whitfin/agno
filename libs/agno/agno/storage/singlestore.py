@@ -4,6 +4,7 @@ from typing import Any, List, Literal, Optional
 from agno.storage.base import Storage
 from agno.storage.session import Session
 from agno.storage.session.agent import AgentSession
+from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
 from agno.utils.log import logger
 
@@ -115,7 +116,7 @@ class SingleStoreStorage(Storage):
 
         # Create table with all columns
         table = Table(
-            self.table_name, self.metadata, *common_columns, *specific_columns, extend_existing=True, schema=self.schema
+            self.table_name, self.metadata, *common_columns, *specific_columns, extend_existing=True, schema=self.schema  # type: ignore
         )
 
         return table
@@ -236,7 +237,7 @@ class SingleStoreStorage(Storage):
         if not self.auto_upgrade_schema:
             logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
             return
-        
+
         try:
             if self.mode == "agent" and self.table_exists():
                 with self.SqlSession() as sess:
@@ -248,11 +249,11 @@ class SingleStoreStorage(Storage):
                         AND column_name = 'is_member_of_team'
                         """
                     )
-                    column_exists = sess.execute(
-                        column_exists_query, 
-                        {"schema": self.schema, "table": self.table_name}
-                    ).scalar() is not None
-                    
+                    column_exists = (
+                        sess.execute(column_exists_query, {"schema": self.schema, "table": self.table_name}).scalar()
+                        is not None
+                    )
+
                     if not column_exists:
                         logger.info(f"Adding 'is_member_of_team' column to {self.schema}.{self.table_name}")
                         alter_table_query = text(
@@ -337,7 +338,7 @@ class SingleStoreStorage(Storage):
                         {
                             "session_id": session.session_id,
                             "agent_id": session.agent_id,  # type: ignore
-                            "is_member_of_team": session.is_member_of_team,
+                            "is_member_of_team": session.is_member_of_team,  # type: ignore
                             "user_id": session.user_id,
                             "memory": json.dumps(session.memory, ensure_ascii=False)
                             if session.memory is not None
@@ -405,7 +406,7 @@ class SingleStoreStorage(Storage):
                         {
                             "session_id": session.session_id,
                             "agent_id": session.agent_id,  # type: ignore
-                            "is_member_of_team": session.is_member_of_team,
+                            "is_member_of_team": session.is_member_of_team,  # type: ignore
                             "user_id": session.user_id,
                             "memory": json.dumps(session.memory, ensure_ascii=False)
                             if session.memory is not None

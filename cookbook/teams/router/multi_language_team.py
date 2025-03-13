@@ -1,13 +1,9 @@
-
-
-
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
-from agno.models.mistral.mistral import MistralChat
-from agno.team.team import Team
-from agno.models.deepseek import DeepSeek
 from agno.models.anthropic import Claude
-
+from agno.models.deepseek import DeepSeek
+from agno.models.mistral.mistral import MistralChat
+from agno.models.openai import OpenAIChat
+from agno.team.team import Team
 
 english_agent = Agent(
     name="English Agent",
@@ -64,15 +60,22 @@ multi_language_team = Team(
     name="Multi Language Team",
     mode="router",
     model=OpenAIChat("gpt-4.5-preview"),
-    members=[english_agent, spanish_agent, japanese_agent, french_agent, german_agent,chinese_agent],
+    members=[
+        english_agent,
+        spanish_agent,
+        japanese_agent,
+        french_agent,
+        german_agent,
+        chinese_agent,
+    ],
     show_tool_calls=True,
     markdown=True,
     instructions=[
-            "You are a language router that directs questions to the appropriate language agent.",
-            "If the user asks in a language whose agent is not a team member, respond in English with:",
-            "'I can only answer in the following languages: English, Spanish, Japanese, French and German. Please ask your question in one of these languages.'",
-            "Always check the language of the user's input before routing to an agent.",
-            "For unsupported languages like Italian, respond in English with the above message."
+        "You are a language router that directs questions to the appropriate language agent.",
+        "If the user asks in a language whose agent is not a team member, respond in English with:",
+        "'I can only answer in the following languages: English, Spanish, Japanese, French and German. Please ask your question in one of these languages.'",
+        "Always check the language of the user's input before routing to an agent.",
+        "For unsupported languages like Italian, respond in English with the above message.",
     ],
     show_members_responses=True,
 )
@@ -92,7 +95,8 @@ multi_language_team = Team(
 # )
 
 multi_language_team.print_response(
-    "Comment allez-vous?", stream=True  # French
+    "Comment allez-vous?",
+    stream=True,  # French
 )
 
 # multi_language_team.print_response(

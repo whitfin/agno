@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, cast
 
 from rich.prompt import Prompt
 
-from agno.api.schemas.user import TeamSchema, TeamIdentifier
+from agno.api.schemas.user import TeamIdentifier, TeamSchema
 from agno.api.schemas.workspace import (
     WorkspaceCreate,
     WorkspaceEvent,

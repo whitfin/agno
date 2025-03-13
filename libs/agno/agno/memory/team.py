@@ -3,18 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from agno.memory.classifier import MemoryClassifier
-from agno.memory.db import MemoryDb
-from agno.memory.manager import MemoryManager
-from agno.memory.memory import Memory
 from pydantic import ConfigDict
 
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.memory.agent import AgentRun, MemoryRetrieval
+from agno.memory.classifier import MemoryClassifier
+from agno.memory.db import MemoryDb
+from agno.memory.manager import MemoryManager
+from agno.memory.memory import Memory
 from agno.models.message import Message
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.utils.log import get_logger
+
 
 @dataclass
 class TeamRun:
@@ -37,11 +38,13 @@ class TeamMemberInteraction:
     task: str
     response: RunResponse
 
+
 @dataclass
 class TeamContext:
     # List of team member interaction, represented as a request and a response
     member_interactions: List[TeamMemberInteraction] = field(default_factory=list)
     text: Optional[str] = None
+
 
 @dataclass
 class TeamMemory:
@@ -229,9 +232,7 @@ class TeamMemory:
         get_logger().debug(f"Getting messages from previous runs: {len(messages_from_history)}")
         return messages_from_history
 
-    def get_all_messages(
-        self
-    ) -> List[Tuple[Message, Message]]:
+    def get_all_messages(self) -> List[Tuple[Message, Message]]:
         """Returns a list of tuples of (user message, assistant response)."""
 
         assistant_role = ["assistant", "model", "CHATBOT"]
@@ -257,7 +258,6 @@ class TeamMemory:
                 if user_message_from_run and assistant_message_from_run:
                     runs_as_message_pairs.append((user_message_from_run, assistant_message_from_run))
         return runs_as_message_pairs
-
 
     def load_user_memories(self) -> None:
         """Load memories from memory db for this user."""
@@ -291,7 +291,6 @@ class TeamMemory:
             except Exception as e:
                 get_logger().warning(f"Error loading memory: {e}")
                 continue
-    
 
     def should_update_memory(self, input: str) -> bool:
         """Determines if a message should be added to the memory db."""
@@ -318,7 +317,7 @@ class TeamMemory:
         if classifier_response == "yes":
             return True
         return False
-    
+
     def update_memory(self, input: str, force: bool = False) -> Optional[str]:
         """Creates a memory from a message and adds it to the memory db."""
         logger = get_logger()

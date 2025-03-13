@@ -113,7 +113,6 @@ class DynamoDbStorage(Storage):
                         {"AttributeName": "created_at", "AttributeType": "N"},
                     ]
 
-
                 secondary_indexes = [
                     {
                         "IndexName": "user_id-index",

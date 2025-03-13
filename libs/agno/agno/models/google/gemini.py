@@ -54,10 +54,10 @@ def _format_image_for_message(image: Image) -> Optional[Dict[str, Any]]:
                 }
                 return image_data
             except Exception as e:
-                logger.warning(f"Failed to download image from {image}: {e}")
+                get_logger().warning(f"Failed to download image from {image}: {e}")
                 return None
         else:
-            logger.warning(f"Unsupported image format: {image}")
+            get_logger().warning(f"Unsupported image format: {image}")
             return None
 
     # Case 2: Image is a local path
@@ -655,7 +655,7 @@ class Gemini(Model):
                 content, mime_type = url_content
                 return Part.from_bytes(mime_type=mime_type, data=content)
             else:
-                logger.warning(f"Failed to download file from {file.url}")
+                get_logger().warning(f"Failed to download file from {file.url}")
                 return None
 
         # Case 3: File is a local file path
@@ -683,7 +683,7 @@ class Gemini(Model):
                         raise ValueError(file_upload.state.name)
                     return Part.from_uri(file_uri=file_upload.uri, mime_type=file_upload.mime_type)
             else:
-                logger.error(f"File {file_path} does not exist.")
+                get_logger().error(f"File {file_path} does not exist.")
 
         return None
 

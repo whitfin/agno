@@ -15,7 +15,7 @@ try:
     from sqlalchemy.orm import scoped_session, sessionmaker
     from sqlalchemy.schema import Column, MetaData, Table
     from sqlalchemy.sql.expression import select, text
-    from sqlalchemy.types import BigInteger, String, Boolean
+    from sqlalchemy.types import BigInteger, Boolean, String
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
@@ -128,7 +128,7 @@ class PostgresStorage(Storage):
 
         # Create table with all columns
         table = Table(
-            self.table_name, self.metadata, *common_columns, *specific_columns, extend_existing=True, schema=self.schema
+            self.table_name, self.metadata, *common_columns, *specific_columns, extend_existing=True, schema=self.schema  # type: ignore
         )
 
         return table
@@ -354,7 +354,7 @@ class PostgresStorage(Storage):
         if not self.auto_upgrade_schema:
             logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
             return
-        
+
         try:
             if self.mode == "agent" and self.table_exists():
                 with self.Session() as sess:
@@ -366,11 +366,11 @@ class PostgresStorage(Storage):
                         AND column_name = 'is_member_of_team'
                         """
                     )
-                    column_exists = sess.execute(
-                        column_exists_query, 
-                        {"schema": self.schema, "table": self.table_name}
-                    ).scalar() is not None
-                    
+                    column_exists = (
+                        sess.execute(column_exists_query, {"schema": self.schema, "table": self.table_name}).scalar()
+                        is not None
+                    )
+
                     if not column_exists:
                         logger.info(f"Adding 'is_member_of_team' column to {self.schema}.{self.table_name}")
                         alter_table_query = text(
@@ -398,7 +398,7 @@ class PostgresStorage(Storage):
         # Perform schema upgrade if auto_upgrade_schema is enabled
         if self.auto_upgrade_schema:
             self.upgrade_schema()
-        
+
         try:
             with self.Session() as sess, sess.begin():
                 # Create an insert statement
@@ -406,7 +406,7 @@ class PostgresStorage(Storage):
                     stmt = postgresql.insert(self.table).values(
                         session_id=session.session_id,
                         agent_id=session.agent_id,  # type: ignore
-                        is_member_of_team=session.is_member_of_team,
+                        is_member_of_team=session.is_member_of_team,  # type: ignore
                         user_id=session.user_id,
                         memory=session.memory,
                         agent_data=session.agent_data,  # type: ignore
@@ -419,7 +419,7 @@ class PostgresStorage(Storage):
                         index_elements=["session_id"],
                         set_=dict(
                             agent_id=session.agent_id,  # type: ignore
-                            is_member_of_team=session.is_member_of_team,
+                            is_member_of_team=session.is_member_of_team,  # type: ignore
                             user_id=session.user_id,
                             memory=session.memory,
                             agent_data=session.agent_data,  # type: ignore

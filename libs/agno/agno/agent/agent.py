@@ -32,7 +32,6 @@ from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageAr
 from agno.memory.agent import AgentMemory, AgentRun
 from agno.models.base import Model
 from agno.models.message import Message, MessageReferences
-from agno.models.openai.like import OpenAILike
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
 from agno.run.messages import RunMessages
@@ -223,6 +222,9 @@ class Agent:
     add_transfer_instructions: bool = True
     # Separator between responses from the team
     team_response_separator: str = "\n"
+
+    # Internal indicator to signify when it is a member of a team
+    is_member_of_team: bool = False
 
     # --- Debug & Monitoring ---
     # Enable debug logs
@@ -1673,6 +1675,7 @@ class Agent:
             session_id=self.session_id,
             agent_id=self.agent_id,
             user_id=self.user_id,
+            is_member_of_team=self.is_member_of_team,
             memory=self.memory.to_dict() if self.memory is not None else None,
             agent_data=self.get_agent_data(),
             session_data=self.get_session_data(),
@@ -1864,7 +1867,7 @@ class Agent:
                 if self.agent_session is None:
                     raise Exception("Failed to create new AgentSession in storage")
                 get_logger().debug(f"-*- Created AgentSession: {self.agent_session.session_id}")
-                self.log_agent_session()
+                self._log_agent_session()
         return self.session_id
 
     def new_session(self) -> None:
@@ -2763,7 +2766,7 @@ class Agent:
         # -*- Save to storage
         self.write_to_storage()
         # -*- Log Agent session
-        self.log_agent_session()
+        self._log_agent_session()
 
     def rename_session(self, session_name: str) -> None:
         """Rename the current session and save to storage"""
@@ -2775,7 +2778,7 @@ class Agent:
         # -*- Save to storage
         self.write_to_storage()
         # -*- Log Agent session
-        self.log_agent_session()
+        self._log_agent_session()
 
     def generate_session_name(self) -> str:
         """Generate a name for the session using the first 6 messages from the memory"""
@@ -2829,7 +2832,7 @@ class Agent:
         # -*- Save to storage
         self.write_to_storage()
         # -*- Log Agent Session
-        self.log_agent_session()
+        self._log_agent_session()
 
     def delete_session(self, session_id: str):
         """Delete the current session and save to storage"""
@@ -2883,7 +2886,9 @@ class Agent:
     ###########################################################################
 
     def reason(self, run_messages: RunMessages) -> Iterator[RunResponse]:
+        from agno.models.openai.like import OpenAILike
         logger = get_logger()
+
         # Yield a reasoning started event
         if self.stream_intermediate_steps:
             yield self.create_run_response(content="Reasoning started", event=RunEvent.reasoning_started)
@@ -3068,7 +3073,9 @@ class Agent:
             )
 
     async def areason(self, run_messages: RunMessages) -> Any:
+        from agno.models.openai.like import OpenAILike
         logger = get_logger()
+
         # Yield a reasoning started event
         if self.stream_intermediate_steps:
             yield self.create_run_response(content="Reasoning started", event=RunEvent.reasoning_started)
@@ -3391,7 +3398,7 @@ class Agent:
     # Api functions
     ###########################################################################
 
-    def log_agent_session(self):
+    def _log_agent_session(self):
         if not (self.telemetry or self.monitoring):
             return
 
@@ -3400,24 +3407,6 @@ class Agent:
         try:
             agent_session: AgentSession = self.agent_session or self.get_agent_session()
             create_agent_session(
-                session=AgentSessionCreate(
-                    session_id=agent_session.session_id,
-                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
-                ),
-                monitor=self.monitoring,
-            )
-        except Exception as e:
-            get_logger().debug(f"Could not create agent monitor: {e}")
-
-    async def alog_agent_session(self):
-        if not (self.telemetry or self.monitoring):
-            return
-
-        from agno.api.agent import AgentSessionCreate, acreate_agent_session
-
-        try:
-            agent_session: AgentSession = self.agent_session or self.get_agent_session()
-            await acreate_agent_session(
                 session=AgentSessionCreate(
                     session_id=agent_session.session_id,
                     agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),

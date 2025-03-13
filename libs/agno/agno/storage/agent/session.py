@@ -16,6 +16,8 @@ class AgentSession:
     agent_id: Optional[str] = None
     # ID of the user interacting with this agent
     user_id: Optional[str] = None
+    # Is member of team
+    is_member_of_team: bool = False
     # Agent Memory
     memory: Optional[Dict[str, Any]] = None
     # Agent Data: agent_id, name and model

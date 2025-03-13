@@ -2678,6 +2678,45 @@ class Team:
         return forward_func
 
     ###########################################################################
+    # Sessions
+    ###########################################################################
+    def load_session(self, force: bool = False) -> Optional[str]:
+        """Load an existing session from the database and return the session_id.
+        If a session does not exist, create a new session.
+
+        - If a session exists in the database, load the session.
+        - If a session does not exist in the database, create a new session.
+        """
+        # If an agent_session is already loaded, return the session_id from the agent_session
+        #   if the session_id matches the session_id from the agent_session
+        if self.team_session is not None and not force:
+            if self.session_id is not None and self.team_session.session_id == self.session_id:
+                return self.team_session.session_id
+
+        # Load an existing session or create a new session
+        if self.storage is not None:
+            # Load existing session if session_id is provided
+            get_logger().debug(f"Reading AgentSession: {self.session_id}")
+            self.read_from_storage()
+
+            # Create a new session if it does not exist
+            if self.team_session is None:
+                get_logger().debug("-*- Creating new AgentSession")
+                # Initialize the agent_id and session_id if they are not set
+                if self.team_id is None or self.session_id is None:
+                    self.initialize_agent()
+                if self.introduction is not None:
+                    self.add_introduction(self.introduction)
+                # write_to_storage() will create a new AgentSession
+                # and populate self.agent_session with the new session
+                self.write_to_storage()
+                if self.team_session is None:
+                    raise Exception("Failed to create new TeamSession in storage")
+                get_logger().debug(f"-*- Created TeamSession: {self.team_session.session_id}")
+                self._log_agent_session()
+        return self.session_id
+
+    ###########################################################################
     # Logging
     ###########################################################################
 
@@ -2704,7 +2743,7 @@ class Team:
             run_data.update(
                 {
                     "run_input": self.run_input,
-                    "run_response": self.run_response.to_dict(),
+                    "run_response": self.run_response.to_dict(),  # contains the member run responses
                     "run_response_format": run_response_format,
                 }
             )
@@ -2717,9 +2756,6 @@ class Team:
             team_data["name"] = self.name
         if self.team_id is not None:
             team_data["team_id"] = self.team_id
-        if self.members is not None:
-            # TODO: Need to indicate whether member is team or agent
-            team_data["member_ids"] = [member.agent_id for member in self.members]
         if self.model is not None:
             team_data["model"] = self.model.to_dict()
         return team_data
@@ -2811,24 +2847,6 @@ class Team:
         try:
             team_session: TeamSession = self.team_session or self._get_team_session()
             create_team_session(
-                session=TeamSessionCreate(
-                    session_id=team_session.session_id,
-                    team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),
-                ),
-                monitor=self.monitoring,
-            )
-        except Exception as e:
-            get_logger().debug(f"Could not create agent monitor: {e}")
-
-    async def _alog_agent_session(self):
-        if not (self.telemetry or self.monitoring):
-            return
-
-        from agno.api.team import TeamSessionCreate, acreate_team_session
-
-        try:
-            team_session: TeamSession = self.team_session or self._get_team_session()
-            await acreate_team_session(
                 session=TeamSessionCreate(
                     session_id=team_session.session_id,
                     team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),

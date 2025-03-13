@@ -500,3 +500,9 @@ def get_async_playground_router(
         return JSONResponse(content={"message": f"successfully deleted workflow {workflow.name}"})
 
     return playground_router
+
+    @playground_router.get("/teams")
+
+    @playground_router.get("/teams/{team_id}")
+
+    @playground_router.post("/teams")

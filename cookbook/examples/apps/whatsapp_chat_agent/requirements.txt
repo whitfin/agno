@@ -168,5 +168,5 @@ uvicorn==0.34.0
     # via -r requirements.in
 yarl==1.18.3
     # via aiohttp
-yfinance==0.2.54
+duckduckgo-search==7.3.2
     # via -r requirements.in

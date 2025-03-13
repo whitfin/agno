@@ -435,7 +435,7 @@ class Agent:
     def set_storage_mode(self):
         if self.storage is not None:
             if self.storage.mode == "workflow":
-                logger.warning("You cannot use storage in both workflow and agent mode")
+                get_logger().warning("You cannot use storage in both workflow and agent mode")
 
             self.storage.mode = "agent"
 

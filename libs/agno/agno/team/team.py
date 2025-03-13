@@ -3,15 +3,19 @@ from collections import defaultdict, deque, ChainMap
 from dataclasses import asdict, dataclass
 import json
 from os import getenv
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Literal, Optional, Sequence, Set, Type, Union, overload, \
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Literal, Optional, Sequence, Set, Type, Union, cast, overload, \
     Tuple
 from uuid import uuid4
 
+from agno.memory.agent import AgentRun
+from agno.memory.memory import Memory
+from agno.storage.base import Storage
+from agno.storage.session.agent import AgentSession
 from pydantic import BaseModel
 
 from agno.memory.team import TeamMemory, TeamRun
 from agno.run.team import TeamRunResponse
-from agno.storage.team.session import TeamSession
+from agno.storage.session.team import TeamSession
 from agno.tools.function import Function, get_entrypoint_docstring
 
 from agno.agent import Agent
@@ -128,7 +132,7 @@ class Team:
     max_history_tokens: Optional[int] = None
 
     # --- Agent Storage ---
-    # storage: Optional[TeamStorage] = None
+    storage: Optional[Storage] = None
     # Extra data stored with this agent
     extra_data: Optional[Dict[str, Any]] = None
 
@@ -184,7 +188,7 @@ class Team:
         num_of_interactions_from_history: int = 3,
         num_of_messages_from_history: Optional[int] = None,
         max_history_tokens: Optional[int] = None,
-        # storage: Optional[TeamStorage] = None,
+        storage: Optional[Storage] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,
@@ -239,7 +243,7 @@ class Team:
         self.num_of_messages_from_history = num_of_messages_from_history
         self.max_history_tokens = max_history_tokens
 
-        # self.storage = storage
+        self.storage = storage
         self.extra_data = extra_data
 
         self.reasoning = reasoning
@@ -276,8 +280,6 @@ class Team:
         self._tools_for_model: Optional[List[Dict]] = None
         self._functions_for_model: Optional[Dict[str, Function]] = None
 
-        self._stop_run: bool = False
-
 
     def _set_team_id(self) -> str:
         if self.team_id is None:
@@ -295,6 +297,13 @@ class Team:
             set_log_level_to_debug(source_type="team")
         else:
             set_log_level_to_info(source_type="team")
+    
+    def _set_storage_mode(self):
+        if self.storage is not None:
+            if self.storage.mode == "team":
+                get_logger().warning("You cannot use storage in both workflow and agent mode")
+
+            self.storage.mode = "agent"
 
     def _set_monitoring(self) -> None:
         """Override monitoring and telemetry settings based on environment variables."""
@@ -310,7 +319,7 @@ class Team:
 
 
     def _initialize_team(self) -> None:
-        self._stop_run = False
+        self.set_storage_mode()
 
         # Make sure for the team, we are using the team logger
         use_team_logger()
@@ -352,6 +361,9 @@ class Team:
         # Read existing session from storage
         if self.context is not None:
             self._resolve_run_context()
+        
+        # Read existing session from storage
+        self.read_from_storage()
 
 
     @overload
@@ -2678,8 +2690,151 @@ class Team:
         return forward_func
 
     ###########################################################################
-    # Sessions
+    # Storage
     ###########################################################################
+
+    def load_user_memories(self) -> None:
+        self.memory = cast(TeamMemory, self.memory)
+        if self.memory and self.memory.create_user_memories:
+            if self.user_id is not None:
+                self.memory.user_id = self.user_id
+
+            self.memory.load_user_memories()
+            if self.user_id is not None:
+                get_logger().debug(f"Memories loaded for user: {self.user_id}")
+            else:
+                get_logger().debug("Memories loaded")
+
+    def read_from_storage(self) -> Optional[TeamSession]:
+        """Load the TeamSession from storage
+
+        Returns:
+            Optional[TeamSession]: The loaded TeamSession or None if not found.
+        """
+        if self.storage is not None and self.session_id is not None:
+            self.team_session = cast(TeamSession, self.storage.read(session_id=self.session_id))
+            if self.team_session is not None:
+                self.load_team_session(session=self.team_session)
+            self.load_user_memories()
+        return self.team_session
+
+    def write_to_storage(self) -> Optional[AgentSession]:
+        """Save the AgentSession to storage
+
+        Returns:
+            Optional[AgentSession]: The saved AgentSession or None if not saved.
+        """
+        if self.storage is not None:
+            self.team_session = cast(TeamSession, self.storage.upsert(session=self.get_team_session()))
+        return self.team_session
+    
+    def load_team_session(self, session: TeamSession):
+        """Load the existing TeamSession from an TeamSession (from the database)"""
+        from agno.memory.summary import SessionSummary
+        from agno.utils.merge_dict import merge_dictionaries
+        logger = get_logger()
+
+        # Get the team_id, user_id and session_id from the database
+        if self.team_id is None and session.team_id is not None:
+            self.team_id = session.team_id
+        if self.user_id is None and session.user_id is not None:
+            self.user_id = session.user_id
+        if self.session_id is None and session.session_id is not None:
+            self.session_id = session.session_id
+
+        # Read team_data from the database
+        if session.team_data is not None:
+            # Get name from database and update the team name if not set
+            if self.name is None and "name" in session.team_data:
+                self.name = session.team_data.get("name")
+
+        # Read session_data from the database
+        if session.session_data is not None:
+            # Get the session_name from database and update the current session_name if not set
+            if self.session_name is None and "session_name" in session.session_data:
+                self.session_name = session.session_data.get("session_name")
+
+            # Get the session_state from the database and update the current session_state
+            if "session_state" in session.session_data:
+                session_state_from_db = session.session_data.get("session_state")
+                if (
+                    session_state_from_db is not None
+                    and isinstance(session_state_from_db, dict)
+                    and len(session_state_from_db) > 0
+                ):
+                    # If the session_state is already set, merge the session_state from the database with the current session_state
+                    if self.session_state is not None and len(self.session_state) > 0:
+                        # This updates session_state_from_db
+                        merge_dictionaries(session_state_from_db, self.session_state)
+                    # Update the current session_state
+                    self.session_state = session_state_from_db
+
+            # Get the session_metrics from the database
+            if "session_metrics" in session.session_data:
+                session_metrics_from_db = session.session_data.get("session_metrics")
+                if session_metrics_from_db is not None and isinstance(session_metrics_from_db, dict):
+                    self.session_metrics = SessionMetrics(**session_metrics_from_db)
+
+            # Get images, videos, and audios from the database
+            if "images" in session.session_data:
+                images_from_db = session.session_data.get("images")
+                if images_from_db is not None and isinstance(images_from_db, list):
+                    if self.images is None:
+                        self.images = []
+                    self.images.extend([ImageArtifact.model_validate(img) for img in images_from_db])
+            if "videos" in session.session_data:
+                videos_from_db = session.session_data.get("videos")
+                if videos_from_db is not None and isinstance(videos_from_db, list):
+                    if self.videos is None:
+                        self.videos = []
+                    self.videos.extend([VideoArtifact.model_validate(vid) for vid in videos_from_db])
+            if "audio" in session.session_data:
+                audio_from_db = session.session_data.get("audio")
+                if audio_from_db is not None and isinstance(audio_from_db, list):
+                    if self.audio is None:
+                        self.audio = []
+                    self.audio.extend([AudioArtifact.model_validate(aud) for aud in audio_from_db])
+
+        # Read extra_data from the database
+        if session.extra_data is not None:
+            # If extra_data is set in the agent, update the database extra_data with the agent's extra_data
+            if self.extra_data is not None:
+                # Updates agent_session.extra_data in place
+                merge_dictionaries(session.extra_data, self.extra_data)
+            # Update the current extra_data with the extra_data from the database which is updated in place
+            self.extra_data = session.extra_data
+
+        if self.memory is None:
+            self.memory = session.memory  # type: ignore
+
+        if not isinstance(self.memory, TeamMemory):
+            if isinstance(self.memory, dict):
+                # Convert dict to TeamMemory
+                self.memory = TeamMemory(**self.memory)
+            else:
+                raise TypeError(f"Expected memory to be a dict or TeamMemory, but got {type(self.memory)}")
+
+        if session.memory is not None:
+            try:
+                if "runs" in session.memory:
+                    try:
+                        self.memory.runs = [AgentRun(**m) for m in session.memory["runs"]]
+                    except Exception as e:
+                        logger.warning(f"Failed to load runs from memory: {e}")
+                if "messages" in session.memory:
+                    try:
+                        self.memory.messages = [Message(**m) for m in session.memory["messages"]]
+                    except Exception as e:
+                        logger.warning(f"Failed to load messages from memory: {e}")
+                if "memories" in session.memory:
+                    try:
+                        self.memory.memories = [Memory(**m) for m in session.memory["memories"]]
+                    except Exception as e:
+                        logger.warning(f"Failed to load user memories: {e}")
+            except Exception as e:
+                logger.warning(f"Failed to load AgentMemory: {e}")
+        logger.debug(f"-*- AgentSession loaded: {session.session_id}")
+
     def load_session(self, force: bool = False) -> Optional[str]:
         """Load an existing session from the database and return the session_id.
         If a session does not exist, create a new session.

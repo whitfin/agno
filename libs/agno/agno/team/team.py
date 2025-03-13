@@ -1115,28 +1115,7 @@ class Team:
             if len(reasoning_steps) > 0 and show_reasoning:
                 # Create panels for reasoning steps
                 for i, step in enumerate(reasoning_steps, 1):
-                    # Build step content
-                    step_content = Text.assemble()
-                    if step.title is not None:
-                        step_content.append(f"{step.title}\n", "bold")
-                    if step.action is not None:
-                        step_content.append(f"{step.action}\n", "dim")
-                    if step.result is not None:
-                        step_content.append(Text.from_markup(step.result, style="dim"))
-
-                    if show_reasoning_verbose:
-                        # Add detailed reasoning information if available
-                        if step.reasoning is not None:
-                            step_content.append(
-                                Text.from_markup(f"\n[bold]Reasoning:[/bold] {step.reasoning}", style="dim")
-                            )
-                        if step.confidence is not None:
-                            step_content.append(
-                                Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
-                            )
-                    reasoning_panel = create_panel(
-                        content=step_content, title=f"Reasoning step {i}", border_style="green"
-                    )
+                    reasoning_panel = self._build_reasoning_step_panel(i, step, show_reasoning_verbose)
                     panels.append(reasoning_panel)
                 live_console.update(Group(*panels))
 
@@ -1154,6 +1133,22 @@ class Team:
             if isinstance(run_response, TeamRunResponse):
                 if self.show_members_responses:
                     for member_response in run_response.member_responses:
+
+                        # Handle member reasoning
+                        reasoning_steps = []
+                        if (
+                            isinstance(member_response, RunResponse)
+                            and run_response.extra_data is not None
+                            and run_response.extra_data.reasoning_steps is not None
+                        ):
+                            reasoning_steps = member_response.extra_data.reasoning_steps
+
+                        if len(reasoning_steps) > 0 and show_reasoning:
+                            # Create panels for reasoning steps
+                            for i, step in enumerate(reasoning_steps, 1):
+                                member_reasoning_panel = self._build_reasoning_step_panel(i, step, show_reasoning_verbose, color="magenta")
+                                panels.append(member_reasoning_panel)
+
                         member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
                             member_response, tags_to_include_in_markdown
                         )
@@ -1165,6 +1160,9 @@ class Team:
                             border_style="magenta",
                         )
                         panels.append(member_response_panel)
+
+
+                    live_console.update(Group(*panels))
 
                 response_content_batch: Union[str, JSON, Markdown] = self._parse_response_content(
                     run_response, tags_to_include_in_markdown
@@ -1271,28 +1269,7 @@ class Team:
                     render = True
                     # Create panels for reasoning steps
                     for i, step in enumerate(reasoning_steps, 1):
-                        # Build step content
-                        step_content = Text.assemble()
-                        if step.title is not None:
-                            step_content.append(f"{step.title}\n", "bold")
-                        if step.action is not None:
-                            step_content.append(f"{step.action}\n", "dim")
-                        if step.result is not None:
-                            step_content.append(Text.from_markup(step.result, style="dim"))
-
-                        if show_reasoning_verbose:
-                            # Add detailed reasoning information if available
-                            if step.reasoning is not None:
-                                step_content.append(
-                                    Text.from_markup(f"\n[bold]Reasoning:[/bold] {step.reasoning}", style="dim")
-                                )
-                            if step.confidence is not None:
-                                step_content.append(
-                                    Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim")
-                                )
-                        reasoning_panel = create_panel(
-                            content=step_content, title=f"Reasoning step {i}", border_style="green"
-                        )
+                        reasoning_panel = self._build_reasoning_step_panel(i, step, show_reasoning_verbose)
                         panels.append(reasoning_panel)
                 if render:
                     live_console.update(Group(*panels))
@@ -1327,6 +1304,16 @@ class Team:
 
             # Create panel for member responses
             for i, member_response in enumerate(self.run_response.member_responses):
+                reasoning_steps = []
+                if member_response.extra_data is not None and member_response.extra_data.reasoning_steps is not None:
+                    reasoning_steps = member_response.extra_data.reasoning_steps
+                if len(reasoning_steps) > 0 and show_reasoning:
+                    render = True
+                    # Create panels for reasoning steps
+                    for j, step in enumerate(reasoning_steps, 1):
+                        member_reasoning_panel = self._build_reasoning_step_panel(j, step, show_reasoning_verbose, color="magenta")
+                        panels.insert(i + 1, member_reasoning_panel)
+
                 member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
                     member_response, tags_to_include_in_markdown
                 )
@@ -1354,6 +1341,25 @@ class Team:
         **kwargs: Any,
     ) -> None:
         pass
+
+    def _build_reasoning_step_panel(self, step_idx: int, step: ReasoningStep, show_reasoning_verbose: bool = False, color: str = "green"):
+        from rich.text import Text
+        # Build step content
+        step_content = Text.assemble()
+        if step.title is not None:
+            step_content.append(f"{step.title}\n", "bold")
+        if step.action is not None:
+            step_content.append(f"{step.action}\n", "dim")
+        if step.result is not None:
+            step_content.append(Text.from_markup(step.result, style="dim"))
+
+        if show_reasoning_verbose:
+            # Add detailed reasoning information if available
+            if step.reasoning is not None:
+                step_content.append(Text.from_markup(f"\n[bold]Reasoning:[/bold] {step.reasoning}", style="dim"))
+            if step.confidence is not None:
+                step_content.append(Text.from_markup(f"\n[bold]Confidence:[/bold] {step.confidence}", style="dim"))
+        return create_panel(content=step_content, title=f"Reasoning step {step_idx}", border_style=color)
 
     def _get_member_name(self, agent_id: str) -> str:
         for member in self.members:

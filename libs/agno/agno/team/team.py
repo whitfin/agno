@@ -358,7 +358,7 @@ class Team:
         # Initialize formatter
         if self._formatter is None:
             self._formatter = SafeFormatter()
-        
+
         for member in self.members:
             # Set debug mode for all members
             if self.debug_mode:
@@ -2301,9 +2301,9 @@ class Team:
                         json_output_prompt += "\n<json_field_properties>"
                         json_output_prompt += f"\n{json.dumps(response_model_properties, indent=2)}"
                         json_output_prompt += "\n</json_field_properties>"
-        else:
-                get_logger().warning(f"Could not build json schema for {self.response_model}")
             else:
+                get_logger().warning(f"Could not build json schema for {self.response_model}")
+        else:
             json_output_prompt += "Provide the output as JSON."
 
         json_output_prompt += "\nStart your response with `{` and end it with `}`."
@@ -2414,7 +2414,7 @@ class Team:
             if self.send_team_context_to_members:
                 if self.select_team_context_to_send_to_members:
                     team_context_str = self._select_team_context_to_send_to_member()
-            else:
+                else:
                     team_context_str = self.memory.get_team_context_str(
                         include_member_interactions=self.send_team_member_interactions_to_members
                     )
@@ -2445,7 +2445,7 @@ class Team:
                     for member_agent_run_response_chunk in member_agent_run_response_stream:
                         check_if_run_cancelled(member_agent_run_response_chunk)
                         yield member_agent_run_response_chunk.content
-            else:
+                else:
                     member_agent_run_response = member_agent.run(
                         member_agent_task, images=images, videos=videos, audio=audio, files=files, stream=False
                     )

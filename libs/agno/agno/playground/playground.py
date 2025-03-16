@@ -34,11 +34,11 @@ class Playground:
         self.router: Optional[APIRouter] = router
         self.endpoints_created: Set[str] = set()
 
-    def get_router(self) -> APIRouter:
-        return get_sync_playground_router(self.agents, self.workflows)
+    def get_router(self, prefix: str = "/playground", tags: List[str] = ["Playground"]) -> APIRouter:
+        return get_sync_playground_router(self.agents, self.workflows, prefix, tags)
 
-    def get_async_router(self) -> APIRouter:
-        return get_async_playground_router(self.agents, self.workflows)
+    def get_async_router(self, prefix: str = "/playground", tags: List[str] = ["Playground"]) -> APIRouter:
+        return get_async_playground_router(self.agents, self.workflows, prefix, tags)
 
     def get_app(self, use_async: bool = True, prefix: str = "/v1") -> FastAPI:
         if not self.api_app:

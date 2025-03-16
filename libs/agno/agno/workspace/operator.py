@@ -26,12 +26,12 @@ from agno.workspace.config import WorkspaceConfig
 from agno.workspace.enums import WorkspaceStarterTemplate
 
 TEMPLATE_TO_NAME_MAP: Dict[WorkspaceStarterTemplate, str] = {
-    WorkspaceStarterTemplate.agent_app: "agent-app",
-    WorkspaceStarterTemplate.agent_api: "agent-api",
+    WorkspaceStarterTemplate.agent_app_aws: "agent-app-aws",
+    WorkspaceStarterTemplate.agent_api_aws: "agent-api-aws",
 }
 TEMPLATE_TO_REPO_MAP: Dict[WorkspaceStarterTemplate, str] = {
-    WorkspaceStarterTemplate.agent_app: "https://github.com/agno-agi/agent-app-template",
-    WorkspaceStarterTemplate.agent_api: "https://github.com/agno-agi/agent-api-template",
+    WorkspaceStarterTemplate.agent_app_aws: "https://github.com/agno-agi/agent-app-aws",
+    WorkspaceStarterTemplate.agent_api_aws: "https://github.com/agno-agi/agent-api-aws",
 }
 
 
@@ -65,7 +65,7 @@ def create_workspace(
 
     ws_dir_name: Optional[str] = name
     repo_to_clone: Optional[str] = url
-    ws_template = WorkspaceStarterTemplate.agent_app
+    ws_template = WorkspaceStarterTemplate.agent_app_aws
     templates = list(WorkspaceStarterTemplate.__members__.values())
 
     if repo_to_clone is None:
@@ -95,13 +95,13 @@ def create_workspace(
         repo_to_clone = TEMPLATE_TO_REPO_MAP.get(ws_template)
 
     if ws_dir_name is None:
-        default_ws_name = "agent-app"
+        default_ws_name = "agent-app-aws"
         if url is not None:
             # Get default_ws_name from url
             default_ws_name = url.split("/")[-1].split(".")[0]
         else:
             # Get default_ws_name from template
-            default_ws_name = TEMPLATE_TO_NAME_MAP.get(ws_template, "agent-app")
+            default_ws_name = TEMPLATE_TO_NAME_MAP.get(ws_template, "agent-app-aws")
         logger.debug(f"Asking for ws name with default: {default_ws_name}")
         # Ask user for workspace name if not provided
         ws_dir_name = Prompt.ask("Workspace Name", default=default_ws_name, console=console)

@@ -34,9 +34,12 @@ from agno.workflow.workflow import Workflow
 
 
 def get_async_playground_router(
-    agents: Optional[List[Agent]] = None, workflows: Optional[List[Workflow]] = None
+    agents: Optional[List[Agent]] = None,
+    workflows: Optional[List[Workflow]] = None,
+    prefix: str = "/playground",
+    tags: List[str] = ["Playground"],
 ) -> APIRouter:
-    playground_router = APIRouter(prefix="/playground", tags=["Playground"])
+    playground_router = APIRouter(prefix=prefix, tags=tags)
 
     if agents is None and workflows is None:
         raise ValueError("Either agents or workflows must be provided.")

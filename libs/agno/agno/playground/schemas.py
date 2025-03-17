@@ -85,7 +85,10 @@ class TeamGetResponse(BaseModel):
     team_id: Optional[str] = None
     name:  Optional[str] = None
     description: Optional[str] = None
-    # agents: Optional[List[AgentGetResponse]] = None
+    mode: Optional[str] = None
+    success_criteria: Optional[str] = None
+    instructions: Optional[str] = None
+    members: Optional[List[AgentGetResponse]] = None
     # workflows: Optional[List[WorkflowGetResponse]] = None
     # created_at: Optional[int] = None
     # updated_at: Optional[int] = None

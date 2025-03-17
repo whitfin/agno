@@ -66,6 +66,8 @@ finance_agent = Agent(
 )
 
 agent_team = Team(
+    name="Financial News Team",
+    description="A team of agents that search the web for financial news and analyze it.",
     members=[web_agent, finance_agent],
     model=OpenAIChat(id="gpt-4o"),
     mode="coordinator",

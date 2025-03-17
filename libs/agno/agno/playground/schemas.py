@@ -75,17 +75,12 @@ class WorkflowsGetResponse(BaseModel):
     name: str
     description: Optional[str] = None
 
-class TeamModel(BaseModel):
-    team_id: str
-    name: str
-    description: Optional[str] = None
-
-
 class TeamGetResponse(BaseModel):
     team_id: Optional[str] = None
-    name:  Optional[str] = None
+    name: Optional[str] = None
     description: Optional[str] = None
-    mode: Optional[str] = None
+    # Add TeamModel type on model field
+    model: Optional[Any] = None
     success_criteria: Optional[str] = None
     instructions: Optional[str] = None
     members: Optional[List[AgentGetResponse]] = None

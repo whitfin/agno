@@ -645,6 +645,3 @@ def get_sync_playground_router(
         return JSONResponse(content={"message": f"successfully deleted team {team.name}"})
 
     return playground_router
-
-    return playground_router
-

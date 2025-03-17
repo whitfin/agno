@@ -82,8 +82,8 @@ class TeamModel(BaseModel):
 
 
 class TeamGetResponse(BaseModel):
-    team_id: str
-    name: str
+    team_id: Optional[str] = None
+    name:  Optional[str] = None
     description: Optional[str] = None
     # agents: Optional[List[AgentGetResponse]] = None
     # workflows: Optional[List[WorkflowGetResponse]] = None

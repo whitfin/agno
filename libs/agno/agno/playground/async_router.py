@@ -515,29 +515,7 @@ def get_async_playground_router(
         return [
             TeamGetResponse(
                 team_id=team.team_id,
-                name=team.name,
-                description=team.description,
-                mode=team.mode,
-                success_criteria=team.success_criteria,
-                instructions=team.instructions,
-                members=[
-                    AgentGetResponse(
-                        agent_id=member.agent_id,
-                        name=member.name,
-                        model=AgentModel(
-                            name=member.model.name or member.model.__class__.__name__ if member.model else None,
-                            model=member.model.id if member.model else None,
-                            provider=member.model.provider or member.model.__class__.__name__ if member.model else None,
-                        ),
-                        add_context=member.add_context,
-                        tools=format_tools(member.get_tools()) if member.get_tools() else None,
-                        memory={"name": member.memory.db.__class__.__name__} if member.memory and member.memory.db else None,
-                        storage={"name": member.storage.__class__.__name__} if member.storage else None,
-                        knowledge={"name": member.knowledge.__class__.__name__} if member.knowledge else None,
-                        description=member.description,
-                        instructions=member.instructions,
-                    ) for member in team.members
-                ] if team.members else None,
+                name=team.name
             )
             for team in teams
         ]

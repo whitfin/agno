@@ -79,3 +79,34 @@ multilingual_agent = Agent(
 multilingual_agent.print_response(
     "Generate an audio about Varun Mayya and what he is up to in both English and Hindi"
 )
+
+# Example 3: Agent with larger model and different voice
+advanced_agent = Agent(
+    model=OpenAIChat(id="gpt-4o"),
+    tools=[
+        SmallestAITools(
+            voice_id="george",  # American male voice good for narratives and entertainment
+            model="lightning-large",  # Enhanced model with more features
+            target_directory="audio_generations",
+            sample_rate=24000,
+            speed=1.0,
+            consistency=0.4,
+            similarity=0.3,
+            enhancement=1,
+        )
+    ],
+    description="You are an AI agent that can generate high-quality narration.",
+    instructions=[
+        "You specialize in creating professional-quality audio narrations.",
+        "When the user requests audio, use the text_to_speech tool with appropriate parameters.",
+        "When using the lightning-large model, always include all the parameters data provided in SmallestAITools,"
+        "for eg: enhancement, similarity, etc."
+        "You have access to an enhanced TTS model that produces extremely high-quality speech.",
+    ],
+    markdown=True,
+    debug_mode=True,
+    show_tool_calls=True,
+)
+
+# Generate enhanced quality audio
+advanced_agent.print_response("Create a narration for a nature documentary about coral reefs")

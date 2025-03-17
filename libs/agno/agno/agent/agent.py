@@ -573,6 +573,7 @@ class Agent:
                         self.run_response.thinking = model_response.redacted_thinking
 
                     if model_response_chunk.citations is not None:
+                        # We get citations in one chunk
                         self.run_response.citations = model_response_chunk.citations
 
                     # Only yield if we have content or thinking to show
@@ -1641,7 +1642,6 @@ class Agent:
                 if callable(ctx_value):
                     try:
                         sig = signature(ctx_value)
-                        resolved_ctx_value = None
                         if "agent" in sig.parameters:
                             resolved_ctx_value = ctx_value(agent=self)
                         else:
@@ -3585,7 +3585,6 @@ class Agent:
             self.markdown = True
 
         if self.response_model is not None:
-            markdown = False
             self.markdown = False
             stream = False
 
@@ -3718,7 +3717,7 @@ class Agent:
                         if citation.url  # Only include citations with valid URLs
                     )
                     if md_content:  # Only create panel if there are citations
-                        citations_panel = self.create_panel(
+                        citations_panel = create_panel(
                             content=Markdown(md_content),
                             title="Citations",
                             border_style="green",
@@ -3849,7 +3848,7 @@ class Agent:
                         if citation.url  # Only include citations with valid URLs
                     )
                     if md_content:  # Only create panel if there are citations
-                        citations_panel = self.create_panel(
+                        citations_panel = create_panel(
                             content=Markdown(md_content),
                             title="Citations",
                             border_style="green",
@@ -3893,7 +3892,6 @@ class Agent:
             self.markdown = True
 
         if self.response_model is not None:
-            markdown = False
             self.markdown = False
             stream = False
 
@@ -4027,7 +4025,7 @@ class Agent:
                         if citation.url  # Only include citations with valid URLs
                     )
                     if md_content:  # Only create panel if there are citations
-                        citations_panel = self.create_panel(
+                        citations_panel = create_panel(
                             content=Markdown(md_content),
                             title="Citations",
                             border_style="green",
@@ -4157,7 +4155,7 @@ class Agent:
                         if citation.url  # Only include citations with valid URLs
                     )
                     if md_content:  # Only create panel if there are citations
-                        citations_panel = self.create_panel(
+                        citations_panel = create_panel(
                             content=Markdown(md_content),
                             title="Citations",
                             border_style="green",

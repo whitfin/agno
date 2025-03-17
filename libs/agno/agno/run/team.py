@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
-from agno.models.message import Message
+from agno.models.message import Message, Citations
 from agno.run.response import RunEvent, RunResponse, RunResponseExtraData
 
 
@@ -35,6 +35,9 @@ class TeamRunResponse:
     audio: Optional[List[AudioArtifact]] = None  # Audio from member runs
 
     response_audio: Optional[AudioResponse] = None  # Model audio response
+
+    citations: Optional[Citations] = None
+
     extra_data: Optional[RunResponseExtraData] = None
     created_at: int = field(default_factory=lambda: int(time()))
 

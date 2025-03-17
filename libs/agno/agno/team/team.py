@@ -32,7 +32,7 @@ from agno.memory.agent import AgentRun
 from agno.memory.memory import Memory
 from agno.memory.team import TeamMemory, TeamRun
 from agno.models.base import Model
-from agno.models.message import Message
+from agno.models.message import Message, Citations
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
 from agno.run.messages import RunMessages
@@ -635,6 +635,10 @@ class Team:
             else:
                 run_response.thinking += model_response.thinking
 
+        # Update citations
+        if model_response.citations is not None:
+            run_response.citations = model_response.citations
+
         # Update the run_response tools with the model response tools
         if model_response.tool_calls is not None:
             if run_response.tools is None:
@@ -769,6 +773,11 @@ class Team:
                         full_model_response.thinking += model_response_chunk.thinking
                     should_yield = True
 
+                if model_response_chunk.citations is not None:
+                    # We get citations in one chunk
+                    full_model_response.citations = model_response_chunk.citations
+                    should_yield = True
+
                 # Process audio
                 if model_response_chunk.audio is not None:
                     if full_model_response.audio is None:
@@ -798,6 +807,7 @@ class Team:
                         content=model_response_chunk.content,
                         thinking=model_response_chunk.thinking,
                         response_audio=model_response_chunk.audio,
+                        citations=model_response_chunk.citations,
                         created_at=model_response_chunk.created_at,
                     )
 
@@ -857,6 +867,8 @@ class Team:
             run_response.thinking = full_model_response.thinking
         if full_model_response.audio is not None:
             run_response.response_audio = full_model_response.audio
+        if full_model_response.citations is not None:
+            run_response.citations = full_model_response.citations
 
         # Build a list of messages that should be added to the RunResponse
         messages_for_run_response = [m for m in run_messages.messages if m.add_to_agent_memory]
@@ -1101,7 +1113,6 @@ class Team:
                     return current_run_response
 
             except ModelProviderError as e:
-                import time
 
                 logger.warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 last_exception = e
@@ -1281,8 +1292,8 @@ class Team:
                 panels.append(thinking_panel)
                 live_console.update(Group(*panels))
 
-            response_content_batch: Union[str, JSON, Markdown] = ""
             if isinstance(run_response, TeamRunResponse):
+                # Handle member responses
                 if self.show_members_responses:
                     for member_response in run_response.member_responses:
 
@@ -1313,6 +1324,21 @@ class Team:
                         )
                         panels.append(member_response_panel)
 
+                        if (member_response.citations is not None
+                            and member_response.citations.urls is not None
+                        ):
+                            md_content = "\n".join(
+                                f"{i + 1}. [{citation.title or citation.url}]({citation.url})"
+                                for i, citation in enumerate(member_response.citations.urls)
+                                if citation.url  # Only include citations with valid URLs
+                            )
+                            if md_content:  # Only create panel if there are citations
+                                citations_panel = create_panel(
+                                    content=Markdown(md_content),
+                                    title="Citations",
+                                    border_style="magenta",
+                                )
+                                panels.append(citations_panel)
 
                     live_console.update(Group(*panels))
 
@@ -1320,13 +1346,28 @@ class Team:
                     run_response, tags_to_include_in_markdown
                 )
 
-            # Create panel for response
-            response_panel = create_panel(
-                content=response_content_batch,
-                title=f"Response ({response_timer.elapsed:.1f}s)",
-                border_style="blue",
-            )
-            panels.append(response_panel)
+                # Create panel for response
+                response_panel = create_panel(
+                    content=response_content_batch,
+                    title=f"Response ({response_timer.elapsed:.1f}s)",
+                    border_style="blue",
+                )
+                panels.append(response_panel)
+
+                # Add citations
+                if run_response.citations is not None and run_response.citations.urls is not None:
+                    md_content = "\n".join(
+                        f"{i + 1}. [{citation.title or citation.url}]({citation.url})"
+                        for i, citation in enumerate(run_response.citations.urls)
+                        if citation.url  # Only include citations with valid URLs
+                    )
+                    if md_content:  # Only create panel if there are citations
+                        citations_panel = create_panel(
+                            content=Markdown(md_content),
+                            title="Citations",
+                            border_style="green",
+                        )
+                        panels.append(citations_panel)
 
             # Final update to remove the "Thinking..." status
             panels = [p for p in panels if not isinstance(p, Status)]
@@ -1451,6 +1492,22 @@ class Team:
                     live_console.update(Group(*panels))
             response_timer.stop()
 
+            # Add citations
+            if resp.citations is not None and resp.citations.urls is not None:
+                md_content = "\n".join(
+                    f"{i + 1}. [{citation.title or citation.url}]({citation.url})"
+                    for i, citation in enumerate(resp.citations.urls)
+                    if citation.url  # Only include citations with valid URLs
+                )
+                if md_content:  # Only create panel if there are citations
+                    citations_panel = create_panel(
+                        content=Markdown(md_content),
+                        title="Citations",
+                        border_style="green",
+                    )
+                    panels.append(citations_panel)
+                    live_console.update(Group(*panels))
+
             # Final update to remove the "Thinking..." status
             panels = [p for p in panels if not isinstance(p, Status)]
 
@@ -1475,6 +1532,20 @@ class Team:
                     border_style="magenta",
                 )
                 panels.insert(i + 1, member_response_panel)
+
+                if member_response.citations is not None and member_response.citations.urls is not None:
+                    md_content = "\n".join(
+                        f"{i + 1}. [{citation.title or citation.url}]({citation.url})"
+                        for i, citation in enumerate(member_response.citations.urls)
+                        if citation.url  # Only include citations with valid URLs
+                    )
+                    if md_content:  # Only create panel if there are citations
+                        citations_panel = create_panel(
+                            content=Markdown(md_content),
+                            title="Citations",
+                            border_style="magenta",
+                        )
+                        panels.insert(i + 2, citations_panel)
 
             live_console.update(Group(*panels))
 
@@ -1791,6 +1862,7 @@ class Team:
         images: Optional[List[ImageArtifact]] = None,
         videos: Optional[List[VideoArtifact]] = None,
         response_audio: Optional[AudioResponse] = None,
+        citations: Optional[Citations] = None,
         model: Optional[str] = None,
         messages: Optional[List[Message]] = None,
         created_at: Optional[int] = None,
@@ -1807,6 +1879,7 @@ class Team:
             messages = from_run_response.messages
             extra_data = from_run_response.extra_data
             member_responses = from_run_response.member_responses
+            citations = from_run_response.citations
 
         return TeamRunResponse(
             run_id=self.run_id,
@@ -1820,6 +1893,7 @@ class Team:
             images=images,
             videos=videos,
             response_audio=response_audio,
+            citations=citations,
             model=model,
             messages=messages,
             extra_data=extra_data,
@@ -2142,7 +2216,7 @@ class Team:
                 run_messages.messages += history_copy
 
         # 3.Add user message to run_messages
-        user_message = self._get_user_message(message, audio=audio, images=images, videos=videos, files=files)
+        user_message = self._get_user_message(message, audio=audio, images=images, videos=videos, files=files, **kwargs)
 
         # Add user message to run_messages
         if user_message is not None:
@@ -2395,7 +2469,7 @@ class Team:
         audio: Optional[List[Audio]] = None,
         files: Optional[List[File]] = None,
     ) -> Function:
-        def _run_member_agents(task_description: str, expected_output: Optional[str] = None) -> Iterator[str]:
+        def run_member_agents(task_description: str, expected_output: Optional[str] = None) -> Iterator[str]:
             """
             Send the same task to all the member agents and return the responses.
 
@@ -2484,7 +2558,7 @@ class Team:
             # Afterward, switch back to the team logger
             use_team_logger()
 
-        async def _a_run_member_agents(
+        async def a_run_member_agents(
             task_description: str, expected_output: Optional[str] = None
         ) -> AsyncIterator[str]:
             """
@@ -2537,9 +2611,9 @@ class Team:
                             member_agent_task, images=images, videos=videos, audio=audio, files=files, stream=True
                         )
 
-                        for chunk in response_stream:
-                            check_if_run_cancelled(chunk)
-                            yield chunk.content
+                        for stream_chunk in response_stream:
+                            check_if_run_cancelled(stream_chunk)
+                            yield stream_chunk.content
 
                         member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
                         self.memory.add_interaction_to_team_context(
@@ -2608,9 +2682,9 @@ class Team:
             use_team_logger()
 
         if async_mode:
-            run_member_agents_function = _a_run_member_agents
+            run_member_agents_function = a_run_member_agents
         else:
-            run_member_agents_function = _run_member_agents
+            run_member_agents_function = run_member_agents
 
         run_member_agents_func = Function.from_callable(run_member_agents_function, strict=True)
 
@@ -2625,7 +2699,7 @@ class Team:
         audio: Optional[List[Audio]] = None,
         files: Optional[List[File]] = None,
     ) -> Function:
-        def _transfer_task_to_member(agent_name: str, task_description: str, expected_output: str) -> Iterator[str]:
+        def transfer_task_to_member(agent_name: str, task_description: str, expected_output: str) -> Iterator[str]:
             """
             Use this function to transfer a task to the nominated agent.
             You must provide a clear and concise description of the task the agent should achieve AND the expected output.
@@ -2721,7 +2795,7 @@ class Team:
             # Update the team state
             self._update_team_state(member_agent.run_response)
 
-        async def _a_transfer_task_to_member(
+        async def a_transfer_task_to_member(
             agent_name: str, task_description: str, expected_output: str
         ) -> AsyncIterator[str]:
             """
@@ -2818,9 +2892,9 @@ class Team:
             self._update_team_state(member_agent.run_response)
 
         if async_mode:
-            transfer_function = _a_transfer_task_to_member
+            transfer_function = a_transfer_task_to_member
         else:
-            transfer_function = _transfer_task_to_member
+            transfer_function = transfer_task_to_member
 
         transfer_func = Function.from_callable(transfer_function, strict=True)
 
@@ -2836,7 +2910,7 @@ class Team:
         audio: Optional[Sequence[Audio]] = None,
         files: Optional[Sequence[File]] = None,
     ) -> Function:
-        def _forward_task_to_member(agent_name: str, expected_output: Optional[str] = None) -> Iterator[str]:
+        def forward_task_to_member(agent_name: str, expected_output: Optional[str] = None) -> Iterator[str]:
             """
             Use this function to forward the request to the nominated agent.
             Args:
@@ -2908,7 +2982,7 @@ class Team:
             # Update the team state
             self._update_team_state(member_agent.run_response)
 
-        async def _a_forward_task_to_member(
+        async def a_forward_task_to_member(
             agent_name: str, expected_output: Optional[str] = None
         ) -> AsyncIterator[str]:
             """
@@ -2982,9 +3056,9 @@ class Team:
             self._update_team_state(member_agent.run_response)
 
         if async_mode:
-            forward_function = _a_forward_task_to_member
+            forward_function = a_forward_task_to_member
         else:
-            forward_function = _forward_task_to_member
+            forward_function = forward_task_to_member
 
         forward_func = Function.from_callable(forward_function, strict=True)
         forward_func.stop_after_tool_call = True

@@ -608,6 +608,7 @@ def get_async_playground_router(
             return StreamingResponse(
                 (json.dumps(asdict(result)) for result in team.run(
                    message=message,
+                   stream=True,
                 )),
                 media_type="text/event-stream",
             )

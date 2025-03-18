@@ -3837,10 +3837,10 @@ class Team:
     def _find_member_by_name(self, agent_name: str) -> Optional[Tuple[int, Union[Agent, "Team"], Optional[str]]]:
         """
         Recursively search through team members and sub-teams to find an agent by name.
-        
+
         Args:
             agent_name (str): Name of the agent to find
-            
+
         Returns:
             Optional[Tuple[int, Union[Agent, "Team"], Optional[str]]]: Tuple containing:
                 - Index of the member in its immediate parent team
@@ -3851,14 +3851,14 @@ class Team:
         for i, member in enumerate(self.members):
             if member.name == agent_name:
                 return (i, member, None)
-            
+
             # If this member is a team, search its members recursively
             if isinstance(member, Team):
                 result = member._find_member_by_name(agent_name)
                 if result is not None:
                     # Found in sub-team, return with the top-level team member's name
                     return (i, result[1], member.name)
-                
+
         return None
 
     def get_forward_task_function(
@@ -3886,7 +3886,7 @@ class Team:
             result = self._find_member_by_name(agent_name)
             if result is None:
                 raise ValueError(f"Agent with name {agent_name} not found in the team or any sub-teams.")
-                
+
             member_agent_index, member_agent, top_level_member_name = result
 
             # If the member will produce structured output, we need to parse the response
@@ -3962,7 +3962,7 @@ class Team:
             result = self._find_member_by_name(agent_name)
             if result is None:
                 raise ValueError(f"Agent with name {agent_name} not found in the team or any sub-teams.")
-                
+
             member_agent_index, member_agent, top_level_member_name = result
 
             # If the member will produce structured output, we need to parse the response
@@ -4163,7 +4163,7 @@ class Team:
             try:
                 if "runs" in session.memory:
                     try:
-                        self.memory.runs = [TeamRun(**m) for m in session.memory["runs"]] 
+                        self.memory.runs = [TeamRun(**m) for m in session.memory["runs"]]
                     except Exception as e:
                         logger.warning(f"Failed to load runs from memory: {e}")
                 if "messages" in session.memory:

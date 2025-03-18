@@ -1,3 +1,4 @@
+import asyncio
 from textwrap import dedent
 
 from agno.agent import Agent
@@ -88,9 +89,11 @@ agent_team = Team(
     show_members_responses=True,
 )
 
-# TODO: Make async
-agent_team.print_response(
-    message="Start the discussion on the topic: 'What is the best way to learn to code?'",
-    stream=True,
-    stream_intermediate_steps=True,
-)
+if __name__ == "__main__":
+    asyncio.run(
+        agent_team.print_response(
+            message="Start the discussion on the topic: 'What is the best way to learn to code?'",
+            stream=True,
+            stream_intermediate_steps=True,
+        )
+    )

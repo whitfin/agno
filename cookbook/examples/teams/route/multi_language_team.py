@@ -1,7 +1,7 @@
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.models.deepseek import DeepSeek
-from agno.models.mistral.mistral import MistralChat
+from agno.models.mistral import MistralChat
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 

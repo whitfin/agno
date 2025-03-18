@@ -1,4 +1,4 @@
-from textwrap import dedent
+from pathlib import Path
 
 import requests
 from agno.agent import Agent
@@ -140,13 +140,13 @@ agent_team = Team(
 # )
 
 # image_path = Path(__file__).parent.joinpath("sample.jpg")
-# # Use image agent to analyze the image
+# # # Use image agent to analyze the image
 # agent_team.print_response(
 #     "Write a 3 sentence fiction story about the image",
 #     images=[Image(filepath=image_path)],
 # )
 
-# # Use audio agent to analyze the audio
+# Use audio agent to analyze the audio
 # url = "https://agno-public.s3.amazonaws.com/demo_data/sample_conversation.wav"
 # response = requests.get(url)
 # audio_content = response.content
@@ -156,7 +156,7 @@ agent_team = Team(
 #     audio=[Audio(content=audio_content)],
 # )
 
-# # Use image agent to generate an image
+# Use image agent to generate an image
 # agent_team.print_response(
 #     "Generate an image of a cat", stream=True
 # )

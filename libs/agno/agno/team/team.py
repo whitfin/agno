@@ -3951,6 +3951,33 @@ class Team:
 
         return transfer_func
 
+    def _find_member_by_name(self, agent_name: str) -> Optional[Tuple[int, Union[Agent, "Team"], Optional[str]]]:
+        """
+        Recursively search through team members and sub-teams to find an agent by name.
+
+        Args:
+            agent_name (str): Name of the agent to find
+
+        Returns:
+            Optional[Tuple[int, Union[Agent, "Team"], Optional[str]]]: Tuple containing:
+                - Index of the member in its immediate parent team
+                - The found agent/team
+                - The name of the top-level team member (if found in a sub-team), or None if direct member
+        """
+        # First check direct members
+        for i, member in enumerate(self.members):
+            if member.name == agent_name:
+                return (i, member, None)
+
+            # If this member is a team, search its members recursively
+            if isinstance(member, Team):
+                result = member._find_member_by_name(agent_name)
+                if result is not None:
+                    # Found in sub-team, return with the top-level team member's name
+                    return (i, result[1], member.name)
+
+        return None
+
     def get_forward_task_function(
         self,
         message: Message,
@@ -3982,18 +4009,12 @@ class Team:
             self.memory = cast(TeamMemory, self.memory)
             self._member_response_model = None
 
-            # 1. Find the member agent
-            member_agent_tuple: Optional[Tuple[int, Union[Agent, "Team"]]] = next(
-                ((i, member_agent) for i, member_agent in enumerate(self.members) if member_agent.name == agent_name),
-                None,
-            )
-            if member_agent_tuple is not None:
-                member_agent_index, member_agent = member_agent_tuple
-            else:
-                member_agent_index = -1
-                member_agent = None
-            if member_agent is None:
-                raise ValueError(f"Agent with name {agent_name} not found in the team.")
+            # Find the member agent using the helper function
+            result = self._find_member_by_name(agent_name)
+            if result is None:
+                raise ValueError(f"Agent with name {agent_name} not found in the team or any sub-teams.")
+
+            member_agent_index, member_agent, top_level_member_name = result
 
             # If the member will produce structured output, we need to parse the response
             if member_agent.response_model is not None:
@@ -4002,9 +4023,10 @@ class Team:
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
 
-            member_agent_task = f"{message.get_content_string()}"
-            if expected_output:
-                member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
+            # If found in sub-team, include the path in the task description
+            member_agent_task = message.get_content_string()
+            if top_level_member_name:
+                member_agent_task = f"[Via team member: {top_level_member_name}] {member_agent_task}"
 
             # 2. Get the response from the member agent
             if stream:
@@ -4069,18 +4091,12 @@ class Team:
 
             self._member_response_model = None
 
-            # 1. Find the member agent
-            member_agent_tuple: Optional[Tuple[int, Union[Agent, "Team"]]] = next(
-                ((i, member_agent) for i, member_agent in enumerate(self.members) if member_agent.name == agent_name),
-                None,
-            )
-            if member_agent_tuple is not None:
-                member_agent_index, member_agent = member_agent_tuple
-            else:
-                member_agent_index = -1
-                member_agent = None
-            if member_agent is None:
-                raise ValueError(f"Agent with name {agent_name} not found in the team.")
+            # Find the member agent using the helper function
+            result = self._find_member_by_name(agent_name)
+            if result is None:
+                raise ValueError(f"Agent with name {agent_name} not found in the team or any sub-teams.")
+
+            member_agent_index, member_agent, top_level_member_name = result
 
             # If the member will produce structured output, we need to parse the response
             if member_agent.response_model is not None:
@@ -4089,10 +4105,12 @@ class Team:
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
 
+            # If found in sub-team, include the path in the task description
+            member_agent_task = message.get_content_string()
+            if top_level_member_name:
+                member_agent_task = f"[Via team member: {top_level_member_name}] {member_agent_task}"
+
             # 2. Get the response from the member agent
-            member_agent_task = f"{message.get_content_string()}"
-            if expected_output:
-                member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
             if stream:
                 member_agent_run_response_stream = await member_agent.arun(
                     member_agent_task, images=images, videos=videos, audio=audio, files=files, stream=True

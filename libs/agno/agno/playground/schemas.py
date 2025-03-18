@@ -79,6 +79,7 @@ class TeamGetResponse(BaseModel):
     team_id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    mode: Optional[str] = None
     # Add TeamModel type on model field
     model: Optional[Any] = None
     success_criteria: Optional[str] = None

@@ -1,5 +1,3 @@
-from textwrap import dedent
-
 import requests
 from agno.agent import Agent
 from agno.media import Audio, Image
@@ -11,6 +9,7 @@ from agno.tools.calculator import CalculatorTools
 from agno.tools.dalle import DalleTools
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
+from pathlib import Path
 
 web_agent = Agent(
     name="Web Agent",
@@ -131,7 +130,7 @@ agent_team = Team(
     show_members_responses=True,
 )
 
-# Use web and finance agents to answer the question
+# # Use web and finance agents to answer the question
 # agent_team.print_response(
 #     "Summarize analyst recommendations and share the latest news for NVDA", stream=True
 # )
@@ -140,7 +139,7 @@ agent_team = Team(
 # )
 
 # image_path = Path(__file__).parent.joinpath("sample.jpg")
-# # Use image agent to analyze the image
+# # # Use image agent to analyze the image
 # agent_team.print_response(
 #     "Write a 3 sentence fiction story about the image",
 #     images=[Image(filepath=image_path)],
@@ -161,7 +160,7 @@ agent_team = Team(
 #     "Generate an image of a cat", stream=True
 # )
 
-# Use the calculator writer team to calculate the result
+# # #Use the calculator writer team to calculate the result
 # agent_team.print_response(
 #     "What is the square root of 6421123 times the square root of 9485271", stream=True
 # )

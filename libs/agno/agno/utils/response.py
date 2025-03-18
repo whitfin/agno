@@ -27,7 +27,7 @@ def escape_markdown_tags(content: str, tags: Set[str]) -> str:
     return escaped_content
 
 
-def check_if_run_cancelled(run_response: RunResponse):
+def check_if_run_cancelled(run_response: Union[RunResponse, TeamRunResponse]):
     if run_response.event == RunEvent.run_cancelled:
         raise RunCancelledException()
 

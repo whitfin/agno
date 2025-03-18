@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, field
 from time import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -22,7 +22,7 @@ class TeamRunResponse:
     metrics: Optional[Dict[str, Any]] = None
     model: Optional[str] = None
 
-    member_responses: List[RunResponse] = field(default_factory=list)
+    member_responses: List[Union["TeamRunResponse", RunResponse]] = field(default_factory=list)
 
     run_id: Optional[str] = None
     team_id: Optional[str] = None
@@ -92,7 +92,7 @@ class TeamRunResponse:
         else:
             return json.dumps(self.content, **kwargs)
 
-    def add_member_run(self, run_response: RunResponse) -> None:
+    def add_member_run(self, run_response: Union["TeamRunResponse", RunResponse]) -> None:
         self.member_responses.append(run_response)
         if run_response.images is not None:
             if self.images is None:

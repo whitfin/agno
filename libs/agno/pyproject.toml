@@ -51,6 +51,7 @@ openai = ["openai"]
 ollama = ["ollama"]
 ibm = ["ibm-watsonx-ai"]
 lmstudio = ["lmstudio"]
+
 # Dependencies for Tools
 exa = ["exa_py"]
 yfinance = ["yfinance"]
@@ -128,7 +129,7 @@ tools = [
   "agno[webex]",
   "agno[mcp]",
   "agno[browserbase]",
-  "agno[yfinance]",
+#  "agno[yfinance]",  # currently broken
 ]
 
 # All storage
@@ -190,7 +191,6 @@ include = ["LICENSE"]
 
 [tool.pytest.ini_options]
 log_cli = true
-testpaths = "tests"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 

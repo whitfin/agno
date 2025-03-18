@@ -72,6 +72,6 @@ def get_default_reasoning_agent(
         debug_mode=debug_mode,
     )
 
-    agent.model.show_tool_calls = False
+    agent.model.show_tool_calls = False  # type: ignore
 
     return agent

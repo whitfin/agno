@@ -20,9 +20,9 @@ import asyncio
 from typing import List
 
 from agno.agent import Agent
-from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
+from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.tools.newspaper4k import Newspaper4kTools
@@ -77,4 +77,8 @@ hn_team = Team(
 )
 
 if __name__ == "__main__":
-    asyncio.run(hn_team.aprint_response("Write an article about the top 2 stories on hackernews", stream=True))
+    asyncio.run(
+        hn_team.aprint_response(
+            "Write an article about the top 2 stories on hackernews", stream=True
+        )
+    )

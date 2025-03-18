@@ -7,13 +7,11 @@ from agno.tools.yfinance import YFinanceTools
 from agno.utils.pprint import pprint_run_response
 from rich.pretty import pprint
 
-
 stock_searcher = Agent(
     name="Stock Searcher",
     model=OpenAIChat("gpt-4o"),
     role="Searches the web for information on a stock.",
-    tools=[
-        YFinanceTools()],
+    tools=[YFinanceTools()],
 )
 
 
@@ -48,11 +46,11 @@ if team.run_response.messages:
             print("---" * 20)
 
 
-# Print the metrics 
+# Print the metrics
 print("---" * 5, "Aggregated Metrics of Team Agent", "---" * 5)
 pprint(team.run_response.metrics)
 
-# Print the session metrics 
+# Print the session metrics
 print("---" * 5, "Session Metrics", "---" * 5)
 pprint(team.session_metrics)
 
@@ -73,6 +71,6 @@ if team.run_response.member_responses:
                     print("---" * 20)
 
 
-# Print the session metrics 
+# Print the session metrics
 print("---" * 5, "Full Team Session Metrics", "---" * 5)
 pprint(team.full_team_session_metrics)

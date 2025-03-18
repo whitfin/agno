@@ -7,10 +7,10 @@ from agno.models.deepseek import DeepSeek
 from agno.models.google.gemini import Gemini
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
+from agno.tools.calculator import CalculatorTools
 from agno.tools.dalle import DalleTools
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
-from agno.tools.calculator import CalculatorTools
 
 web_agent = Agent(
     name="Web Agent",
@@ -117,7 +117,14 @@ agent_team = Team(
     name="Agent Team",
     mode="route",
     model=OpenAIChat("gpt-4.5-preview"),
-    members=[web_agent, finance_agent, image_agent, audio_agent, calculator_writer_team, reasoning_agent],
+    members=[
+        web_agent,
+        finance_agent,
+        image_agent,
+        audio_agent,
+        calculator_writer_team,
+        reasoning_agent,
+    ],
     show_tool_calls=True,
     markdown=True,
     debug_mode=True,
@@ -160,6 +167,4 @@ agent_team = Team(
 # )
 
 # Use the reasoning agent to reason about the result
-agent_team.print_response(
-    "9.11 and 9.9 -- which is bigger?", stream=True
-)
+agent_team.print_response("9.11 and 9.9 -- which is bigger?", stream=True)

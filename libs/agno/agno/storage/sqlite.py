@@ -347,9 +347,7 @@ class SqliteStorage(Storage):
 
                     if not column_exists:
                         logger.info(f"Adding 'team_id' column to {self.table_name}")
-                        alter_table_query = text(
-                            f"ALTER TABLE {self.table_name} ADD COLUMN team_id TEXT"
-                        )
+                        alter_table_query = text(f"ALTER TABLE {self.table_name} ADD COLUMN team_id TEXT")
                         sess.execute(alter_table_query)
                         sess.commit()
                         logger.info("Schema upgrade completed successfully")

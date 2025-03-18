@@ -6,8 +6,8 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 from agno.exceptions import ModelProviderError, ModelRateLimitError
 from agno.media import Image
 from agno.models.anthropic import Claude as AnthropicClaude
-from agno.utils.log import get_logger
 from agno.models.message import Message
+from agno.utils.log import get_logger
 
 try:
     from anthropic import AnthropicBedrock, APIConnectionError, APIStatusError, AsyncAnthropicBedrock, RateLimitError
@@ -41,6 +41,7 @@ def _format_image_for_message(image: Image) -> Optional[Dict[str, Any]]:
     """
     import base64
     import imghdr
+
     logger = get_logger()
 
     type_mapping = {"jpeg": "image/jpeg", "png": "image/png", "gif": "image/gif", "webp": "image/webp"}

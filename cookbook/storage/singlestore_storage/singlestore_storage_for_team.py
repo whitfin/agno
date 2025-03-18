@@ -2,19 +2,20 @@
 1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
 2. Run: `python cookbook/teams/coordinate/hackernews_team.py` to run the agent
 """
+
 import os
 from os import getenv
 from typing import List
 
 from agno.agent import Agent
-from agno.storage.singlestore import SingleStoreStorage
-from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
+from agno.storage.singlestore import SingleStoreStorage
+from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
-from pydantic import BaseModel
 from agno.utils.certs import download_cert
+from pydantic import BaseModel
 from sqlalchemy.engine import create_engine
 
 # Configure SingleStore DB connection

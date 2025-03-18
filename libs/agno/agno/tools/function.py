@@ -70,7 +70,7 @@ class Function(BaseModel):
 
     @classmethod
     def from_callable(cls, c: Callable, strict: bool = False) -> "Function":
-        from inspect import getdoc, signature, isasyncgenfunction
+        from inspect import getdoc, isasyncgenfunction, signature
 
         from agno.utils.json_schema import get_json_schema
 
@@ -127,17 +127,17 @@ class Function(BaseModel):
         if isasyncgenfunction(c):
             entrypoint = c
         else:
-            entrypoint = validate_call(c, config=dict(arbitrary_types_allowed=True))
+            entrypoint = validate_call(c, config=dict(arbitrary_types_allowed=True))  # type: ignore
         return cls(
             name=function_name,
             description=get_entrypoint_docstring(entrypoint=c),
             parameters=parameters,
-            entrypoint=entrypoint,  # type: ignore
+            entrypoint=entrypoint,
         )
 
     def process_entrypoint(self, strict: bool = False):
         """Process the entrypoint and make it ready for use by an agent."""
-        from inspect import getdoc, signature, isasyncgenfunction
+        from inspect import getdoc, isasyncgenfunction, signature
 
         from agno.utils.json_schema import get_json_schema
 

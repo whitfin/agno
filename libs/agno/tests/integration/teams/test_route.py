@@ -31,13 +31,13 @@ def test_route_team_basic():
     assert len(response.member_responses) == 1
     assert response.member_responses[0].agent_id == finance_agent.agent_id
 
+
 def test_route_team_structured_output():
     """Test basic functionality of a route team."""
 
     class StockInfo(BaseModel):
         symbol: str
         price: str
-
 
     web_agent = Agent(
         name="Web Agent", model=OpenAIChat("gpt-4o"), role="Search the web for information", tools=[DuckDuckGoTools()]

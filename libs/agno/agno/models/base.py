@@ -200,7 +200,7 @@ class Model(ABC):
                         ModelResponseEvent.tool_call_completed.value,
                     ]:
                         if function_call_response.content:
-                            model_response.content += function_call_response.content
+                            model_response.content += function_call_response.content  # type: ignore
 
                 # Format and add results to messages
                 self.format_function_call_results(
@@ -909,15 +909,17 @@ class Model(ABC):
         self, function_call: FunctionCall
     ) -> Tuple[Union[bool, AgentRunException], Timer, FunctionCall]:
         """Run a single function call and return its success status, timer, and the FunctionCall object."""
-        from inspect import iscoroutine, iscoroutinefunction, isasyncgenfunction
+        from inspect import isasyncgenfunction, iscoroutine, iscoroutinefunction
 
         function_call_timer = Timer()
         function_call_timer.start()
         success: Union[bool, AgentRunException] = False
         try:
-            if (iscoroutinefunction(function_call.function.entrypoint) 
-            or isasyncgenfunction(function_call.function.entrypoint)
-            or iscoroutine(function_call.function.entrypoint)):
+            if (
+                iscoroutinefunction(function_call.function.entrypoint)
+                or isasyncgenfunction(function_call.function.entrypoint)
+                or iscoroutine(function_call.function.entrypoint)
+            ):
                 success = await function_call.aexecute()
             else:
                 success = await asyncio.to_thread(function_call.execute)

@@ -12,6 +12,7 @@ class StockAnalysis(BaseModel):
     company_name: str
     analysis: str
 
+
 stock_searcher = Agent(
     name="Stock Searcher",
     model=OpenAIChat("gpt-4o"),
@@ -21,13 +22,15 @@ stock_searcher = Agent(
         YFinanceTools(
             stock_price=True,
             analyst_recommendations=True,
-        )],
+        )
+    ],
 )
 
 
 class CompanyAnalysis(BaseModel):
     company_name: str
     analysis: str
+
 
 company_info_agent = Agent(
     name="Company Info Searcher",
@@ -39,7 +42,8 @@ company_info_agent = Agent(
             stock_price=False,
             company_info=True,
             company_news=True,
-        )],
+        )
+    ],
 )
 
 
@@ -60,4 +64,3 @@ print(response.content)
 response = team.run("What is in the news about NVDA?")
 assert isinstance(response.content, CompanyAnalysis)
 print(response.content)
-

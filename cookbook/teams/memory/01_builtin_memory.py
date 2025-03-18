@@ -1,18 +1,19 @@
 from typing import List
 
-from pydantic import BaseModel
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
-from rich.pretty import pprint
-
 from agno.models.perplexity.perplexity import Perplexity
 from agno.team.team import Team
 from agno.tools.yfinance import YFinanceTools
+from pydantic import BaseModel
+from rich.pretty import pprint
+
 
 class StockAnalysis(BaseModel):
     symbol: str
     company_name: str
     analysis: str
+
 
 stock_searcher = Agent(
     name="Stock Searcher",

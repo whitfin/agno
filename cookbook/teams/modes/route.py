@@ -12,7 +12,9 @@ The team consists of six specialized agents:
 The team leader routes the user's question to the appropriate language agent. It can only forward the question and cannot answer itself.
 
 """
+
 import asyncio
+
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.models.deepseek import DeepSeek
@@ -97,7 +99,6 @@ multi_language_team = Team(
 
 
 if __name__ == "__main__":
-
     # Ask "How are you?" in all supported languages
     # asyncio.run(multi_language_team.aprint_response(
     #     "How are you?", stream=True  # English
@@ -111,15 +112,16 @@ if __name__ == "__main__":
     #     "お元気ですか?", stream=True  # Japanese
     # ))
 
-    asyncio.run(multi_language_team.aprint_response(
-        "Comment allez-vous?",
-        stream=True,  # French
-    ))
+    asyncio.run(
+        multi_language_team.aprint_response(
+            "Comment allez-vous?",
+            stream=True,  # French
+        )
+    )
 
     # asyncio.run(multi_language_team.aprint_response(
     #     "Wie geht es Ihnen?", stream=True  # German
     # ))
-
 
     # asyncio.run(multi_language_team.aprint_response(
     #     "Come stai?", stream=True  # Italian

@@ -1520,7 +1520,7 @@ class Agent:
                 agent_tools.append(self.add_to_knowledge)
 
         # Add transfer tools
-        if self.has_team:
+        if self.has_team and self.team is not None:
             for agent_index, agent in enumerate(self.team):
                 agent_tools.append(self.get_transfer_function(agent, agent_index))
 
@@ -1861,7 +1861,9 @@ class Agent:
                     AgentRun(
                         response=RunResponse(
                             content=introduction,
-                            messages=[Message(role=self.model.assistant_message_role, content=introduction)],
+                            messages=[
+                                Message(role=self.model.assistant_message_role, content=introduction)  # type: ignore
+                            ],
                         )
                     )
                 )

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
-from agno.models.message import Message, Citations
+from agno.models.message import Citations, Message
 from agno.run.response import RunEvent, RunResponse, RunResponseExtraData
 
 

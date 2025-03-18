@@ -15,7 +15,7 @@ try:
     from sqlalchemy.orm import scoped_session, sessionmaker
     from sqlalchemy.schema import Column, MetaData, Table
     from sqlalchemy.sql.expression import select, text
-    from sqlalchemy.types import BigInteger, Boolean, String
+    from sqlalchemy.types import BigInteger, String
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
@@ -127,7 +127,12 @@ class PostgresStorage(Storage):
 
         # Create table with all columns
         table = Table(
-            self.table_name, self.metadata, *common_columns, *specific_columns, extend_existing=True, schema=self.schema  # type: ignore
+            self.table_name,
+            self.metadata,
+            *common_columns,
+            *specific_columns,
+            extend_existing=True,
+            schema=self.schema,  # type: ignore
         )
 
         return table
@@ -372,10 +377,7 @@ class PostgresStorage(Storage):
 
                     if not column_exists:
                         logger.info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
-                        alter_table_query = text(
-                            f"ALTER TABLE {self.schema}.{self.table_name} "
-                            f"ADD COLUMN team_id TEXT"
-                        )
+                        alter_table_query = text(f"ALTER TABLE {self.schema}.{self.table_name} ADD COLUMN team_id TEXT")
                         sess.execute(alter_table_query)
                         sess.commit()
                         logger.info("Schema upgrade completed successfully")

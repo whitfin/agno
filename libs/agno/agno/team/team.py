@@ -32,7 +32,7 @@ from agno.memory.agent import AgentRun
 from agno.memory.memory import Memory
 from agno.memory.team import TeamMemory, TeamRun
 from agno.models.base import Model
-from agno.models.message import Message, Citations
+from agno.models.message import Citations, Message
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
 from agno.run.messages import RunMessages
@@ -168,7 +168,7 @@ class Team:
 
     def __init__(
         self,
-        members: List[Union[Agent, "Team"]] = None,
+        members: List[Union[Agent, "Team"]],
         mode: Literal["route", "coordinate", "collaborate"] = "coordinate",
         model: Optional[Model] = None,
         name: Optional[str] = None,
@@ -365,11 +365,10 @@ class Team:
             # All members have the same session ID
             member.session_id = self.session_id
 
-
     @overload
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message]] = None,
+        message: Union[str, List, Dict, Message],
         *,
         stream: Literal[False] = False,
         stream_intermediate_steps: bool = False,
@@ -384,7 +383,7 @@ class Team:
     @overload
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message]] = None,
+        message: Union[str, List, Dict, Message],
         *,
         stream: Literal[True] = True,
         stream_intermediate_steps: bool = False,
@@ -398,7 +397,7 @@ class Team:
 
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message]] = None,
+        message: Union[str, List, Dict, Message],
         *,
         stream: bool = False,
         stream_intermediate_steps: bool = False,
@@ -476,34 +475,44 @@ class Team:
                     message=user_message,
                     stream=stream,
                     async_mode=False,
-                    images=images,
-                    videos=videos,
-                    audio=audio,
-                    files=files,
+                    images=images,  # type: ignore
+                    videos=videos,  # type: ignore
+                    audio=audio,  # type: ignore
+                    files=files,  # type: ignore
                 )
                 _built_in_tools.append(forward_task_func)
-                self.model.tool_choice = "required"
+                self.model.tool_choice = "required"  # type: ignore
             elif self.mode == "coordinate":
                 _built_in_tools.append(
                     self.get_transfer_task_function(
-                        stream=stream, async_mode=False, images=images, videos=videos, audio=audio, files=files
+                        stream=stream,
+                        async_mode=False,
+                        images=images,  # type: ignore
+                        videos=videos,  # type: ignore
+                        audio=audio,  # type: ignore
+                        files=files,  # type: ignore
                     )
                 )
-                self.model.tool_choice = "auto"
+                self.model.tool_choice = "auto"  # type: ignore
 
                 if self.update_team_context:
                     _built_in_tools.append(self.set_team_context)
             elif self.mode == "collaborate":
                 run_member_agents_func = self.get_run_member_agents_function(
-                    stream=stream, async_mode=False, images=images, videos=videos, audio=audio, files=files
+                    stream=stream,
+                    async_mode=False,
+                    images=images,  # type: ignore
+                    videos=videos,  # type: ignore
+                    audio=audio,  # type: ignore
+                    files=files,  # type: ignore
                 )
                 _built_in_tools.append(run_member_agents_func)
-                self.model.tool_choice = "auto"
+                self.model.tool_choice = "auto"  # type: ignore
 
                 if self.update_team_context:
                     _built_in_tools.append(self.set_team_context)
 
-            self._add_tools_to_model(self.model, tools=_built_in_tools)
+            self._add_tools_to_model(self.model, tools=_built_in_tools)  # type: ignore
 
             # Run the team
             try:
@@ -525,7 +534,7 @@ class Team:
                         **kwargs,
                     )
                 else:
-                    run_messages: RunMessages = self.get_run_messages(
+                    run_messages = self.get_run_messages(
                         run_response=current_run_response,
                         message=message,
                         audio=audio,
@@ -610,7 +619,7 @@ class Team:
         index_of_last_user_message = len(run_messages.messages)
 
         # 2. Get the model response for the team leader
-        model_response = self.model.response(messages=run_messages.messages)
+        model_response = self.model.response(messages=run_messages.messages)  # type: ignore
 
         # 3. Update TeamRunResponse
         # Handle structured outputs
@@ -661,7 +670,7 @@ class Team:
         # 4. Update Team Memory
         # Add the system message to the memory
         if run_messages.system_message is not None:
-            self.memory.add_system_message(run_messages.system_message, system_message_role="system")
+            self.memory.add_system_message(run_messages.system_message, system_message_role="system")  # type: ignore
 
         # Build a list of messages that should be added to the AgentMemory
         messages_for_memory: List[Message] = (
@@ -672,21 +681,22 @@ class Team:
             if _rm.add_to_agent_memory:
                 messages_for_memory.append(_rm)
         if len(messages_for_memory) > 0:
-            self.memory.add_messages(messages=messages_for_memory)
+            self.memory.add_messages(messages=messages_for_memory)  # type: ignore
 
         team_run = TeamRun(response=run_response)
         team_run.message = run_messages.user_message
 
         # Update the memories with the user message if needed
         if (
-            self.memory.create_user_memories
+            self.memory is not None
+            and self.memory.create_user_memories
             and self.memory.update_user_memories_after_run
             and run_messages.user_message is not None
         ):
-            self.memory.update_memory(input=run_messages.user_message.get_content_string())
+            self.memory.update_memory(input=run_messages.user_message.get_content_string())  # type: ignore
 
         # Add AgentRun to memory
-        self.memory.add_team_run(team_run)
+        self.memory.add_team_run(team_run)  # type: ignore
 
         # 5. Calculate session metrics
         self.session_metrics = self._calculate_session_metrics()
@@ -755,7 +765,7 @@ class Team:
         if self.reasoning or self.reasoning_model is not None:
             reasoning_generator = self._reason_about_tasks(run_response=run_response, run_messages=run_messages)
 
-            yield from reasoning_generator
+            yield from reasoning_generator  # type: ignore
 
         # Update agent state
         self.run_messages = run_messages
@@ -767,7 +777,7 @@ class Team:
 
         # 2. Get a response from the model
         full_model_response = ModelResponse()
-        model_stream = self.model.response_stream(messages=run_messages.messages)
+        model_stream = self.model.response_stream(messages=run_messages.messages)  # type: ignore
         for model_response_chunk in model_stream:
             # If the model response is an assistant_response, yield a RunResponse
             if model_response_chunk.event == ModelResponseEvent.assistant_response.value:
@@ -894,7 +904,7 @@ class Team:
         # 4. Update Team Memory
         # Add the system message to the memory
         if run_messages.system_message is not None:
-            self.memory.add_system_message(run_messages.system_message, system_message_role="system")
+            self.memory.add_system_message(run_messages.system_message, system_message_role="system")  # type: ignore
 
         # Build a list of messages that should be added to the AgentMemory
         messages_for_memory: List[Message] = (
@@ -905,21 +915,22 @@ class Team:
             if _rm.add_to_agent_memory:
                 messages_for_memory.append(_rm)
         if len(messages_for_memory) > 0:
-            self.memory.add_messages(messages=messages_for_memory)
+            self.memory.add_messages(messages=messages_for_memory)  # type: ignore
 
         team_run = TeamRun(response=run_response)
         team_run.message = run_messages.user_message
 
         # Update the memories with the user message if needed
         if (
-            self.memory.create_user_memories
+            self.memory is not None
+            and self.memory.create_user_memories
             and self.memory.update_user_memories_after_run
             and run_messages.user_message is not None
         ):
             self.memory.update_memory(input=run_messages.user_message.get_content_string())
 
         # Add AgentRun to memory
-        self.memory.add_team_run(team_run)
+        self.memory.add_team_run(team_run)  # type: ignore
 
         # 5. Calculate session metrics
         self.session_metrics = self._calculate_session_metrics()
@@ -943,7 +954,7 @@ class Team:
     @overload
     async def arun(
         self,
-        message: Optional[Union[str, List, Dict, Message]] = None,
+        message: Union[str, List, Dict, Message],
         *,
         stream: Literal[False] = False,
         stream_intermediate_steps: bool = False,
@@ -958,7 +969,7 @@ class Team:
     @overload
     async def arun(
         self,
-        message: Optional[Union[str, List, Dict, Message]] = None,
+        message: Union[str, List, Dict, Message],
         *,
         stream: Literal[True] = True,
         stream_intermediate_steps: bool = False,
@@ -972,7 +983,7 @@ class Team:
 
     async def arun(
         self,
-        message: Optional[Union[str, List, Dict, Message]] = None,
+        message: Union[str, List, Dict, Message],
         *,
         stream: bool = False,
         stream_intermediate_steps: bool = False,
@@ -1050,34 +1061,44 @@ class Team:
                     message=user_message,
                     stream=stream,
                     async_mode=True,  # Set to True for async mode
-                    images=images,
-                    videos=videos,
-                    audio=audio,
-                    files=files,
+                    images=images,  # type: ignore
+                    videos=videos,  # type: ignore
+                    audio=audio,  # type: ignore
+                    files=files,  # type: ignore
                 )
                 _built_in_tools.append(forward_task_func)
-                self.model.tool_choice = "required"
+                self.model.tool_choice = "required"  # type: ignore
             elif self.mode == "coordinate":
                 _built_in_tools.append(
                     self.get_transfer_task_function(
-                        stream=stream, async_mode=True, images=images, videos=videos, audio=audio, files=files
+                        stream=stream,
+                        async_mode=True,
+                        images=images,  # type: ignore
+                        videos=videos,  # type: ignore
+                        audio=audio,  # type: ignore
+                        files=files,  # type: ignore
                     )
                 )
-                self.model.tool_choice = "auto"
+                self.model.tool_choice = "auto"  # type: ignore
 
                 if self.update_team_context:
                     _built_in_tools.append(self.set_team_context)
             elif self.mode == "collaborate":
                 run_member_agents_func = self.get_run_member_agents_function(
-                    stream=stream, async_mode=True, images=images, videos=videos, audio=audio, files=files
+                    stream=stream,
+                    async_mode=True,
+                    images=images,  # type: ignore
+                    videos=videos,  # type: ignore
+                    audio=audio,  # type: ignore
+                    files=files,  # type: ignore
                 )
                 _built_in_tools.append(run_member_agents_func)
-                self.model.tool_choice = "auto"
+                self.model.tool_choice = "auto"  # type: ignore
 
                 if self.update_team_context:
                     _built_in_tools.append(self.set_team_context)
 
-            self._add_tools_to_model(self.model, tools=_built_in_tools)
+            self._add_tools_to_model(self.model, tools=_built_in_tools)  # type: ignore
 
             # Run the team
             try:
@@ -1099,7 +1120,7 @@ class Team:
                         **kwargs,
                     )
                 else:
-                    run_messages: RunMessages = self.get_run_messages(
+                    run_messages = self.get_run_messages(
                         run_response=current_run_response,
                         message=message,
                         audio=audio,
@@ -1128,7 +1149,6 @@ class Team:
                     return current_run_response
 
             except ModelProviderError as e:
-
                 logger.warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 last_exception = e
                 if attempt < num_attempts - 1:
@@ -1178,13 +1198,12 @@ class Team:
             async for _ in reasoning_generator:
                 pass
 
-
         # Update agent state
         self.run_messages = run_messages
         index_of_last_user_message = len(run_messages.messages)
 
         # 2. Get the model response for the team leader
-        model_response = await self.model.aresponse(messages=run_messages.messages)
+        model_response = await self.model.aresponse(messages=run_messages.messages)  # type: ignore
 
         # 3. Update TeamRunResponse
         # Handle structured outputs
@@ -1232,11 +1251,10 @@ class Team:
         # Update the TeamRunResponse metrics
         run_response.metrics = self._aggregate_metrics_from_messages(messages_for_run_response)
 
-
         # 4. Update Team Memory
         # Add the system message to the memory
         if run_messages.system_message is not None:
-            self.memory.add_system_message(run_messages.system_message, system_message_role="system")
+            self.memory.add_system_message(run_messages.system_message, system_message_role="system")  # type: ignore
 
         # Build a list of messages that should be added to the AgentMemory
         messages_for_memory: List[Message] = (
@@ -1247,14 +1265,15 @@ class Team:
             if _rm.add_to_agent_memory:
                 messages_for_memory.append(_rm)
         if len(messages_for_memory) > 0:
-            self.memory.add_messages(messages=messages_for_memory)
+            self.memory.add_messages(messages=messages_for_memory)  # type: ignore
 
         team_run = TeamRun(response=run_response)
         team_run.message = run_messages.user_message
 
         # Update the memories with the user message if needed
         if (
-            self.memory.create_user_memories
+            self.memory is not None
+            and self.memory.create_user_memories
             and self.memory.update_user_memories_after_run
             and run_messages.user_message is not None
         ):
@@ -1331,7 +1350,7 @@ class Team:
             reasoning_generator = self._a_reason_about_tasks(run_response=run_response, run_messages=run_messages)
 
             async for run_response in reasoning_generator:
-                yield run_response
+                yield run_response  # type: ignore
 
         # Update agent state
         self.run_messages = run_messages
@@ -1340,7 +1359,6 @@ class Team:
         # Start the Run by yielding a RunStarted event
         if stream_intermediate_steps:
             yield self._create_run_response(content="Run started", event=RunEvent.run_started)
-
 
         # 2. Get a response from the model
         full_model_response = ModelResponse()
@@ -1452,7 +1470,11 @@ class Team:
 
         # 3. Update the run_response
         # Handle structured outputs
-        if (self.response_model is not None) and (not self.json_response_mode) and (full_model_response.parsed is not None):
+        if (
+            (self.response_model is not None)
+            and (not self.json_response_mode)
+            and (full_model_response.parsed is not None)
+        ):
             # Update the run_response content with the structured output
             run_response.content = full_model_response.parsed
 
@@ -1477,7 +1499,7 @@ class Team:
         # 4. Update Team Memory
         # Add the system message to the memory
         if run_messages.system_message is not None:
-            self.memory.add_system_message(run_messages.system_message, system_message_role="system")
+            self.memory.add_system_message(run_messages.system_message, system_message_role="system")  # type: ignore
 
         # Build a list of messages that should be added to the AgentMemory
         messages_for_memory: List[Message] = (
@@ -1488,14 +1510,15 @@ class Team:
             if _rm.add_to_agent_memory:
                 messages_for_memory.append(_rm)
         if len(messages_for_memory) > 0:
-            self.memory.add_messages(messages=messages_for_memory)
+            self.memory.add_messages(messages=messages_for_memory)  # type: ignore
 
         team_run = TeamRun(response=run_response)
         team_run.message = run_messages.user_message
 
         # Update the memories with the user message if needed
         if (
-            self.memory.create_user_memories
+            self.memory is not None
+            and self.memory.create_user_memories
             and self.memory.update_user_memories_after_run
             and run_messages.user_message is not None
         ):
@@ -1625,10 +1648,10 @@ class Team:
                 live_console.update(Group(*panels))
 
             # Run the agent
-            run_response: TeamRunResponse = self.run(
+            run_response: TeamRunResponse = self.run(  # type: ignore
                 message=message,
-                audio=audio,
                 images=images,
+                audio=audio,
                 videos=videos,
                 files=files,
                 stream=False,
@@ -1666,7 +1689,6 @@ class Team:
                 # Handle member responses
                 if self.show_members_responses:
                     for member_response in run_response.member_responses:
-
                         # Handle member reasoning
                         reasoning_steps = []
                         if (
@@ -1679,7 +1701,9 @@ class Team:
                         if len(reasoning_steps) > 0 and show_reasoning:
                             # Create panels for reasoning steps
                             for i, step in enumerate(reasoning_steps, 1):
-                                member_reasoning_panel = self._build_reasoning_step_panel(i, step, show_reasoning_verbose, color="magenta")
+                                member_reasoning_panel = self._build_reasoning_step_panel(
+                                    i, step, show_reasoning_verbose, color="magenta"
+                                )
                                 panels.append(member_reasoning_panel)
 
                         member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
@@ -1694,9 +1718,7 @@ class Team:
                         )
                         panels.append(member_response_panel)
 
-                        if (member_response.citations is not None
-                            and member_response.citations.urls is not None
-                        ):
+                        if member_response.citations is not None and member_response.citations.urls is not None:
                             md_content = "\n".join(
                                 f"{i + 1}. [{citation.title or citation.url}]({citation.url})"
                                 for i, citation in enumerate(member_response.citations.urls)
@@ -1889,7 +1911,9 @@ class Team:
                 if len(reasoning_steps) > 0 and show_reasoning:
                     # Create panels for reasoning steps
                     for j, step in enumerate(reasoning_steps, 1):
-                        member_reasoning_panel = self._build_reasoning_step_panel(j, step, show_reasoning_verbose, color="magenta")
+                        member_reasoning_panel = self._build_reasoning_step_panel(
+                            j, step, show_reasoning_verbose, color="magenta"
+                        )
                         panels.insert(i + 1, member_reasoning_panel)
 
                 member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
@@ -1919,7 +1943,6 @@ class Team:
             live_console.update(Group(*panels))
 
     async def aprint_response(
-
         self,
         message: Optional[Union[List, Dict, str, Message]] = None,
         *,
@@ -2058,7 +2081,6 @@ class Team:
                 # Handle member responses
                 if self.show_members_responses:
                     for member_response in run_response.member_responses:
-
                         # Handle member reasoning
                         reasoning_steps = []
                         if (
@@ -2071,7 +2093,9 @@ class Team:
                         if len(reasoning_steps) > 0 and show_reasoning:
                             # Create panels for reasoning steps
                             for i, step in enumerate(reasoning_steps, 1):
-                                member_reasoning_panel = self._build_reasoning_step_panel(i, step, show_reasoning_verbose, color="magenta")
+                                member_reasoning_panel = self._build_reasoning_step_panel(
+                                    i, step, show_reasoning_verbose, color="magenta"
+                                )
                                 panels.append(member_reasoning_panel)
 
                         member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
@@ -2086,9 +2110,7 @@ class Team:
                         )
                         panels.append(member_response_panel)
 
-                        if (member_response.citations is not None
-                            and member_response.citations.urls is not None
-                        ):
+                        if member_response.citations is not None and member_response.citations.urls is not None:
                             md_content = "\n".join(
                                 f"{i + 1}. [{citation.title or citation.url}]({citation.url})"
                                 for i, citation in enumerate(member_response.citations.urls)
@@ -2134,7 +2156,6 @@ class Team:
             # Final update to remove the "Thinking..." status
             panels = [p for p in panels if not isinstance(p, Status)]
             live_console.update(Group(*panels))
-
 
     async def _aprint_response_stream(
         self,
@@ -2282,7 +2303,9 @@ class Team:
                 if len(reasoning_steps) > 0 and show_reasoning:
                     # Create panels for reasoning steps
                     for j, step in enumerate(reasoning_steps, 1):
-                        member_reasoning_panel = self._build_reasoning_step_panel(j, step, show_reasoning_verbose, color="magenta")
+                        member_reasoning_panel = self._build_reasoning_step_panel(
+                            j, step, show_reasoning_verbose, color="magenta"
+                        )
                         panels.insert(i + 1, member_reasoning_panel)
 
                 member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
@@ -2311,9 +2334,11 @@ class Team:
 
             live_console.update(Group(*panels))
 
-
-    def _build_reasoning_step_panel(self, step_idx: int, step: ReasoningStep, show_reasoning_verbose: bool = False, color: str = "green"):
+    def _build_reasoning_step_panel(
+        self, step_idx: int, step: ReasoningStep, show_reasoning_verbose: bool = False, color: str = "green"
+    ):
         from rich.text import Text
+
         # Build step content
         step_content = Text.assemble()
         if step.title is not None:
@@ -2521,7 +2546,6 @@ class Team:
                 run_response, run_messages, reasoning_model, stream_intermediate_steps
             )
             return
-
 
     async def _a_reason_about_tasks(
         self, run_response: TeamRunResponse, run_messages: RunMessages, stream_intermediate_steps: bool = False
@@ -2741,7 +2765,9 @@ class Team:
             step_count += 1
             try:
                 # Run the reasoning agent
-                reasoning_agent_response: RunResponse = await reasoning_agent.arun(messages=run_messages.get_input_messages())
+                reasoning_agent_response: RunResponse = await reasoning_agent.arun(
+                    messages=run_messages.get_input_messages()
+                )
                 if reasoning_agent_response.content is None or reasoning_agent_response.messages is None:
                     logger.warning("Reasoning error. Reasoning response is empty, continuing regular session...")
                     break
@@ -2980,7 +3006,9 @@ class Team:
                     for _tool in member.tools:
                         if isinstance(_tool, Toolkit):
                             for _func in _tool.functions.values():
-                                tool_name_and_description.append((_func.name, get_entrypoint_docstring(_func.entrypoint)))
+                                tool_name_and_description.append(
+                                    (_func.name, get_entrypoint_docstring(_func.entrypoint))
+                                )
                         elif isinstance(_tool, Function):
                             tool_name_and_description.append((_tool.name, get_entrypoint_docstring(_tool.entrypoint)))
                         elif callable(_tool):
@@ -3536,14 +3564,14 @@ class Team:
                 member_agent_task += f"\n\n<additional_context>\n{team_context_str}\n</additional_context>"
 
             member_agent_task += f"\n\n<task>\n{task_description}\n</task>"
-            
+
             # Create tasks for all member agents
             tasks = []
             for member_agent_index, member_agent in enumerate(self.members):
                 # We cannot stream responses with async gather
                 current_agent = member_agent  # Create a reference to the current agent
                 current_index = member_agent_index  # Create a reference to the current index
-                
+
                 async def run_member_agent(agent=current_agent, idx=current_index) -> str:
                     response = await agent.arun(
                         member_agent_task, images=images, videos=videos, audio=audio, files=files, stream=False
@@ -3858,7 +3886,6 @@ class Team:
                     member_agent_task, images=images, videos=videos, audio=audio, files=files, stream=False
                 )
 
-
                 if member_agent_run_response.content is None:
                     yield "No response from the member agent."
                 elif isinstance(member_agent_run_response.content, str):
@@ -4113,7 +4140,7 @@ class Team:
             try:
                 if "runs" in session.memory:
                     try:
-                        self.memory.runs = [AgentRun(**m) for m in session.memory["runs"]]
+                        self.memory.runs = [TeamRun(**m) for m in session.memory["runs"]] 
                     except Exception as e:
                         logger.warning(f"Failed to load runs from memory: {e}")
                 if "messages" in session.memory:
@@ -4157,7 +4184,7 @@ class Team:
             run_data.update(
                 {
                     "run_input": self.run_input,
-                    "run_response": self.run_response.to_dict(),  # contains the member run responses
+                    "run_response": self.run_response.to_dict(),  # type: ignore
                     "run_response_format": run_response_format,
                 }
             )
@@ -4195,7 +4222,7 @@ class Team:
 
         """Get an TeamSession object, which can be saved to the database"""
         return TeamSession(
-            session_id=self.session_id,
+            session_id=self.session_id,  # type: ignore
             team_id=self.team_id,
             user_id=self.user_id,
             memory=self.memory.to_dict() if self.memory is not None else None,

@@ -1,6 +1,6 @@
 import logging
 from os import getenv
-from typing import Optional
+from typing import Any, Optional
 
 from rich.logging import RichHandler
 from rich.text import Text
@@ -54,7 +54,7 @@ class AgnoLogger(logging.Logger):
         super().info(msg, *args, **kwargs)
 
 
-def build_logger(logger_name: str, source_type: Optional[str] = None) -> AgnoLogger:
+def build_logger(logger_name: str, source_type: Optional[str] = None) -> Any:
     # Set the custom logger class as the default for this logger
     logging.setLoggerClass(AgnoLogger)
 

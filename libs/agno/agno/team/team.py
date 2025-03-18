@@ -4027,7 +4027,7 @@ class Team:
             member_agent_task = message.get_content_string()
             if top_level_member_name:
                 member_agent_task += f"\n\n[Via team member: {top_level_member_name}]"
-            
+
             if expected_output:
                 member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
 
@@ -4112,7 +4112,7 @@ class Team:
             member_agent_task = message.get_content_string()
             if top_level_member_name:
                 member_agent_task += f"\n\n[Via team member: {top_level_member_name}]"
-            
+
             if expected_output:
                 member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
 

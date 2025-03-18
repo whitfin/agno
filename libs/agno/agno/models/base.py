@@ -2,7 +2,7 @@ import asyncio
 import collections.abc
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from types import GeneratorType
+from types import AsyncGeneratorType, GeneratorType
 from typing import Any, AsyncGenerator, AsyncIterator, Dict, Iterator, List, Literal, Optional, Tuple, Union
 from uuid import uuid4
 
@@ -909,13 +909,15 @@ class Model(ABC):
         self, function_call: FunctionCall
     ) -> Tuple[Union[bool, AgentRunException], Timer, FunctionCall]:
         """Run a single function call and return its success status, timer, and the FunctionCall object."""
-        from inspect import iscoroutinefunction
+        from inspect import iscoroutine, iscoroutinefunction, isasyncgenfunction
 
         function_call_timer = Timer()
         function_call_timer.start()
         success: Union[bool, AgentRunException] = False
         try:
-            if iscoroutinefunction(function_call.function.entrypoint):
+            if (iscoroutinefunction(function_call.function.entrypoint) 
+            or isasyncgenfunction(function_call.function.entrypoint)
+            or iscoroutine(function_call.function.entrypoint)):
                 success = await function_call.aexecute()
             else:
                 success = await asyncio.to_thread(function_call.execute)
@@ -976,6 +978,11 @@ class Model(ABC):
             function_call_output: Optional[Union[List[Any], str]] = ""
             if isinstance(fc.result, (GeneratorType, collections.abc.Iterator)):
                 for item in fc.result:
+                    function_call_output += item
+                    if fc.function.show_result:
+                        yield ModelResponse(content=item)
+            elif isinstance(fc.result, (AsyncGeneratorType, collections.abc.AsyncIterator)):
+                async for item in fc.result:
                     function_call_output += item
                     if fc.function.show_result:
                         yield ModelResponse(content=item)

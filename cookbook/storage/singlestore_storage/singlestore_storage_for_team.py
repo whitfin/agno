@@ -1,17 +1,50 @@
 """
 1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
-2. Run: `python cookbook/teams/coordinator/hackernews_team.py` to run the agent
+2. Run: `python cookbook/teams/coordinate/hackernews_team.py` to run the agent
 """
-
+import os
+from os import getenv
 from typing import List
 
-from agno import Agent, Team
+from agno.agent import Agent
+from agno.storage.singlestore import SingleStoreStorage
+from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
-from agno.tools.newspaper4k import Newspaper4kTools
 from pydantic import BaseModel
+from agno.utils.certs import download_cert
+from sqlalchemy.engine import create_engine
+
+# Configure SingleStore DB connection
+USERNAME = getenv("SINGLESTORE_USERNAME")
+PASSWORD = getenv("SINGLESTORE_PASSWORD")
+HOST = getenv("SINGLESTORE_HOST")
+PORT = getenv("SINGLESTORE_PORT")
+DATABASE = getenv("SINGLESTORE_DATABASE")
+SSL_CERT = getenv("SINGLESTORE_SSL_CERT", None)
+
+
+# Download the certificate if SSL_CERT is not provided
+if not SSL_CERT:
+    SSL_CERT = download_cert(
+        cert_url="https://portal.singlestore.com/static/ca/singlestore_bundle.pem",
+        filename="singlestore_bundle.pem",
+    )
+    if SSL_CERT:
+        os.environ["SINGLESTORE_SSL_CERT"] = SSL_CERT
+
+
+# SingleStore DB URL
+db_url = (
+    f"mysql+pymysql://{USERNAME}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}?charset=utf8mb4"
+)
+if SSL_CERT:
+    db_url += f"&ssl_ca={SSL_CERT}&ssl_verify_cert=true"
+
+# Create a DB engine
+db_engine = create_engine(db_url)
 
 
 class Article(BaseModel):
@@ -35,22 +68,20 @@ web_searcher = Agent(
     add_datetime_to_instructions=True,
 )
 
-article_reader = Agent(
-    name="Article Reader",
-    role="Reads articles from URLs.",
-    tools=[Newspaper4kTools()],
-)
-
 
 hn_team = Team(
     name="HackerNews Team",
-    mode="coordinator",
+    mode="coordinate",
     model=OpenAIChat("gpt-4o"),
-    members=[hn_researcher, web_searcher, article_reader],
+    members=[hn_researcher, web_searcher],
+    storage=SingleStoreStorage(
+        table_name="agent_sessions",
+        db_engine=db_engine,
+        schema=DATABASE,
+        auto_upgrade_schema=True,
+    ),
     instructions=[
         "First, search hackernews for what the user is asking about.",
-        "Then, ask the article reader to read the links for the stories to get more information.",
-        "Important: you must provide the article reader with the links to read.",
         "Then, ask the web searcher to search for each story to get more information.",
         "Finally, provide a thoughtful and engaging summary.",
     ],

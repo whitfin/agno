@@ -9,7 +9,7 @@ from agno.agent import Agent
 from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
-from agno.storage.json import JsonStorage
+from agno.storage.yaml import YamlStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from pydantic import BaseModel
@@ -42,7 +42,7 @@ hn_team = Team(
     mode="coordinate",
     model=OpenAIChat("gpt-4o"),
     members=[hn_researcher, web_searcher],
-    storage=JsonStorage(dir_path="tmp/team_sessions_json"),
+    storage=YamlStorage(dir_path="tmp/team_sessions_yaml"),
     instructions=[
         "First, search hackernews for what the user is asking about.",
         "Then, ask the web searcher to search for each story to get more information.",

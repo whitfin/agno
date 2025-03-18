@@ -19,7 +19,7 @@ def test_coordinator_team_basic():
 
     team = Team(
         name="Content Team",
-        mode="coordinator",
+        mode="coordinate",
         model=OpenAIChat("gpt-4o"),
         members=[researcher, writer],
         instructions=[
@@ -54,7 +54,7 @@ def test_coordinator_team_with_context_sharing():
 
     team = Team(
         name="News Team",
-        mode="coordinator",
+        mode="coordinate",
         model=OpenAIChat("gpt-4o"),
         members=[hn_researcher, web_searcher],
         instructions=[
@@ -98,7 +98,7 @@ def test_coordinator_team_with_structured_output():
 
     team = Team(
         name="News Team",
-        mode="coordinator",
+        mode="coordinate",
         model=OpenAIChat("gpt-4o"),
         members=[hn_researcher, web_searcher],
         instructions=[
@@ -132,7 +132,7 @@ def test_coordinator_team_sequential_tasks():
 
     team = Team(
         name="Research Team",
-        mode="coordinator",
+        mode="coordinate",
         model=OpenAIChat("gpt-4o"),
         members=[data_collector, data_analyzer, report_writer],
         instructions=[

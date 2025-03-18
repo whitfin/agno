@@ -87,7 +87,7 @@ calculator_agent = Agent(
 
 calculator_writer_team = Team(
     name="Calculator Writer Team",
-    mode="coordinator",
+    mode="coordinate",
     model=OpenAIChat("gpt-4.5-preview"),
     members=[calculator_agent, writer_agent],
     instructions=[
@@ -115,7 +115,7 @@ reasoning_agent = Agent(
 
 agent_team = Team(
     name="Agent Team",
-    mode="router",
+    mode="route",
     model=OpenAIChat("gpt-4.5-preview"),
     members=[web_agent, finance_agent, image_agent, audio_agent, calculator_writer_team, reasoning_agent],
     show_tool_calls=True,

@@ -70,7 +70,7 @@ class Function(BaseModel):
 
     @classmethod
     def from_callable(cls, c: Callable, strict: bool = False) -> "Function":
-        from inspect import getdoc, signature
+        from inspect import getdoc, signature, isasyncgenfunction
 
         from agno.utils.json_schema import get_json_schema
 
@@ -123,16 +123,21 @@ class Function(BaseModel):
             # logger.debug(f"JSON schema for {function_name}: {parameters}")
         except Exception as e:
             get_logger().warning(f"Could not parse args for {function_name}: {e}", exc_info=True)
+
+        if isasyncgenfunction(c):
+            entrypoint = c
+        else:
+            entrypoint = validate_call(c, config=dict(arbitrary_types_allowed=True))
         return cls(
             name=function_name,
             description=get_entrypoint_docstring(entrypoint=c),
             parameters=parameters,
-            entrypoint=validate_call(c, config=dict(arbitrary_types_allowed=True)),  # type: ignore
+            entrypoint=entrypoint,  # type: ignore
         )
 
     def process_entrypoint(self, strict: bool = False):
         """Process the entrypoint and make it ready for use by an agent."""
-        from inspect import getdoc, signature
+        from inspect import getdoc, signature, isasyncgenfunction
 
         from agno.utils.json_schema import get_json_schema
 
@@ -202,7 +207,9 @@ class Function(BaseModel):
         self.description = self.description or get_entrypoint_docstring(self.entrypoint)
         if not params_set_by_user:
             self.parameters = parameters
-        self.entrypoint = validate_call(self.entrypoint, config=dict(arbitrary_types_allowed=True))  # type: ignore
+
+        if not isasyncgenfunction(self.entrypoint):
+            self.entrypoint = validate_call(self.entrypoint, config=dict(arbitrary_types_allowed=True))  # type: ignore
 
     def get_type_name(self, t: Type[T]):
         name = str(t)
@@ -347,6 +354,7 @@ class FunctionCall(BaseModel):
         Returns True if the function call was successful, False otherwise.
         The result of the function call is stored in self.result.
         """
+
         logger = get_logger()
         if self.function.entrypoint is None:
             return False
@@ -398,6 +406,8 @@ class FunctionCall(BaseModel):
         Returns True if the function call was successful, False otherwise.
         The result of the function call is stored in self.result.
         """
+        from inspect import isasyncgenfunction
+
         logger = get_logger()
         if self.function.entrypoint is None:
             return False
@@ -412,7 +422,10 @@ class FunctionCall(BaseModel):
         if self.arguments == {} or self.arguments is None:
             try:
                 entrypoint_args = self._build_entrypoint_args()
-                self.result = await self.function.entrypoint(**entrypoint_args)
+                if isasyncgenfunction(self.function.entrypoint):
+                    self.result = self.function.entrypoint(**entrypoint_args)
+                else:
+                    self.result = await self.function.entrypoint(**entrypoint_args)
                 function_call_success = True
             except AgentRunException as e:
                 logger.debug(f"{e.__class__.__name__}: {e}")
@@ -426,7 +439,11 @@ class FunctionCall(BaseModel):
         else:
             try:
                 entrypoint_args = self._build_entrypoint_args()
-                self.result = await self.function.entrypoint(**entrypoint_args, **self.arguments)
+
+                if isasyncgenfunction(self.function.entrypoint):
+                    self.result = self.function.entrypoint(**entrypoint_args, **self.arguments)
+                else:
+                    self.result = await self.function.entrypoint(**entrypoint_args, **self.arguments)
                 function_call_success = True
             except AgentRunException as e:
                 logger.debug(f"{e.__class__.__name__}: {e}")

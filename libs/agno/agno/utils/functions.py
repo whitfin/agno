@@ -1,3 +1,4 @@
+from inspect import isasyncgenfunction
 import json
 from typing import Any, Dict, Optional
 
@@ -71,27 +72,3 @@ def get_function_call(
             function_call.error = f"Error while parsing function arguments: {e}\n\n Please fix and retry."
             return function_call
     return function_call
-
-
-# def run_function(func, *args, **kwargs):
-#     if asyncio.iscoroutinefunction(func):
-#         logger.debug("Running asynchronous function")
-#         try:
-#             loop = asyncio.get_running_loop()
-#         except RuntimeError as e:  # No running event loop
-#             logger.debug(f"Could not get running event loop: {e}")
-#             logger.debug("Running with a new event loop")
-#             loop = asyncio.new_event_loop()
-#             asyncio.set_event_loop(loop)
-#             result = loop.run_until_complete(func(*args, **kwargs))
-#             loop.close()
-#             logger.debug("Done running with a new event loop")
-#             return result
-#         else:  # There is a running event loop
-#             logger.debug("Running in existing event loop")
-#             result = loop.run_until_complete(func(*args, **kwargs))
-#             logger.debug("Done running in existing event loop")
-#             return result
-#     else:  # The function is a synchronous function
-#         logger.debug("Running synchronous function")
-#         return func(*args, **kwargs)

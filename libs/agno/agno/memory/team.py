@@ -79,16 +79,11 @@ class TeamMemory:
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def to_dict(self) -> Dict[str, Any]:
-        _memory_dict = self.model_dump(
-            exclude_none=True,
-            include={
-                "update_system_message_on_change",
-                "create_user_memories",
-                "update_user_memories_after_run",
-                "user_id",
-                "num_memories",
-            },
-        )
+        _memory_dict = {}
+        for key, value in self.__dict__.items():
+            if value is not None and key in ["update_system_message_on_change", "create_user_memories", "update_user_memories_after_run", "user_id", "num_memories"]:
+                _memory_dict[key] = value
+
         # Add messages if they exist
         if self.messages is not None:
             _memory_dict["messages"] = [message.to_dict() for message in self.messages]

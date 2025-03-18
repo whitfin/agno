@@ -85,7 +85,7 @@ finance_agent = Agent(
 agent_team = Team(
     members=[web_agent, finance_agent],
     model=OpenAIChat(id="gpt-4o"),
-    mode="coordinator",
+    mode="coordinate",
     success_criteria=dedent("""\
         A comprehensive financial news report with clear sections and data-driven insights.
     """),

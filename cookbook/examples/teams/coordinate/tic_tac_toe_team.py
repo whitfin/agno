@@ -32,7 +32,7 @@ player_2 = Agent(
 
 agent_team = Team(
     name="Tic Tac Toe Team",
-    mode="coordinator",
+    mode="coordinate",
     model=OpenAIChat("gpt-4o"),
     success_criteria="The game is won by one of the players.",
     members=[player_1, player_2],

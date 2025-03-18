@@ -14,8 +14,6 @@ class TeamSession:
     session_id: str
     # ID of the team that this session is associated with
     team_id: Optional[str] = None
-    # List of IDs of the team members
-    member_ids: Optional[List[str]] = None
     # ID of the user interacting with this team
     user_id: Optional[str] = None
     # Team Memory
@@ -49,7 +47,6 @@ class TeamSession:
         return cls(
             session_id=data.get("session_id"),  # type: ignore
             team_id=data.get("team_id"),
-            member_ids=data.get("member_ids"),
             user_id=data.get("user_id"),
             memory=data.get("memory"),
             team_data=data.get("team_data"),

@@ -43,7 +43,7 @@ from agno.utils.log import get_logger, set_log_level_to_debug, set_log_level_to_
 from agno.utils.message import get_text_from_message
 from agno.utils.response import create_panel, escape_markdown_tags
 from agno.utils.safe_formatter import SafeFormatter
-from agno.utils.string import parse_structured_output
+from agno.utils.string import parse_response_model
 from agno.utils.timer import Timer
 
 
@@ -221,8 +221,8 @@ class Agent:
     # Separator between responses from the team
     team_response_separator: str = "\n"
 
-    # Internal indicator to signify when it is a member of a team
-    is_member_of_team: bool = False
+    # Optional team session ID, set by the team leader agent
+    team_id: Optional[str] = None
 
     # --- Debug & Monitoring ---
     # Enable debug logs
@@ -753,6 +753,7 @@ class Agent:
             and run_messages.user_message is not None
         ):
             self.memory.update_memory(input=run_messages.user_message.get_content_string())
+
         if messages is not None and len(messages) > 0:
             for _im in messages:
                 # Parse the message and convert to a Message object if possible
@@ -906,7 +907,7 @@ class Agent:
                     # Otherwise convert the response to the structured format
                     if isinstance(run_response.content, str):
                         try:
-                            structured_output = parse_structured_output(run_response.content, self.response_model)
+                            structured_output = parse_response_model(run_response.content, self.response_model)
 
                             # Update RunResponse
                             if structured_output is not None:
@@ -1318,7 +1319,7 @@ class Agent:
         # Log Agent Run
         await self._alog_agent_run()
 
-        get_logger().debug(f" Agent Run End: {self.run_response.run_id} ", center=True, symbol="*")
+        logger.debug(f" Agent Run End: {self.run_response.run_id} ", center=True, symbol="*")
         if self.stream_intermediate_steps:
             yield self.create_run_response(
                 content=self.run_response.content,
@@ -1383,7 +1384,7 @@ class Agent:
                     # Otherwise convert the response to the structured format
                     if isinstance(run_response.content, str):
                         try:
-                            structured_output = parse_structured_output(run_response.content, self.response_model)
+                            structured_output = parse_response_model(run_response.content, self.response_model)
 
                             # Update RunResponse
                             if structured_output is not None:
@@ -1704,7 +1705,7 @@ class Agent:
             session_id=self.session_id,
             agent_id=self.agent_id,
             user_id=self.user_id,
-            is_member_of_team=self.is_member_of_team,
+            team_id=self.team_id,
             memory=self.memory.to_dict() if self.memory is not None else None,
             agent_data=self.get_agent_data(),
             session_data=self.get_session_data(),

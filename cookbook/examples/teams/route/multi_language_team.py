@@ -58,7 +58,7 @@ german_agent = Agent(
 )
 multi_language_team = Team(
     name="Multi Language Team",
-    mode="router",
+    mode="route",
     model=OpenAIChat("gpt-4.5-preview"),
     members=[
         english_agent,

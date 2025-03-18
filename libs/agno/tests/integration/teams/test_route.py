@@ -1,3 +1,5 @@
+from pydantic import BaseModel
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
@@ -5,8 +7,8 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
 
 
-def test_router_team_basic():
-    """Test basic functionality of a router team."""
+def test_route_team_basic():
+    """Test basic functionality of a route team."""
     web_agent = Agent(
         name="Web Agent", model=OpenAIChat("gpt-4o"), role="Search the web for information", tools=[DuckDuckGoTools()]
     )
@@ -18,7 +20,7 @@ def test_router_team_basic():
         tools=[YFinanceTools(stock_price=True)],
     )
 
-    team = Team(name="Router Team", mode="router", model=OpenAIChat("gpt-4o"), members=[web_agent, finance_agent])
+    team = Team(name="Router Team", mode="route", model=OpenAIChat("gpt-4o"), members=[web_agent, finance_agent])
 
     # This should route to the finance agent
     response = team.run("What is the current stock price of AAPL?")
@@ -29,9 +31,42 @@ def test_router_team_basic():
     assert len(response.member_responses) == 1
     assert response.member_responses[0].agent_id == finance_agent.agent_id
 
+def test_route_team_structured_output():
+    """Test basic functionality of a route team."""
 
-def test_router_team_with_multiple_agents():
-    """Test router team routing to multiple agents."""
+    class StockInfo(BaseModel):
+        symbol: str
+        price: str
+
+
+    web_agent = Agent(
+        name="Web Agent", model=OpenAIChat("gpt-4o"), role="Search the web for information", tools=[DuckDuckGoTools()]
+    )
+
+    finance_agent = Agent(
+        name="Finance Agent",
+        model=OpenAIChat("gpt-4o"),
+        role="Get financial data",
+        response_model=StockInfo,
+        tools=[YFinanceTools(stock_price=True)],
+    )
+
+    team = Team(name="Router Team", mode="route", model=OpenAIChat("gpt-4o"), members=[web_agent, finance_agent])
+
+    # This should route to the finance agent
+    response = team.run("What is the current stock price of AAPL?")
+
+    assert response.content is not None
+    assert isinstance(response.content, StockInfo)
+    assert response.content.symbol is not None
+    assert response.content.price is not None
+    member_responses = response.member_responses
+    assert len(member_responses) == 1
+    assert response.member_responses[0].agent_id == finance_agent.agent_id
+
+
+def test_route_team_with_multiple_agents():
+    """Test route team routing to multiple agents."""
     web_agent = Agent(
         name="Web Agent", model=OpenAIChat("gpt-4o"), role="Search the web for information", tools=[DuckDuckGoTools()]
     )
@@ -47,7 +82,7 @@ def test_router_team_with_multiple_agents():
 
     team = Team(
         name="Multi-Router Team",
-        mode="router",
+        mode="route",
         model=OpenAIChat("gpt-4o"),
         members=[web_agent, finance_agent, analysis_agent],
     )
@@ -62,14 +97,14 @@ def test_router_team_with_multiple_agents():
     assert len(response.member_responses) >= 2
 
 
-def test_router_team_with_expected_output():
-    """Test router team with expected output specification."""
+def test_route_team_with_expected_output():
+    """Test route team with expected output specification."""
     qa_agent = Agent(name="QA Agent", model=OpenAIChat("gpt-4o"), role="Answer general knowledge questions")
 
     math_agent = Agent(name="Math Agent", model=OpenAIChat("gpt-4o"), role="Solve mathematical problems")
 
     team = Team(
-        name="Specialized Router Team", mode="router", model=OpenAIChat("gpt-4o"), members=[qa_agent, math_agent]
+        name="Specialized Router Team", mode="route", model=OpenAIChat("gpt-4o"), members=[qa_agent, math_agent]
     )
 
     # This should route to the math agent with specific expected output

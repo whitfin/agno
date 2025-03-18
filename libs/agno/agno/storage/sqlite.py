@@ -116,12 +116,11 @@ class SqliteStorage(Storage):
             specific_columns = [
                 Column("agent_id", String, index=True),
                 Column("agent_data", sqlite.JSON),
-                Column("is_member_of_team", sqlite.BOOLEAN, default=False),
+                Column("team_id", String, index=True, nullable=True),
             ]
         elif self.mode == "team":
             specific_columns = [
                 Column("team_id", String, index=True),
-                Column("member_ids", sqlite.JSON),
                 Column("team_data", sqlite.JSON),
             ]
         else:
@@ -332,7 +331,7 @@ class SqliteStorage(Storage):
     def upgrade_schema(self) -> None:
         """
         Upgrade the schema of the storage table.
-        Currently handles adding the is_member_of_team column for agent mode.
+        Currently handles adding the team_id column for agent mode.
         """
         if not self.auto_upgrade_schema:
             logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
@@ -341,15 +340,15 @@ class SqliteStorage(Storage):
         try:
             if self.mode == "agent" and self.table_exists():
                 with self.SqlSession() as sess:
-                    # Check if is_member_of_team column exists using SQLite PRAGMA
+                    # Check if team_id column exists using SQLite PRAGMA
                     column_exists_query = text(f"PRAGMA table_info({self.table_name})")
                     columns = sess.execute(column_exists_query).fetchall()
-                    column_exists = any(col[1] == "is_member_of_team" for col in columns)
+                    column_exists = any(col[1] == "team_id" for col in columns)
 
                     if not column_exists:
-                        logger.info(f"Adding 'is_member_of_team' column to {self.table_name}")
+                        logger.info(f"Adding 'team_id' column to {self.table_name}")
                         alter_table_query = text(
-                            f"ALTER TABLE {self.table_name} ADD COLUMN is_member_of_team BOOLEAN DEFAULT FALSE"
+                            f"ALTER TABLE {self.table_name} ADD COLUMN team_id TEXT"
                         )
                         sess.execute(alter_table_query)
                         sess.commit()
@@ -380,7 +379,7 @@ class SqliteStorage(Storage):
                     stmt = sqlite.insert(self.table).values(
                         session_id=session.session_id,
                         agent_id=session.agent_id,  # type: ignore
-                        is_member_of_team=session.is_member_of_team,  # type: ignore
+                        team_id=session.team_id,  # type: ignore
                         user_id=session.user_id,
                         memory=session.memory,
                         agent_data=session.agent_data,  # type: ignore
@@ -394,8 +393,8 @@ class SqliteStorage(Storage):
                         index_elements=["session_id"],
                         set_=dict(
                             agent_id=session.agent_id,  # type: ignore
+                            team_id=session.team_id,  # type: ignore
                             user_id=session.user_id,
-                            is_member_of_team=session.is_member_of_team,  # type: ignore
                             memory=session.memory,
                             agent_data=session.agent_data,  # type: ignore
                             session_data=session.session_data,
@@ -408,7 +407,6 @@ class SqliteStorage(Storage):
                     stmt = sqlite.insert(self.table).values(
                         session_id=session.session_id,
                         team_id=session.team_id,  # type: ignore
-                        member_ids=session.member_ids,  # type: ignore
                         user_id=session.user_id,
                         memory=session.memory,
                         team_data=session.team_data,  # type: ignore
@@ -422,7 +420,6 @@ class SqliteStorage(Storage):
                         index_elements=["session_id"],
                         set_=dict(
                             team_id=session.team_id,  # type: ignore
-                            member_ids=session.member_ids,  # type: ignore
                             user_id=session.user_id,
                             memory=session.memory,
                             team_data=session.team_data,  # type: ignore

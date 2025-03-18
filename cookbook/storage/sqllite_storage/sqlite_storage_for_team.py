@@ -6,10 +6,10 @@
 from typing import List
 
 from agno.agent import Agent
+from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
-from agno.storage.json import JsonStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from pydantic import BaseModel
@@ -42,7 +42,9 @@ hn_team = Team(
     mode="coordinate",
     model=OpenAIChat("gpt-4o"),
     members=[hn_researcher, web_searcher],
-    storage=JsonStorage(dir_path="tmp/team_sessions_json"),
+    storage=SqliteStorage(
+        table_name="team_sessions", db_file="tmp/data.db", auto_upgrade_schema=True
+    ),
     instructions=[
         "First, search hackernews for what the user is asking about.",
         "Then, ask the web searcher to search for each story to get more information.",

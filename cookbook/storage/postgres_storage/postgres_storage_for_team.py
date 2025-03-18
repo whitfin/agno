@@ -6,14 +6,16 @@
 from typing import List
 
 from agno.agent import Agent
+from agno.storage.postgres import PostgresStorage
 from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
-from agno.storage.json import JsonStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from pydantic import BaseModel
 
+
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 class Article(BaseModel):
     title: str
@@ -42,7 +44,9 @@ hn_team = Team(
     mode="coordinate",
     model=OpenAIChat("gpt-4o"),
     members=[hn_researcher, web_searcher],
-    storage=JsonStorage(dir_path="tmp/team_sessions_json"),
+    storage=PostgresStorage(
+        table_name="agent_sessions", db_url=db_url, auto_upgrade_schema=True
+    ),
     instructions=[
         "First, search hackernews for what the user is asking about.",
         "Then, ask the web searcher to search for each story to get more information.",

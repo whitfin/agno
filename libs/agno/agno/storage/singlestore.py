@@ -99,13 +99,12 @@ class SingleStoreStorage(Storage):
         if self.mode == "agent":
             specific_columns = [
                 Column("agent_id", mysql.TEXT),
-                Column("is_member_of_team", mysql.BOOLEAN, default=False),
+                Column("team_id", mysql.TEXT, nullable=True),
                 Column("agent_data", mysql.JSON),
             ]
         elif self.mode == "team":
             specific_columns = [
                 Column("team_id", mysql.TEXT),
-                Column("member_ids", mysql.JSON),
                 Column("team_data", mysql.JSON),
             ]
         else:
@@ -232,7 +231,7 @@ class SingleStoreStorage(Storage):
     def upgrade_schema(self) -> None:
         """
         Upgrade the schema to the latest version.
-        Currently handles adding the is_member_of_team column for agent mode.
+        Currently handles adding the team_id column for agent mode.
         """
         if not self.auto_upgrade_schema:
             logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
@@ -241,12 +240,12 @@ class SingleStoreStorage(Storage):
         try:
             if self.mode == "agent" and self.table_exists():
                 with self.SqlSession() as sess:
-                    # Check if is_member_of_team column exists
+                    # Check if team_id column exists
                     column_exists_query = text(
                         """
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_schema = :schema AND table_name = :table 
-                        AND column_name = 'is_member_of_team'
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = :schema AND table_name = :table
+                        AND column_name = 'team_id'
                         """
                     )
                     column_exists = (
@@ -255,10 +254,10 @@ class SingleStoreStorage(Storage):
                     )
 
                     if not column_exists:
-                        logger.info(f"Adding 'is_member_of_team' column to {self.schema}.{self.table_name}")
+                        logger.info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
                         alter_table_query = text(
                             f"ALTER TABLE {self.schema}.{self.table_name} "
-                            f"ADD COLUMN is_member_of_team BOOLEAN DEFAULT FALSE"
+                            f"ADD COLUMN team_id TEXT"
                         )
                         sess.execute(alter_table_query)
                         sess.commit()
@@ -281,12 +280,12 @@ class SingleStoreStorage(Storage):
                 upsert_sql = text(
                     f"""
                     INSERT INTO {self.schema}.{self.table_name}
-                    (session_id, agent_id, is_member_of_team, user_id, memory, agent_data, session_data, extra_data, created_at, updated_at)
+                    (session_id, agent_id, team_id, user_id, memory, agent_data, session_data, extra_data, created_at, updated_at)
                     VALUES
-                    (:session_id, :agent_id, :is_member_of_team, :user_id, :memory, :agent_data, :session_data, :extra_data, UNIX_TIMESTAMP(), NULL)
+                    (:session_id, :agent_id, :team_id, :user_id, :memory, :agent_data, :session_data, :extra_data, UNIX_TIMESTAMP(), NULL)
                     ON DUPLICATE KEY UPDATE
                         agent_id = VALUES(agent_id),
-                        is_member_of_team = VALUES(is_member_of_team),
+                        team_id = VALUES(team_id),
                         user_id = VALUES(user_id),
                         memory = VALUES(memory),
                         agent_data = VALUES(agent_data),
@@ -299,12 +298,11 @@ class SingleStoreStorage(Storage):
                 upsert_sql = text(
                     f"""
                     INSERT INTO {self.schema}.{self.table_name}
-                    (session_id, team_id, member_ids, user_id, memory, team_data, session_data, extra_data, created_at, updated_at)
+                    (session_id, team_id, user_id, memory, team_data, session_data, extra_data, created_at, updated_at)
                     VALUES
-                    (:session_id, :team_id, :member_ids, :user_id, :memory, :team_data, :session_data, :extra_data, UNIX_TIMESTAMP(), NULL)
+                    (:session_id, :team_id, :user_id, :memory, :team_data, :session_data, :extra_data, UNIX_TIMESTAMP(), NULL)
                     ON DUPLICATE KEY UPDATE
                         team_id = VALUES(team_id),
-                        member_ids = VALUES(member_ids),
                         user_id = VALUES(user_id),
                         memory = VALUES(memory),
                         team_data = VALUES(team_data),
@@ -338,7 +336,7 @@ class SingleStoreStorage(Storage):
                         {
                             "session_id": session.session_id,
                             "agent_id": session.agent_id,  # type: ignore
-                            "is_member_of_team": session.is_member_of_team,  # type: ignore
+                            "team_id": session.team_id,  # type: ignore
                             "user_id": session.user_id,
                             "memory": json.dumps(session.memory, ensure_ascii=False)
                             if session.memory is not None
@@ -360,7 +358,6 @@ class SingleStoreStorage(Storage):
                         {
                             "session_id": session.session_id,
                             "team_id": session.team_id,  # type: ignore
-                            "member_ids": session.member_ids,  # type: ignore
                             "user_id": session.user_id,
                             "memory": json.dumps(session.memory, ensure_ascii=False)
                             if session.memory is not None
@@ -406,7 +403,7 @@ class SingleStoreStorage(Storage):
                         {
                             "session_id": session.session_id,
                             "agent_id": session.agent_id,  # type: ignore
-                            "is_member_of_team": session.is_member_of_team,  # type: ignore
+                            "team_id": session.team_id,  # type: ignore
                             "user_id": session.user_id,
                             "memory": json.dumps(session.memory, ensure_ascii=False)
                             if session.memory is not None
@@ -428,7 +425,6 @@ class SingleStoreStorage(Storage):
                         {
                             "session_id": session.session_id,
                             "team_id": session.team_id,  # type: ignore
-                            "member_ids": session.member_ids,  # type: ignore
                             "user_id": session.user_id,
                             "memory": json.dumps(session.memory, ensure_ascii=False)
                             if session.memory is not None

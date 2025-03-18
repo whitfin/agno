@@ -67,7 +67,7 @@ twitter_researcher = Agent(
 
 agent_team = Team(
     name="Discussion Team",
-    mode="collaborative",
+    mode="collaborate",
     model=OpenAIChat("gpt-4o"),
     members=[
         reddit_researcher,

@@ -111,13 +111,12 @@ class PostgresStorage(Storage):
         if self.mode == "agent":
             specific_columns = [
                 Column("agent_id", String, index=True),
-                Column("is_member_of_team", Boolean, default=False),
+                Column("team_id", String, index=True, nullable=True),
                 Column("agent_data", postgresql.JSONB),
             ]
         elif self.mode == "team":
             specific_columns = [
                 Column("team_id", String, index=True),
-                Column("member_ids", postgresql.JSONB),
                 Column("team_data", postgresql.JSONB),
             ]
         else:
@@ -349,7 +348,7 @@ class PostgresStorage(Storage):
     def upgrade_schema(self) -> None:
         """
         Upgrade the schema to the latest version.
-        Currently handles adding the is_member_of_team column for agent mode.
+        Currently handles adding the team_id column for agent mode.
         """
         if not self.auto_upgrade_schema:
             logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
@@ -358,12 +357,12 @@ class PostgresStorage(Storage):
         try:
             if self.mode == "agent" and self.table_exists():
                 with self.Session() as sess:
-                    # Check if is_member_of_team column exists
+                    # Check if team_id column exists
                     column_exists_query = text(
                         """
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_schema = :schema AND table_name = :table 
-                        AND column_name = 'is_member_of_team'
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema = :schema AND table_name = :table
+                        AND column_name = 'team_id'
                         """
                     )
                     column_exists = (
@@ -372,10 +371,10 @@ class PostgresStorage(Storage):
                     )
 
                     if not column_exists:
-                        logger.info(f"Adding 'is_member_of_team' column to {self.schema}.{self.table_name}")
+                        logger.info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
                         alter_table_query = text(
                             f"ALTER TABLE {self.schema}.{self.table_name} "
-                            f"ADD COLUMN is_member_of_team BOOLEAN DEFAULT FALSE"
+                            f"ADD COLUMN team_id TEXT"
                         )
                         sess.execute(alter_table_query)
                         sess.commit()
@@ -406,7 +405,7 @@ class PostgresStorage(Storage):
                     stmt = postgresql.insert(self.table).values(
                         session_id=session.session_id,
                         agent_id=session.agent_id,  # type: ignore
-                        is_member_of_team=session.is_member_of_team,  # type: ignore
+                        team_id=session.team_id,  # type: ignore
                         user_id=session.user_id,
                         memory=session.memory,
                         agent_data=session.agent_data,  # type: ignore
@@ -419,7 +418,7 @@ class PostgresStorage(Storage):
                         index_elements=["session_id"],
                         set_=dict(
                             agent_id=session.agent_id,  # type: ignore
-                            is_member_of_team=session.is_member_of_team,  # type: ignore
+                            team_id=session.team_id,  # type: ignore
                             user_id=session.user_id,
                             memory=session.memory,
                             agent_data=session.agent_data,  # type: ignore
@@ -432,7 +431,6 @@ class PostgresStorage(Storage):
                     stmt = postgresql.insert(self.table).values(
                         session_id=session.session_id,
                         team_id=session.team_id,  # type: ignore
-                        member_ids=session.member_ids,  # type: ignore
                         user_id=session.user_id,
                         memory=session.memory,
                         team_data=session.team_data,  # type: ignore
@@ -445,7 +443,6 @@ class PostgresStorage(Storage):
                         index_elements=["session_id"],
                         set_=dict(
                             team_id=session.team_id,  # type: ignore
-                            member_ids=session.member_ids,  # type: ignore
                             user_id=session.user_id,
                             memory=session.memory,
                             team_data=session.team_data,  # type: ignore

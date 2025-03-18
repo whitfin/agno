@@ -9,7 +9,7 @@ from agno.tools.yfinance import YFinanceTools
 from agno.vectordb.pgvector.pgvector import PgVector
 
 knowledge_base = PDFKnowledgeBase(
-    path="cookbook/teams/coordinator/data",
+    path="cookbook/teams/coordinate/data",
     vector_db=PgVector(
         table_name="autonomous_startup_team",
         db_url="postgresql+psycopg://ai:ai@localhost:5532/ai",
@@ -159,7 +159,7 @@ customer_support_agent = Agent(
 
 autonomous_startup_team = Team(
     name="CEO Agent",
-    mode="coordinator",
+    mode="coordinate",
     model=OpenAIChat("gpt-4o"),
     instructions=[
         "You are the CEO of a startup, responsible for overall leadership and success.",

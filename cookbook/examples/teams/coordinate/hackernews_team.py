@@ -9,9 +9,9 @@ from agno.agent import Agent
 from agno.team import Team
 from agno.models.openai import OpenAIChat
 from agno.run.team import TeamRunResponse  # type: ignore
-from agno.storage.json import JsonStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
+from agno.tools.newspaper4k import Newspaper4kTools
 from pydantic import BaseModel
 
 
@@ -36,15 +36,22 @@ web_searcher = Agent(
     add_datetime_to_instructions=True,
 )
 
+article_reader = Agent(
+    name="Article Reader",
+    role="Reads articles from URLs.",
+    tools=[Newspaper4kTools()],
+)
+
 
 hn_team = Team(
     name="HackerNews Team",
     mode="coordinate",
     model=OpenAIChat("gpt-4o"),
-    members=[hn_researcher, web_searcher],
-    storage=JsonStorage(dir_path="tmp/team_sessions_json"),
+    members=[hn_researcher, web_searcher, article_reader],
     instructions=[
         "First, search hackernews for what the user is asking about.",
+        "Then, ask the article reader to read the links for the stories to get more information.",
+        "Important: you must provide the article reader with the links to read.",
         "Then, ask the web searcher to search for each story to get more information.",
         "Finally, provide a thoughtful and engaging summary.",
     ],

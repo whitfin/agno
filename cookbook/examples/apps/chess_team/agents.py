@@ -127,7 +127,7 @@ def get_chess_team(
 
         return Team(
             name="Chess Team",
-            mode="router",
+            mode="route",
             model=master_model,
             success_criteria="The game is completed with a win, loss, or draw",
             members=[white_piece_agent, black_piece_agent],

@@ -40,7 +40,7 @@ reddit_agent = Agent(
 
 post_team = Team(
     members=[web_searcher, reddit_agent],
-    mode="coordinator",
+    mode="coordinate",
     model=OpenAIChat(id="gpt-4o"),
     instructions=[
         "Work together to create engaging and informative Reddit posts",

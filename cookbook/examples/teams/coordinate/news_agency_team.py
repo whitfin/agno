@@ -1,6 +1,6 @@
 """
 1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
-2. Run: `python cookbook/teams/coordinator/news_agency_team.py` to run the agent
+2. Run: `python cookbook/teams/coordinate/news_agency_team.py` to run the agent
 """
 
 from pathlib import Path
@@ -49,7 +49,7 @@ writer = Agent(
 
 editor = Team(
     name="Editor",
-    mode="coordinator",
+    mode="coordinate",
     model=OpenAIChat("gpt-4o"),
     members=[searcher, writer],
     description="You are a senior NYT editor. Given a topic, your goal is to write a NYT worthy article.",

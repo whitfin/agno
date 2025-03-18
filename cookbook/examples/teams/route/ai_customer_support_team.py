@@ -77,7 +77,7 @@ feedback_collector_agent = Agent(
 
 customer_support_team = Team(
     name="Customer Support Team",
-    mode="router",
+    mode="route",
     model=OpenAIChat("gpt-4.5-preview"),
     enable_team_history=True,
     members=[doc_researcher_agent, escalation_manager_agent, feedback_collector_agent],

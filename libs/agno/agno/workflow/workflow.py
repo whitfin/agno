@@ -221,6 +221,9 @@ class Workflow:
 
     def set_storage_mode(self):
         if self.storage is not None:
+            if self.storage.mode in ["agent", "team"]:
+                logger.warning(f"You shouldn't use storage in multiple modes. Current mode is {self.storage.mode}.")
+
             self.storage.mode = "workflow"
 
     def set_workflow_id(self) -> str:

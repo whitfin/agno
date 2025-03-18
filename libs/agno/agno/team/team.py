@@ -313,7 +313,7 @@ class Team:
     def _set_storage_mode(self):
         if self.storage is not None:
             if self.storage.mode in ["workflow", "agent"]:
-                get_logger().warning("You cannot use storage in both team and other modes")
+                get_logger().warning(f"You shouldn't use storage in multiple modes. Current mode is {self.storage.mode}.")
 
             self.storage.mode = "team"
 

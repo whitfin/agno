@@ -83,7 +83,7 @@ class TeamGetResponse(BaseModel):
     # Add TeamModel type on model field
     model: Optional[Any] = None
     success_criteria: Optional[str] = None
-    instructions: Optional[str] = None
+    instructions: Optional[Union[List[str], str, Callable]] = None
     members: Optional[List[AgentGetResponse]] = None
     # workflows: Optional[List[WorkflowGetResponse]] = None
     # created_at: Optional[int] = None

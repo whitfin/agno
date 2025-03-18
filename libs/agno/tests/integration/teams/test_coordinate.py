@@ -107,7 +107,7 @@ def test_coordinator_team_with_structured_output():
             "Finally, provide a thoughtful and engaging summary.",
         ],
         response_model=Article,
-        json_response_mode=True,
+        response_format="json",
     )
 
     response = team.run("Write an article about the top story on hackernews")

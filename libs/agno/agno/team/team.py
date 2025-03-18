@@ -130,8 +130,8 @@ class Team:
     # --- Structured output ---
     # Response model for the team response
     response_model: Optional[Type[BaseModel]] = None
-    # If True, use JSON response mode
-    json_response_mode: bool = False
+    # Sets the response_format mode of the model, i.e. to either respond with a Pydantic model or with JSON.
+    response_format: Literal["structured", "json"] = "structured"
     # If True, parse the response
     parse_response: bool = True
 
@@ -193,7 +193,7 @@ class Team:
         read_team_history: bool = False,
         show_tool_calls: bool = False,
         response_model: Optional[Type[BaseModel]] = None,
-        json_response_mode: bool = False,
+        response_format: Literal["structured", "json"] = "structured",
         parse_response: bool = True,
         memory: Optional[TeamMemory] = None,
         enable_team_history: bool = False,
@@ -244,7 +244,7 @@ class Team:
         self.show_tool_calls = show_tool_calls
 
         self.response_model = response_model
-        self.json_response_mode = json_response_mode
+        self.response_format = response_format
         self.parse_response = parse_response
 
         self.memory = memory
@@ -624,7 +624,7 @@ class Team:
 
         # 3. Update TeamRunResponse
         # Handle structured outputs
-        if (self.response_model is not None) and (not self.json_response_mode) and (model_response.parsed is not None):
+        if (self.response_model is not None) and self.response_format == "structured" and (model_response.parsed is not None):
             # Update the run_response content with the structured output
             run_response.content = model_response.parsed
             # Update the run_response content_type with the structured output class name
@@ -1212,7 +1212,7 @@ class Team:
 
         # 3. Update TeamRunResponse
         # Handle structured outputs
-        if (self.response_model is not None) and (not self.json_response_mode) and (model_response.parsed is not None):
+        if (self.response_model is not None) and self.response_format == "structured" and (model_response.parsed is not None):
             # Update the run_response content with the structured output
             run_response.content = model_response.parsed
             # Update the run_response content_type with the structured output class name
@@ -1479,7 +1479,7 @@ class Team:
         # Handle structured outputs
         if (
             (self.response_model is not None)
-            and (not self.json_response_mode)
+            and self.response_format == "structured"
             and (full_model_response.parsed is not None)
         ):
             # Update the run_response content with the structured output
@@ -2727,6 +2727,7 @@ class Team:
         logger = get_logger()
 
         # Get default reasoning agent
+        response_format: Literal["structured", "json"] = self.response_format
         reasoning_agent: Agent = get_default_reasoning_agent(  # type: ignore
             reasoning_model=reasoning_model,
             min_steps=self.reasoning_min_steps,
@@ -2734,6 +2735,7 @@ class Team:
             monitoring=self.monitoring,
             telemetry=self.telemetry,
             debug_mode=self.debug_mode,
+            response_format=response_format,
         )
 
         step_count = 1
@@ -2821,6 +2823,7 @@ class Team:
         logger = get_logger()
 
         # Get default reasoning agent
+        response_format: Literal["structured", "json"] = self.response_format
         reasoning_agent: Agent = get_default_reasoning_agent(  # type: ignore
             reasoning_model=reasoning_model,
             min_steps=self.reasoning_min_steps,
@@ -2828,6 +2831,7 @@ class Team:
             monitoring=self.monitoring,
             telemetry=self.telemetry,
             debug_mode=self.debug_mode,
+            response_format=response_format
         )
 
         step_count = 1
@@ -2999,22 +3003,40 @@ class Team:
             self.model = OpenAIChat(id="gpt-4o")
 
         # Update the response_format on the Model
-        if self.response_model is not None:
-            # Force JSON response mode if response_model is set
-            if self.json_response_mode:
-                logger.debug("Setting Model.response_format to JSON response mode")
-                self.model.response_format = {"type": "json_object"}
-
-            # Otherwise use native structured outputs
-            elif self.model.supports_structured_outputs:
-                logger.debug("Setting Model.response_format to Agent.response_model")
-                self.model.response_format = self.response_model
-                self.model.structured_outputs = True
-            else:
-                logger.debug("Model does not support structured outputs")
-                self.model.response_format = None
-        else:
+        if self.response_model is None:
             self.model.response_format = None
+        else:
+            json_response_format = {"type": "json_object"}
+
+            if self.model.supports_native_structured_outputs:
+                if self.response_format == "structured":
+                    logger.debug("Setting Model.response_format to Agent.response_model")
+                    self.model.response_format = self.response_model
+                    self.model.structured_outputs = True
+                else:
+                    logger.debug("Model does not support native structured outputs")
+                    self.model.response_format = json_response_format
+                    self.model.structured_outputs = False
+
+            elif self.model.supports_json_schema_outputs:
+                if self.response_format == "json":
+                    logger.debug("Setting Model.response_format to JSON response mode")
+                    self.model.response_format = {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": self.response_model.__name__,
+                            "schema": self.response_model.model_json_schema(),
+                        },
+                    }
+                else:
+                    self.model.response_format = None
+                self.model.structured_outputs = False
+
+            else:  # Model does not support structured or JSON schema outputs
+                self.model.response_format = (
+                    json_response_format if self.response_format == "json" else None
+                )
+                self.model.structured_outputs = False
 
         # Set show_tool_calls on the Model
         self.model.show_tool_calls = show_tool_calls
@@ -3030,7 +3052,7 @@ class Team:
 
             # Check if we need strict mode for the model
             strict = False
-            if self.response_model is not None and not self.json_response_mode and model.supports_structured_outputs:
+            if self.response_model is not None and self.response_format == "structured" and model.supports_native_structured_outputs:
                 strict = True
 
             self._tools_for_model = []
@@ -3213,7 +3235,7 @@ class Team:
             system_message_content += f"<expected_output>\n{self.expected_output.strip()}\n</expected_output>\n\n"
 
         # Add the JSON output prompt if response_model is provided and structured_outputs is False
-        if self.response_model is not None and self.json_response_mode:
+        if self.response_model is not None and self.response_format == "json" and self.model and self.model.supports_native_structured_outputs:
             system_message_content += f"{self._get_json_output_prompt()}"
 
         return Message(role="system", content=system_message_content.strip())

@@ -4026,7 +4026,10 @@ class Team:
             # If found in sub-team, include the path in the task description
             member_agent_task = message.get_content_string()
             if top_level_member_name:
-                member_agent_task = f"[Via team member: {top_level_member_name}] {member_agent_task}"
+                member_agent_task += f"\n\n[Via team member: {top_level_member_name}]"
+
+            if expected_output:
+                member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
 
             # 2. Get the response from the member agent
             if stream:
@@ -4108,7 +4111,10 @@ class Team:
             # If found in sub-team, include the path in the task description
             member_agent_task = message.get_content_string()
             if top_level_member_name:
-                member_agent_task = f"[Via team member: {top_level_member_name}] {member_agent_task}"
+                member_agent_task += f"\n\n[Via team member: {top_level_member_name}]"
+
+            if expected_output:
+                member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
 
             # 2. Get the response from the member agent
             if stream:

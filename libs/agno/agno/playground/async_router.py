@@ -45,8 +45,8 @@ def get_async_playground_router(
 ) -> APIRouter:
     playground_router = APIRouter(prefix="/playground", tags=["Playground"])
 
-    if agents is None and workflows is None:
-        raise ValueError("Either agents or workflows must be provided.")
+    if agents is None and workflows is None and teams is None:
+        raise ValueError("Either agents or workflows or teams must be provided.")
 
     @playground_router.get("/status")
     async def playground_status():
@@ -577,16 +577,45 @@ def get_async_playground_router(
         )
 
     @playground_router.post("/teams/{team_id}/runs")
-    async def create_team_run(team_id: str, body: TeamRunRequest):
+    async def create_team_run(
+        team_id: str, 
+        message: str = Form(...),
+        stream: bool = Form(True),
+        monitor: bool = Form(False),
+        session_id: Optional[str] = Form(None),
+        user_id: Optional[str] = Form(None),
+    ):
+
+        logger.debug(f"Creating team run: {message} {session_id} {user_id} {team_id}")
 
         team = get_team_by_id(team_id, teams)
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")
 
-        return StreamingResponse(
-            (json.dumps(asdict(result)) for result in team.run(**body.input)),
-            media_type="text/event-stream",
-        )
+        if session_id is not None:
+            logger.debug(f"Continuing session: {session_id}")
+        else:
+            logger.debug("Creating new session")
+
+        # new_team_instance = team.deep_copy(update={"team_id": team_id, "session_id": session_id})
+        # new_team_instance.session_name = None
+
+        if user_id is not None:
+            team.user_id = user_id
+
+
+        if stream:
+            return StreamingResponse(
+                (json.dumps(asdict(result)) for result in team.run(
+                   message=message,
+                )),
+                media_type="text/event-stream",
+            )
+        else:
+            return team.run(
+                message=message,
+                stream=False,
+            ).to_dict()
 
     @playground_router.get("/teams/{team_id}/sessions", response_model=List[TeamSessionResponse])
     async def get_all_team_sessions(team_id: str, user_id: Optional[str] = Query(None, min_length=1)):

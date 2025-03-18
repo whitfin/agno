@@ -46,7 +46,7 @@ agent_team = Team(
     description="A team of agents that search the web for financial news and analyze it.",
     members=[web_agent, finance_agent],
     model=OpenAIChat(id="gpt-4o"),
-    mode="coordinator",
+    mode="coordinate",
     team_id="financial_news_team",
     success_criteria=dedent("""\
         A comprehensive financial news report with clear sections and data-driven insights.
@@ -61,13 +61,10 @@ agent_team = Team(
     send_team_member_interactions_to_members=False,
     update_team_context=True,
     show_members_responses=False,
+    debug_mode=True
 )
 
 app = Playground(
-    agents=[
-        web_agent,
-        finance_agent
-    ],
     teams=[agent_team],
 ).get_app()
 

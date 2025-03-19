@@ -139,12 +139,12 @@ def log_debug(msg, center: bool = False, symbol: str = "*", *args, **kwargs):
     global logger
     global debug_on
     if debug_on:
-        log_debug(msg, center, symbol, *args, **kwargs)
+        logger.debug(msg, center, symbol, *args, **kwargs)
 
 
 def log_info(msg, center: bool = False, symbol: str = "*", *args, **kwargs):
     global logger
-    log_info(msg, center, symbol, *args, **kwargs)
+    logger.info(msg, center, symbol, *args, **kwargs)
 
 
 def log_warning(msg, *args, **kwargs):

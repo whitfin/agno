@@ -5,7 +5,7 @@ from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
-
+from agno.storage.postgres import PostgresStorage
 
 web_agent = Agent(
     name="Web Agent",
@@ -41,6 +41,8 @@ finance_agent = Agent(
     markdown=True,
 )
 
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+
 agent_team = Team(
     name="Financial News Team",
     description="A team of agents that search the web for financial news and analyze it.",
@@ -60,8 +62,10 @@ agent_team = Team(
     send_team_context_to_members=True,
     send_team_member_interactions_to_members=False,
     update_team_context=True,
-    show_members_responses=False,
-    debug_mode=True
+    show_members_responses=True,
+    debug_mode=True,
+    storage=PostgresStorage(table_name="financial_news_team", db_url=db_url),
+
 )
 
 app = Playground(

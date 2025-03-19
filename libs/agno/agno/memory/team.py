@@ -25,9 +25,9 @@ class TeamRun:
 
     def to_dict(self) -> Dict[str, Any]:
         response = {
-            "message": self.message.to_dict() if self.message else None,
+            "message": self.message.to_dict() if hasattr(self.message, "to_dict") else self.message if self.message else None,
             "member_responses": [run.to_dict() for run in self.member_runs] if self.member_runs else None,
-            "response": self.response.to_dict() if self.response else None,
+            "response": self.response.to_dict() if hasattr(self.response, "to_dict") else self.response if self.response else None,
         }
         return {k: v for k, v in response.items() if v is not None}
 

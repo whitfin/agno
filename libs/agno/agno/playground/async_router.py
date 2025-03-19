@@ -543,6 +543,7 @@ def get_async_playground_router(
                 instructions=team.instructions,
                 description=team.description,
                 mode=team.mode,
+                storage=team.storage.__class__.__name__ if team.storage else None,
                 members=[
                     AgentGetResponse(
                         agent_id=member.agent_id,
@@ -578,6 +579,8 @@ def get_async_playground_router(
             mode=team.mode,
             success_criteria=team.success_criteria,
             instructions=team.instructions,
+            storage=team.storage.__class__.__name__ if team.storage else None,
+            model=team.model,
             members=[
                 AgentGetResponse(
                     agent_id=member.agent_id,

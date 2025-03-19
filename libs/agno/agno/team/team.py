@@ -956,7 +956,7 @@ class Team:
 
         if stream_intermediate_steps:
             yield self._create_run_response(
-                content=run_response.content,
+                from_run_response=run_response,
                 event=RunEvent.run_completed,
             )
 
@@ -1552,7 +1552,7 @@ class Team:
 
         if stream_intermediate_steps:
             yield self._create_run_response(
-                content=run_response.content,
+                from_run_response=run_response,
                 event=RunEvent.run_completed,
             )
 
@@ -2928,6 +2928,8 @@ class Team:
         extra_data = None
         member_responses = None
         if from_run_response:
+            content = from_run_response.content
+            content_type = from_run_response.content_type
             audio = from_run_response.audio
             images = from_run_response.images
             videos = from_run_response.videos

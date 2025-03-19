@@ -374,6 +374,9 @@ class Team:
             # All members have the same session ID
             member.session_id = self.session_id
 
+            # Set the team ID of members
+            member.team_id = self.team_id
+
     @overload
     def run(
         self,

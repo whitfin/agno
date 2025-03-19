@@ -618,7 +618,7 @@ class Team:
 
         # 1. Reason about the task(s) if reasoning is enabled
         if self.reasoning or self.reasoning_model is not None:
-            reasoning_generator = self._reason_about_tasks(run_response=run_response, run_messages=run_messages)
+            reasoning_generator = self._reason(run_response=run_response, run_messages=run_messages)
 
             # Consume the generator without yielding
             deque(reasoning_generator, maxlen=0)
@@ -778,7 +778,7 @@ class Team:
 
         # 1. Reason about the task(s) if reasoning is enabled
         if self.reasoning or self.reasoning_model is not None:
-            reasoning_generator = self._reason_about_tasks(run_response=run_response, run_messages=run_messages)
+            reasoning_generator = self._reason(run_response=run_response, run_messages=run_messages)
 
             yield from reasoning_generator  # type: ignore
 
@@ -1207,7 +1207,7 @@ class Team:
 
         # 1. Reason about the task(s) if reasoning is enabled
         if self.reasoning or self.reasoning_model is not None:
-            reasoning_generator = self._a_reason_about_tasks(run_response=run_response, run_messages=run_messages)
+            reasoning_generator = self._areason(run_response=run_response, run_messages=run_messages)
 
             # Consume the generator without yielding
             async for _ in reasoning_generator:
@@ -1368,7 +1368,7 @@ class Team:
 
         # 1. Reason about the task(s) if reasoning is enabled
         if self.reasoning or self.reasoning_model is not None:
-            reasoning_generator = self._a_reason_about_tasks(run_response=run_response, run_messages=run_messages)
+            reasoning_generator = self._areason(run_response=run_response, run_messages=run_messages)
 
             async for reasoning_response in reasoning_generator:
                 yield reasoning_response  # type: ignore
@@ -2528,7 +2528,7 @@ class Team:
             model=reasoning_model, monitoring=self.monitoring, telemetry=self.telemetry, debug_mode=self.debug_mode
         )
 
-    def _reason_about_tasks(
+    def _reason(
         self, run_response: TeamRunResponse, run_messages: RunMessages, stream_intermediate_steps: bool = False
     ) -> Iterator[TeamRunResponse]:
         if stream_intermediate_steps:
@@ -2626,7 +2626,7 @@ class Team:
             )
             return
 
-    async def _a_reason_about_tasks(
+    async def _areason(
         self, run_response: TeamRunResponse, run_messages: RunMessages, stream_intermediate_steps: bool = False
     ) -> AsyncIterator[TeamRunResponse]:
         if stream_intermediate_steps:
@@ -2697,7 +2697,7 @@ class Team:
                 log_info(
                     f"Reasoning model: {reasoning_model.__class__.__name__} is not a native reasoning model,  using default chain-of-thought reasoning."
                 )
-                async for response in self._a_chain_of_thought_reason(
+                async for response in self._achain_of_thought_reason(
                     run_response, run_messages, reasoning_model, stream_intermediate_steps
                 ):
                     yield response
@@ -2720,7 +2720,7 @@ class Team:
                 )
         else:
             log_warning("Reasoning model is not provided, using default chain-of-thought reasoning.")
-            async for response in self._a_chain_of_thought_reason(
+            async for response in self._achain_of_thought_reason(
                 run_response, run_messages, reasoning_model, stream_intermediate_steps
             ):
                 yield response
@@ -2820,7 +2820,7 @@ class Team:
                 event=RunEvent.reasoning_completed,
             )
 
-    async def _a_chain_of_thought_reason(
+    async def _achain_of_thought_reason(
         self,
         run_response: TeamRunResponse,
         run_messages: RunMessages,
@@ -3658,7 +3658,7 @@ class Team:
             # Afterward, switch back to the team logger
             use_team_logger()
 
-        async def a_run_member_agents(
+        async def arun_member_agents(
             task_description: str, expected_output: Optional[str] = None
         ) -> AsyncIterator[str]:
             """
@@ -3754,7 +3754,7 @@ class Team:
             use_team_logger()
 
         if async_mode:
-            run_member_agents_function = a_run_member_agents  # type: ignore
+            run_member_agents_function = arun_member_agents  # type: ignore
         else:
             run_member_agents_function = run_member_agents  # type: ignore
 
@@ -3878,7 +3878,7 @@ class Team:
             # Update the team state
             self._update_team_state(member_agent.run_response)  # type: ignore
 
-        async def a_transfer_task_to_member(
+        async def atransfer_task_to_member(
             agent_name: str, task_description: str, expected_output: str
         ) -> AsyncIterator[str]:
             """
@@ -3976,7 +3976,7 @@ class Team:
             self._update_team_state(member_agent.run_response)  # type: ignore
 
         if async_mode:
-            transfer_function = a_transfer_task_to_member  # type: ignore
+            transfer_function = atransfer_task_to_member  # type: ignore
         else:
             transfer_function = transfer_task_to_member  # type: ignore
 
@@ -4112,7 +4112,7 @@ class Team:
             # Update the team state
             self._update_team_state(member_agent.run_response)  # type: ignore
 
-        async def a_forward_task_to_member(
+        async def aforward_task_to_member(
             agent_name: str, expected_output: Optional[str] = None
         ) -> AsyncIterator[str]:
             """
@@ -4199,7 +4199,7 @@ class Team:
             self._update_team_state(member_agent.run_response)  # type: ignore
 
         if async_mode:
-            forward_function = a_forward_task_to_member  # type: ignore
+            forward_function = aforward_task_to_member  # type: ignore
         else:
             forward_function = forward_task_to_member  # type: ignore
 

@@ -38,6 +38,7 @@ from agno.team.team import Team
 from agno.storage.session.workflow import WorkflowSession
 from agno.utils.log import logger
 from agno.workflow.workflow import Workflow
+from agno.run.team import TeamRunResponse
 
 
 def get_async_playground_router(
@@ -126,7 +127,27 @@ def get_async_playground_router(
             )
             yield error_response.to_json()
             return
-
+        
+    async def team_chat_response_streamer(
+        team: Team,
+        message: str,
+    ) -> AsyncGenerator:
+        try:
+            run_response = await team.arun(
+                message,
+                stream=True,
+            )
+            async for run_response_chunk in run_response:
+                run_response_chunk = cast(TeamRunResponse, run_response_chunk)
+                yield run_response_chunk.to_json()
+        except Exception as e:
+            error_response = TeamRunResponse(
+                content=str(e),
+                event=RunEvent.run_error,
+            )
+            yield error_response.to_json()
+            return
+        
     async def process_image(file: UploadFile) -> Image:
         content = file.file.read()
 
@@ -606,17 +627,18 @@ def get_async_playground_router(
 
         if stream:
             return StreamingResponse(
-                (json.dumps(asdict(result)) for result in team.run(
-                   message=message,
-                   stream=True,
-                )),
+                team_chat_response_streamer(
+                    new_team_instance,
+                    message,
+                ),
                 media_type="text/event-stream",
             )
         else:
-            return team.run(
+            run_response = await team.arun(
                 message=message,
                 stream=False,
-            ).to_dict()
+            )
+            return run_response.to_dict()
 
     @playground_router.get("/teams/{team_id}/sessions", response_model=List[TeamSessionResponse])
     async def get_all_team_sessions(team_id: str, user_id: Optional[str] = Query(None, min_length=1)):

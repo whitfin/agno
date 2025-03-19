@@ -48,7 +48,7 @@ agent_team = Team(
     description="A team of agents that search the web for financial news and analyze it.",
     members=[web_agent, finance_agent],
     model=OpenAIChat(id="gpt-4o"),
-    mode="coordinate",
+    mode="route",
     team_id="financial_news_team",
     success_criteria=dedent("""\
         A comprehensive financial news report with clear sections and data-driven insights.

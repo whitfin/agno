@@ -2,7 +2,7 @@ from os import getenv
 from typing import Optional
 
 from agno.tools import Toolkit
-from agno.utils.log import logger, log_info
+from agno.utils.log import log_info, logger
 
 try:
     import resend  # type: ignore

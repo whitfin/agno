@@ -919,7 +919,7 @@ class Team:
         # 4. Update Team Memory
         # Add the system message to the memory
         if run_messages.system_message is not None:
-            self.memory.add_system_message(run_messages.system_message, system_message_role="system")  # type: ignore
+            self.memory.add_system_message(run_messages.system_message, system_message_role="system")
 
         # Build a list of messages that should be added to the AgentMemory
         messages_for_memory: List[Message] = (
@@ -930,8 +930,7 @@ class Team:
             if _rm.add_to_agent_memory:
                 messages_for_memory.append(_rm)
         if len(messages_for_memory) > 0:
-            self.memory.add_messages(messages=messages_for_memory)  # type: ignore
-
+            self.memory.add_messages(messages=messages_for_memory)
         team_run = TeamRun(response=run_response)
         team_run.message = run_messages.user_message
 
@@ -945,7 +944,7 @@ class Team:
             self.memory.update_memory(input=run_messages.user_message.get_content_string())
 
         # Add AgentRun to memory
-        self.memory.add_team_run(team_run)  # type: ignore
+        self.memory.add_team_run(team_run)
 
         # 5. Calculate session metrics
         self.session_metrics = self._calculate_session_metrics()
@@ -4112,9 +4111,7 @@ class Team:
             # Update the team state
             self._update_team_state(member_agent.run_response)  # type: ignore
 
-        async def aforward_task_to_member(
-            agent_name: str, expected_output: Optional[str] = None
-        ) -> AsyncIterator[str]:
+        async def aforward_task_to_member(agent_name: str, expected_output: Optional[str] = None) -> AsyncIterator[str]:
             """
             Use this function to forward a message to the nominated agent.
             Args:

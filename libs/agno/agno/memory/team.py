@@ -161,10 +161,10 @@ class TeamMemory:
                     audio.extend(interaction.response.audio)
         return audio
 
-    def add_team_run(self, agent_run: TeamRun) -> None:
-        """Adds an AgentRun to the runs list."""
-        self.runs.append(agent_run)
-        log_debug("Added AgentRun to AgentMemory")
+    def add_team_run(self, team_run: TeamRun) -> None:
+        """Adds an TeamRun to the runs list."""
+        self.runs.append(team_run)
+        log_debug("Added TeamRun to TeamMemory")
 
     def add_system_message(self, message: Message, system_message_role: str = "system") -> None:
         """Add the system messages to the messages list"""
@@ -192,7 +192,7 @@ class TeamMemory:
     def add_messages(self, messages: List[Message]) -> None:
         """Add a list of messages to the messages list."""
         self.messages.extend(messages)
-        log_debug(f"Added {len(messages)} Messages to AgentMemory")
+        log_debug(f"Added {len(messages)} Messages to TeamMemory")
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """Returns the messages list as a list of dictionaries."""

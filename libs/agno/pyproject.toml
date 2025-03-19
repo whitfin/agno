@@ -302,6 +302,7 @@ module = [
   "tavily.*",
   "textract.*",
   "timeout_decorator.*",
+  "tiktoken.*",
   "torch.*",
   "todoist_api_python.*",
   "tweepy.*",

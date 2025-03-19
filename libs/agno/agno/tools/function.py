@@ -4,7 +4,7 @@ from docstring_parser import parse
 from pydantic import BaseModel, Field, validate_call
 
 from agno.exceptions import AgentRunException
-from agno.utils.log import get_logger
+from agno.utils.log import log_debug, log_exception, log_warning
 
 T = TypeVar("T")
 
@@ -83,7 +83,7 @@ class Function(BaseModel):
             # If function has an the agent argument, remove the agent parameter from the type hints
             if "agent" in sig.parameters:
                 del type_hints["agent"]
-            # logger.info(f"Type hints for {function_name}: {type_hints}")
+            # log_info(f"Type hints for {function_name}: {type_hints}")
 
             # Filter out return type and only process parameters
             param_type_hints = {
@@ -120,9 +120,9 @@ class Function(BaseModel):
                     if param.default == param.empty and name != "self" and name != "agent"
                 ]
 
-            # logger.debug(f"JSON schema for {function_name}: {parameters}")
+            # log_debug(f"JSON schema for {function_name}: {parameters}")
         except Exception as e:
-            get_logger().warning(f"Could not parse args for {function_name}: {e}", exc_info=True)
+            log_warning(f"Could not parse args for {function_name}: {e}", exc_info=True)
 
         if isasyncgenfunction(c):
             entrypoint = c
@@ -161,7 +161,7 @@ class Function(BaseModel):
             # If function has an the agent argument, remove the agent parameter from the type hints
             if "agent" in sig.parameters:
                 del type_hints["agent"]
-            # logger.info(f"Type hints for {self.name}: {type_hints}")
+            # log_info(f"Type hints for {self.name}: {type_hints}")
 
             # Filter out return type and only process parameters
             param_type_hints = {
@@ -200,9 +200,9 @@ class Function(BaseModel):
                     if param.default == param.empty and name != "self" and name != "agent"
                 ]
 
-            # logger.debug(f"JSON schema for {self.name}: {parameters}")
+            # log_debug(f"JSON schema for {self.name}: {parameters}")
         except Exception as e:
-            get_logger().warning(f"Could not parse args for {self.name}: {e}", exc_info=True)
+            log_warning(f"Could not parse args for {self.name}: {e}", exc_info=True)
 
         self.description = self.description or get_entrypoint_docstring(self.entrypoint)
         if not params_set_by_user:
@@ -291,7 +291,6 @@ class FunctionCall(BaseModel):
 
     def _handle_pre_hook(self):
         """Handles the pre-hook for the function call."""
-        logger = get_logger()
         if self.function.pre_hook is not None:
             try:
                 from inspect import signature
@@ -305,16 +304,15 @@ class FunctionCall(BaseModel):
                     pre_hook_args["fc"] = self
                 self.function.pre_hook(**pre_hook_args)
             except AgentRunException as e:
-                logger.debug(f"{e.__class__.__name__}: {e}")
+                log_debug(f"{e.__class__.__name__}: {e}")
                 self.error = str(e)
                 raise
             except Exception as e:
-                logger.warning(f"Error in pre-hook callback: {e}")
-                logger.exception(e)
+                log_warning(f"Error in pre-hook callback: {e}")
+                log_exception(e)
 
     def _handle_post_hook(self):
         """Handles the post-hook for the function call."""
-        logger = get_logger()
         if self.function.post_hook is not None:
             try:
                 from inspect import signature
@@ -328,12 +326,12 @@ class FunctionCall(BaseModel):
                     post_hook_args["fc"] = self
                 self.function.post_hook(**post_hook_args)
             except AgentRunException as e:
-                logger.debug(f"{e.__class__.__name__}: {e}")
+                log_debug(f"{e.__class__.__name__}: {e}")
                 self.error = str(e)
                 raise
             except Exception as e:
-                logger.warning(f"Error in post-hook callback: {e}")
-                logger.exception(e)
+                log_warning(f"Error in post-hook callback: {e}")
+                log_exception(e)
 
     def _build_entrypoint_args(self) -> Dict[str, Any]:
         """Builds the arguments for the entrypoint."""
@@ -355,11 +353,10 @@ class FunctionCall(BaseModel):
         The result of the function call is stored in self.result.
         """
 
-        logger = get_logger()
         if self.function.entrypoint is None:
             return False
 
-        logger.debug(f"Running: {self.get_call_str()}")
+        log_debug(f"Running: {self.get_call_str()}")
         function_call_success = False
 
         # Execute pre-hook if it exists
@@ -372,12 +369,12 @@ class FunctionCall(BaseModel):
                 self.result = self.function.entrypoint(**entrypoint_args)
                 function_call_success = True
             except AgentRunException as e:
-                logger.debug(f"{e.__class__.__name__}: {e}")
+                log_debug(f"{e.__class__.__name__}: {e}")
                 self.error = str(e)
                 raise
             except Exception as e:
-                logger.warning(f"Could not run function {self.get_call_str()}")
-                logger.exception(e)
+                log_warning(f"Could not run function {self.get_call_str()}")
+                log_exception(e)
                 self.error = str(e)
                 return function_call_success
         else:
@@ -386,12 +383,12 @@ class FunctionCall(BaseModel):
                 self.result = self.function.entrypoint(**entrypoint_args, **self.arguments)
                 function_call_success = True
             except AgentRunException as e:
-                logger.debug(f"{e.__class__.__name__}: {e}")
+                log_debug(f"{e.__class__.__name__}: {e}")
                 self.error = str(e)
                 raise
             except Exception as e:
-                logger.warning(f"Could not run function {self.get_call_str()}")
-                logger.exception(e)
+                log_warning(f"Could not run function {self.get_call_str()}")
+                log_exception(e)
                 self.error = str(e)
                 return function_call_success
 
@@ -408,11 +405,10 @@ class FunctionCall(BaseModel):
         """
         from inspect import isasyncgenfunction
 
-        logger = get_logger()
         if self.function.entrypoint is None:
             return False
 
-        logger.debug(f"Running: {self.get_call_str()}")
+        log_debug(f"Running: {self.get_call_str()}")
         function_call_success = False
 
         # Execute pre-hook if it exists
@@ -428,12 +424,12 @@ class FunctionCall(BaseModel):
                     self.result = await self.function.entrypoint(**entrypoint_args)
                 function_call_success = True
             except AgentRunException as e:
-                logger.debug(f"{e.__class__.__name__}: {e}")
+                log_debug(f"{e.__class__.__name__}: {e}")
                 self.error = str(e)
                 raise
             except Exception as e:
-                logger.warning(f"Could not run function {self.get_call_str()}")
-                logger.exception(e)
+                log_warning(f"Could not run function {self.get_call_str()}")
+                log_exception(e)
                 self.error = str(e)
                 return function_call_success
         else:
@@ -446,12 +442,12 @@ class FunctionCall(BaseModel):
                     self.result = await self.function.entrypoint(**entrypoint_args, **self.arguments)
                 function_call_success = True
             except AgentRunException as e:
-                logger.debug(f"{e.__class__.__name__}: {e}")
+                log_debug(f"{e.__class__.__name__}: {e}")
                 self.error = str(e)
                 raise
             except Exception as e:
-                logger.warning(f"Could not run function {self.get_call_str()}")
-                logger.exception(e)
+                log_warning(f"Could not run function {self.get_call_str()}")
+                log_exception(e)
                 self.error = str(e)
                 return function_call_success
 

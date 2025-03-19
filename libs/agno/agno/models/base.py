@@ -11,7 +11,7 @@ from agno.media import AudioResponse
 from agno.models.message import Citations, Message, MessageMetrics
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.tools.function import Function, FunctionCall
-from agno.utils.log import get_logger
+from agno.utils.log import log_debug, log_error, log_warning
 from agno.utils.timer import Timer
 from agno.utils.tools import get_function_call_for_tool_call
 
@@ -163,10 +163,10 @@ class Model(ABC):
         Returns:
             ModelResponse: The model's response
         """
-        logger = get_logger()
-        logger.debug(f" {self.get_provider()} Response Start ", center=True, symbol="-")
-        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
-        logger.debug("")
+
+        log_debug(f" {self.get_provider()} Response Start ", center=True, symbol="-")
+        log_debug(f" Model: {self.id} ", center=True, symbol="-")
+        log_debug("")
 
         self._log_messages(messages)
         model_response = ModelResponse()
@@ -221,8 +221,8 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f" {self.get_provider()} Response End ", center=True, symbol="-")
-        logger.debug("")
+        log_debug(f" {self.get_provider()} Response End ", center=True, symbol="-")
+        log_debug("")
         return model_response
 
     async def aresponse(self, messages: List[Message]) -> ModelResponse:
@@ -235,10 +235,10 @@ class Model(ABC):
         Returns:
             ModelResponse: The model's response
         """
-        logger = get_logger()
-        logger.debug(f" {self.get_provider()} Async Response Start ", center=True, symbol="-")
-        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
-        logger.debug("")
+
+        log_debug(f" {self.get_provider()} Async Response Start ", center=True, symbol="-")
+        log_debug(f" Model: {self.id} ", center=True, symbol="-")
+        log_debug("")
         self._log_messages(messages)
         model_response = ModelResponse()
 
@@ -292,8 +292,8 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f" {self.get_provider()} Async Response End ", center=True, symbol="-")
-        logger.debug("")
+        log_debug(f" {self.get_provider()} Async Response End ", center=True, symbol="-")
+        log_debug("")
         return model_response
 
     def _process_model_response(
@@ -489,10 +489,10 @@ class Model(ABC):
         Returns:
             Iterator[ModelResponse]: Iterator of model responses
         """
-        logger = get_logger()
-        logger.debug(f" {self.get_provider()} Response Stream Start ", center=True, symbol="-")
-        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
-        logger.debug("")
+
+        log_debug(f" {self.get_provider()} Response Stream Start ", center=True, symbol="-")
+        log_debug(f" Model: {self.id} ", center=True, symbol="-")
+        log_debug("")
         self._log_messages(messages)
 
         while True:
@@ -564,8 +564,8 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f" {self.get_provider()} Response Stream End ", center=True, symbol="-")
-        logger.debug("")
+        log_debug(f" {self.get_provider()} Response Stream End ", center=True, symbol="-")
+        log_debug("")
 
     async def aprocess_response_stream(
         self, messages: List[Message], assistant_message: Message, stream_data: MessageData
@@ -590,10 +590,10 @@ class Model(ABC):
         Returns:
             AsyncIterator[ModelResponse]: Async iterator of model responses
         """
-        logger = get_logger()
-        logger.debug(f" {self.get_provider()} Async Response Stream Start ", center=True, symbol="-")
-        logger.debug(f" Model: {self.id} ", center=True, symbol="-")
-        logger.debug("")
+
+        log_debug(f" {self.get_provider()} Async Response Stream Start ", center=True, symbol="-")
+        log_debug(f" Model: {self.id} ", center=True, symbol="-")
+        log_debug("")
         self._log_messages(messages)
 
         while True:
@@ -665,8 +665,8 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
-        logger.debug(f" {self.get_provider()} Async Response Stream End ", center=True, symbol="-")
-        logger.debug("")
+        log_debug(f" {self.get_provider()} Async Response Stream End ", center=True, symbol="-")
+        log_debug("")
 
     def _populate_stream_data_and_assistant_message(
         self, stream_data: MessageData, assistant_message: Message, model_response: ModelResponse
@@ -805,7 +805,7 @@ class Model(ABC):
                     try:
                         additional_messages.append(Message(**m))
                     except Exception as e:
-                        get_logger().warning(f"Failed to convert dict to Message: {e}")
+                        log_warning(f"Failed to convert dict to Message: {e}")
 
         if a_exc.stop_execution:
             for m in additional_messages:
@@ -864,7 +864,7 @@ class Model(ABC):
                 # Set function call success to False if an exception occurred
                 function_call_success = False
             except Exception as e:
-                get_logger().error(f"Error executing function {fc.function.name}: {e}")
+                log_error(f"Error executing function {fc.function.name}: {e}")
                 function_call_success = False
                 raise e
 
@@ -928,7 +928,7 @@ class Model(ABC):
         except AgentRunException as e:
             success = e  # Pass the exception through to be handled by caller
         except Exception as e:
-            get_logger().error(f"Error executing function {function_call.function.name}: {e}")
+            log_error(f"Error executing function {function_call.function.name}: {e}")
             success = False
             raise e
 
@@ -964,7 +964,7 @@ class Model(ABC):
         for result in results:
             # If result is an exception, skip processing it
             if isinstance(result, BaseException):
-                get_logger().error(f"Error during function call: {result}")
+                log_error(f"Error during function call: {result}")
                 raise result
 
             # Unpack result

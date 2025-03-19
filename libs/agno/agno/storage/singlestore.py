@@ -6,7 +6,7 @@ from agno.storage.session import Session
 from agno.storage.session.agent import AgentSession
 from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
-from agno.utils.log import logger
+from agno.utils.log import log_debug, log_info, logger
 
 try:
     from sqlalchemy.dialects import mysql
@@ -132,7 +132,7 @@ class SingleStoreStorage(Storage):
             raise ValueError(f"Unsupported schema version: {self.schema_version}")
 
     def table_exists(self) -> bool:
-        logger.debug(f"Checking if table exists: {self.table.name}")
+        log_debug(f"Checking if table exists: {self.table.name}")
         try:
             return inspect(self.db_engine).has_table(self.table.name, schema=self.schema)
         except Exception as e:
@@ -142,7 +142,7 @@ class SingleStoreStorage(Storage):
     def create(self) -> None:
         self.table = self.get_table()
         if not self.table_exists():
-            logger.info(f"\nCreating table: {self.table_name}\n")
+            log_info(f"\nCreating table: {self.table_name}\n")
             self.table.create(self.db_engine)
 
     def _read(self, session: SqlSession, session_id: str, user_id: Optional[str] = None) -> Optional[Row[Any]]:
@@ -152,9 +152,9 @@ class SingleStoreStorage(Storage):
         try:
             return session.execute(stmt).first()
         except Exception as e:
-            logger.debug(f"Exception reading from table: {e}")
-            logger.debug(f"Table does not exist: {self.table.name}")
-            logger.debug(f"Creating table: {self.table_name}")
+            log_debug(f"Exception reading from table: {e}")
+            log_debug(f"Table does not exist: {self.table.name}")
+            log_debug(f"Creating table: {self.table_name}")
             self.create()
         return None
 
@@ -230,7 +230,7 @@ class SingleStoreStorage(Storage):
                             if _workflow_session is not None:
                                 sessions.append(_workflow_session)
         except Exception:
-            logger.debug(f"Table does not exist: {self.table.name}")
+            log_debug(f"Table does not exist: {self.table.name}")
         return sessions
 
     def upgrade_schema(self) -> None:
@@ -239,7 +239,7 @@ class SingleStoreStorage(Storage):
         Currently handles adding the team_id column for agent mode.
         """
         if not self.auto_upgrade_schema:
-            logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
+            log_debug("Auto schema upgrade disabled. Skipping upgrade.")
             return
 
         try:
@@ -259,11 +259,11 @@ class SingleStoreStorage(Storage):
                     )
 
                     if not column_exists:
-                        logger.info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
+                        log_info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
                         alter_table_query = text(f"ALTER TABLE {self.schema}.{self.table_name} ADD COLUMN team_id TEXT")
                         sess.execute(alter_table_query)
                         sess.commit()
-                        logger.info("Schema upgrade completed successfully")
+                        log_info("Schema upgrade completed successfully")
         except Exception as e:
             logger.error(f"Error during schema upgrade: {e}")
             raise
@@ -479,14 +479,14 @@ class SingleStoreStorage(Storage):
                 if result.rowcount == 0:
                     logger.warning(f"No session found with session_id: {session_id}")
                 else:
-                    logger.info(f"Successfully deleted session with session_id: {session_id}")
+                    log_info(f"Successfully deleted session with session_id: {session_id}")
             except Exception as e:
                 logger.error(f"Error deleting session: {e}")
                 raise
 
     def drop(self) -> None:
         if self.table_exists():
-            logger.info(f"Deleting table: {self.table_name}")
+            log_info(f"Deleting table: {self.table_name}")
             self.table.drop(self.db_engine)
 
     def __deepcopy__(self, memo):

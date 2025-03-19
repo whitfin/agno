@@ -14,7 +14,7 @@ from agno.memory.memory import Memory
 from agno.models.message import Message
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.utils.log import get_logger
+from agno.utils.log import log_debug, log_info, log_warning
 
 
 @dataclass
@@ -111,7 +111,7 @@ class TeamMemory:
                 response=run_response,
             )
         )
-        get_logger().debug(f"Updated team context with member name: {member_name}")
+        log_debug(f"Updated team context with member name: {member_name}")
 
     def set_team_context_text(self, text: str) -> None:
         if self.team_context:
@@ -164,7 +164,7 @@ class TeamMemory:
     def add_team_run(self, agent_run: TeamRun) -> None:
         """Adds an AgentRun to the runs list."""
         self.runs.append(agent_run)
-        get_logger().debug("Added AgentRun to AgentMemory")
+        log_debug("Added AgentRun to AgentMemory")
 
     def add_system_message(self, message: Message, system_message_role: str = "system") -> None:
         """Add the system messages to the messages list"""
@@ -183,7 +183,7 @@ class TeamMemory:
                     self.messages[system_message_index].content != message.content
                     and self.update_system_message_on_change
                 ):
-                    get_logger().info("Updating system message in memory with new content")
+                    log_info("Updating system message in memory with new content")
                     self.messages[system_message_index] = message
             else:
                 # Add the system message to the messages list
@@ -192,7 +192,7 @@ class TeamMemory:
     def add_messages(self, messages: List[Message]) -> None:
         """Add a list of messages to the messages list."""
         self.messages.extend(messages)
-        get_logger().debug(f"Added {len(messages)} Messages to AgentMemory")
+        log_debug(f"Added {len(messages)} Messages to AgentMemory")
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """Returns the messages list as a list of dictionaries."""
@@ -230,7 +230,7 @@ class TeamMemory:
 
                 messages_from_history.append(message)
 
-        get_logger().debug(f"Getting messages from previous runs: {len(messages_from_history)}")
+        log_debug(f"Getting messages from previous runs: {len(messages_from_history)}")
         return messages_from_history
 
     def get_all_messages(self) -> List[Tuple[Message, Message]]:
@@ -276,7 +276,7 @@ class TeamMemory:
             else:
                 raise NotImplementedError("Semantic retrieval not yet supported.")
         except Exception as e:
-            get_logger().debug(f"Error reading memory: {e}")
+            log_debug(f"Error reading memory: {e}")
             return
 
         # Clear the existing memories
@@ -290,7 +290,7 @@ class TeamMemory:
             try:
                 self.memories.append(Memory.model_validate(row.memory))
             except Exception as e:
-                get_logger().warning(f"Error loading memory: {e}")
+                log_warning(f"Error loading memory: {e}")
                 continue
 
     def should_update_memory(self, input: str) -> bool:
@@ -321,23 +321,22 @@ class TeamMemory:
 
     def update_memory(self, input: str, force: bool = False) -> Optional[str]:
         """Creates a memory from a message and adds it to the memory db."""
-        logger = get_logger()
 
         if input is None or not isinstance(input, str):
             return "Invalid message content"
 
         if self.db is None:
-            logger.warning("MemoryDb not provided.")
+            log_warning("MemoryDb not provided.")
             return "Please provide a db to store memories"
 
         self.updating_memory = True
 
         # Check if this user message should be added to long term memory
         should_update_memory = force or self.should_update_memory(input=input)
-        logger.debug(f"Update memory: {should_update_memory}")
+        log_debug(f"Update memory: {should_update_memory}")
 
         if not should_update_memory:
-            logger.debug("Memory update not required")
+            log_debug("Memory update not required")
             return "Memory update not required"
 
         if self.manager is None:
@@ -354,23 +353,21 @@ class TeamMemory:
 
     async def aupdate_memory(self, input: str, force: bool = False) -> Optional[str]:
         """Creates a memory from a message and adds it to the memory db."""
-        logger = get_logger()
-
         if input is None or not isinstance(input, str):
             return "Invalid message content"
 
         if self.db is None:
-            logger.warning("MemoryDb not provided.")
+            log_warning("MemoryDb not provided.")
             return "Please provide a db to store memories"
 
         self.updating_memory = True
 
         # Check if this user message should be added to long term memory
         should_update_memory = force or await self.ashould_update_memory(input=input)
-        logger.debug(f"Async update memory: {should_update_memory}")
+        log_debug(f"Async update memory: {should_update_memory}")
 
         if not should_update_memory:
-            logger.debug("Memory update not required")
+            log_debug("Memory update not required")
             return "Memory update not required"
 
         if self.manager is None:

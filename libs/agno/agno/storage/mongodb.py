@@ -7,7 +7,7 @@ from agno.storage.session import Session
 from agno.storage.session.agent import AgentSession
 from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
-from agno.utils.log import logger
+from agno.utils.log import log_debug, logger
 
 try:
     from pymongo import MongoClient
@@ -222,9 +222,9 @@ class MongoDbStorage(Storage):
         try:
             result = self.collection.delete_one({"session_id": session_id})
             if result.deleted_count == 0:
-                logger.debug(f"No session found with session_id: {session_id}")
+                log_debug(f"No session found with session_id: {session_id}")
             else:
-                logger.debug(f"Successfully deleted session with session_id: {session_id}")
+                log_debug(f"Successfully deleted session with session_id: {session_id}")
         except PyMongoError as e:
             logger.error(f"Error deleting session: {e}")
 

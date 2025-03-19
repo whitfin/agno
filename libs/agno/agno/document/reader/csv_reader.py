@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 
 from agno.document.base import Document
 from agno.document.reader.base import Reader
-from agno.utils.log import logger
+from agno.utils.log import log_info, logger
 
 
 class CSVReader(Reader):
@@ -19,10 +19,10 @@ class CSVReader(Reader):
             if isinstance(file, Path):
                 if not file.exists():
                     raise FileNotFoundError(f"Could not find file: {file}")
-                logger.info(f"Reading: {file}")
+                log_info(f"Reading: {file}")
                 file_content = file.open(newline="", mode="r", encoding="utf-8")
             else:
-                logger.info(f"Reading uploaded file: {file.name}")
+                log_info(f"Reading uploaded file: {file.name}")
                 file.seek(0)
                 file_content = io.StringIO(file.read().decode("utf-8"))  # type: ignore
 
@@ -76,7 +76,7 @@ class CSVUrlReader(Reader):
         except ImportError:
             raise ImportError("`httpx` not installed")
 
-        logger.info(f"Reading: {url}")
+        log_info(f"Reading: {url}")
         # Retry the request up to 3 times with exponential backoff
         for attempt in range(3):
             try:

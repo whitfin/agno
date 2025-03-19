@@ -78,6 +78,7 @@ multi_language_team = Team(
         "For unsupported languages like Italian, respond in English with the above message.",
     ],
     show_members_responses=True,
+    debug_mode=True,
 )
 
 

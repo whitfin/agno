@@ -29,7 +29,7 @@ class MovieScript(BaseModel):
 
 agent = Agent(
     model=MistralChat(
-        id="mistral-large-latest",
+        id="mistral-small-latest",
     ),
     tools=[DuckDuckGoTools()],
     description="You help people write movie scripts.",

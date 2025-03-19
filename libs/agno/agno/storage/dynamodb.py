@@ -8,7 +8,7 @@ from agno.storage.session import Session
 from agno.storage.session.agent import AgentSession
 from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
-from agno.utils.log import logger
+from agno.utils.log import log_debug, log_info, logger
 
 try:
     import boto3
@@ -64,7 +64,7 @@ class DynamoDbStorage(Storage):
         # Optionally create table if it does not exist
         if self.create_table_if_not_exists:
             self.create()
-        logger.debug(f"Initialized DynamoDbStorage with table '{self.table_name}'")
+        log_debug(f"Initialized DynamoDbStorage with table '{self.table_name}'")
 
     @property
     def mode(self) -> Literal["agent", "team", "workflow"]:
@@ -86,10 +86,10 @@ class DynamoDbStorage(Storage):
         try:
             # Check if table exists
             self.dynamodb.meta.client.describe_table(TableName=self.table_name)
-            logger.debug(f"Table '{self.table_name}' already exists.")
+            log_debug(f"Table '{self.table_name}' already exists.")
         except ClientError as e:
             if e.response["Error"]["Code"] == "ResourceNotFoundException":
-                logger.debug(f"Creating table '{self.table_name}'.")
+                log_debug(f"Creating table '{self.table_name}'.")
 
                 if self.mode == "agent":
                     attribute_definitions = [
@@ -183,7 +183,7 @@ class DynamoDbStorage(Storage):
                 )
                 # Wait until the table exists.
                 self.table.wait_until_exists()
-                logger.debug(f"Table '{self.table_name}' created successfully.")
+                log_debug(f"Table '{self.table_name}' created successfully.")
             else:
                 logger.error(f"Unable to create table '{self.table_name}': {e.response['Error']['Message']}")
         except Exception as e:
@@ -421,7 +421,7 @@ class DynamoDbStorage(Storage):
             return
         try:
             self.table.delete_item(Key={"session_id": session_id})
-            logger.info(f"Successfully deleted session with session_id: {session_id}")
+            log_info(f"Successfully deleted session with session_id: {session_id}")
         except Exception as e:
             logger.error(f"Error deleting session: {e}")
 
@@ -432,7 +432,7 @@ class DynamoDbStorage(Storage):
         try:
             self.table.delete()
             self.table.wait_until_not_exists()
-            logger.debug(f"Table '{self.table_name}' deleted successfully.")
+            log_debug(f"Table '{self.table_name}' deleted successfully.")
         except Exception as e:
             logger.error(f"Error deleting table '{self.table_name}': {e}")
 

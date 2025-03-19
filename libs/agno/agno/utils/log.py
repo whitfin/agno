@@ -92,15 +92,23 @@ team_logger: AgnoLogger = build_logger(TEAM_LOGGER_NAME, source_type="team")
 # Set the default logger to the agent logger
 logger: AgnoLogger = agent_logger
 
+debug_on: bool = False
+
 
 def set_log_level_to_debug(source_type: Optional[str] = None):
     _logger = logging.getLogger(LOGGER_NAME if source_type is None else f"{LOGGER_NAME}-{source_type}")
     _logger.setLevel(logging.DEBUG)
 
+    global debug_on
+    debug_on = True
+
 
 def set_log_level_to_info(source_type: Optional[str] = None):
     _logger = logging.getLogger(LOGGER_NAME if source_type is None else f"{LOGGER_NAME}-{source_type}")
     _logger.setLevel(logging.INFO)
+
+    global debug_on
+    debug_on = False
 
 
 def center_header(message: str, symbol: str = "*") -> str:
@@ -127,5 +135,28 @@ def use_agent_logger():
     logger = agent_logger
 
 
-def get_logger():
-    return logger
+def log_debug(msg, center: bool = False, symbol: str = "*", *args, **kwargs):
+    global logger
+    global debug_on
+    if debug_on:
+        log_debug(msg, center, symbol, *args, **kwargs)
+
+
+def log_info(msg, center: bool = False, symbol: str = "*", *args, **kwargs):
+    global logger
+    log_info(msg, center, symbol, *args, **kwargs)
+
+
+def log_warning(msg, *args, **kwargs):
+    global logger
+    logger.warning(msg, *args, **kwargs)
+
+
+def log_error(msg, *args, **kwargs):
+    global logger
+    logger.error(msg, *args, **kwargs)
+
+
+def log_exception(msg, *args, **kwargs):
+    global logger
+    logger.exception(msg, *args, **kwargs)

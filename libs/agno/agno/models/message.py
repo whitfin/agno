@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from agno.media import Audio, AudioResponse, File, Image, Video
-from agno.utils.log import get_logger
+from agno.utils.log import log_debug, log_error, log_info, log_warning
 from agno.utils.timer import Timer
 
 
@@ -280,13 +280,13 @@ class Message(BaseModel):
             level (str): The level to log the message at. One of debug, info, warning, or error.
                 Defaults to debug.
         """
-        _logger = get_logger().debug
+        _logger = log_debug
         if level == "info":
-            _logger = get_logger().info
+            _logger = log_info
         elif level == "warning":
-            _logger = get_logger().warning
+            _logger = log_warning
         elif level == "error":
-            _logger = get_logger().error
+            _logger = log_error
 
         try:
             import shutil

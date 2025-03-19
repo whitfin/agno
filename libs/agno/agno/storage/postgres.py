@@ -6,7 +6,7 @@ from agno.storage.session import Session
 from agno.storage.session.agent import AgentSession
 from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
-from agno.utils.log import logger
+from agno.utils.log import log_debug, log_info, logger
 
 try:
     from sqlalchemy.dialects import postgresql
@@ -75,7 +75,7 @@ class PostgresStorage(Storage):
         self.Session: scoped_session = scoped_session(sessionmaker(bind=self.db_engine))
         # Database table for storage
         self.table: Table = self.get_table()
-        logger.debug(f"Created PostgresStorage: '{self.schema}.{self.table_name}'")
+        log_debug(f"Created PostgresStorage: '{self.schema}.{self.table_name}'")
 
     @property
     def mode(self) -> Literal["agent", "team", "workflow"]:
@@ -174,7 +174,7 @@ class PostgresStorage(Storage):
                     exists_query = text("SELECT 1 FROM information_schema.tables WHERE table_name = :table")
                     exists = sess.execute(exists_query, {"table": self.table_name}).scalar() is not None
 
-            logger.debug(f"Table '{self.table.fullname}' does{' not ' if not exists else ' '}exist")
+            log_debug(f"Table '{self.table.fullname}' does{' not ' if not exists else ' '}exist")
             return exists
 
         except Exception as e:
@@ -190,10 +190,10 @@ class PostgresStorage(Storage):
             try:
                 with self.Session() as sess, sess.begin():
                     if self.schema is not None:
-                        logger.debug(f"Creating schema: {self.schema}")
+                        log_debug(f"Creating schema: {self.schema}")
                         sess.execute(text(f"CREATE SCHEMA IF NOT EXISTS {self.schema};"))
 
-                logger.debug(f"Creating table: {self.table_name}")
+                log_debug(f"Creating table: {self.table_name}")
 
                 # First create the table without indexes
                 table_without_indexes = Table(
@@ -208,7 +208,7 @@ class PostgresStorage(Storage):
                 for idx in self.table.indexes:
                     try:
                         idx_name = idx.name
-                        logger.debug(f"Creating index: {idx_name}")
+                        log_debug(f"Creating index: {idx_name}")
 
                         # Check if index already exists
                         with self.Session() as sess:
@@ -227,7 +227,7 @@ class PostgresStorage(Storage):
                         if not exists:
                             idx.create(self.db_engine)
                         else:
-                            logger.debug(f"Index {idx_name} already exists, skipping creation")
+                            log_debug(f"Index {idx_name} already exists, skipping creation")
 
                     except Exception as e:
                         # Log the error but continue with other indexes
@@ -262,11 +262,11 @@ class PostgresStorage(Storage):
                     return WorkflowSession.from_dict(result._mapping) if result is not None else None
         except Exception as e:
             if "does not exist" in str(e):
-                logger.debug(f"Table does not exist: {self.table.name}")
-                logger.debug("Creating table for future transactions")
+                log_debug(f"Table does not exist: {self.table.name}")
+                log_debug("Creating table for future transactions")
                 self.create()
             else:
-                logger.debug(f"Exception reading from table: {e}")
+                log_debug(f"Exception reading from table: {e}")
         return None
 
     def get_all_session_ids(self, user_id: Optional[str] = None, entity_id: Optional[str] = None) -> List[str]:
@@ -300,9 +300,9 @@ class PostgresStorage(Storage):
                 rows = sess.execute(stmt).fetchall()
                 return [row[0] for row in rows] if rows is not None else []
         except Exception as e:
-            logger.debug(f"Exception reading from table: {e}")
-            logger.debug(f"Table does not exist: {self.table.name}")
-            logger.debug("Creating table for future transactions")
+            log_debug(f"Exception reading from table: {e}")
+            log_debug(f"Table does not exist: {self.table.name}")
+            log_debug("Creating table for future transactions")
             self.create()
         return []
 
@@ -344,9 +344,9 @@ class PostgresStorage(Storage):
                 else:
                     return []
         except Exception as e:
-            logger.debug(f"Exception reading from table: {e}")
-            logger.debug(f"Table does not exist: {self.table.name}")
-            logger.debug("Creating table for future transactions")
+            log_debug(f"Exception reading from table: {e}")
+            log_debug(f"Table does not exist: {self.table.name}")
+            log_debug("Creating table for future transactions")
             self.create()
         return []
 
@@ -356,7 +356,7 @@ class PostgresStorage(Storage):
         Currently handles adding the team_id column for agent mode.
         """
         if not self.auto_upgrade_schema:
-            logger.debug("Auto schema upgrade disabled. Skipping upgrade.")
+            log_debug("Auto schema upgrade disabled. Skipping upgrade.")
             return
 
         try:
@@ -376,11 +376,11 @@ class PostgresStorage(Storage):
                     )
 
                     if not column_exists:
-                        logger.info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
+                        log_info(f"Adding 'team_id' column to {self.schema}.{self.table_name}")
                         alter_table_query = text(f"ALTER TABLE {self.schema}.{self.table_name} ADD COLUMN team_id TEXT")
                         sess.execute(alter_table_query)
                         sess.commit()
-                        logger.info("Schema upgrade completed successfully")
+                        log_info("Schema upgrade completed successfully")
         except Exception as e:
             logger.error(f"Error during schema upgrade: {e}")
             raise
@@ -480,10 +480,10 @@ class PostgresStorage(Storage):
 
                 sess.execute(stmt)
         except Exception as e:
-            logger.debug(f"Exception upserting into table: {e}")
+            log_debug(f"Exception upserting into table: {e}")
             if create_and_retry and not self.table_exists():
-                logger.debug(f"Table does not exist: {self.table.name}")
-                logger.debug("Creating table and retrying upsert")
+                log_debug(f"Table does not exist: {self.table.name}")
+                log_debug("Creating table and retrying upsert")
                 self.create()
                 return self.upsert(session, create_and_retry=False)
             return None
@@ -509,9 +509,9 @@ class PostgresStorage(Storage):
                 delete_stmt = self.table.delete().where(self.table.c.session_id == session_id)
                 result = sess.execute(delete_stmt)
                 if result.rowcount == 0:
-                    logger.debug(f"No session found with session_id: {session_id}")
+                    log_debug(f"No session found with session_id: {session_id}")
                 else:
-                    logger.debug(f"Successfully deleted session with session_id: {session_id}")
+                    log_debug(f"Successfully deleted session with session_id: {session_id}")
         except Exception as e:
             logger.error(f"Error deleting session: {e}")
 
@@ -520,7 +520,7 @@ class PostgresStorage(Storage):
         Drop the table from the database if it exists.
         """
         if self.table_exists():
-            logger.debug(f"Deleting table: {self.table_name}")
+            log_debug(f"Deleting table: {self.table_name}")
             # Drop with checkfirst=True to avoid errors if the table doesn't exist
             self.table.drop(self.db_engine, checkfirst=True)
             # Clear metadata to ensure indexes are recreated properly

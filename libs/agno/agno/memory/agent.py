@@ -12,7 +12,7 @@ from agno.memory.summarizer import MemorySummarizer
 from agno.memory.summary import SessionSummary
 from agno.models.message import Message
 from agno.run.response import RunResponse
-from agno.utils.log import logger
+from agno.utils.log import log_debug, log_info, logger
 
 
 class AgentRun(BaseModel):
@@ -97,7 +97,7 @@ class AgentMemory(BaseModel):
     def add_run(self, agent_run: AgentRun) -> None:
         """Adds an AgentRun to the runs list."""
         self.runs.append(agent_run)
-        logger.debug("Added AgentRun to AgentMemory")
+        log_debug("Added AgentRun to AgentMemory")
 
     def add_system_message(self, message: Message, system_message_role: str = "system") -> None:
         """Add the system messages to the messages list"""
@@ -116,7 +116,7 @@ class AgentMemory(BaseModel):
                     self.messages[system_message_index].content != message.content
                     and self.update_system_message_on_change
                 ):
-                    logger.info("Updating system message in memory with new content")
+                    log_info("Updating system message in memory with new content")
                     self.messages[system_message_index] = message
             else:
                 # Add the system message to the messages list
@@ -125,7 +125,7 @@ class AgentMemory(BaseModel):
     def add_messages(self, messages: List[Message]) -> None:
         """Add a list of messages to the messages list."""
         self.messages.extend(messages)
-        logger.debug(f"Added {len(messages)} Messages to AgentMemory")
+        log_debug(f"Added {len(messages)} Messages to AgentMemory")
 
     def get_messages(self) -> List[Dict[str, Any]]:
         """Returns the messages list as a list of dictionaries."""
@@ -163,7 +163,7 @@ class AgentMemory(BaseModel):
 
                 messages_from_history.append(message)
 
-        logger.debug(f"Getting messages from previous runs: {len(messages_from_history)}")
+        log_debug(f"Getting messages from previous runs: {len(messages_from_history)}")
         return messages_from_history
 
     def get_message_pairs(
@@ -228,7 +228,7 @@ class AgentMemory(BaseModel):
             else:
                 raise NotImplementedError("Semantic retrieval not yet supported.")
         except Exception as e:
-            logger.debug(f"Error reading memory: {e}")
+            log_debug(f"Error reading memory: {e}")
             return
 
         # Clear the existing memories
@@ -286,10 +286,10 @@ class AgentMemory(BaseModel):
 
         # Check if this user message should be added to long term memory
         should_update_memory = force or self.should_update_memory(input=input)
-        logger.debug(f"Update memory: {should_update_memory}")
+        log_debug(f"Update memory: {should_update_memory}")
 
         if not should_update_memory:
-            logger.debug("Memory update not required")
+            log_debug("Memory update not required")
             return "Memory update not required"
 
         if self.manager is None:
@@ -319,10 +319,10 @@ class AgentMemory(BaseModel):
 
         # Check if this user message should be added to long term memory
         should_update_memory = force or await self.ashould_update_memory(input=input)
-        logger.debug(f"Async update memory: {should_update_memory}")
+        log_debug(f"Async update memory: {should_update_memory}")
 
         if not should_update_memory:
-            logger.debug("Memory update not required")
+            log_debug("Memory update not required")
             return "Memory update not required"
 
         if self.manager is None:

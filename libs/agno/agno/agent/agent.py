@@ -3585,6 +3585,7 @@ class Agent:
                     run_data=run_data,
                     session_id=agent_session.session_id,
                     agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
+                    team_id=self.team_id,
                 ),
                 monitor=self.monitoring,
             )
@@ -3609,6 +3610,7 @@ class Agent:
                     run_data=run_data,
                     session_id=agent_session.session_id,
                     agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
+                    team_id=self.team_id,
                 ),
                 monitor=self.monitoring,
             )

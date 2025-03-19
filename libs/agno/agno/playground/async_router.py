@@ -136,6 +136,7 @@ def get_async_playground_router(
             run_response = await team.arun(
                 message,
                 stream=True,
+                stream_intermediate_steps=True,
             )
             async for run_response_chunk in run_response:
                 run_response_chunk = cast(TeamRunResponse, run_response_chunk)

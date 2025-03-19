@@ -527,25 +527,23 @@ class Team:
 
             # Run the team
             try:
-                current_run_response = TeamRunResponse(
+                self.run_response = TeamRunResponse(
                     run_id=self.run_id, session_id=self.session_id, team_id=self.team_id
                 )
-                # Set the agent run_response at run start
-                self.run_response = current_run_response
                 # Configure the team leader model
-                current_run_response.model = self.model.id if self.model is not None else None
+                self.run_response.model = self.model.id if self.model is not None else None
 
                 # Prepare run messages
                 if self.mode == "route":
                     # In route mode the model shouldn't get images/audio/video
                     run_messages: RunMessages = self.get_run_messages(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         message=message,
                         **kwargs,
                     )
                 else:
                     run_messages = self.get_run_messages(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         message=message,
                         audio=audio,
                         images=images,
@@ -556,7 +554,7 @@ class Team:
 
                 if stream:
                     resp = self._run_stream(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         run_messages=run_messages,
                         stream_intermediate_steps=stream_intermediate_steps,
                     )
@@ -564,14 +562,11 @@ class Team:
                     return resp
                 else:
                     self._run(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         run_messages=run_messages,
                     )
 
-                    # Update agent run response
-                    self.run_response = current_run_response
-
-                    return current_run_response
+                    return self.run_response
 
             except ModelProviderError as e:
                 import time
@@ -1118,25 +1113,23 @@ class Team:
 
             # Run the team
             try:
-                current_run_response = TeamRunResponse(
+                self.run_response = TeamRunResponse(
                     run_id=self.run_id, session_id=self.session_id, team_id=self.team_id
                 )
-                # Set the agent run_response at run start
-                self.run_response = current_run_response
                 # Configure the team leader model
-                current_run_response.model = self.model.id if self.model is not None else None
+                self.run_response.model = self.model.id if self.model is not None else None
 
                 # Prepare run messages
                 if self.mode == "route":
                     # In route mode the model shouldn't get images/audio/video
                     run_messages: RunMessages = self.get_run_messages(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         message=message,
                         **kwargs,
                     )
                 else:
                     run_messages = self.get_run_messages(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         message=message,
                         audio=audio,
                         images=images,
@@ -1147,21 +1140,18 @@ class Team:
 
                 if stream:
                     resp = self._arun_stream(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         run_messages=run_messages,
                         stream_intermediate_steps=stream_intermediate_steps,
                     )
                     return resp
                 else:
                     await self._arun(
-                        run_response=current_run_response,
+                        run_response=self.run_response,
                         run_messages=run_messages,
                     )
 
-                    # Update agent run response
-                    self.run_response = current_run_response
-
-                    return current_run_response
+                    return self.run_response
 
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")

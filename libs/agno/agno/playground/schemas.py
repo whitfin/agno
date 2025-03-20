@@ -111,3 +111,4 @@ class TeamSessionResponse(BaseModel):
 
 class TeamRenameRequest(BaseModel):
     name: str
+    user_id: str

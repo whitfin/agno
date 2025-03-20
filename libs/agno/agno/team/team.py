@@ -4512,7 +4512,7 @@ class Team:
         # Get all instance attributes
         attributes = self.__dict__.copy()
 
-        excluded_fields = ["team_session", "session_name","_functions_for_model"]
+        excluded_fields = ["team_session", "session_name","_functions_for_model", "memory"]
         # Deep copy each field
         copied_attributes = {}
         for field_name, field_value in attributes.items():

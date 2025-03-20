@@ -703,7 +703,6 @@ def get_async_playground_router(
 
     @playground_router.post("/teams/{team_id}/sessions/{session_id}/rename")
     async def rename_team_session(
-        user_id: Optional[str],
         team_id: str, session_id: str, body: TeamRenameRequest):
         team = get_team_by_id(team_id, teams)
         if team is None:
@@ -712,7 +711,7 @@ def get_async_playground_router(
         if team.storage is None:
             raise HTTPException(status_code=404, detail="Team does not have storage enabled")
         
-        all_team_sessions: List[TeamSession] = team.storage.get_all_sessions(user_id=user_id, entity_id=team_id)
+        all_team_sessions: List[TeamSession] = team.storage.get_all_sessions(user_id=body.user_id, entity_id=team_id)
         for session in all_team_sessions:
             if session.session_id == session_id:
                 team.session_id = session_id

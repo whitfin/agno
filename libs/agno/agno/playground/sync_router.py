@@ -22,6 +22,7 @@ from agno.playground.schemas import (
     AgentRenameRequest,
     AgentSessionsResponse,
     TeamGetResponse,
+    TeamModel,
     TeamRenameRequest,
     TeamRunRequest,
     TeamSessionResponse,
@@ -513,7 +514,11 @@ def get_sync_playground_router(
             TeamGetResponse(
                 team_id=team.team_id,
                 name=team.name,
-                model=team.model,
+                model=TeamModel(
+                    name=team.model.name or team.model.__class__.__name__ if team.model else None,
+                    model=team.model.id if team.model else None,
+                    provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
+                ),      
                 success_criteria=team.success_criteria,
                 instructions=team.instructions,
                 description=team.description,
@@ -555,8 +560,11 @@ def get_sync_playground_router(
             success_criteria=team.success_criteria,
             instructions=team.instructions,
             storage=team.storage.__class__.__name__ if team.storage else None,
-            model=team.model,
-            members=[
+            model=TeamModel(
+                    name=team.model.name or team.model.__class__.__name__ if team.model else None,
+                    model=team.model.id if team.model else None,
+                    provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
+                ),            members=[
                 AgentGetResponse(
                     agent_id=member.agent_id,
                     name=member.name,

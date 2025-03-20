@@ -29,7 +29,7 @@ agno_assist_voice = Agent(
     instructions=_instructions,
     knowledge=agent_knowledge,
     tools=[PythonTools(base_dir=tmp_dir.joinpath("agents"), read_files=True)],
-    storage=SqliteStorage(table_name="agno_assist_sessions", db_file=str(tmp_dir.joinpath("agents.db"))),
+    storage=SqliteStorage(table_name="agno_assist_voice_sessions", db_file=str(tmp_dir.joinpath("agents.db"))),
     add_history_to_messages=True,
     add_datetime_to_instructions=True,
     markdown=True,

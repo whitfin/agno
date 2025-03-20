@@ -829,7 +829,7 @@ def test_create_repository(mock_github):
     
     assert result_data["name"] == "user/new-repo"
     assert result_data["url"] == "https://github.com/user/new-repo"
-    assert result_data["private"] == False
+    assert not result_data["private"]
     assert result_data["description"] == "A new test repository"
     
     # Test creating in organization
@@ -861,7 +861,7 @@ def test_create_repository(mock_github):
     )
     
     assert result_data["name"] == "test-org/org-repo"
-    assert result_data["private"] == True
+    assert result_data["private"]
     
     # Test error handling
     mock_user.create_repo.side_effect = GithubException(status=422, data={"message": "Repository creation failed"})
@@ -872,7 +872,7 @@ def test_create_repository(mock_github):
     assert "Repository creation failed" in result_data["error"]
 
 
-def test_get_pull_request_with_details(mock_github):
+def test_get_pull_request_with_comprehensive_details(mock_github):
     """Test getting comprehensive details of a pull request."""
     mock_client, mock_repo = mock_github
     github_tools = GithubTools()
@@ -1886,11 +1886,11 @@ def test_search_issues_and_prs(mock_github):
     
     assert result_data["results"][0]["number"] == 123
     assert result_data["results"][0]["title"] == "Bug: Fix critical issue"
-    assert result_data["results"][0]["is_pull_request"] == False
+    assert not result_data["results"][0]["is_pull_request"]
     
     assert result_data["results"][1]["number"] == 456
     assert result_data["results"][1]["title"] == "Feature: Add new feature"
-    assert result_data["results"][1]["is_pull_request"] == True
+    assert result_data["results"][1]["is_pull_request"]
     
     # Test search with filters
     result = github_tools.search_issues_and_prs(

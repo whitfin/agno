@@ -665,10 +665,8 @@ def get_async_playground_router(
         if team.storage is None:
             raise HTTPException(status_code=404, detail="Team does not have storage enabled")
 
-        print("storage", team.storage)
         try:
             all_team_sessions: List[TeamSession] = team.storage.get_all_sessions(user_id=user_id, entity_id=team_id)
-            print("ALL TEAM SESSIONS", all_team_sessions)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error retrieving sessions: {str(e)}")
 
@@ -715,7 +713,6 @@ def get_async_playground_router(
             raise HTTPException(status_code=404, detail="Team does not have storage enabled")
         
         all_team_sessions: List[TeamSession] = team.storage.get_all_sessions(user_id=user_id, entity_id=team_id)
-        print(all_team_sessions)
         for session in all_team_sessions:
             if session.session_id == session_id:
                 team.session_id = session_id

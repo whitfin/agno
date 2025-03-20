@@ -327,7 +327,6 @@ class PostgresStorage(Storage):
                     if self.mode == "agent":
                         stmt = stmt.where(self.table.c.agent_id == entity_id)
                     elif self.mode == "team":
-                        print("Mode is team", entity_id)
                         stmt = stmt.where(self.table.c.team_id == entity_id)
                     else:
                         stmt = stmt.where(self.table.c.workflow_id == entity_id)

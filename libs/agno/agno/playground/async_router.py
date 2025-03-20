@@ -24,6 +24,7 @@ from agno.playground.schemas import (
     TeamGetResponse,
     TeamRenameRequest,
     TeamRunRequest,
+    TeamModel,
     TeamSessionResponse,
     WorkflowGetResponse,
     WorkflowRenameRequest,
@@ -533,12 +534,17 @@ def get_async_playground_router(
     async def get_teams():
         if teams is None:
             return []
-        
-        return [
+
+        resp = [
             TeamGetResponse(
                 team_id=team.team_id,
                 name=team.name,
-                model=team.model,
+                model=TeamModel(
+                    name=team.model.name or team.model.__class__.__name__ if team.model else None,
+                    model=team.model.id if team.model else None,
+                    provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
+                ),
+                # model=team.model,
                 success_criteria=team.success_criteria,
                 instructions=team.instructions,
                 description=team.description,
@@ -565,6 +571,7 @@ def get_async_playground_router(
             )
             for team in teams
         ]
+        return resp
 
     @playground_router.get("/teams/{team_id}")
     async def get_team(team_id: str):

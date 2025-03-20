@@ -9,6 +9,11 @@ class AgentModel(BaseModel):
     model: Optional[str] = None
     provider: Optional[str] = None
 
+class TeamModel(BaseModel):
+    name: Optional[str] = None
+    model: Optional[str] = None
+    provider: Optional[str] = None
+
 
 class AgentGetResponse(BaseModel):
     agent_id: Optional[str] = None

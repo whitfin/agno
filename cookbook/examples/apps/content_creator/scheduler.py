@@ -1,15 +1,15 @@
 import datetime
 from typing import Any, Dict, Optional
+
 import requests
 from agno.run.response import RunResponse
-from dotenv import load_dotenv
-
 from agno.utils.log import logger
 from config import (
     HEADERS,
     TYPEFULLY_API_URL,
     PostType,
 )
+from dotenv import load_dotenv
 
 load_dotenv()
 

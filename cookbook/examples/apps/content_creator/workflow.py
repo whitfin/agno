@@ -6,11 +6,10 @@ from agno.run.response import RunEvent
 from agno.tools.firecrawl import FirecrawlTools
 from agno.utils.log import logger
 from agno.workflow import Workflow
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field
-
 from config import PostType
+from dotenv import load_dotenv
 from prompts import agents_config, tasks_config
+from pydantic import BaseModel, Field
 
 # Load environment variables
 load_dotenv()
@@ -74,7 +73,6 @@ class ContentPlanningWorkflow(Workflow):
 
     # Blog Analyzer Agent: Extracts blog content (title, sections) and converts it into Markdown format for further use.
     def create_blog_analyzer(self, model):
-
         return Agent(
             model=model,
             tools=[
@@ -90,7 +88,6 @@ class ContentPlanningWorkflow(Workflow):
     # Creates Agent for a Twitter thread from the blog content, each tweet is concise, engaging,
     # and logically connected with relevant media.
     def create_twitter_thread_planner(self, model):
-
         return Agent(
             model=model,
             description=f"{agents_config['twitter_thread_planner']['role']} - {agents_config['twitter_thread_planner']['goal']}",
@@ -104,7 +101,6 @@ class ContentPlanningWorkflow(Workflow):
     # Creates Agent to convert blog content into a structured LinkedIn post, optimized for a professional
     # audience with relevant hashtags.
     def create_linkedin_post_planner(self, model):
-
         return Agent(
             model=model,
             description=f"{agents_config['linkedin_post_planner']['role']} - {agents_config['linkedin_post_planner']['goal']}",
@@ -115,7 +111,9 @@ class ContentPlanningWorkflow(Workflow):
             response_model=LinkedInPost,  # Expects response to follow the LinkedInPost Pydantic model
         )
 
-    def scrape_blog_post(self, blog_analyzer, blog_post_url: str, use_cache: bool = True):
+    def scrape_blog_post(
+        self, blog_analyzer, blog_post_url: str, use_cache: bool = True
+    ):
         if use_cache and blog_post_url in self.session_state:
             print(f"Using cache for blog post: {blog_post_url}")
             return self.session_state[blog_post_url]

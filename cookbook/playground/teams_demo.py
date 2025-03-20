@@ -7,6 +7,8 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
 from agno.storage.postgres import PostgresStorage
 
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+
 web_agent = Agent(
     name="Web Agent",
     role="Search the web for information",
@@ -18,6 +20,7 @@ web_agent = Agent(
     ],
     show_tool_calls=True,
     markdown=True,
+    storage=PostgresStorage(table_name="web_agent", db_url=db_url),
 )
 
 finance_agent = Agent(
@@ -41,7 +44,6 @@ finance_agent = Agent(
     markdown=True,
 )
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 agent_team = Team(
     name="Financial News Team",
@@ -64,12 +66,12 @@ agent_team = Team(
     update_team_context=True,
     show_members_responses=True,
     debug_mode=True,
-    storage=PostgresStorage(table_name="financial_news_team", db_url=db_url),
-
+    storage=PostgresStorage(table_name="financial_news_team", db_url=db_url, mode="team"),
 )
 
 app = Playground(
     teams=[agent_team],
+    agents=[web_agent],
 ).get_app()
 
 if __name__ == "__main__":

@@ -81,6 +81,7 @@ class ContentPlanningWorkflow(Workflow):
             description=f"{agents_config['blog_analyzer']['role']} - {agents_config['blog_analyzer']['goal']}",
             instructions=[
                 f"{agents_config['blog_analyzer']['backstory']}",
+                tasks_config["analyze_blog"]["description"],  # Task-specific instructions for blog analysis
             ],
             response_model=BlogAnalyzer,  # Expects response to follow the BlogAnalyzer Pydantic model
         )
@@ -93,7 +94,8 @@ class ContentPlanningWorkflow(Workflow):
             description=f"{agents_config['twitter_thread_planner']['role']} - {agents_config['twitter_thread_planner']['goal']}",
             instructions=[
                 f"{agents_config['twitter_thread_planner']['backstory']}",
-                "\nEnsure the number of tweets in a thread should be within 6-10.",
+                tasks_config["create_twitter_thread_plan"]["description"],
+                "\n\nEnsure the number of tweets in a thread should be within 6-10.",
             ],
             response_model=Thread,  # Expects response to follow the Thread Pydantic model
         )

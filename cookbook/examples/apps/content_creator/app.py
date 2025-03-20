@@ -25,21 +25,13 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# custom_css()
-
 
 def init_session_state():
     """Initialize session state variables"""
     if "generated_content" not in st.session_state:
         st.session_state.generated_content = None
-    if "scheduled_content" not in st.session_state:
-        st.session_state.scheduled_content = []
     if "current_blog_url" not in st.session_state:
         st.session_state.current_blog_url = ""
-    if "workflow_instance" not in st.session_state:
-        st.session_state.workflow_instance = ContentPlanningWorkflow()
-    if "blog_content" not in st.session_state:
-        st.session_state.blog_content = None
 
 
 def main():

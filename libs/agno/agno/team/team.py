@@ -4253,6 +4253,10 @@ class Team:
         # -*- Log Agent session
         self._log_agent_session()
 
+    def delete_session(self, session_id: str) -> None:
+        """Delete the current session and save to storage"""
+        if self.storage is not None:
+            self.storage.delete_session(session_id=session_id)
         
     def load_team_session(self, session: TeamSession):
         """Load the existing TeamSession from an TeamSession (from the database)"""

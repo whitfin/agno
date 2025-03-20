@@ -723,12 +723,20 @@ def get_async_playground_router(
 
 
     @playground_router.delete("/teams/{team_id}/sessions/{session_id}")
-    async def delete_team_session(team_id: str, session_id: str):
+    async def delete_team_session(team_id: str, session_id: str, user_id: Optional[str] = Query(None, min_length=1)):
         team = get_team_by_id(team_id, teams)
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")
 
-        team.delete_session(session_id)
-        return JSONResponse(content={"message": f"successfully deleted team {team.name}"})
+        if team.storage is None:
+            raise HTTPException(status_code=404, detail="Team does not have storage enabled")
+
+        all_team_sessions: List[TeamSession] = team.storage.get_all_sessions(user_id=user_id, entity_id=team_id)
+        for session in all_team_sessions:
+            if session.session_id == session_id:
+                team.delete_session(session_id)
+                return JSONResponse(content={"message": f"successfully deleted team session {session_id}"})
+
+        raise HTTPException(status_code=404, detail="Session not found")
 
     return playground_router

@@ -523,7 +523,11 @@ def get_sync_playground_router(
                 instructions=team.instructions,
                 description=team.description,
                 mode=team.mode,
-                storage=team.storage.__class__.__name__ if team.storage else None,
+                storage={"name": team.storage.__class__.__name__} if team.storage else None,
+                expected_output=team.expected_output,
+                context=team.context,
+                enable_agentic_context=team.enable_agentic_context,
+                response_model=team.response_model,
                 members=[
                     AgentGetResponse(
                         agent_id=member.agent_id,
@@ -562,7 +566,11 @@ def get_sync_playground_router(
             mode=team.mode,
             success_criteria=team.success_criteria,
             instructions=team.instructions,
-            storage=team.storage.__class__.__name__ if team.storage else None,
+            storage={"name": team.storage.__class__.__name__} if team.storage else None,
+            expected_output=team.expected_output,
+            context=team.context,
+            enable_agentic_context=team.enable_agentic_context,
+            response_model=team.response_model,
             model=TeamModel(
                 name=team.model.name or team.model.__class__.__name__ if team.model else None,
                 model=team.model.id if team.model else None,

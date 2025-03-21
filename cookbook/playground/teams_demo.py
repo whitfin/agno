@@ -66,7 +66,7 @@ research_team = Team(
     description="A team of agents that research the web",
     members=[research_agent, simple_agent],
     model=OpenAIChat(id="gpt-4o"),
-    mode="coordinator",
+    mode="coordinate",
     team_id="research_team",
     success_criteria=dedent("""\
         A comprehensive research report with clear sections and data-driven insights.
@@ -102,6 +102,8 @@ agent_team = Team(
     storage=PostgresStorage(
         table_name="financial_news_team", db_url=db_url, mode="team"
     ),
+    expected_output="A good financial news report.",
+    context="List in Indian Rupees",
 )
 
 app = Playground(

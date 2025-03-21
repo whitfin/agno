@@ -93,10 +93,12 @@ class TeamGetResponse(BaseModel):
     success_criteria: Optional[str] = None
     instructions: Optional[Union[List[str], str, Callable]] = None
     members: Optional[List[AgentGetResponse]] = None
+    expected_output: Optional[str] = None
+    context: Optional[str] = None
+    enable_agentic_context: Optional[bool] = None
+    response_model: Optional[str] = None
+    storage: Optional[Dict[str, Any]] = None
     # workflows: Optional[List[WorkflowGetResponse]] = None
-    # created_at: Optional[int] = None
-    # updated_at: Optional[int] = None
-
 
 class TeamRunRequest(BaseModel):
     input: Dict[str, Any]

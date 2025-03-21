@@ -77,9 +77,7 @@ research_team = Team(
     add_datetime_to_instructions=True,
     show_tool_calls=True,
     markdown=True,
-    send_team_context_to_members=True,
-    send_team_member_interactions_to_members=False,
-    update_team_context=True,
+    enable_agentic_context=True,
 )
 
 agent_team = Team(
@@ -98,9 +96,7 @@ agent_team = Team(
     add_datetime_to_instructions=True,
     show_tool_calls=True,
     markdown=True,
-    send_team_context_to_members=True,
-    send_team_member_interactions_to_members=False,
-    update_team_context=True,
+    enable_agentic_context=True,
     show_members_responses=True,
     debug_mode=True,
     storage=PostgresStorage(

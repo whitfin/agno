@@ -6,6 +6,7 @@ from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
 from agno.storage.postgres import PostgresStorage
+from agno.tools.exa import ExaTools
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
@@ -44,11 +45,47 @@ finance_agent = Agent(
     markdown=True,
 )
 
+simple_agent = Agent(
+    name="Simple Agent",
+    role="Simple agent",
+    model=OpenAIChat(id="gpt-4o"),
+    instructions=["You are a simple agent"],
+)
+
+research_agent = Agent(
+    name="Research Agent",
+    role="Research agent",
+    model=OpenAIChat(id="gpt-4o"),
+    instructions=["You are a research agent"],
+    tools=[DuckDuckGoTools(), ExaTools()],
+    agent_id="research_agent",
+)
+
+research_team = Team(
+    name="Research Team",
+    description="A team of agents that research the web",
+    members=[research_agent, simple_agent],
+    model=OpenAIChat(id="gpt-4o"),
+    mode="coordinator",
+    team_id="research_team",
+    success_criteria=dedent("""\
+        A comprehensive research report with clear sections and data-driven insights.
+    """),
+    instructions=[
+        "You are the lead researcher of a research team! 🔍",
+    ],
+    add_datetime_to_instructions=True,
+    show_tool_calls=True,
+    markdown=True,
+    send_team_context_to_members=True,
+    send_team_member_interactions_to_members=False,
+    update_team_context=True,
+)
 
 agent_team = Team(
     name="Financial News Team",
     description="A team of agents that search the web for financial news and analyze it.",
-    members=[web_agent, finance_agent],
+    members=[web_agent, finance_agent, research_agent],
     model=OpenAIChat(id="gpt-4o"),
     mode="route",
     team_id="financial_news_team",
@@ -70,8 +107,8 @@ agent_team = Team(
 )
 
 app = Playground(
-    teams=[agent_team],
-    agents=[web_agent],
+    teams=[agent_team, research_team],
+    agents=[web_agent, finance_agent, research_agent, simple_agent],
 ).get_app()
 
 if __name__ == "__main__":

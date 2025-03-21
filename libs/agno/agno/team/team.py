@@ -3024,6 +3024,7 @@ class Team:
         if from_run_response:
             content = from_run_response.content
             content_type = from_run_response.content_type
+            tools = from_run_response.tools
             audio = from_run_response.audio
             images = from_run_response.images
             videos = from_run_response.videos
@@ -4358,7 +4359,7 @@ class Team:
         """Delete the current session and save to storage"""
         if self.storage is not None:
             self.storage.delete_session(session_id=session_id)
-        
+
     def load_team_session(self, session: TeamSession):
         """Load the existing TeamSession from an TeamSession (from the database)"""
         from agno.utils.merge_dict import merge_dictionaries
@@ -4635,34 +4636,34 @@ class Team:
 
     def _deep_copy_field(self, field_name: str, field_value: Any) -> Any:
         """Deep copy a single field value.
-        
+
         Args:
             field_name: Name of the field being copied
             field_value: Value to copy
-            
+
         Returns:
             Deep copied value
         """
         from copy import deepcopy
-        
+
         # Handle special cases
         if field_name == "members":
             # Deep copy each member
             if field_value is not None:
                 return [member.deep_copy() for member in field_value]
             return None
-            
+
         if field_name == "model":
             # Models should be copied directly without deep copy
             return field_value
-            
+
         if field_name == "memory":
             # Memory objects should be copied directly
             return field_value
-            
+
         if field_name == "storage":
-            # Storage objects should be copied directly  
+            # Storage objects should be copied directly
             return field_value
-            
+
         # Default to standard deep copy for other fields
         return deepcopy(field_value)

@@ -1,6 +1,6 @@
 """
 1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
-2. Run: `python cookbook/teams/coordinate/hackernews_team.py` to run the agent
+2. Run: `python cookbook/storage/singlestore_storage/singlestore_storage_for_team.py` to run the team
 """
 
 import os

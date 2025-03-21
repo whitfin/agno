@@ -1,12 +1,13 @@
-from agno.playground import Playground, serve_playground_app
 from textwrap import dedent
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
+from agno.playground import Playground, serve_playground_app
+from agno.storage.postgres import PostgresStorage
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.tools.yfinance import YFinanceTools
-from agno.storage.postgres import PostgresStorage
 from agno.tools.exa import ExaTools
+from agno.tools.yfinance import YFinanceTools
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
@@ -39,7 +40,6 @@ finance_agent = Agent(
         "Present detailed analyst recommendations and consensus target prices",
         "Include key metrics: P/E ratio, market cap, 52-week range",
         "Analyze trading patterns and volume trends",
-        
     ],
     show_tool_calls=True,
     markdown=True,
@@ -103,7 +103,9 @@ agent_team = Team(
     update_team_context=True,
     show_members_responses=True,
     debug_mode=True,
-    storage=PostgresStorage(table_name="financial_news_team", db_url=db_url, mode="team"),
+    storage=PostgresStorage(
+        table_name="financial_news_team", db_url=db_url, mode="team"
+    ),
 )
 
 app = Playground(
@@ -113,4 +115,3 @@ app = Playground(
 
 if __name__ == "__main__":
     serve_playground_app("teams_demo:app", reload=True)
-

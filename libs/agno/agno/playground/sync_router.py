@@ -36,9 +36,9 @@ from agno.run.response import RunEvent
 from agno.storage.session.agent import AgentSession
 from agno.storage.session.team import TeamSession
 from agno.storage.session.workflow import WorkflowSession
+from agno.team.team import Team
 from agno.utils.log import logger
 from agno.workflow.workflow import Workflow
-from agno.team.team import Team
 
 
 def get_sync_playground_router(
@@ -504,12 +504,12 @@ def get_sync_playground_router(
 
         workflow.delete_session(session_id)
         return JSONResponse(content={"message": f"successfully deleted workflow {workflow.name}"})
-    
+
     @playground_router.get("/teams")
     def get_teams():
         if teams is None:
             return []
-        
+
         return [
             TeamGetResponse(
                 team_id=team.team_id,
@@ -518,7 +518,7 @@ def get_sync_playground_router(
                     name=team.model.name or team.model.__class__.__name__ if team.model else None,
                     model=team.model.id if team.model else None,
                     provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
-                ),      
+                ),
                 success_criteria=team.success_criteria,
                 instructions=team.instructions,
                 description=team.description,
@@ -535,13 +535,16 @@ def get_sync_playground_router(
                         ),
                         add_context=member.add_context,
                         tools=format_tools(member.get_tools()) if member.get_tools() else None,
-                        memory={"name": member.memory.db.__class__.__name__} if member.memory and member.memory.db else None,
+                        memory={"name": member.memory.db.__class__.__name__}
+                        if member.memory and member.memory.db
+                        else None,
                         storage={"name": member.storage.__class__.__name__} if member.storage else None,
                         knowledge={"name": member.knowledge.__class__.__name__} if member.knowledge else None,
                         description=member.description,
                         instructions=member.instructions,
-                    ) for member in team.members
-                ]
+                    )
+                    for member in team.members
+                ],
             )
             for team in teams
         ]
@@ -561,10 +564,11 @@ def get_sync_playground_router(
             instructions=team.instructions,
             storage=team.storage.__class__.__name__ if team.storage else None,
             model=TeamModel(
-                    name=team.model.name or team.model.__class__.__name__ if team.model else None,
-                    model=team.model.id if team.model else None,
-                    provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
-                ),            members=[
+                name=team.model.name or team.model.__class__.__name__ if team.model else None,
+                model=team.model.id if team.model else None,
+                provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
+            ),
+            members=[
                 AgentGetResponse(
                     agent_id=member.agent_id,
                     name=member.name,
@@ -575,18 +579,22 @@ def get_sync_playground_router(
                     ),
                     add_context=member.add_context,
                     tools=format_tools(member.get_tools()) if member.get_tools() else None,
-                    memory={"name": member.memory.db.__class__.__name__} if member.memory and member.memory.db else None,
+                    memory={"name": member.memory.db.__class__.__name__}
+                    if member.memory and member.memory.db
+                    else None,
                     storage={"name": member.storage.__class__.__name__} if member.storage else None,
                     knowledge={"name": member.knowledge.__class__.__name__} if member.knowledge else None,
                     description=member.description,
                     instructions=member.instructions,
-                ) for member in team.members
-            ] if team.members else None,
+                )
+                for member in team.members
+            ]
+            if team.members
+            else None,
         )
 
     @playground_router.post("/teams/{team_id}/runs")
     def create_team_run(team_id: str, body: TeamRunRequest):
-
         team = get_team_by_id(team_id, teams)
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")
@@ -634,7 +642,6 @@ def get_sync_playground_router(
 
         return team_session
 
-
     @playground_router.post("/teams/{team_id}/sessions/{session_id}/rename")
     def rename_team_session(team_id: str, session_id: str, body: TeamRenameRequest):
         team = get_team_by_id(team_id, teams)
@@ -644,7 +651,6 @@ def get_sync_playground_router(
         team.session_id = session_id
         team.rename_session(body.name)
         return JSONResponse(content={"message": f"successfully renamed team {team.name}"})
-
 
     @playground_router.delete("/teams/{team_id}/sessions/{session_id}")
     def delete_team_session(team_id: str, session_id: str):

@@ -4353,7 +4353,7 @@ class Team:
         # -*- Save to storage
         self.write_to_storage()
         # -*- Log Agent session
-        self._log_agent_session()
+        self._log_team_session()
 
     def delete_session(self, session_id: str) -> None:
         """Delete the current session and save to storage"""
@@ -4584,15 +4584,15 @@ class Team:
         except Exception as e:
             log_debug(f"Could not create team event: {e}")
 
-    def _log_agent_session(self):
+    def _log_team_session(self):
         if not (self.telemetry or self.monitoring):
             return
 
-        from agno.api.team import TeamSessionCreate, create_team_session
+        from agno.api.team import TeamSessionCreate, upsert_team_session
 
         try:
             team_session: TeamSession = self.team_session or self._get_team_session()
-            create_team_session(
+            upsert_team_session(
                 session=TeamSessionCreate(
                     session_id=team_session.session_id,
                     team_data=team_session.to_dict() if self.monitoring else team_session.telemetry_data(),
@@ -4600,7 +4600,7 @@ class Team:
                 monitor=self.monitoring,
             )
         except Exception as e:
-            log_debug(f"Could not create agent monitor: {e}")
+            log_debug(f"Could not create team monitor: {e}")
 
     def deep_copy(self, *, update: Optional[Dict[str, Any]] = None) -> "Team":
         """Create a deep copy of the Team with optional updates.
@@ -4614,7 +4614,7 @@ class Team:
         # Get all instance attributes
         attributes = self.__dict__.copy()
 
-        excluded_fields = ["team_session", "session_name","_functions_for_model", "memory"]
+        excluded_fields = ["team_session", "session_name", "_functions_for_model", "memory"]
         # Deep copy each field
         copied_attributes = {}
         for field_name, field_value in attributes.items():

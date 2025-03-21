@@ -3,7 +3,7 @@ from dataclasses import asdict
 from io import BytesIO
 from typing import AsyncGenerator, List, Optional, cast
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from agno.agent.agent import Agent, RunResponse
@@ -22,9 +22,8 @@ from agno.playground.schemas import (
     AgentRenameRequest,
     AgentSessionsResponse,
     TeamGetResponse,
-    TeamRenameRequest,
-    TeamRunRequest,
     TeamModel,
+    TeamRenameRequest,
     TeamSessionResponse,
     WorkflowGetResponse,
     WorkflowRenameRequest,
@@ -33,13 +32,13 @@ from agno.playground.schemas import (
     WorkflowsGetResponse,
 )
 from agno.run.response import RunEvent
+from agno.run.team import TeamRunResponse
 from agno.storage.session.agent import AgentSession
 from agno.storage.session.team import TeamSession
-from agno.team.team import Team
 from agno.storage.session.workflow import WorkflowSession
+from agno.team.team import Team
 from agno.utils.log import logger
 from agno.workflow.workflow import Workflow
-from agno.run.team import TeamRunResponse
 
 
 def get_async_playground_router(
@@ -128,7 +127,7 @@ def get_async_playground_router(
             )
             yield error_response.to_json()
             return
-        
+
     async def team_chat_response_streamer(
         team: Team,
         message: str,
@@ -149,7 +148,7 @@ def get_async_playground_router(
             )
             yield error_response.to_json()
             return
-        
+
     async def process_image(file: UploadFile) -> Image:
         content = file.file.read()
 
@@ -530,7 +529,6 @@ def get_async_playground_router(
         workflow.delete_session(session_id)
         return JSONResponse(content={"message": f"successfully deleted workflow {workflow.name}"})
 
-
     @playground_router.get("/teams")
     async def get_teams():
         if teams is None:
@@ -562,13 +560,16 @@ def get_async_playground_router(
                         ),
                         add_context=member.add_context,
                         tools=format_tools(member.get_tools()) if member.get_tools() else None,
-                        memory={"name": member.memory.db.__class__.__name__} if member.memory and member.memory.db else None,
+                        memory={"name": member.memory.db.__class__.__name__}
+                        if member.memory and member.memory.db
+                        else None,
                         storage={"name": member.storage.__class__.__name__} if member.storage else None,
                         knowledge={"name": member.knowledge.__class__.__name__} if member.knowledge else None,
                         description=member.description,
                         instructions=member.instructions,
-                    ) for member in team.members
-                ]
+                    )
+                    for member in team.members
+                ],
             )
             for team in teams
         ]
@@ -589,10 +590,10 @@ def get_async_playground_router(
             instructions=team.instructions,
             storage=team.storage.__class__.__name__ if team.storage else None,
             model=TeamModel(
-                    name=team.model.name or team.model.__class__.__name__ if team.model else None,
-                    model=team.model.id if team.model else None,
-                    provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
-            ),            
+                name=team.model.name or team.model.__class__.__name__ if team.model else None,
+                model=team.model.id if team.model else None,
+                provider=team.model.provider or team.model.__class__.__name__ if team.model else None,
+            ),
             members=[
                 AgentGetResponse(
                     agent_id=member.agent_id,
@@ -604,25 +605,29 @@ def get_async_playground_router(
                     ),
                     add_context=member.add_context,
                     tools=format_tools(member.get_tools()) if member.get_tools() else None,
-                    memory={"name": member.memory.db.__class__.__name__} if member.memory and member.memory.db else None,
+                    memory={"name": member.memory.db.__class__.__name__}
+                    if member.memory and member.memory.db
+                    else None,
                     storage={"name": member.storage.__class__.__name__} if member.storage else None,
                     knowledge={"name": member.knowledge.__class__.__name__} if member.knowledge else None,
                     description=member.description,
                     instructions=member.instructions,
-                ) for member in team.members
-            ] if team.members else None,
+                )
+                for member in team.members
+            ]
+            if team.members
+            else None,
         )
 
     @playground_router.post("/teams/{team_id}/runs")
     async def create_team_run(
-        team_id: str, 
+        team_id: str,
         message: str = Form(...),
         stream: bool = Form(True),
         monitor: bool = Form(False),
         session_id: Optional[str] = Form(None),
         user_id: Optional[str] = Form(None),
     ):
-
         logger.debug(f"Creating team run: {message} {session_id} {user_id} {team_id}")
 
         team = get_team_by_id(team_id, teams)
@@ -639,7 +644,6 @@ def get_async_playground_router(
 
         if user_id is not None:
             team.user_id = user_id
-
 
         if stream:
             return StreamingResponse(
@@ -673,12 +677,14 @@ def get_async_playground_router(
         team_sessions: List[TeamSessionResponse] = []
         for session in all_team_sessions:
             title = get_session_title(session)
-            team_sessions.append(TeamSessionResponse(
-                title=title,
-                session_id=session.session_id,
-                session_name=session.session_data.get("session_name") if session.session_data else None,
-                created_at=session.created_at,
-            ))
+            team_sessions.append(
+                TeamSessionResponse(
+                    title=title,
+                    session_id=session.session_id,
+                    session_name=session.session_data.get("session_name") if session.session_data else None,
+                    created_at=session.created_at,
+                )
+            )
         return team_sessions
 
     @playground_router.get("/teams/{team_id}/sessions/{session_id}")
@@ -700,17 +706,15 @@ def get_async_playground_router(
 
         return team_session
 
-
     @playground_router.post("/teams/{team_id}/sessions/{session_id}/rename")
-    async def rename_team_session(
-        team_id: str, session_id: str, body: TeamRenameRequest):
+    async def rename_team_session(team_id: str, session_id: str, body: TeamRenameRequest):
         team = get_team_by_id(team_id, teams)
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")
 
         if team.storage is None:
             raise HTTPException(status_code=404, detail="Team does not have storage enabled")
-        
+
         all_team_sessions: List[TeamSession] = team.storage.get_all_sessions(user_id=body.user_id, entity_id=team_id)
         for session in all_team_sessions:
             if session.session_id == session_id:
@@ -719,7 +723,6 @@ def get_async_playground_router(
                 return JSONResponse(content={"message": f"successfully renamed team session {body.name}"})
 
         raise HTTPException(status_code=404, detail="Session not found")
-
 
     @playground_router.delete("/teams/{team_id}/sessions/{session_id}")
     async def delete_team_session(team_id: str, session_id: str, user_id: Optional[str] = Query(None, min_length=1)):

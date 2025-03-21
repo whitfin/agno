@@ -9,6 +9,7 @@ class AgentModel(BaseModel):
     model: Optional[str] = None
     provider: Optional[str] = None
 
+
 class TeamModel(BaseModel):
     name: Optional[str] = None
     model: Optional[str] = None
@@ -79,6 +80,7 @@ class WorkflowsGetResponse(BaseModel):
     workflow_id: str
     name: str
     description: Optional[str] = None
+
 
 class TeamGetResponse(BaseModel):
     team_id: Optional[str] = None

@@ -636,7 +636,6 @@ def get_async_playground_router(
         user_id: Optional[str] = Form(None),
     ):
         logger.debug(f"Creating team run: {message} {session_id} {user_id} {team_id}")
-
         team = get_team_by_id(team_id, teams)
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")

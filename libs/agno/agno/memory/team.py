@@ -24,10 +24,16 @@ class TeamRun:
     response: Optional[TeamRunResponse] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        response = {
-            "message": self.message.to_dict() if self.message else None,
-            "member_responses": [run.to_dict() for run in self.member_runs] if self.member_runs else None,
-            "response": self.response.to_dict() if self.response else None,
+        print("message", self.message)
+        message = self.message.to_dict() if self.message else None
+        print("member_runs", self.member_runs)
+        member_responses = [run.to_dict() for run in self.member_runs] if self.member_runs else None
+        print("response", self.response)
+        response = self.response.to_dict() if self.response else None
+        return {
+            "message": message,
+            "member_responses": member_responses,
+            "response": response,
         }
         return {k: v for k, v in response.items() if v is not None}
 
@@ -92,13 +98,21 @@ class TeamMemory:
 
         # Add messages if they exist
         if self.messages is not None:
+            print("MESSAGES", self.messages)
             _memory_dict["messages"] = [message.to_dict() for message in self.messages]
         # Add memories if they exist
         if self.memories is not None:
+            print("MEMORIES", self.memories)
             _memory_dict["memories"] = [memory.to_dict() for memory in self.memories]
         # Add runs if they exist
         if self.runs is not None:
-            _memory_dict["runs"] = [run.to_dict() for run in self.runs]
+            runs = []
+            for run in self.runs:
+                if isinstance(run, dict):
+                    runs.append(run)
+                else:
+                    runs.append(run.to_dict())
+            _memory_dict["runs"] = runs
         return _memory_dict
 
     def add_interaction_to_team_context(self, member_name: str, task: str, run_response: RunResponse) -> None:

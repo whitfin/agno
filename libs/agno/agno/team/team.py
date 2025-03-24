@@ -1001,6 +1001,7 @@ class Team:
             self.memory = TeamMemory()
 
         # Read existing session from storage
+
         if self.context is not None:
             self._resolve_run_context()
 
@@ -3065,20 +3066,23 @@ class Team:
 
         log_debug("Resolving context")
         if self.context is not None:
-            for ctx_key, ctx_value in self.context.items():
-                if callable(ctx_value):
-                    try:
-                        sig = signature(ctx_value)
-                        if "agent" in sig.parameters:
-                            resolved_ctx_value = ctx_value(agent=self)
-                        else:
-                            resolved_ctx_value = ctx_value()
-                        if resolved_ctx_value is not None:
-                            self.context[ctx_key] = resolved_ctx_value
-                    except Exception as e:
-                        log_warning(f"Failed to resolve context for {ctx_key}: {e}")
-                else:
-                    self.context[ctx_key] = ctx_value
+            if isinstance(self.context, dict):
+                for ctx_key, ctx_value in self.context.items():
+                    if callable(ctx_value):
+                        try:
+                            sig = signature(ctx_value)
+                            if "agent" in sig.parameters:
+                                resolved_ctx_value = ctx_value(agent=self)
+                            else:
+                                resolved_ctx_value = ctx_value()
+                            if resolved_ctx_value is not None:
+                                self.context[ctx_key] = resolved_ctx_value
+                        except Exception as e:
+                            log_warning(f"Failed to resolve context for {ctx_key}: {e}")
+                    else:
+                        self.context[ctx_key] = ctx_value
+            else:
+                log_warning("Context is not a dict")
 
     def _configure_model(self, show_tool_calls: bool = False) -> None:
         # Set the default model
@@ -4441,7 +4445,7 @@ class Team:
             if isinstance(self.memory, dict):
                 # Convert dict to TeamMemory
                 self.memory = TeamMemory(**self.memory)
-            else:
+            elif self.memory is not None:
                 raise TypeError(f"Expected memory to be a dict or TeamMemory, but got {type(self.memory)}")
 
         if session.memory is not None:
@@ -4506,7 +4510,10 @@ class Team:
         if self.team_id is not None:
             team_data["team_id"] = self.team_id
         if self.model is not None:
-            team_data["model"] = self.model.to_dict()
+            if isinstance(self.model, dict):
+                team_data["model"] = self.model
+            else:
+                team_data["model"] = self.model.to_dict()
         return team_data
 
     def _get_session_data(self) -> Dict[str, Any]:
@@ -4529,11 +4536,15 @@ class Team:
         from time import time
 
         """Get an TeamSession object, which can be saved to the database"""
+        if isinstance(self.memory, dict):
+            memory = self.memory
+        else:
+            memory = self.memory.to_dict() if self.memory is not None else None
         return TeamSession(
             session_id=self.session_id,  # type: ignore
             team_id=self.team_id,
             user_id=self.user_id,
-            memory=self.memory.to_dict() if self.memory is not None else None,
+            memory=memory,
             team_data=self._get_team_data(),
             session_data=self._get_session_data(),
             extra_data=self.extra_data,
@@ -4618,7 +4629,6 @@ class Team:
         # Deep copy each field
         copied_attributes = {}
         for field_name, field_value in attributes.items():
-            print("COPYING FIELD", field_name)
             if field_name in excluded_fields:
                 continue
             copied_attributes[field_name] = self._deep_copy_field(field_name, field_value)

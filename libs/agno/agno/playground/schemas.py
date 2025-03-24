@@ -100,6 +100,7 @@ class TeamGetResponse(BaseModel):
     storage: Optional[Dict[str, Any]] = None
     # workflows: Optional[List[WorkflowGetResponse]] = None
 
+
 class TeamRunRequest(BaseModel):
     input: Dict[str, Any]
     user_id: Optional[str] = None

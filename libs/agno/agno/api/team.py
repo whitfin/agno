@@ -47,7 +47,7 @@ def upsert_team_session(session: TeamSessionCreate, monitor: bool = False) -> No
         try:
             if monitor:
                 api_client.post(
-                    ApiRoutes.TEAM_SESSION_CREATE ,
+                    ApiRoutes.TEAM_SESSION_CREATE,
                     json={"session": session.model_dump(exclude_none=True)},
                 )
         except Exception as e:

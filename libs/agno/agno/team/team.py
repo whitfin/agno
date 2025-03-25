@@ -1615,6 +1615,8 @@ class Team:
         markdown: bool = False,
         **kwargs: Any,
     ) -> None:
+        import textwrap
+
         from rich.console import Group
         from rich.json import JSON
         from rich.live import Live
@@ -1736,11 +1738,18 @@ class Team:
                             if member_name:
                                 formatted_calls = format_tool_calls(member_response.tools)
                                 if formatted_calls:
+                                    console_width = console.width if console else 80
+                                    panel_width = max(20, console_width - 20)
+
                                     lines = []
                                     for call in formatted_calls:
-                                        lines.append(f"• {call}")
+                                        wrapped_call = textwrap.fill(
+                                            f"• {call}", width=panel_width, subsequent_indent="  "
+                                        )
+                                        lines.append(wrapped_call)
 
                                     tool_calls_text = "\n\n".join(lines)
+
                                     member_tool_calls_panel = create_panel(
                                         content=tool_calls_text,
                                         title=f"{member_name} Tool Calls",
@@ -1796,11 +1805,17 @@ class Team:
                 if self.show_tool_calls and run_response.tools:
                     formatted_calls = format_tool_calls(run_response.tools)
                     if formatted_calls:
+                        console_width = console.width if console else 80
+                        panel_width = max(20, console_width - 20)  # Allow for panel borders and padding
+
                         lines = []
                         for call in formatted_calls:
-                            lines.append(f"• {call}")
+                            wrapped_call = textwrap.fill(
+                                f"• {call}", width=panel_width, subsequent_indent="  "
+                            )  # Indent continuation lines
+                            lines.append(wrapped_call)
 
-                        # Join with double newlines for spacing between items
+                        # Join with blank lines between items
                         tool_calls_text = "\n\n".join(lines)
 
                         team_tool_calls_panel = create_panel(
@@ -2153,6 +2168,8 @@ class Team:
         markdown: bool = False,
         **kwargs: Any,
     ) -> None:
+        import textwrap
+
         from rich.console import Group
         from rich.json import JSON
         from rich.live import Live
@@ -2160,10 +2177,10 @@ class Team:
         from rich.status import Status
         from rich.text import Text
 
+        from agno.utils.response import format_tool_calls
+
         if not tags_to_include_in_markdown:
             tags_to_include_in_markdown = {"think", "thinking"}
-
-        self.run_response = cast(TeamRunResponse, self.run_response)
 
         with Live(console=console) as live_console:
             status = Status("Thinking...", spinner="aesthetic", speed=0.4, refresh_per_second=10)
@@ -2188,8 +2205,8 @@ class Team:
             # Run the agent
             run_response: TeamRunResponse = await self.arun(  # type: ignore
                 message=message,
-                audio=audio,
                 images=images,
+                audio=audio,
                 videos=videos,
                 files=files,
                 stream=False,
@@ -2246,7 +2263,6 @@ class Team:
                 # Handle member responses
                 if self.show_members_responses:
                     for member_response in run_response.member_responses:
-                        member_response = cast(RunResponse, member_response)
                         # Handle member reasoning
                         reasoning_steps = []
                         if (
@@ -2254,7 +2270,7 @@ class Team:
                             and member_response.extra_data is not None
                             and member_response.extra_data.reasoning_steps is not None
                         ):
-                            reasoning_steps = member_response.extra_data.reasoning_steps
+                            reasoning_steps.extend(member_response.extra_data.reasoning_steps)
 
                         if len(reasoning_steps) > 0 and show_reasoning:
                             # Create panels for reasoning steps
@@ -2264,11 +2280,43 @@ class Team:
                                 )
                                 panels.append(member_reasoning_panel)
 
+                        # Add tool calls panel for member if available
+                        if self.show_tool_calls and hasattr(member_response, "tools") and member_response.tools:
+                            member_name = None
+                            if isinstance(member_response, RunResponse) and member_response.agent_id is not None:
+                                member_name = self._get_member_name(member_response.agent_id)
+                            elif isinstance(member_response, TeamRunResponse) and member_response.team_id is not None:
+                                member_name = self._get_member_name(member_response.team_id)
+
+                            if member_name:
+                                # Format tool calls
+                                formatted_calls = format_tool_calls(member_response.tools)
+                                if formatted_calls:
+                                    console_width = console.width if console else 80
+                                    panel_width = max(20, console_width - 20)
+
+                                    lines = []
+                                    for call in formatted_calls:
+                                        wrapped_call = textwrap.fill(
+                                            f"• {call}", width=panel_width, subsequent_indent="  "
+                                        )
+                                        lines.append(wrapped_call)
+
+                                    tool_calls_text = "\n\n".join(lines)
+
+                                    member_tool_calls_panel = create_panel(
+                                        content=tool_calls_text,
+                                        title=f"{member_name} Tool Calls",
+                                        border_style="yellow",
+                                    )
+                                    panels.append(member_tool_calls_panel)
+                                    live_console.update(Group(*panels))
+
                         show_markdown = False
                         if isinstance(member_response, RunResponse) and member_response.agent_id is not None:
-                            show_markdown = member_markdown.get(member_response.agent_id, False)  # type: ignore
+                            show_markdown = member_markdown.get(member_response.agent_id, False)
                         elif isinstance(member_response, TeamRunResponse) and member_response.team_id is not None:
-                            show_markdown = member_markdown.get(member_response.team_id, False)  # type: ignore
+                            show_markdown = member_markdown.get(member_response.team_id, False)
 
                         member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
                             member_response,
@@ -2277,10 +2325,16 @@ class Team:
                         )
 
                         # Create panel for member response
-                        if member_response.agent_id:
+                        if isinstance(member_response, RunResponse) and member_response.agent_id is not None:
                             member_response_panel = create_panel(
                                 content=member_response_content,
                                 title=f"{self._get_member_name(member_response.agent_id)} Response",
+                                border_style="magenta",
+                            )
+                        elif isinstance(member_response, TeamRunResponse) and member_response.team_id is not None:
+                            member_response_panel = create_panel(
+                                content=member_response_content,
+                                title=f"{self._get_member_name(member_response.team_id)} Response",
                                 border_style="magenta",
                             )
                         panels.append(member_response_panel)
@@ -2291,7 +2345,7 @@ class Team:
                                 for i, citation in enumerate(member_response.citations.urls)
                                 if citation.url  # Only include citations with valid URLs
                             )
-                            if md_content:  # Only create panel if there are citations
+                            if md_content:
                                 citations_panel = create_panel(
                                     content=Markdown(md_content),
                                     title="Citations",
@@ -2301,20 +2355,28 @@ class Team:
 
                     live_console.update(Group(*panels))
 
-                # Add tool calls panel if available
-                if self.show_tool_calls and run_response.formatted_tool_calls:
-                    # Create bullet points for each tool call
-                    tool_calls_content = Text()
-                    for tool_call in run_response.formatted_tool_calls:
-                        tool_calls_content.append(f"• {tool_call}\n")
+                # Add team level tool calls panel if available
+                if self.show_tool_calls and run_response.tools:
+                    formatted_calls = format_tool_calls(run_response.tools)
+                    if formatted_calls:
+                        console_width = console.width if console else 80
+                        panel_width = max(20, console_width - 20)  # Allow for panel borders and padding
 
-                    tool_calls_panel = create_panel(
-                        content=tool_calls_content.plain.rstrip(),
-                        title="Tool Calls",
-                        border_style="yellow",
-                    )
-                    panels.append(tool_calls_panel)
-                    live_console.update(Group(*panels))
+                        lines = []
+                        for call in formatted_calls:
+                            # Wrap the call text to fit within the panel
+                            wrapped_call = textwrap.fill(f"• {call}", width=panel_width, subsequent_indent="  ")
+                            lines.append(wrapped_call)
+
+                        tool_calls_text = "\n\n".join(lines)
+
+                        team_tool_calls_panel = create_panel(
+                            content=tool_calls_text,
+                            title="Team Tool Calls",
+                            border_style="yellow",
+                        )
+                        panels.append(team_tool_calls_panel)
+                        live_console.update(Group(*panels))
 
                 response_content_batch: Union[str, JSON, Markdown] = self._parse_response_content(
                     run_response, tags_to_include_in_markdown, show_markdown=team_markdown

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import warnings
 from collections import ChainMap, defaultdict, deque
 from dataclasses import asdict, dataclass
@@ -67,6 +68,8 @@ class Agent:
     agent_id: Optional[str] = None
     # Agent introduction. This is added to the message history when a run is started.
     introduction: Optional[str] = None
+    # Register the agent on the agno platform
+    register_on_platform: bool = False
 
     # --- User settings ---
     # ID of the user interacting with this agent
@@ -436,6 +439,9 @@ class Agent:
         self._formatter: Optional[SafeFormatter] = None
 
     def set_agent_id(self) -> str:
+        if self.name is not None:
+            hash_object = hashlib.sha256(self.name.encode())
+            self.agent_id = hash_object.hexdigest()[:36]
         if self.agent_id is None:
             self.agent_id = str(uuid4())
         log_debug(f"Agent ID: {self.agent_id}", center=True)
@@ -838,6 +844,9 @@ class Agent:
 
         # Log Agent Run
         self._log_agent_run()
+
+        if self.register_on_platform:
+            self._register_agent_on_platform()
 
         log_debug(f"Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
         if self.stream_intermediate_steps:
@@ -1357,6 +1366,9 @@ class Agent:
 
         # Log Agent Run
         await self._alog_agent_run()
+
+        if self.register_on_platform:
+            await self._aregister_agent_on_platform()
 
         log_debug(f"Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
         if self.stream_intermediate_steps:
@@ -3573,6 +3585,50 @@ class Agent:
             )
 
         return run_data
+
+    def _register_agent_on_platform(self) -> None:
+        if not self.register_on_platform:
+            return
+
+        from agno.api.agent import AgentAppCreate, create_agent_app
+
+        try:
+            create_agent_app(
+                app=AgentAppCreate(
+                    name=self.name,
+                    agent_id=self.agent_id,
+                    agent_config={
+                        "instructions": self.instructions,
+                        "tools": self.tools,
+                        "knowledge": self.knowledge.__class__.__name__,
+                        "storage": self.storage.__class__.__name__,
+                    },
+                )
+            )
+        except Exception as e:
+            log_debug(f"Could not create Agent app: {e}")
+
+    async def _aregister_agent_on_platform(self) -> None:
+        if not self.register_on_platform:
+            return
+
+        from agno.api.agent import AgentAppCreate, acreate_agent_app
+
+        try:
+            await acreate_agent_app(
+                app=AgentAppCreate(
+                    name=self.name,
+                    agent_id=self.agent_id,
+                    agent_config={
+                        "instructions": self.instructions,
+                        "tools": self.tools,
+                        "knowledge": self.knowledge.__class__.__name__,
+                        "storage": self.storage.__class__.__name__,
+                    },
+                )
+            )
+        except Exception as e:
+            log_debug(f"Could not create Agent app: {e}")
 
     def _log_agent_run(self) -> None:
         self.set_monitoring()

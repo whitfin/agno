@@ -39,4 +39,4 @@ class ApiRoutes:
     PLAYGROUND_APP_DEPLOY: str = "/v1/playground/app/deploy"
 
     # Register app routes
-    AGENT_APP_CREATE: str = "/v1/agent-apps"
+    AGENT_APP_CREATE: str = "/v2/agent-apps"

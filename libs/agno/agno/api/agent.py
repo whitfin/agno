@@ -57,11 +57,12 @@ def create_agent_app(app: AgentAppCreate) -> None:
         return
 
     log_debug("Logging Agent App")
+    log_debug(f"App: {app.model_dump()}")
     with api.AuthenticatedClient() as api_client:
         try:
             api_client.post(
                 ApiRoutes.AGENT_APP_CREATE,
-                json={"app": app.model_dump(exclude_none=True)},
+                json={"agent_app": app.model_dump()},
             )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
@@ -76,7 +77,7 @@ async def acreate_agent_app(app: AgentAppCreate) -> None:
         try:
             await api_client.post(
                 ApiRoutes.AGENT_APP_CREATE,
-                json={"app": app.model_dump(exclude_none=True)},
+                json={"agent_app": app.model_dump(exclude_none=True)},
             )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")

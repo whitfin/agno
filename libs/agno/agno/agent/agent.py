@@ -256,6 +256,7 @@ class Agent:
         name: Optional[str] = None,
         agent_id: Optional[str] = None,
         introduction: Optional[str] = None,
+        register_on_platform: bool = False,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         session_name: Optional[str] = None,
@@ -325,7 +326,7 @@ class Agent:
         self.name = name
         self.agent_id = agent_id
         self.introduction = introduction
-
+        self.register_on_platform = register_on_platform
         self.user_id = user_id
 
         self.session_id = session_id
@@ -3600,8 +3601,8 @@ class Agent:
                     agent_config={
                         "instructions": self.instructions,
                         "tools": self.tools,
-                        "knowledge": self.knowledge.__class__.__name__,
-                        "storage": self.storage.__class__.__name__,
+                        "knowledge": self.knowledge.__class__.__name__ if self.knowledge is not None else None,
+                        "storage": self.storage.__class__.__name__ if self.storage is not None else None,
                     },
                 )
             )
@@ -3622,8 +3623,8 @@ class Agent:
                     agent_config={
                         "instructions": self.instructions,
                         "tools": self.tools,
-                        "knowledge": self.knowledge.__class__.__name__,
-                        "storage": self.storage.__class__.__name__,
+                        "knowledge": self.knowledge.__class__.__name__ if self.knowledge is not None else None,
+                        "storage": self.storage.__class__.__name__ if self.storage is not None else None,
                     },
                 )
             )

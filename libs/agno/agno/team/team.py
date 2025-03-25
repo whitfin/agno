@@ -1621,14 +1621,14 @@ class Team:
         from rich.markdown import Markdown
         from rich.status import Status
         from rich.text import Text
+
         from agno.utils.response import format_tool_calls
 
         if not tags_to_include_in_markdown:
             tags_to_include_in_markdown = {"think", "thinking"}
 
         with Live(console=console) as live_console:
-            status = Status("Thinking...", spinner="aesthetic",
-                            speed=0.4, refresh_per_second=10)
+            status = Status("Thinking...", spinner="aesthetic", speed=0.4, refresh_per_second=10)
             live_console.update(status)
 
             response_timer = Timer()
@@ -1690,8 +1690,7 @@ class Team:
             if len(reasoning_steps) > 0 and show_reasoning:
                 # Create panels for reasoning steps
                 for i, step in enumerate(reasoning_steps, 1):
-                    reasoning_panel = self._build_reasoning_step_panel(
-                        i, step, show_reasoning_verbose)
+                    reasoning_panel = self._build_reasoning_step_panel(i, step, show_reasoning_verbose)
                     panels.append(reasoning_panel)
                 live_console.update(Group(*panels))
 
@@ -1716,8 +1715,7 @@ class Team:
                             and member_response.extra_data is not None
                             and member_response.extra_data.reasoning_steps is not None
                         ):
-                            reasoning_steps.extend(
-                                member_response.extra_data.reasoning_steps)
+                            reasoning_steps.extend(member_response.extra_data.reasoning_steps)
 
                         if len(reasoning_steps) > 0 and show_reasoning:
                             # Create panels for reasoning steps
@@ -1734,14 +1732,14 @@ class Team:
                                 member_name = self._get_member_name(member_response.agent_id)
                             elif isinstance(member_response, TeamRunResponse) and member_response.team_id is not None:
                                 member_name = self._get_member_name(member_response.team_id)
-                            
+
                             if member_name:
                                 formatted_calls = format_tool_calls(member_response.tools)
                                 if formatted_calls:
                                     lines = []
                                     for call in formatted_calls:
                                         lines.append(f"• {call}")
-                                    
+
                                     tool_calls_text = "\n\n".join(lines)
                                     member_tool_calls_panel = create_panel(
                                         content=tool_calls_text,
@@ -1753,11 +1751,9 @@ class Team:
 
                         show_markdown = False
                         if isinstance(member_response, RunResponse) and member_response.agent_id is not None:
-                            show_markdown = member_markdown.get(
-                                member_response.agent_id, False)
+                            show_markdown = member_markdown.get(member_response.agent_id, False)
                         elif isinstance(member_response, TeamRunResponse) and member_response.team_id is not None:
-                            show_markdown = member_markdown.get(
-                                member_response.team_id, False)
+                            show_markdown = member_markdown.get(member_response.team_id, False)
 
                         member_response_content: Union[str, JSON, Markdown] = self._parse_response_content(
                             member_response,
@@ -1803,10 +1799,10 @@ class Team:
                         lines = []
                         for call in formatted_calls:
                             lines.append(f"• {call}")
-                        
+
                         # Join with double newlines for spacing between items
                         tool_calls_text = "\n\n".join(lines)
-                        
+
                         team_tool_calls_panel = create_panel(
                             content=tool_calls_text,
                             title="Team Tool Calls",

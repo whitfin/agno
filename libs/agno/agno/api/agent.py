@@ -80,4 +80,3 @@ async def acreate_agent_app(app: AgentAppCreate) -> None:
             )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
-

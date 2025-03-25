@@ -31,7 +31,7 @@ class ApiRoutes:
     # TODO: Update to use the new telemetry paths
     AGENT_TELEMETRY_SESSION_CREATE: str = "/v1/telemetry/agent/session/create"
     AGENT_TELEMETRY_RUN_CREATE: str = "/v1/telemetry/agent/run/create"
-    
+
     TEAM_TELEMETRY_RUN_CREATE: str = "/v1/telemetry/team-runs"
 
     # Playground paths

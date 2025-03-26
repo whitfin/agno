@@ -487,7 +487,7 @@ class Team:
                     files=files,  # type: ignore
                 )
                 _built_in_tools.append(forward_task_func)
-                
+
             elif self.mode == "coordinate":
                 _built_in_tools.append(
                     self.get_transfer_task_function(
@@ -1900,7 +1900,7 @@ class Team:
 
         # Track tool calls by member and team
         member_tool_calls = {}  # type: ignore
-        team_tool_calls = [] # type: ignore
+        team_tool_calls = []  # type: ignore
 
         # Track processed tool calls to avoid duplicates
         processed_tool_calls = set()

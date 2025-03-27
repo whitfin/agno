@@ -1,10 +1,10 @@
 import asyncio
 from typing import Iterator  # noqa
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 from agno.tools.yfinance import YFinanceTools
-
 
 stock_searcher = Agent(
     name="Stock Searcher",
@@ -42,4 +42,10 @@ team = Team(
 )
 
 if __name__ == "__main__":
-    asyncio.run(team.aprint_response("What is the current stock price of NVDA?", stream=True, stream_intermediate_steps=True))
+    asyncio.run(
+        team.aprint_response(
+            "What is the current stock price of NVDA?",
+            stream=True,
+            stream_intermediate_steps=True,
+        )
+    )

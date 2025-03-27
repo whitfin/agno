@@ -860,12 +860,13 @@ class Team:
                 # Format tool calls whenever new ones are added during streaming
                 run_response.formatted_tool_calls = format_tool_calls(run_response.tools)
 
-                # If the agent is streaming intermediate steps, yield a RunResponse with the tool_call_started event
-                yield self._create_run_response(
-                    content=model_response_chunk.content,
-                    event=RunEvent.tool_call_started,
-                    from_run_response=run_response,
-                )
+                # Only yield the event if streaming intermediate steps
+                if stream_intermediate_steps:
+                    yield self._create_run_response(
+                        content=model_response_chunk.content,
+                        event=RunEvent.tool_call_started,
+                        from_run_response=run_response,
+                    )
 
             # If the model response is a tool_call_completed, update the existing tool call in the run_response
             elif model_response_chunk.event == ModelResponseEvent.tool_call_completed.value:
@@ -888,11 +889,12 @@ class Team:
                     else:
                         run_response.tools = tool_calls_list
 
-                    yield self._create_run_response(
-                        content=model_response_chunk.content,
-                        event=RunEvent.tool_call_completed,
-                        from_run_response=run_response,
-                    )
+                    if stream_intermediate_steps:
+                        yield self._create_run_response(
+                            content=model_response_chunk.content,
+                            event=RunEvent.tool_call_completed,
+                            from_run_response=run_response,
+                        )
 
         # 3. Update TeamRunResponse
         run_response.created_at = full_model_response.created_at
@@ -1439,11 +1441,13 @@ class Team:
                 # Format tool calls whenever new ones are added during streaming
                 run_response.formatted_tool_calls = format_tool_calls(run_response.tools)
 
-                yield self._create_run_response(
-                    content=model_response_chunk.content,
-                    event=RunEvent.tool_call_started,
-                    from_run_response=run_response,
-                )
+                # Only yield the event if streaming intermediate steps
+                if stream_intermediate_steps:
+                    yield self._create_run_response(
+                        content=model_response_chunk.content,
+                        event=RunEvent.tool_call_started,
+                        from_run_response=run_response,
+                    )
 
             # If the model response is a tool_call_completed, update the existing tool call in the run_response
             elif model_response_chunk.event == ModelResponseEvent.tool_call_completed.value:
@@ -1466,11 +1470,12 @@ class Team:
                     else:
                         run_response.tools = tool_calls_list
 
-                    yield self._create_run_response(
-                        content=model_response_chunk.content,
-                        event=RunEvent.tool_call_completed,
-                        from_run_response=run_response,
-                    )
+                    if stream_intermediate_steps:
+                        yield self._create_run_response(
+                            content=model_response_chunk.content,
+                            event=RunEvent.tool_call_completed,
+                            from_run_response=run_response,
+                        )
 
         # 3. Update the run_response
         # Handle structured outputs
@@ -1931,7 +1936,14 @@ class Team:
 
             # Get response from the team
             stream_resp = self.run(  # type: ignore
-                message=message, audio=audio, images=images, videos=videos, files=files, stream=True, **kwargs
+                message=message,
+                audio=audio,
+                images=images,
+                videos=videos,
+                files=files,
+                stream=True,
+                stream_intermediate_steps=True,
+                **kwargs,
             )
 
             team_markdown = None
@@ -2714,7 +2726,14 @@ class Team:
 
             # Get response from the team
             stream_resp = await self.arun(  # type: ignore
-                message=message, audio=audio, images=images, videos=videos, files=files, stream=True, **kwargs
+                message=message,
+                audio=audio,
+                images=images,
+                videos=videos,
+                files=files,
+                stream=True,
+                stream_intermediate_steps=True,
+                **kwargs,
             )
             team_markdown = None
             member_markdown = {}

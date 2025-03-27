@@ -1747,7 +1747,7 @@ class Team:
                                 formatted_calls = format_tool_calls(member_response.tools)
                                 if formatted_calls:
                                     console_width = console.width if console else 80
-                                    panel_width = max(20, console_width - 20)
+                                    panel_width = console_width + 20
 
                                     lines = []
                                     for call in formatted_calls:
@@ -1815,7 +1815,7 @@ class Team:
                     if formatted_calls:
                         console_width = console.width if console else 80
                         # Allow for panel borders and padding
-                        panel_width = max(20, console_width - 20)
+                        panel_width = console_width + 20
 
                         lines = []
                         for call in formatted_calls:
@@ -2043,7 +2043,7 @@ class Team:
                         formatted_calls = format_tool_calls(member_tool_calls[member_id])
                         if formatted_calls:
                             console_width = console.width if console else 80
-                            panel_width = max(20, console_width - 20)
+                            panel_width = console_width + 20
 
                             lines = []
                             for call in formatted_calls:
@@ -2088,7 +2088,7 @@ class Team:
                     formatted_calls = format_tool_calls(team_tool_calls)
                     if formatted_calls:
                         console_width = console.width if console else 80
-                        panel_width = max(20, console_width - 20)
+                        panel_width = console_width + 20
 
                         lines = []
                         # Create a set to track already added calls by their string representation
@@ -2200,7 +2200,7 @@ class Team:
                         formatted_calls = format_tool_calls(member_tool_calls[member_id])
                         if formatted_calls:
                             console_width = console.width if console else 80
-                            panel_width = max(20, console_width - 20)
+                            panel_width = console_width + 20
 
                             lines = []
                             for call in formatted_calls:
@@ -2277,7 +2277,7 @@ class Team:
                 formatted_calls = format_tool_calls(team_tool_calls)
                 if formatted_calls:
                     console_width = console.width if console else 80
-                    panel_width = max(20, console_width - 20)
+                    panel_width = console_width + 20
 
                     lines = []
                     # Create a set to track already added calls by their string representation
@@ -2529,7 +2529,7 @@ class Team:
                                 formatted_calls = format_tool_calls(member_response.tools)
                                 if formatted_calls:
                                     console_width = console.width if console else 80
-                                    panel_width = max(20, console_width - 20)
+                                    panel_width = console_width + 20
 
                                     lines = []
                                     for call in formatted_calls:
@@ -2597,7 +2597,7 @@ class Team:
                     if formatted_calls:
                         console_width = console.width if console else 80
                         # Allow for panel borders and padding
-                        panel_width = max(20, console_width - 20)
+                        panel_width = console_width + 20
 
                         lines = []
                         for call in formatted_calls:
@@ -2914,7 +2914,7 @@ class Team:
                         formatted_calls = format_tool_calls(member_tool_calls[member_id])
                         if formatted_calls:
                             console_width = console.width if console else 80
-                            panel_width = max(20, console_width - 20)
+                            panel_width = console_width + 20
 
                             lines = []
                             # Create a set to track already added calls by their string representation
@@ -2996,7 +2996,7 @@ class Team:
                 formatted_calls = format_tool_calls(team_tool_calls)
                 if formatted_calls:
                     console_width = console.width if console else 80
-                    panel_width = max(20, console_width - 20)
+                    panel_width = console_width + 20
 
                     lines = []
                     # Create a set to track already added calls by their string representation

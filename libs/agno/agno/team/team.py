@@ -1970,7 +1970,7 @@ class Team:
                 videos=videos,
                 files=files,
                 stream=True,
-                stream_intermediate_steps=True,
+                stream_intermediate_steps=True, # to stream tool calls panel
                 **kwargs,
             )
 

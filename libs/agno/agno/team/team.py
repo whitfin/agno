@@ -861,12 +861,11 @@ class Team:
                 run_response.formatted_tool_calls = format_tool_calls(run_response.tools)
 
                 # If the agent is streaming intermediate steps, yield a RunResponse with the tool_call_started event
-                if stream_intermediate_steps:
-                    yield self._create_run_response(
-                        content=model_response_chunk.content,
-                        event=RunEvent.tool_call_started,
-                        from_run_response=run_response,
-                    )
+                yield self._create_run_response(
+                    content=model_response_chunk.content,
+                    event=RunEvent.tool_call_started,
+                    from_run_response=run_response,
+                )
 
             # If the model response is a tool_call_completed, update the existing tool call in the run_response
             elif model_response_chunk.event == ModelResponseEvent.tool_call_completed.value:
@@ -889,12 +888,11 @@ class Team:
                     else:
                         run_response.tools = tool_calls_list
 
-                    if stream_intermediate_steps:
-                        yield self._create_run_response(
-                            content=model_response_chunk.content,
-                            event=RunEvent.tool_call_completed,
-                            from_run_response=run_response,
-                        )
+                    yield self._create_run_response(
+                        content=model_response_chunk.content,
+                        event=RunEvent.tool_call_completed,
+                        from_run_response=run_response,
+                    )
 
         # 3. Update TeamRunResponse
         run_response.created_at = full_model_response.created_at
@@ -1441,13 +1439,11 @@ class Team:
                 # Format tool calls whenever new ones are added during streaming
                 run_response.formatted_tool_calls = format_tool_calls(run_response.tools)
 
-                # If the agent is streaming intermediate steps, yield a RunResponse with the tool_call_started event
-                if stream_intermediate_steps:
-                    yield self._create_run_response(
-                        content=model_response_chunk.content,
-                        event=RunEvent.tool_call_started,
-                        from_run_response=run_response,
-                    )
+                yield self._create_run_response(
+                    content=model_response_chunk.content,
+                    event=RunEvent.tool_call_started,
+                    from_run_response=run_response,
+                )
 
             # If the model response is a tool_call_completed, update the existing tool call in the run_response
             elif model_response_chunk.event == ModelResponseEvent.tool_call_completed.value:
@@ -1470,12 +1466,11 @@ class Team:
                     else:
                         run_response.tools = tool_calls_list
 
-                    if stream_intermediate_steps:
-                        yield self._create_run_response(
-                            content=model_response_chunk.content,
-                            event=RunEvent.tool_call_completed,
-                            from_run_response=run_response,
-                        )
+                    yield self._create_run_response(
+                        content=model_response_chunk.content,
+                        event=RunEvent.tool_call_completed,
+                        from_run_response=run_response,
+                    )
 
         # 3. Update the run_response
         # Handle structured outputs
@@ -1752,7 +1747,7 @@ class Team:
                                 formatted_calls = format_tool_calls(member_response.tools)
                                 if formatted_calls:
                                     console_width = console.width if console else 80
-                                    panel_width = console_width + 20
+                                    panel_width = console_width + 30
 
                                     lines = []
                                     for call in formatted_calls:
@@ -1821,7 +1816,7 @@ class Team:
                     if formatted_calls:
                         console_width = console.width if console else 80
                         # Allow for panel borders and padding
-                        panel_width = console_width + 20
+                        panel_width = console_width + 30
 
                         lines = []
                         for call in formatted_calls:
@@ -2049,7 +2044,7 @@ class Team:
                         formatted_calls = format_tool_calls(member_tool_calls[member_id])
                         if formatted_calls:
                             console_width = console.width if console else 80
-                            panel_width = console_width + 20
+                            panel_width = console_width + 30
 
                             lines = []
                             for call in formatted_calls:
@@ -2094,7 +2089,7 @@ class Team:
                     formatted_calls = format_tool_calls(team_tool_calls)
                     if formatted_calls:
                         console_width = console.width if console else 80
-                        panel_width = console_width + 20
+                        panel_width = console_width + 30
 
                         lines = []
                         # Create a set to track already added calls by their string representation
@@ -2206,7 +2201,7 @@ class Team:
                         formatted_calls = format_tool_calls(member_tool_calls[member_id])
                         if formatted_calls:
                             console_width = console.width if console else 80
-                            panel_width = console_width + 20
+                            panel_width = console_width + 30
 
                             lines = []
                             for call in formatted_calls:
@@ -2283,7 +2278,7 @@ class Team:
                 formatted_calls = format_tool_calls(team_tool_calls)
                 if formatted_calls:
                     console_width = console.width if console else 80
-                    panel_width = console_width + 20
+                    panel_width = console_width + 30
 
                     lines = []
                     # Create a set to track already added calls by their string representation
@@ -2535,7 +2530,7 @@ class Team:
                                 formatted_calls = format_tool_calls(member_response.tools)
                                 if formatted_calls:
                                     console_width = console.width if console else 80
-                                    panel_width = console_width + 20
+                                    panel_width = console_width + 30
 
                                     lines = []
                                     for call in formatted_calls:
@@ -2603,7 +2598,7 @@ class Team:
                     if formatted_calls:
                         console_width = console.width if console else 80
                         # Allow for panel borders and padding
-                        panel_width = console_width + 20
+                        panel_width = console_width + 30
 
                         lines = []
                         for call in formatted_calls:
@@ -2920,7 +2915,7 @@ class Team:
                         formatted_calls = format_tool_calls(member_tool_calls[member_id])
                         if formatted_calls:
                             console_width = console.width if console else 80
-                            panel_width = console_width + 20
+                            panel_width = console_width + 30
 
                             lines = []
                             # Create a set to track already added calls by their string representation
@@ -3002,7 +2997,7 @@ class Team:
                 formatted_calls = format_tool_calls(team_tool_calls)
                 if formatted_calls:
                     console_width = console.width if console else 80
-                    panel_width = console_width + 20
+                    panel_width = console_width + 30
 
                     lines = []
                     # Create a set to track already added calls by their string representation

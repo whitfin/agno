@@ -4,13 +4,13 @@ Utility functions for the GitHub Repository Analyzer.
 
 import datetime
 import json
+import logging
 import os
 import re
 from typing import Any, Dict, List, Optional
-import logging
-from github import Github, GithubException
 
 import streamlit as st
+from github import Github, GithubException
 
 # Import prompts - change from relative to direct import
 # from .prompts import ABOUT_TEXT
@@ -51,16 +51,19 @@ CUSTOM_CSS = """
 
 # Predefined list of popular repositories
 POPULAR_REPOS = [
-    "agno-agi/agno", # Ensure agno is included
+    "agno-agi/agno",  # Ensure agno is included
     "facebook/react",
     "tensorflow/tensorflow",
     "microsoft/vscode",
     "torvalds/linux",
-    "openai/openai-python", # Added one more popular repo
+    "openai/openai-python",  # Added one more popular repo
 ]
 
 # Add logging configuration
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def add_message(
     role: str, content: str, tool_calls: Optional[List[Dict]] = None
@@ -82,7 +85,9 @@ def about_widget() -> None:
     st.sidebar.markdown(ABOUT_TEXT)
 
 
-def get_combined_repositories(token: Optional[str], user_repo_limit: int = 5) -> list[str]:
+def get_combined_repositories(
+    token: Optional[str], user_repo_limit: int = 5
+) -> list[str]:
     """
     Fetches user repositories (if token provided) and combines them with
     a predefined list of popular repositories.
@@ -100,7 +105,11 @@ def get_combined_repositories(token: Optional[str], user_repo_limit: int = 5) ->
             g = Github(token)
             user = g.get_user()
             logging.info(f"Authenticated as GitHub user: {user.login}")
-            repos = user.get_repos(affiliation='owner,collaborator,organization_member', sort='updated', direction='desc')
+            repos = user.get_repos(
+                affiliation="owner,collaborator,organization_member",
+                sort="updated",
+                direction="desc",
+            )
 
             count = 0
             for repo in repos:
@@ -110,13 +119,19 @@ def get_combined_repositories(token: Optional[str], user_repo_limit: int = 5) ->
                 count += 1
             logging.info(f"Fetched {len(user_repos)} user repositories: {user_repos}")
         except GithubException as e:
-            logging.error(f"GitHub API error while fetching user repositories: {e.status} - {e.data}")
+            logging.error(
+                f"GitHub API error while fetching user repositories: {e.status} - {e.data}"
+            )
             # Don't show error in UI here, let the main app handle UI feedback if needed
         except Exception as e:
-            logging.error(f"An unexpected error occurred while fetching user repositories: {e}")
+            logging.error(
+                f"An unexpected error occurred while fetching user repositories: {e}"
+            )
             # Don't show error in UI here
     else:
-        logging.warning("GitHub token not provided via environment variable. Only showing popular repositories.")
+        logging.warning(
+            "GitHub token not provided via environment variable. Only showing popular repositories."
+        )
 
     # Combine user repos with popular repos, ensuring uniqueness and order
     combined_list = []
@@ -134,5 +149,7 @@ def get_combined_repositories(token: Optional[str], user_repo_limit: int = 5) ->
             combined_list.append(repo)
             seen.add(repo)
 
-    logging.info(f"Final combined repository list ({len(combined_list)}): {combined_list}")
+    logging.info(
+        f"Final combined repository list ({len(combined_list)}): {combined_list}"
+    )
     return combined_list

@@ -45,7 +45,6 @@ if __name__ == "__main__":
     asyncio.run(
         team.aprint_response(
             "What is the current stock price of NVDA?",
-            stream=True,
-            stream_intermediate_steps=True,
+            stream=True
         )
     )

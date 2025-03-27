@@ -1,53 +1,48 @@
-# GitHub Repository Analyzer
+# GitHub Repository Chat Analyzer
 
-An AI-powered GitHub repository analysis tool built with Agno and Streamlit.
-
-## Overview
-
-GitHub Repository Analyzer provides comprehensive insights into GitHub repositories, including code quality assessment, contribution patterns, issue and PR analysis, and community health evaluation. The application presents the analysis in an interactive Streamlit dashboard with visualizations.
+This application provides a chat-based interface to interact with and analyze GitHub repositories using the Agno framework and OpenAI models. Users can select a repository and ask questions about its code, issues, pull requests, statistics, and more.
 
 ## Features
 
-- **Repository Analysis**: Stars, forks, watchers, contributor statistics, commit activity
-- **Issue Analysis**: Issue categorization, response time, trending topics
-- **Pull Request Analysis**: PR lifecycle analysis, code review metrics
-- **Statistical Visualizations**: Interactive charts for repository metrics
-- **Repository Comparison**: Compare metrics across multiple repositories
-- **Favorites Management**: Save frequently analyzed repositories
-- **Export Options**: Download reports in markdown format
+- **Chat Interface:** Interact with an AI agent knowledgeable about a selected GitHub repository.
+- **Repository Selection:** Choose from a predefined list of popular open-source repositories or potentially add your own (requires code modification or environment setup).
+- **Comprehensive Analysis:** Ask about:
+  - Repository statistics (stars, forks, languages).
+  - Open/Closed issues and pull requests.
+  - Detailed pull request information, including code changes (diff/patch analysis).
+  - File contents and directory structures.
+  - Code searching within the repository.
+- **Powered by Agno & OpenAI:** Leverages the `agno` framework for agent creation and tool usage, interacting with the GitHub API via `PyGithub`.
 
-## Setup
+### 1. Create a virtual environment
 
-1. Clone the repository
-2. Create a virtual environment:
-   ```
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
-4. Create a `.env` file with your GitHub access token:
-   ```
-   GITHUB_ACCESS_TOKEN=your_token_here
-   ```
-
-## Usage
-
-Run the Streamlit app:
-
-```
-streamlit run app.py
+```shell
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-This will open a web interface where you can:
+### 2. Install dependencies
 
-- Enter a repository name in the format `owner/repo`
-- Configure analysis options
-- View interactive visualizations
-- Compare multiple repositories
-- Save favorite repositories for quick access
+```shell
+pip install -r cookbook/examples/apps/github_repo_analyzer/requirements.txt
+```
+
+### 3. Export API Keys
+
+Export the API keys:
+
+```shell
+export OPENAI_API_KEY=***
+export GITHUB_ACCESS_TOKEN=**
+```
+
+### 4. Run the Game
+
+```shell
+streamlit run cookbook/examples/apps/github_repo_analyzer/app.py
+```
+
+Navigate to the URL provided by Streamlit (usually `http://localhost:8501`) in your web browser. Select a repository from the sidebar and start chatting!
 
 ## Project Structure
 

@@ -23,6 +23,8 @@ from typing import (
     overload,
 )
 from uuid import uuid4
+from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 from pydantic import BaseModel
 
@@ -829,7 +831,16 @@ class Agent:
         # 11. Save session to storage
         self.write_to_storage()
 
-        # 12. Save output to file if save_response_to_file is set
+        # Create a ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # 12. Log Agent Run
+            executor.submit(self._log_agent_run)
+
+            # 13. Register Agent on Platform
+            if self.register_on_platform:
+                executor.submit(self._register_agent_on_platform)
+
+        # 14. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message)
 
         # Set run_input
@@ -842,12 +853,6 @@ class Agent:
                 self.run_input = message
         elif messages is not None:
             self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
-
-        # Log Agent Run
-        self._log_agent_run()
-
-        if self.register_on_platform:
-            self._register_agent_on_platform()
 
         log_debug(f"Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
         if self.stream_intermediate_steps:
@@ -1365,11 +1370,12 @@ class Agent:
         elif messages is not None:
             self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
 
-        # Log Agent Run
-        await self._alog_agent_run()
+        # Run the logging task in a separate thread
+        await asyncio.to_thread(self._log_agent_run)
 
+        # Run the registration task in a separate thread if needed
         if self.register_on_platform:
-            await self._aregister_agent_on_platform()
+            await asyncio.to_thread(self._register_agent_on_platform)
 
         log_debug(f"Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
         if self.stream_intermediate_steps:

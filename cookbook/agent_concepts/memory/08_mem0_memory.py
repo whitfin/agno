@@ -1,3 +1,11 @@
+"""
+This example demonstrates how to use the mem0 MemoryClient to store and retrieve memory.
+
+Sign up for mem0 at https://mem0.ai/
+
+Export the MEM0_API_KEY environment variable before running the script.
+"""
+
 from agno.agent import Agent, RunResponse
 from agno.models.openai import OpenAIChat
 from agno.utils.pprint import pprint_run_response
@@ -12,7 +20,7 @@ messages = [
     {"role": "user", "content": "I'm going to a concert tomorrow."},
 ]
 # Comment out the following line after running the script once
-client.add(messages, user_id=user_id)
+client.add(messages, user_id=user_id, output_format="v1.1")
 
 agent = Agent(
     model=OpenAIChat(),
@@ -24,4 +32,4 @@ run: RunResponse = agent.run("What do you know about me?")
 pprint_run_response(run)
 
 messages = [{"role": i.role, "content": str(i.content)} for i in (run.messages or [])]
-client.add(messages, user_id=user_id)
+client.add(messages, user_id=user_id, output_format="v1.1")

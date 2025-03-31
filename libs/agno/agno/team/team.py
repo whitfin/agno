@@ -451,7 +451,7 @@ class Team:
         if self.memory is None:
             self.memory = TeamMemory()
 
-        # Read existing session from storage
+        # Resolve context if provided
         if self.context is not None:
             self._resolve_run_context()
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Dict, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from agno.run_v2.response import RunResponse
 from agno.utils.log import logger
@@ -17,10 +17,10 @@ class AgentSession:
     user_id: Optional[str] = None
     # ID of the team session this agent session is associated with
     team_session_id: Optional[str] = None
-    # Agent Memory
-    memory: Optional[Dict[str, Any]] = None
-    # Session Data: session_name, session_state, images, videos, audio
-    session_data: Optional[Dict[str, Any]] = None
+
+    # Runs
+    runs: List[RunResponse] = []
+
     # Extra Data stored with this agent
     extra_data: Optional[Dict[str, Any]] = None
     # The unix timestamp when this session was created
@@ -33,11 +33,10 @@ class AgentSession:
     # Agent Data: agent_id, name and model
     agent_data: Optional[Dict[str, Any]] = None
 
-    def add_run(self, run: RunResponse) -> None:
-        self.runs.append(run)
-
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        _dict = asdict(self)
+        _dict["runs"] = [run.to_dict() for run in self.runs]
+        return _dict
 
     def telemetry_data(self) -> Dict[str, Any]:
         return {
@@ -56,9 +55,7 @@ class AgentSession:
             agent_id=data.get("agent_id"),
             team_session_id=data.get("team_session_id"),
             user_id=data.get("user_id"),
-            memory=data.get("memory"),
-            agent_data=data.get("agent_data"),
-            session_data=data.get("session_data"),
+            runs=[RunResponse.from_dict(run) for run in data.get("runs", [])],
             extra_data=data.get("extra_data"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),

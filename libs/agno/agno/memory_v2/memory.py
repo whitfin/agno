@@ -190,7 +190,7 @@ class Memory:
     # Summary of the session
     summary: Optional[SessionSummary] = None
     # Create and store session summaries
-    create_session_summary: bool = False
+    create_session_summaries: bool = False
     # Update session summaries after each run
     update_session_summary_after_run: bool = True
     # Summarizer to generate session summaries

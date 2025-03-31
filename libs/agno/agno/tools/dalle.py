@@ -51,6 +51,7 @@ class DalleTools(Toolkit):
             logger.error("OPENAI_API_KEY not set. Please set the OPENAI_API_KEY environment variable.")
 
         self.register(self.create_image)
+        self.register(self.create_image_variation)
         # TODO:
         # - Add support for response_format
         # - Add support for saving images
@@ -94,3 +95,41 @@ class DalleTools(Toolkit):
         except Exception as e:
             logger.error(f"Failed to generate image: {e}")
             return f"Error: {e}"
+
+    def create_image_variation(self, agent: Agent, image_path: str) -> str:
+        """Use this function to generate a variation of an image.
+
+        Args:
+            image_path (str): The path to the image to generate a variation of.
+
+        Returns:
+            str: A message indicating if the image variation has been generated successfully or an error message.
+        """
+        if not self.api_key:
+            return "Please set the OPENAI_API_KEY"
+
+        try:
+            client = OpenAI(api_key=self.api_key)
+            log_debug(f"Generating image variation for image at path: {image_path}")
+            response: ImagesResponse = client.images.create_variation(
+                image=open(image_path, "rb"),
+                n=self.n,
+                size=self.size,
+            )
+
+            log_debug("Image generated successfully")
+
+            # Update the run response with the image URLs
+            response_str = ""
+            for img in response.data:
+                agent.add_image(
+                    ImageArtifact(
+                        id=str(uuid4()), url=img.url
+                    )
+                )
+                response_str += f"Image has been generated at the URL {img.url}\n"
+            return response_str
+        except Exception as e:
+            logger.error(f"Failed to generate image: {e}")
+            return f"Error: {e}"
+

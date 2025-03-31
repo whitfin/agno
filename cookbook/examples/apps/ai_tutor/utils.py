@@ -149,3 +149,30 @@ def apply_custom_css():
     """,
         unsafe_allow_html=True,
     )
+
+
+def extract_day_content(learning_path, day):
+    """Extract content for a specific day from a learning path.
+
+    This utility function uses regex to extract the content for a specific
+    day from the learning path markdown text.
+
+    Args:
+        learning_path: The full learning path markdown text
+        day: The day number to extract
+
+    Returns:
+        The content for the specified day, or None if not found
+    """
+    import re
+
+    # Pattern to match day heading and all content until the next day heading or end
+    print(type(day), day)
+    print(f"## Day {day}:.*?(?=## Day \d+:|$)")
+    day_pattern = rf"## Day {day}:.*?(?=## Day \d+:|$)"
+
+    match = re.search(day_pattern, learning_path, re.DOTALL)
+    if match:
+        return match.group(0)
+
+    return None

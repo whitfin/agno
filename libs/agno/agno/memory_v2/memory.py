@@ -62,12 +62,31 @@ class Memory:
 
     # Memories per user
     memories: Optional[Dict[str, Dict[str, UserMemory]]] = None
+    memory_classifier: Optional[MemoryClassifier] = None
+    memory_manager: Optional[MemoryManager] = None
+    # Create and store personalized memories for this user
+    create_user_memories: bool = False
+    # Update memories for the user after each run
+    update_user_memories_after_run: bool = True
 
     # Session summaries per user
-    session_summaries: Dict[str, Dict[str, SessionSummary]] = {}
-
+    summaries: Optional[Dict[str, Dict[str, UserMemory]]] = None
     # Summarizer to generate session summaries
     summarizer: Optional[SessionSummarizer] = None
+    # Create and store session summaries
+    create_session_summary: bool = False
+    # Update session summaries after each run
+    update_session_summary_after_run: bool = True
+
+    memory_db: Optional[MemoryDb] = None
+    summary_db: Optional[MemoryDb] = None
+
+    # runs per session
+    runs: Optional[Dict[str, list[AgentRun]]] = None
+
+    retrieval: MemoryRetrieval = MemoryRetrieval.last_n
+    num_memories: Optional[int] = None
+
 
     def __init__(self, model: Optional[Model] = None, summarizer: Optional[SessionSummarizer] = None):
         self.model = model
@@ -85,7 +104,7 @@ class Memory:
                 exit(1)
             self.model = OpenAIChat(id="gpt-4o")
         return self.model
-    
+
     def get_user_memories(self, user_id: str) -> Dict[str, UserMemory]:
         """Get the user memories for a given user id"""
         return self.memories.get(user_id, {})
@@ -108,7 +127,7 @@ class Memory:
         memory_id = str(uuid4())
         self.memories.setdefault(user_id, {})[memory_id] = memory
         return memory_id
-    
+
     def delete_user_memory(self, user_id: str, memory_id: str) -> None:
         """Delete a user memory for a given user id"""
         del self.memories[user_id][memory_id]
@@ -141,7 +160,16 @@ class Memory:
 
         # TODO: Write to DB
         return summary
-    
+
+
+    def add_messages_for_run(self):
+        # Create a fake run for the user as they provide messages
+        pass
+
+
+
+
+
 
     def get_message_pairs_for_session(
         self, session: Union[AgentSession, TeamSession], user_role: str = "user", assistant_role: Optional[List[str]] = None

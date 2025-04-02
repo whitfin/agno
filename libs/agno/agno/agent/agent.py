@@ -3484,7 +3484,7 @@ class Agent:
             return ""
 
         # deque for efficient FIFO operations
-        history: Deque[Message] = deque(maxlen=num_chats * 2 if num_chats else None)
+        history: Deque[Dict[str, Any]] = deque(maxlen=num_chats * 2 if num_chats else None)
 
         all_chats = self.memory.get_message_pairs()
         if len(all_chats) == 0:

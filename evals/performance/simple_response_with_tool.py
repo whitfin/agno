@@ -22,11 +22,13 @@ def get_weather(city: Literal["nyc", "sf"]):
         return "It's always sunny in sf"
 
 def simple_response():
-    agent = Agent(model=OpenAIChat(id='gpt-4o'), 
-                add_history_to_messages=True,
-                user_id="john_billings",
-                system_message='Be concise, reply with one sentence.',
-                tools=[get_weather])
+    agent = Agent(
+        model=OpenAIChat(id='gpt-4o'), 
+        add_history_to_messages=True,
+        user_id="john_billings",
+        system_message='Be concise, reply with one sentence.',
+        tools=[get_weather]
+    )
     response = agent.run('What is the weather in New York?')
     return response
 

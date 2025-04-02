@@ -9,20 +9,22 @@ from agno.models.openai import OpenAIChat
 from agno.eval.perf import PerfEval
 
 def simple_response():
-    agent = Agent(model=OpenAIChat(id='gpt-4o'), 
-                add_history_to_messages=True,
-                user_id="john_billings",
-                memory=AgentMemory(
-                    db=SqliteMemoryDb(
-                        table_name="agent_memory",
-                        db_file="tmp/agent_memory.db",
-                    ),
-                    create_user_memories=True,
-                    update_user_memories_after_run=True,
-                    create_session_summary=True,
-                    update_session_summary_after_run=True,
-                ),
-                system_message='Be concise, reply with one sentence.')
+    agent = Agent(
+        model=OpenAIChat(id='gpt-4o'), 
+        add_history_to_messages=True,
+        user_id="john_billings",
+        memory=AgentMemory(
+            db=SqliteMemoryDb(
+                table_name="agent_memory",
+                db_file="tmp/agent_memory.db",
+            ),
+            create_user_memories=True,
+            update_user_memories_after_run=True,
+            create_session_summary=True,
+            update_session_summary_after_run=True,
+        ),
+        system_message='Be concise, reply with one sentence.'
+    )
     response = agent.run('My name is John Billings.')
     response = agent.run('What is my name?')
     print(response.content)

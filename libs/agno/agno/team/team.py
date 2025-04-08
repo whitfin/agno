@@ -731,7 +731,7 @@ class Team:
         self.write_to_storage()
 
         # 7. Parse team response model
-        if self.response_model is not None:
+        if self.response_model is not None and not isinstance(run_response.content, self.response_model):
             if isinstance(run_response.content, str) and self.parse_response:
                 try:
                     parsed_response_content = parse_response_model_str(run_response.content, self.response_model)
@@ -745,8 +745,10 @@ class Team:
                 except Exception as e:
                     log_warning(f"Failed to convert response to output model: {e}")
             else:
-                log_warning("Something went wrong. Run response content is not a string")
-        elif self._member_response_model is not None:
+                log_warning("Something went wrong. Team run response content is not a string")
+        elif self._member_response_model is not None and not isinstance(
+            run_response.content, self._member_response_model
+        ):
             if isinstance(run_response.content, str):
                 try:
                     parsed_response_content = parse_response_model_str(
@@ -761,7 +763,7 @@ class Team:
                 except Exception as e:
                     log_warning(f"Failed to convert response to output model: {e}")
             else:
-                log_warning("Something went wrong. Run response content is not a string")
+                log_warning("Something went wrong. Member run response content is not a string")
 
         # 8. Log Team Run
         self._log_team_run()
@@ -1046,7 +1048,7 @@ class Team:
         if self.response_model is not None and self.parse_response:
             # Disable stream if response_model is set
             stream = False
-            log_warning("Disabling stream as response_model is set")
+            log_debug("Disabling stream as response_model is set")
 
         # Configure the model for runs
         self._configure_model(show_tool_calls=show_tool_calls)
@@ -1320,7 +1322,7 @@ class Team:
         self.write_to_storage()
 
         # 7. Parse team response model
-        if self.response_model is not None:
+        if self.response_model is not None and not isinstance(run_response.content, self.response_model):
             if isinstance(run_response.content, str) and self.parse_response:
                 try:
                     parsed_response_content = parse_response_model_str(run_response.content, self.response_model)
@@ -1334,8 +1336,10 @@ class Team:
                 except Exception as e:
                     log_warning(f"Failed to convert response to output model: {e}")
             else:
-                log_warning("Something went wrong. Run response content is not a string")
-        elif self._member_response_model is not None:
+                log_warning("Something went wrong. Team run response content is not a string")
+        elif self._member_response_model is not None and not isinstance(
+            run_response.content, self._member_response_model
+        ):
             if isinstance(run_response.content, str):
                 try:
                     parsed_response_content = parse_response_model_str(
@@ -1350,7 +1354,7 @@ class Team:
                 except Exception as e:
                     log_warning(f"Failed to convert response to output model: {e}")
             else:
-                log_warning("Something went wrong. Run response content is not a string")
+                log_warning("Something went wrong. Member run response content is not a string")
 
         # 8. Log Team Run
         await self._alog_team_run()
@@ -3728,7 +3732,7 @@ class Team:
                                 func.strict = True
                             self._functions_for_model[name] = func
                             self._tools_for_model.append({"type": "function", "function": func.to_dict()})
-                            log_debug(f"Included function {name} from {tool.name}")
+                            log_debug(f"Added function {name} from {tool.name}")
 
                 elif isinstance(tool, Function):
                     if tool.name not in self._functions_for_model:
@@ -3738,7 +3742,7 @@ class Team:
                             tool.strict = True
                         self._functions_for_model[tool.name] = tool
                         self._tools_for_model.append({"type": "function", "function": tool.to_dict()})
-                        log_debug(f"Included function {tool.name}")
+                        log_debug(f"Added function {tool.name}")
 
                 elif callable(tool):
                     # We add the tools, which are callable functions
@@ -3749,7 +3753,7 @@ class Team:
                             func.strict = True
                         self._functions_for_model[func.name] = func
                         self._tools_for_model.append({"type": "function", "function": func.to_dict()})
-                        log_debug(f"Included function {func.name}")
+                        log_debug(f"Added function {func.name}")
                     except Exception as e:
                         log_warning(f"Could not add function {tool}: {e}")
 
@@ -3771,6 +3775,8 @@ class Team:
                     system_message_content += f"{indent * ' '}   - Name: {member.name}\n"
                 if member.role is not None:
                     system_message_content += f"{indent * ' '}   - Role: {member.role}\n"
+                if member.description is not None:
+                    system_message_content += f"{indent * ' '}   - Description: {member.description}\n"
                 if member.tools is not None:
                     system_message_content += f"{indent * ' '}   - Available tools:\n"
                     tool_name_and_description = []

@@ -1803,7 +1803,7 @@ class Agent:
     def create_agent_session(self) -> AgentSession:
         from time import time
 
-        """Get an AgentSession object, which can be saved to the database"""
+        """Create an AgentSession object, which can be saved to the database"""
         self.memory = cast(AgentMemory, self.memory)
         self.session_id = cast(str, self.session_id)
         self.team_session_id = cast(str, self.team_session_id)

@@ -3895,7 +3895,9 @@ class Agent:
                             if step.title is not None:
                                 step_content.append(f"{step.title}\n", "bold")
                             if step.action is not None:
-                                step_content.append(f"[bold]Action:[/bold] {step.action}\n", "dim")
+                                step_content.append(
+                                    Text.from_markup(f"[bold]Action:[/bold] {step.action}\n", style="dim")
+                                )
                             if step.result is not None:
                                 step_content.append(Text.from_markup(step.result, style="dim"))
 
@@ -4027,7 +4029,7 @@ class Agent:
                         if step.title is not None:
                             step_content.append(f"{step.title}\n", "bold")
                         if step.action is not None:
-                            step_content.append(f"[bold]Action:[/bold] {step.action}\n", "dim")
+                            step_content.append(Text.from_markup(f"[bold]Action:[/bold] {step.action}\n", style="dim"))
                         if step.result is not None:
                             step_content.append(Text.from_markup(step.result, style="dim"))
 
@@ -4236,7 +4238,9 @@ class Agent:
                             if step.title is not None:
                                 step_content.append(f"{step.title}\n", "bold")
                             if step.action is not None:
-                                step_content.append(f"[bold]Action:[/bold] {step.action}\n", "dim")
+                                step_content.append(
+                                    Text.from_markup(f"[bold]Action:[/bold] {step.action}\n", style="dim")
+                                )
                             if step.result is not None:
                                 step_content.append(Text.from_markup(step.result, style="dim"))
 
@@ -4368,7 +4372,7 @@ class Agent:
                         if step.title is not None:
                             step_content.append(f"{step.title}\n", "bold")
                         if step.action is not None:
-                            step_content.append(f"[bold]Action:[/bold] {step.action}\n", "dim")
+                            step_content.append(Text.from_markup(f"[bold]Action:[/bold] {step.action}\n", style="dim"))
                         if step.result is not None:
                             step_content.append(Text.from_markup(step.result, style="dim"))
 

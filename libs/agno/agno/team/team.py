@@ -41,6 +41,7 @@ from agno.storage.base import Storage
 from agno.storage.session.team import TeamSession
 from agno.tools.function import Function, get_entrypoint_docstring
 from agno.tools.toolkit import Toolkit
+from agno.utils.format_str import url_safe
 from agno.utils.log import (
     log_debug,
     log_error,
@@ -3137,10 +3138,10 @@ class Team:
         for member in self.members:
             if isinstance(member, Agent):
                 if member.agent_id == entity_id:
-                    return member.name or entity_id
+                    return url_safe(member.name) or entity_id
             elif isinstance(member, Team):
                 if member.team_id == entity_id:
-                    return member.name or entity_id
+                    return url_safe(member.name) or entity_id
         return entity_id
 
     def _parse_response_content(
@@ -3770,36 +3771,32 @@ class Team:
     def get_members_system_message_content(self, indent: int = 0) -> str:
         system_message_content = ""
         for idx, member in enumerate(self.members):
+            url_safe_name = url_safe(member.name)
             if isinstance(member, Team):
-                system_message_content += f"{indent * ' '} - Team: {member.name}\n"
+                system_message_content += f"{indent * ' '}Team: {url_safe_name}\n"
                 if member.members is not None:
                     system_message_content += member.get_members_system_message_content(indent=indent + 2)
             else:
-                system_message_content += f"{indent * ' '} - Agent {idx + 1}:\n"
-                if member.name is not None:
-                    system_message_content += f"{indent * ' '}   - Name: {member.name}\n"
+                system_message_content += f"{indent * ' '}Agent {idx + 1}:\n"
+                if url_safe_name is not None:
+                    system_message_content += f"{indent * ' '} - Name: {url_safe_name}\n"
                 if member.role is not None:
-                    system_message_content += f"{indent * ' '}   - Role: {member.role}\n"
-                if member.description is not None:
-                    system_message_content += f"{indent * ' '}   - Description: {member.description}\n"
+                    system_message_content += f"{indent * ' '} - Role: {member.role}\n"
                 if member.tools is not None:
-                    system_message_content += f"{indent * ' '}   - Available tools:\n"
-                    tool_name_and_description = []
+                    system_message_content += f"{indent * ' '} - Available tools:\n"
+                    tool_names = []
 
                     for _tool in member.tools:
                         if isinstance(_tool, Toolkit):
                             for _func in _tool.functions.values():
-                                if _func.entrypoint:
-                                    tool_name_and_description.append(
-                                        (_func.name, get_entrypoint_docstring(_func.entrypoint))
-                                    )
+                                tool_names.append(_func.name)
                         elif isinstance(_tool, Function) and _tool.entrypoint:
-                            tool_name_and_description.append((_tool.name, get_entrypoint_docstring(_tool.entrypoint)))
+                            tool_names.append(_tool.name)
                         elif callable(_tool):
-                            tool_name_and_description.append((_tool.__name__, get_entrypoint_docstring(_tool)))
+                            tool_names.append(_tool.__name__)
 
-                    for _tool_name, _tool_description in tool_name_and_description:
-                        system_message_content += f"{indent * ' '}    - {_tool_name}: {_tool_description}\n"
+                    for _tool_name in tool_names:
+                        system_message_content += f"{indent * ' '}    - {_tool_name}\n"
 
         return system_message_content
 
@@ -3843,54 +3840,60 @@ class Team:
 
         # 2 Build the default system message for the Agent.
         system_message_content: str = ""
-        if self.mode == "coordinate":
-            system_message_content += "You are the leader of a team of AI Agents and possible Sub-Teams:\n"
-            system_message_content += self.get_members_system_message_content()
+        system_message_content += "You are the leader of a team and possible sub-teams of AI Agents.\n"
+        system_message_content += "Your task is to coordinate the team to complete the user's request.\n"
+        system_message_content += "You can either respond directly or forward tasks to members in your team with the highest likelihood of completing the user's request.\n"
+        system_message_content += (
+            "Carefully analyze the tools available to members and their roles before forwarding tasks.\n"
+        )
 
+        system_message_content += "\nHere are the available members of your team:\n"
+        system_message_content += "<team_members>\n"
+        system_message_content += self.get_members_system_message_content()
+        system_message_content += "</team_members>\n"
+
+        system_message_content += "\n<how_to_handle_tasks>\n"
+        if self.mode == "coordinate":
             system_message_content += (
-                "\n"
-                "- You can either respond directly or transfer tasks to other Agents in your team depending on the tools available to them and their roles.\n"
-                "- If you transfer a task to another Agent, make sure to include:\n"
-                "  - agent_name (str): The name of the Agent to transfer the task to.\n"
+                "- When you forward a task to another Agent, make sure to include:\n"
+                "  - agent_name (str): The name of the Agent to forward the task to.\n"
                 "  - task_description (str): A clear description of the task.\n"
                 "  - expected_output (str): The expected output.\n"
-                "- You can pass tasks to multiple members at once.\n"
-                "- You must always validate the output of the other Agents before responding to the user.\n"
-                "- Evaluate the response from other agents. If you feel the task has been completed, you can stop and respond to the user.\n"
-                "- You can re-assign the task if you are not satisfied with the result.\n"
-                "\n"
+                "- You can forward tasks to multiple members at once.\n"
+                "- You must always validate and analyze the responses from members before responding to the user.\n"
+                "- Evaluate and Analyze the responses from the members. If you feel the task has been completed, you can stop and respond to the user.\n"
+                "- You can and should re-assign the task if you are not satisfied with the result.\n"
             )
         elif self.mode == "route":
-            system_message_content += "You are the leader of a team of AI Agents and possible Sub-Teams:\n"
-            system_message_content += self.get_members_system_message_content()
             system_message_content += (
-                "- You act as a router for the user's request. You have to choose the correct agent(s) to forward the user's request to. This should be the agent that has the highest likelihood of completing the task.\n"
                 "- When you forward a task to another Agent, make sure to include:\n"
-                "  - agent_name (str): The name of the Agent to transfer the task to.\n"
+                "  - agent_name (str): The name of the Agent to forward the task to.\n"
                 "  - expected_output (str): The expected output.\n"
-                "- You should do your best to forward the task to a single agent.\n"
-                "- If the user request requires it (e.g. if they are asking for multiple things), you can forward to multiple agents at once.\n"
-                "\n"
+                "- You can forward tasks to multiple members at once.\n"
             )
-
         elif self.mode == "collaborate":
-            system_message_content += "You are leading a collaborative team of Agents and possible Sub-Teams:\n"
-            system_message_content += self.get_members_system_message_content()
             system_message_content += (
-                "- Only call run_member_agent once for all agents in the team.\n"
-                "- Take all the responses from the other Agents into account and evaluate whether the task has been completed.\n"
+                "- Call run_member_agent once for all relevant agents that are a fit for the task.\n"
+                "- You must always validate and analyze the responses from all members before responding to the user.\n"
+                "- Take all the responses from members into account and analyze whether the task has been completed.\n"
                 "- If you feel the task has been completed, you can stop and respond to the user.\n"
             )
-            system_message_content += "\n"
+        system_message_content += "\n</how_to_handle_tasks>\n"
 
         if self.enable_agentic_context:
-            system_message_content += "You can and should update the context of the team. Use the `set_team_context` tool to update the shared team context.\n"
+            system_message_content += "<shared_context>\n"
+            system_message_content += (
+                "You have access to a shared context that will be shared with all members of the team.\n"
+            )
+            system_message_content += "Use this shared context to improve inter-agent communication and coordination.\n"
+            system_message_content += "To update the shared context, use the `set_team_context` tool.\n"
+            system_message_content += "</shared_context>\n"
 
         if self.name is not None:
             system_message_content += f"Your name is: {self.name}.\n\n"
 
         if self.success_criteria:
-            system_message_content += f"<success_criteria>\nThe team will be considered successful if the following criteria are met: {self.success_criteria}\nStop the team run when the criteria are met.\n</success_criteria>\n\n"
+            system_message_content += f"<success_criteria>\nYour task is successful if the following criteria is met: {self.success_criteria}\nStop the team run when the criteria is met.\n</success_criteria>\n\n"
 
         if self.description is not None:
             system_message_content += f"<description>\n{self.description}\n</description>\n\n"
@@ -4741,7 +4744,8 @@ class Team:
         """
         # First check direct members
         for i, member in enumerate(self.members):
-            if member.name == agent_name:
+            url_safe_name = url_safe(member.name)
+            if url_safe_name == agent_name:
                 return (i, member)
 
             # If this member is a team, search its members recursively

@@ -10,7 +10,6 @@ from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.reasoning import ReasoningTools
 
-
 """Test function to verify reasoning_content is populated in RunResponse."""
 print("\n=== Testing reasoning_content generation ===\n")
 
@@ -27,17 +26,15 @@ agent = Agent(
 
 # Test 1: Non-streaming mode
 print("Running with stream=False...")
-response = agent.run(
-    "What is the sum of the first 10 natural numbers?", stream=False
-)
+response = agent.run("What is the sum of the first 10 natural numbers?", stream=False)
 
 # Check reasoning_content
 if hasattr(response, "reasoning_content") and response.reasoning_content:
     print("✅ reasoning_content FOUND in non-streaming response")
     print(f"   Length: {len(response.reasoning_content)} characters")
     print("\n=== reasoning_content preview (non-streaming) ===")
-    preview = response.reasoning_content[:500]
-    if len(response.reasoning_content) > 500:
+    preview = response.reasoning_content[:1000]
+    if len(response.reasoning_content) > 1000:
         preview += "..."
     print(preview)
 else:
@@ -77,13 +74,11 @@ if hasattr(streaming_agent, "run_response") and streaming_agent.run_response:
             f"   Length: {len(streaming_agent.run_response.reasoning_content)} characters"
         )
         print("\n=== reasoning_content preview (streaming) ===")
-        preview = streaming_agent.run_response.reasoning_content[:500]
-        if len(streaming_agent.run_response.reasoning_content) > 500:
+        preview = streaming_agent.run_response.reasoning_content[:1000]
+        if len(streaming_agent.run_response.reasoning_content) > 1000:
             preview += "..."
         print(preview)
     else:
-        print(
-            "❌ reasoning_content NOT FOUND in agent's run_response after streaming"
-        )
+        print("❌ reasoning_content NOT FOUND in agent's run_response after streaming")
 else:
     print("❌ Agent's run_response is not accessible after streaming")

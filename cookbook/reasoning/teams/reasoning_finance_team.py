@@ -50,6 +50,7 @@ team_leader = Team(
     success_criteria="The team has successfully completed the task.",
 )
 
+
 def run_team(task: str):
     team_leader.print_response(
         task,
@@ -58,9 +59,10 @@ def run_team(task: str):
         show_full_reasoning=True,
     )
 
+
 if __name__ == "__main__":
-    run_team(dedent("""\
-    Analyze the impact of recent US tariffs on market performance across these key sectors:
+    run_team(
+        dedent("""Analyze the impact of recent US tariffs on market performance across these key sectors:
     - Steel & Aluminum: (X, NUE, AA)
     - Technology Hardware: (AAPL, DELL, HPQ)
     - Agricultural Products: (ADM, BG, INGR)
@@ -71,7 +73,8 @@ if __name__ == "__main__":
     2. Identify supply chain disruptions and cost impact percentages
     3. Analyze companies' strategic responses (reshoring, price adjustments, supplier diversification)
     4. Assess analyst outlook changes directly attributed to tariff policies
-    """))
+    """)
+    )
 
     # run_team(dedent("""\
     # Assess the impact of recent semiconductor export controls on:

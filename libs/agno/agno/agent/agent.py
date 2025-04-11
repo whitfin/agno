@@ -717,6 +717,7 @@ class Agent:
                                     reasoning_started = True
                             
                                 content = t.get("tool_args", {}).get("thought", "")
+                                print('--> tool content', content)
                                 yield self.create_run_response(
                                     content=content,
                                     event=RunEvent.reasoning_step

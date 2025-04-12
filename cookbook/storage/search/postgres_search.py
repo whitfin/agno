@@ -18,7 +18,7 @@ agent = Agent(
     user_id=user_id,
     session_id=session_id,
 )
-# agent.print_response("I love to hike, swim and play football")
+agent.print_response("I love to hike, swim and play football")
 
 message_store = MessageStore(
     user_id=user_id,
@@ -34,12 +34,12 @@ message_store.load()  # Comment out after first run
 
 
 # Uncomment to run the agent with message store and comment out print response above
-agent = Agent(
-    user_id=user_id,
-    session_id=session_id,
-    storage=storage,
-    message_store=message_store,
-    search_message_store=True,
-    num_of_runs_from_message_store=1,
-)
-agent.print_response("What do I love to do?")
+# agent = Agent(
+#     user_id=user_id,
+#     session_id=session_id,
+#     storage=storage,
+#     message_store=message_store,
+#     search_message_store=True,
+#     num_of_runs_from_message_store=1,
+# )
+# agent.print_response("What do I love to do?")

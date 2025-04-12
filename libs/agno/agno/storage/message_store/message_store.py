@@ -54,18 +54,19 @@ class MessageStore:
         results = self.message_store_db.search(
             query=query, user_id=self.user_id, session_id=self.session_id, limit=limit
         )
-        results = results[0] if len(results) > 0 else None
-        if results is None:
+
+        if not results:
             return []
 
-        run_messages = results.get("run_messages", [])
         messages = []
-        for run_message in run_messages:
-            messages.append(
-                Message(
-                    role=run_message.get("role"),
-                    content=run_message.get("content"),
+        for result in results:
+            run_messages = result.get("run_messages", [])
+            for run_message in run_messages:
+                messages.append(
+                    Message(
+                        role=run_message.get("role"),
+                        content=run_message.get("content"),
+                    )
                 )
-            )
 
         return messages

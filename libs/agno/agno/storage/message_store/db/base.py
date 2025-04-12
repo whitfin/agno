@@ -16,7 +16,9 @@ class MessageHistoryStoreDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search(
+        self, query: str, limit: int = 5, user_id: Optional[str] = None, session_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     # @abstractmethod

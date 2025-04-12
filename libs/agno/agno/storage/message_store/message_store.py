@@ -58,7 +58,7 @@ class MessageStore:
         if not results:
             return []
 
-        messages = []
+        messages: List = []
         for result in results:
             run_messages = result.get("run_messages", [])
             for run_message in run_messages:

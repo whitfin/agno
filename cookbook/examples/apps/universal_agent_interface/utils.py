@@ -6,16 +6,15 @@ import streamlit as st
 from agno.agent.agent import Agent
 from agno.team import Team
 from agno.utils.log import logger
-from os_agent import get_llm_os
+
+# from os_agent import get_llm_os
 
 
 async def initialize_session_state():
     logger.info(f"---*--- Initializing session state ---*---")
-    st.session_state["uagi"] = {
-        "uagi": None,
-        "session_id": None,
-        "messages": [],
-    }
+    st.session_state["uagi"] = None
+    st.session_state["session_id"] = None
+    st.session_state["messages"] = []
 
 
 async def selected_model() -> str:
@@ -40,7 +39,6 @@ async def selected_model() -> str:
 async def selected_tools() -> List[str]:
     """Display a tool selector in the sidebar."""
     tool_options = {
-        "Calculator": "calculator",
         "Web Search (DDG)": "ddg_search",
         "File I/O": "file_tools",
         "Shell Access": "shell_tools",
@@ -54,21 +52,22 @@ async def selected_tools() -> List[str]:
     return [tool_options[tool] for tool in selected_tools]
 
 
-async def selected_team_members() -> List[str]:
-    """Display a selector for team members in the sidebar."""
-    member_options = {
+async def selected_agents() -> List[str]:
+    """Display a selector for agents in the sidebar."""
+    agent_options = {
+        "Calculator": "calculator",
         "Data Analyst": "data_analyst",
         "Python Agent": "python_agent",
         "Research Agent": "research_agent",
         "Investment Agent": "investment_agent",
     }
-    selected_members = st.sidebar.multiselect(
-        "Select Members",
-        options=list(member_options.keys()),
-        default=list(member_options.keys()),
-        key="member_selector",
+    selected_agents = st.sidebar.multiselect(
+        "Select Agents",
+        options=list(agent_options.keys()),
+        default=list(agent_options.keys()),
+        key="agent_selector",
     )
-    return [member_options[member] for member in selected_members]
+    return [agent_options[agent] for agent in selected_agents]
 
 
 async def about_agno():
@@ -76,7 +75,7 @@ async def about_agno():
     with st.sidebar:
         st.markdown("### About Agno ✨")
         st.markdown("""
-        Agno is a lightweight library for building Agents with memory, knowledge, tools and reasoning.
+        Agno is a lightweight library for building Reasoning Agents.
 
         [GitHub](https://github.com/agno-agi/agno) | [Docs](https://docs.agno.com)
         """)
@@ -87,115 +86,115 @@ async def about_agno():
         )
 
 
-# def is_json(myjson):
-#     """Check if a string is valid JSON"""
-#     try:
-#         json.loads(myjson)
-#     except (ValueError, TypeError):
-#         return False
-#     return True
+async def add_message(
+    role: str,
+    content: str,
+    tool_calls: Optional[List[Dict[str, Any]]] = None,
+    intermediate_steps_displayed: bool = False,
+) -> None:
+    """Safely add a message to the session state"""
+    if role == "user":
+        logger.info(f"👤  {role}: {content}")
+    else:
+        logger.info(f"🤖  {role}: {content}")
+    st.session_state["messages"].append(
+        {
+            "role": role,
+            "content": content,
+            "tool_calls": tool_calls,
+            "intermediate_steps_displayed": intermediate_steps_displayed,
+        }
+    )
 
 
-# def add_message(
-#     role: str,
-#     content: str,
-#     tool_calls: Optional[List[Dict[str, Any]]] = None,
-#     intermediate_steps_displayed: bool = False,
-# ) -> None:
-#     """Safely add a message to the session state"""
-#     if "messages" not in st.session_state or not isinstance(
-#         st.session_state["messages"], list
-#     ):
-#         st.session_state["messages"] = []
-#     st.session_state["messages"].append(
-#         {
-#             "role": role,
-#             "content": content,
-#             "tool_calls": tool_calls,
-#             "intermediate_steps_displayed": intermediate_steps_displayed,
-#         }
-#     )
+def is_json(myjson):
+    """Check if a string is valid JSON"""
+    try:
+        json.loads(myjson)
+    except (ValueError, TypeError):
+        return False
+    return True
 
 
-# def display_tool_calls(tool_calls_container, tools):
-#     """Display tool calls in a streamlit container with expandable sections.
+def display_tool_calls(tool_calls_container, tools):
+    """Display tool calls in a streamlit container with expandable sections.
 
-#     Args:
-#         tool_calls_container: Streamlit container to display the tool calls
-#         tools: List of tool call dictionaries containing name, args, content, and metrics
-#     """
-#     try:
-#         with tool_calls_container.container():
-#             # Handle single tool_call dict case
-#             if isinstance(tools, dict):
-#                 tools = [tools]
-#             elif not isinstance(tools, list):
-#                 logger.warning(
-#                     f"Unexpected tools format: {type(tools)}. Skipping display."
-#                 )
-#                 return
+    Args:
+        tool_calls_container: Streamlit container to display the tool calls
+        tools: List of tool call dictionaries containing name, args, content, and metrics
+    """
+    try:
+        with tool_calls_container.container():
+            # Handle single tool_call dict case
+            if isinstance(tools, dict):
+                tools = [tools]
+            elif not isinstance(tools, list):
+                logger.warning(
+                    f"Unexpected tools format: {type(tools)}. Skipping display."
+                )
+                return
 
-#             for tool_call in tools:
-#                 # Normalize access to tool details
-#                 tool_name = tool_call.get("tool_name") or tool_call.get(
-#                     "name", "Unknown Tool"
-#                 )
-#                 tool_args = tool_call.get("tool_args") or tool_call.get("args", {})
-#                 content = tool_call.get("content", None)
-#                 metrics = tool_call.get("metrics", None)
+            for tool_call in tools:
+                # Normalize access to tool details
+                tool_name = tool_call.get("tool_name") or tool_call.get(
+                    "name", "Unknown Tool"
+                )
+                tool_args = tool_call.get("tool_args") or tool_call.get("args", {})
+                content = tool_call.get("content", None)
+                metrics = tool_call.get("metrics", None)
 
-#                 # Add timing information safely
-#                 execution_time_str = "N/A"
-#                 try:
-#                     if metrics is not None and hasattr(metrics, "time"):
-#                         execution_time = metrics.time
-#                         if execution_time is not None:
-#                             execution_time_str = f"{execution_time:.4f}s"
-#                 except Exception as e:
-#                     logger.error(f"Error getting tool metrics time: {str(e)}")
-#                     pass  # Keep default "N/A"
+                # Add timing information safely
+                execution_time_str = "N/A"
+                try:
+                    if metrics is not None and hasattr(metrics, "time"):
+                        execution_time = metrics.time
+                        if execution_time is not None:
+                            execution_time_str = f"{execution_time:.4f}s"
+                except Exception as e:
+                    logger.error(f"Error getting tool metrics time: {str(e)}")
+                    pass  # Keep default "N/A"
 
-#                 expander_title = f"🛠️ {tool_name.replace('_', ' ').title()}"
-#                 if execution_time_str != "N/A":
-#                     expander_title += f" ({execution_time_str})"
+                expander_title = f"🛠️ {tool_name.replace('_', ' ').title()}"
+                if execution_time_str != "N/A":
+                    expander_title += f" ({execution_time_str})"
 
-#                 with st.expander(expander_title, expanded=False):
-#                     # Show query/code/command with syntax highlighting
-#                     if isinstance(tool_args, dict):
-#                         if "query" in tool_args:
-#                             st.code(tool_args["query"], language="sql")
-#                         elif "code" in tool_args:
-#                             st.code(tool_args["code"], language="python")
-#                         elif "command" in tool_args:
-#                             st.code(tool_args["command"], language="bash")
+                with st.expander(expander_title, expanded=False):
+                    # Show query/code/command with syntax highlighting
+                    if isinstance(tool_args, dict):
+                        if "query" in tool_args:
+                            st.code(tool_args["query"], language="sql")
+                        elif "code" in tool_args:
+                            st.code(tool_args["code"], language="python")
+                        elif "command" in tool_args:
+                            st.code(tool_args["command"], language="bash")
 
-#                     # Display arguments if they exist and are not just the code/query shown above
-#                     args_to_show = {
-#                         k: v
-#                         for k, v in tool_args.items()
-#                         if k not in ["query", "code", "command"]
-#                     }
-#                     if args_to_show:
-#                         st.markdown("**Arguments:**")
-#                         try:
-#                             st.json(args_to_show)
-#                         except Exception:
-#                             st.write(args_to_show)  # Fallback for non-serializable args
+                    # Display arguments if they exist and are not just the code/query shown above
+                    args_to_show = {
+                        k: v
+                        for k, v in tool_args.items()
+                        if k not in ["query", "code", "command"]
+                    }
+                    if args_to_show:
+                        st.markdown("**Arguments:**")
+                        try:
+                            st.json(args_to_show)
+                        except Exception:
+                            st.write(args_to_show)  # Fallback for non-serializable args
 
-#                     if content is not None:
-#                         try:
-#                             st.markdown("**Results:**")
-#                             if isinstance(content, str) and is_json(content):
-#                                 st.json(content)
-#                             else:
-#                                 st.write(content)
-#                         except Exception as e:
-#                             logger.debug(f"Could not display tool content: {e}")
-#                             st.error("Could not display tool content.")
+                    if content is not None:
+                        try:
+                            st.markdown("**Results:**")
+                            if isinstance(content, str) and is_json(content):
+                                st.json(content)
+                            else:
+                                st.write(content)
+                        except Exception as e:
+                            logger.debug(f"Could not display tool content: {e}")
+                            st.error("Could not display tool content.")
 
-#     except Exception as e:
-#         logger.error(f"Error displaying tool calls: {str(e)}")
-#         tool_calls_container.error("Failed to display tool results")
+    except Exception as e:
+        logger.error(f"Error displaying tool calls: {str(e)}")
+        tool_calls_container.error("Failed to display tool results")
 
 
 # def restart_agent():

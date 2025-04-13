@@ -3,9 +3,13 @@ anthropic
 duckduckgo-search
 google-genai
 groq
+duckdb
+exa_py
 nest_asyncio
 openai
 qdrant-client
 sqlalchemy
 streamlit
 yfinance
+lancedb
+tantivy

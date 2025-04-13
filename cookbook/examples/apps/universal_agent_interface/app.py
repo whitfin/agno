@@ -7,22 +7,22 @@ import streamlit as st
 # from agno.document.reader.pdf_reader import PDFReader
 # from agno.document.reader.website_reader import WebsiteReader
 # from agno.storage.sqlite import SqliteStorage
-# from agno.team import Team
-# from agno.utils.log import logger
-# from os_agent import SQLITE_DB_PATH, get_llm_os
+from agno.team import Team
+from agno.utils.log import logger
 from css import CUSTOM_CSS
+from uagi import UAgIConfig, create_uagi
 from utils import (
     about_agno,
-    initialize_session_state,
     # about_widget,
-    # add_message,
-    # display_tool_calls,
+    add_message,
+    display_tool_calls,
+    initialize_session_state,
+    selected_agents,
     # export_chat_history,
     # rename_session_widget,
     # restart_agent,
     # session_selector_widget,
     selected_model,
-    selected_team_members,
     selected_tools,
 )
 
@@ -38,10 +38,10 @@ st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 async def header():
     st.markdown(
-        "<h1 class='main-title'>Universal Agent Interface</h1>", unsafe_allow_html=True
+        "<h1 class='heading'>Universal Agent Interface</h1>", unsafe_allow_html=True
     )
     st.markdown(
-        "<p class='subtitle'>Your Universal Interface for multiple Agents</p>",
+        "<p class='subheading'>A Universal Interface for orchestrating multiple Agents</p>",
         unsafe_allow_html=True,
     )
 
@@ -65,123 +65,121 @@ async def body() -> None:
     ####################################################################
     # Select Team Members
     ####################################################################
-    members = await selected_team_members()
+    agents = await selected_agents()
 
     ####################################################################
-    # Initialize UAgI
+    # Create UAgI
     ####################################################################
-    uagi_config = {
-        "user_id": user_id,
-        "model_id": model_id,
-        "tools": tools,
-        "members": members,
-        "debug_mode": True,
-    }
+    uagi_config = UAgIConfig(
+        user_id=user_id, model_id=model_id, tools=tools, agents=agents
+    )
 
-    # ####################################################################
-    # # Initialize Agent
-    # ####################################################################
-    # sage: Agent
-    # if (
-    #     agent_name not in st.session_state
-    #     or st.session_state[agent_name]["agent"] is None
-    #     or st.session_state.get("selected_model") != model_id
-    # ):
-    #     logger.info("---*--- Creating Sage Agent ---*---")
-    #     sage = get_sage(user_id=user_id, model_id=model_id)
-    #     st.session_state[agent_name]["agent"] = sage
-    #     st.session_state["selected_model"] = model_id
-    # else:
-    #     sage = st.session_state[agent_name]["agent"]
+    # Recreate UAgI if it doesn't exist, or if the configuration has changed
+    recreate_uagi = (
+        "uagi" not in st.session_state
+        or st.session_state.get("uagi") is None
+        or st.session_state.get("uagi_config") != uagi_config
+    )
 
-    # ####################################################################
-    # # Load Agent Session from the database
-    # ####################################################################
-    # try:
-    #     st.session_state[agent_name]["session_id"] = sage.load_session()
-    # except Exception:
-    #     st.warning("Could not create Agent session, is the database running?")
-    #     return
+    uagi: Team
+    if recreate_uagi:
+        logger.info("---*--- Creating UAgI instance ---*---")
+        uagi = create_uagi(uagi_config)
+        st.session_state["uagi"] = uagi
+        st.session_state["uagi_config"] = uagi_config
+        logger.info(f"---*--- UAgI instance created ---*---")
+    else:
+        uagi = st.session_state["uagi"]
+        logger.info(f"---*--- UAgI instance exists ---*---")
 
-    # ####################################################################
-    # # Load agent runs (i.e. chat history) from memory is messages is empty
-    # ####################################################################
-    # if sage.memory:
-    #     agent_runs = sage.memory.runs
-    #     if len(agent_runs) > 0:
-    #         # If there are runs, load the messages
-    #         logger.debug("Loading run history")
-    #         # Clear existing messages
-    #         st.session_state[agent_name]["messages"] = []
-    #         # Loop through the runs and add the messages to the messages list
-    #         for agent_run in agent_runs:
-    #             if agent_run.message is not None:
-    #                 await add_message(agent_name, agent_run.message.role, str(agent_run.message.content))
-    #             if agent_run.response is not None:
-    #                 await add_message(
-    #                     agent_name, "assistant", str(agent_run.response.content), agent_run.response.tools
-    #                 )
+    ####################################################################
+    # Load Agent Session from the database
+    ####################################################################
+    try:
+        logger.info(f"---*--- Loading UAgI session ---*---")
+        st.session_state["uagi_session_id"] = uagi.load_session()
+    except Exception:
+        st.warning("Could not create UAgI session, is the database running?")
+        return
+    logger.info(f"---*--- UAgI session: {st.session_state['uagi_session_id']} ---*---")
 
-    # ####################################################################
-    # # Get user input
-    # ####################################################################
-    # if prompt := st.chat_input("✨ How can I help, bestie?"):
-    #     await add_message(agent_name, "user", prompt)
+    ####################################################################
+    # Load agent runs (i.e. chat history) from memory if messages is not empty
+    ####################################################################
+    chat_history = uagi.get_messages_for_session()
+    if len(chat_history) > 0:
+        logger.info("Loading messages")
+        # Clear existing messages
+        st.session_state["messages"] = []
+        # Loop through the runs and add the messages to the messages list
+        for message in chat_history:
+            if message.role == "user":
+                await add_message(message.role, str(message.content))
+            if message.role == "assistant":
+                await add_message("assistant", str(message.content), message.tool_calls)
+
+    ####################################################################
+    # Get user input
+    ####################################################################
+    if prompt := st.chat_input("✨ How can I help, bestie?"):
+        await add_message("user", prompt)
 
     # ####################################################################
     # # Show example inputs
     # ####################################################################
     # await example_inputs(agent_name)
 
-    # ####################################################################
-    # # Display agent messages
-    # ####################################################################
-    # for message in st.session_state[agent_name]["messages"]:
-    #     if message["role"] in ["user", "assistant"]:
-    #         _content = message["content"]
-    #         if _content is not None:
-    #             with st.chat_message(message["role"]):
-    #                 # Display tool calls if they exist in the message
-    #                 if "tool_calls" in message and message["tool_calls"]:
-    #                     display_tool_calls(st.empty(), message["tool_calls"])
-    #                 st.markdown(_content)
+    ####################################################################
+    # Display agent messages
+    ####################################################################
+    for message in st.session_state["messages"]:
+        if message["role"] in ["user", "assistant"]:
+            _content = message["content"]
+            if _content is not None:
+                with st.chat_message(message["role"]):
+                    # Display tool calls if they exist in the message
+                    if "tool_calls" in message and message["tool_calls"]:
+                        display_tool_calls(st.empty(), message["tool_calls"])
+                    st.markdown(_content)
 
     # ####################################################################
     # # Generate response for user message
     # ####################################################################
-    # last_message = st.session_state[agent_name]["messages"][-1] if st.session_state[agent_name]["messages"] else None
-    # if last_message and last_message.get("role") == "user":
-    #     user_message = last_message["content"]
-    #     logger.info(f"Responding to message: {user_message}")
-    #     with st.chat_message("assistant"):
-    #         # Create container for tool calls
-    #         tool_calls_container = st.empty()
-    #         resp_container = st.empty()
-    #         with st.spinner(":thinking_face: Thinking..."):
-    #             response = ""
-    #             try:
-    #                 # Run the agent and stream the response
-    #                 run_response = await sage.arun(user_message, stream=True)
-    #                 async for resp_chunk in run_response:
-    #                     # Display tool calls if available
-    #                     if resp_chunk.tools and len(resp_chunk.tools) > 0:
-    #                         display_tool_calls(tool_calls_container, resp_chunk.tools)
+    last_message = (
+        st.session_state["messages"][-1] if st.session_state["messages"] else None
+    )
+    if last_message and last_message.get("role") == "user":
+        user_message = last_message["content"]
+        logger.info(f"Responding to message: {user_message}")
+        with st.chat_message("assistant"):
+            # Create container for tool calls
+            tool_calls_container = st.empty()
+            resp_container = st.empty()
+            with st.spinner(":thinking_face: Thinking..."):
+                response = ""
+                try:
+                    # Run the agent and stream the response
+                    run_response = await uagi.arun(user_message, stream=True)
+                    async for resp_chunk in run_response:
+                        # Display tool calls if available
+                        if resp_chunk.tools and len(resp_chunk.tools) > 0:
+                            display_tool_calls(tool_calls_container, resp_chunk.tools)
 
-    #                     # Display response
-    #                     if resp_chunk.content is not None:
-    #                         response += resp_chunk.content
-    #                         resp_container.markdown(response)
+                        # Display response
+                        if resp_chunk.content is not None:
+                            response += resp_chunk.content
+                            resp_container.markdown(response)
 
-    #                 # Add the response to the messages
-    #                 if sage.run_response is not None:
-    #                     await add_message(agent_name, "assistant", response, sage.run_response.tools)
-    #                 else:
-    #                     await add_message(agent_name, "assistant", response)
-    #             except Exception as e:
-    #                 logger.error(f"Error during agent run: {str(e)}", exc_info=True)
-    #                 error_message = f"Sorry, I encountered an error: {str(e)}"
-    #                 await add_message(agent_name, "assistant", error_message)
-    #                 st.error(error_message)
+                    # Add the response to the messages
+                    if uagi.run_response is not None:
+                        await add_message("assistant", response, run_response.tools)
+                    else:
+                        await add_message("assistant", response)
+                except Exception as e:
+                    logger.error(f"Error during agent run: {str(e)}", exc_info=True)
+                    error_message = f"Sorry, I encountered an error: {str(e)}"
+                    await add_message("assistant", error_message)
+                    st.error(error_message)
 
     # ####################################################################
     # # Knowledge widget

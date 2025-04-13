@@ -5,8 +5,7 @@ Load the Knowledge Base for the Universal Agent Interface
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
-
-from cookbook.examples.apps.universal_agent_interface.agent import agent_knowledge
+from uagi import uagi_knowledge
 
 # Create a Rich console for enhanced output
 console = Console()
@@ -27,9 +26,8 @@ def load_knowledge(recreate: bool = False):
             "Loading Universal Agent Interface knowledge...", total=None
         )
 
-        # Load the agent knowledge
-        agent_knowledge.load(recreate=recreate)
-
+        # Load the knowledge base
+        uagi_knowledge.load(recreate=recreate)
         progress.update(task, completed=True)
 
     # Display success message in a panel

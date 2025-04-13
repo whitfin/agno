@@ -5845,6 +5845,64 @@ class Team:
                             log_warning(f"Failed to load session summaries: {e}")
         log_debug(f"-*- TeamSession loaded: {session.session_id}")
 
+    def load_session(self, force: bool = False) -> None:
+        """Load an existing session from the database and return the session_id.
+        If a session does not exist, create a new session.
+
+        - If a session exists in the database, load the session.
+        - If a session does not exist in the database, create a new session.
+        """
+        # If a team_session is already loaded, return the session_id from the team_session
+        #   if the session_id matches the session_id from the team_session
+        if self.team_session is not None and not force:
+            if self.session_id is not None and self.team_session.session_id == self.session_id:
+                return self.team_session.session_id
+
+        # Load an existing session or create a new session
+        if self.storage is not None:
+            # Load existing session if session_id is provided
+            log_debug(f"Reading TeamSession: {self.session_id}")
+            self.read_from_storage(session_id=self.session_id)  # type: ignore
+
+            # Create a new session if it does not exist
+            if self.team_session is None:
+                log_debug("-*- Creating new TeamSession")
+                if self.session_id is None or self.session_id == "":
+                    self.session_id = str(uuid4())
+                if self.team_id is None:
+                    self._initialize_team(session_id=self.session_id)
+                # write_to_storage() will create a new TeamSession
+                # and populate self.team_session with the new session
+                self.write_to_storage(session_id=self.session_id, user_id=self.user_id)  # type: ignore
+                if self.team_session is None:
+                    raise Exception("Failed to create new TeamSession in storage")
+                log_debug(f"-*- Created TeamSession: {self.team_session.session_id}")
+                self._log_team_session(session_id=self.session_id, user_id=self.user_id)  # type: ignore
+        return self.session_id
+
+    def get_messages_for_session(
+        self, session_id: Optional[str] = None, user_id: Optional[str] = None
+    ) -> List[Message]:
+        """Get messages for a session"""
+        _session_id = session_id or self.session_id
+        _user_id = user_id or self.user_id
+        if _session_id is None:
+            log_warning("Session ID is not set, cannot get messages for session")
+            return []
+
+        if self.memory is None:
+            self.read_from_storage(session_id=_session_id, user_id=_user_id)
+
+        if self.memory is None:
+            return []
+
+        if isinstance(self.memory, AgentMemory):
+            return self.memory.messages
+        elif isinstance(self.memory, Memory):
+            return self.memory.get_messages_for_session(session_id=_session_id)
+        else:
+            return []
+
     ###########################################################################
     # Handle images, videos and audio
     ###########################################################################
@@ -6092,9 +6150,11 @@ class Team:
             else:
                 self.memory = cast(Memory, self.memory)
                 # We fake the structure on storage, to maintain the interface with the legacy implementation
-                run_responses = self.memory.runs[session_id]  # type: ignore
-                memory_dict = self.memory.to_dict()
-                memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
+                if self.memory.runs is not None:
+                    memory_dict = self.memory.to_dict()
+                    run_responses = self.memory.runs.get(session_id)
+                    if run_responses is not None:
+                        memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
         else:
             memory_dict = None
 

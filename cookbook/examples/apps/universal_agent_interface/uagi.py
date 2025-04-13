@@ -16,6 +16,7 @@ from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools import Toolkit
+from agno.tools.reasoning import ReasoningTools
 from agno.utils.log import logger
 from agno.vectordb.lancedb import LanceDb, SearchType
 from tools import get_toolkit
@@ -80,7 +81,7 @@ def create_uagi(
     if model is None:
         raise ValueError(f"Failed to create model instance for {config.model_id}")
 
-    tools: List[Toolkit] = []
+    tools: List[Toolkit] = [ReasoningTools(add_instructions=True)]
     if config.tools:
         for tool_name in config.tools:
             tool = get_toolkit(tool_name)
@@ -99,15 +100,17 @@ def create_uagi(
                 logger.warning(f"Agent {agent_name} not found")
 
     description = dedent("""\
-    You are the most advanced AI System in the world called `Universal Agent Interface` (UAgI).
+    You are an advanced AI System called `Universal Agent Interface` (UAgI).
     You provide a unified interface to a team of AI Agents, that you coordinate to assist the user in the best way possible.
-    You maintain a conversational tone and are able to answer questions in a friendly and engaging manner.
-    You are able to handle complex requests and are able to delegate tasks to the appropriate team members.
-    You are able to handle errors and edge cases and are able to provide helpful feedback to the user.
+
+    Keep your responses short and to the point, while maintaining a conversational tone.
+    You are able to handle easy conversations as well as complex requests by delegating tasks to the appropriate team members.
+    You are also capable of handling errors and edge cases and are able to provide helpful feedback to the user.\
     """)
     instructions: List[str] = [
         "Your goal is to coordinate the team to assist the user in the best way possible.",
         "If the user sends a conversational message like 'Hello', 'Hi', 'How are you', 'What is your name', etc., you should respond in a friendly and engaging manner.",
+        "Keep your responses short and to the point, while maintaining a conversational tone.",
         "If the user asks for something complex, **think** and determine if:\n"
         " - You can answer by using a tool available to you\n"
         " - You need to search the knowledge base\n"
@@ -137,10 +140,10 @@ def create_uagi(
         description=description,
         instructions=instructions,
         enable_team_history=True,
-        num_of_interactions_from_history=5,
+        read_team_history=True,
+        num_of_interactions_from_history=3,
         show_members_responses=True,
         enable_agentic_memory=True,
-        enable_session_summaries=True,
         markdown=True,
         debug_mode=debug_mode,
     )

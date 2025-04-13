@@ -1,14 +1,15 @@
 # Universal Agent Interface
 
-The Universal Agent Interface is a multi-modal agent interface for orchestrating multiple agents using a single entrypoint. It is built on top of the LLM OS.
+The Universal Agent Interface is a multi-modal interface for interacting with multiple agents using a single entrypoint. It is built on top of the LLM OS.
 
 The LLM OS was proposed by Andrej Karpathy 18 months ago [in this tweet](https://twitter.com/karpathy/status/1723140519554105733), [this tweet](https://twitter.com/karpathy/status/1707437820045062561) and [this video](https://youtu.be/zjkBMFhNj_g?t=2535). I built an early prototype of the LLM OS in 2024 (checkout this [video](https://x.com/ashpreetbedi/status/1790109321939829139)), which has now evolved into the Universal Agent Interface.
 
+## Notes:
+- This is a beta release and I am still porting over the internal agent to the public repo. I'm not even sure if people will like this so im not spending too much time on a polished UI.
+- This is a work in progress. Not everything is tested, stuff will break. Please submit a PR to improve the code.
+- Again: please don't expect this to work as expected. It's a work in progress.
+
 ## The Universal Agent Interface design:
-
-UAgI is built on top of the LLM OS.
-
-<img alt="Universal Agent Interface" src="https://github.com/agno-agi/agno/assets/22579644/5cab9655-55a9-4027-80ac-badfeefa4c14" width="600" />
 
 - UAgI is a single interface for orchestrating multiple agents.
 - UAgI solves problems by "thinking" about the intent, then coordinating other agents to solve the problem, and finally, "analyzes" the results. It can then re-plan and re-execute as needed.
@@ -17,14 +18,20 @@ UAgI is built on top of the LLM OS.
   - [x] Has more knowledge than any single human about all subjects
   - [x] Can browse the internet (e.g., using DuckDuckGo)
   - [x] Can use existing software infra (calculator, python, shell)
-  - [x] Can see and generate images and video
+  - [-] Can see and generate images and video
   - [ ] Can hear and speak, and generate music
   - [ ] Can think for a long time using a system 2
-  - [x] Can "self-improve" in domains (Dynamic few-shot is available but does that qualify?)
+  - [-] Can "self-improve" in domains
   - [ ] Can be customized and fine-tuned for specific tasks
   - [x] Can communicate with other Agents
 
 [x] indicates functionality that is implemented in this UAgI app
+
+## Pending Updates:
+
+- [ ] Stream member agent responses. This is possible but we just haven't ported it over yet.
+- [ ] Image and video input/output. This is possible but we just haven't ported it over yet.
+- [ ] Self-improvement using auto-updating knowledge and dynamic few-shot. This is possible but we just haven't ported it over yet.
 
 ## Running the UAgI:
 

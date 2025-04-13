@@ -1,20 +1,49 @@
 import json
-from dataclasses import asdict
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
-from agno.agent.agent import Agent
+from agno.document import Document
+from agno.document.reader import Reader
+from agno.document.reader.csv_reader import CSVReader
+from agno.document.reader.docx_reader import DocxReader
+from agno.document.reader.pdf_reader import PDFReader
+from agno.document.reader.text_reader import TextReader
+from agno.document.reader.website_reader import WebsiteReader
+from agno.memory.v2 import UserMemory
 from agno.team import Team
 from agno.utils.log import logger
-
-# from os_agent import get_llm_os
+from uagi import UAgIConfig, create_uagi
 
 
 async def initialize_session_state():
     logger.info(f"---*--- Initializing session state ---*---")
-    st.session_state["uagi"] = None
-    st.session_state["session_id"] = None
-    st.session_state["messages"] = []
+    if "uagi" not in st.session_state:
+        st.session_state["uagi"] = None
+    if "session_id" not in st.session_state:
+        st.session_state["session_id"] = None
+    if "messages" not in st.session_state:
+        st.session_state["messages"] = []
+
+
+async def add_message(
+    role: str,
+    content: str,
+    tool_calls: Optional[List[Dict[str, Any]]] = None,
+    intermediate_steps_displayed: bool = False,
+) -> None:
+    """Safely add a message to the session state"""
+    if role == "user":
+        logger.info(f"👤  {role}: {content}")
+    else:
+        logger.info(f"🤖  {role}: {content}")
+    st.session_state["messages"].append(
+        {
+            "role": role,
+            "content": content,
+            "tool_calls": tool_calls,
+            "intermediate_steps_displayed": intermediate_steps_displayed,
+        }
+    )
 
 
 async def selected_model() -> str:
@@ -70,6 +99,95 @@ async def selected_agents() -> List[str]:
     return [agent_options[agent] for agent in selected_agents]
 
 
+async def show_user_memories(user_memories: List[UserMemory], user_id: str) -> None:
+    """Show use memories in a streamlit container."""
+    with st.expander(f"💭 Memories for {user_id}", expanded=False):
+        if len(user_memories) > 0:
+            # Create a dataframe from the memories
+            memory_data = {
+                "Memory": [memory.memory for memory in user_memories],
+                "Topics": [
+                    ", ".join(memory.topics) if memory.topics else ""
+                    for memory in user_memories
+                ],
+                "Last Updated": [
+                    memory.last_updated.strftime("%Y-%m-%d %H:%M")
+                    if memory.last_updated
+                    else ""
+                    for memory in user_memories
+                ],
+            }
+
+            # Display as a table with custom styling
+            st.dataframe(
+                memory_data,
+                use_container_width=True,
+                column_config={
+                    "Memory": st.column_config.TextColumn("Memory", width="medium"),
+                    "Topics": st.column_config.TextColumn("Topics", width="small"),
+                    "Last Updated": st.column_config.TextColumn(
+                        "Last Updated", width="small"
+                    ),
+                },
+                hide_index=True,
+            )
+        else:
+            st.info("No memories found, tell me about yourself!")
+
+
+async def example_inputs() -> None:
+    """Show example inputs on the sidebar."""
+    with st.sidebar:
+        st.markdown("#### :thinking_face: Try me!")
+        if st.button("Hi"):
+            await add_message(
+                "user",
+                "Hi",
+            )
+
+        if st.button("My name is Ava and I live in Greenwich Village"):
+            await add_message(
+                "user",
+                "My name is Ava and I live in Greenwich Village",
+            )
+
+        if st.button("Calculate cost of a pizza party"):
+            await add_message(
+                "user",
+                "Calculate the total cost of ordering pizzas for 25 people, assuming each person eats 3 slices, each pizza has 8 slices, and one pizza costs $15.95. After calculating the total cost, add 20% for tip and 10% for taxes. Also recommend some good places around me",
+            )
+
+        if st.button("Analyze a CSV file"):
+            await add_message(
+                "user",
+                "Analyze this CSV file and show me the most popular movies: https://agno-public.s3.amazonaws.com/demo_data/IMDB-Movie-Data.csv",
+            )
+
+        if st.button("Translate a sentence into emojis"):
+            await add_message(
+                "user",
+                "Write a Python function that translates a given sentence into emojis, replacing words like “happy,” “sad,” “pizza,” and “party” with relevant emojis. Test it with the sentence: “I am happy because I am learning to build agents with Agno”",
+            )
+
+        if st.button("Why Do Cats Love Boxes?"):
+            await add_message(
+                "user",
+                "Research and report scientifically-backed explanations for why cats seem irresistibly drawn to cardboard boxes.",
+            )
+
+        if st.button("Chocolate Stocks Sweetness Analysis"):
+            await add_message(
+                "user",
+                "Perform financial analysis comparing Hershey’s and Lindt stocks to suggest which company might be a sweeter investment choice based on profitability, market trends, and valuation.",
+            )
+
+        if st.button("Clear all memories"):
+            await add_message(
+                "user",
+                "Forget me, i dont want to know you anymore",
+            )
+
+
 async def about_agno():
     """Show information about Agno in the sidebar"""
     with st.sidebar:
@@ -84,27 +202,6 @@ async def about_agno():
         st.markdown(
             "If you have any questions, catch us on [discord](https://agno.link/discord) or post in the community [forum](https://agno.link/community)."
         )
-
-
-async def add_message(
-    role: str,
-    content: str,
-    tool_calls: Optional[List[Dict[str, Any]]] = None,
-    intermediate_steps_displayed: bool = False,
-) -> None:
-    """Safely add a message to the session state"""
-    if role == "user":
-        logger.info(f"👤  {role}: {content}")
-    else:
-        logger.info(f"🤖  {role}: {content}")
-    st.session_state["messages"].append(
-        {
-            "role": role,
-            "content": content,
-            "tool_calls": tool_calls,
-            "intermediate_steps_displayed": intermediate_steps_displayed,
-        }
-    )
 
 
 def is_json(myjson):
@@ -154,11 +251,33 @@ def display_tool_calls(tool_calls_container, tools):
                     logger.error(f"Error getting tool metrics time: {str(e)}")
                     pass  # Keep default "N/A"
 
-                expander_title = f"🛠️ {tool_name.replace('_', ' ').title()}"
+                # Check if this is a transfer task
+                is_task_transfer = "transfer_task_to_member" in tool_name
+                is_memory_task = "update_memory" in tool_name
+                expander_title = "🛠️"
+                if is_task_transfer:
+                    member_id = tool_args.get("member_id")
+                    expander_title = f"🔄 {member_id.title()}"
+                elif is_memory_task:
+                    expander_title = f"💭 Updating Memory"
+                else:
+                    expander_title = f"🛠️ {tool_name.replace('_', ' ').title()}"
+
                 if execution_time_str != "N/A":
                     expander_title += f" ({execution_time_str})"
 
-                with st.expander(expander_title, expanded=False):
+                # Create a unique key for this expander
+                expander_key = f"tool_call_{tool_name}_{id(tool_call)}"
+                # Check if we should auto-close this expander
+                if f"{expander_key}_expanded" not in st.session_state:
+                    st.session_state[f"{expander_key}_expanded"] = True
+                    # Set a flag to close this expander on next rerun
+                    st.session_state[f"{expander_key}_should_close"] = True
+
+                with st.expander(
+                    expander_title,
+                    expanded=st.session_state[f"{expander_key}_expanded"],
+                ):
                     # Show query/code/command with syntax highlighting
                     if isinstance(tool_args, dict):
                         if "query" in tool_args:
@@ -192,232 +311,220 @@ def display_tool_calls(tool_calls_container, tools):
                             logger.debug(f"Could not display tool content: {e}")
                             st.error("Could not display tool content.")
 
+                    if st.session_state[f"{expander_key}_should_close"]:
+                        st.session_state[f"{expander_key}_expanded"] = False
+                        st.session_state[f"{expander_key}_should_close"] = False
     except Exception as e:
         logger.error(f"Error displaying tool calls: {str(e)}")
         tool_calls_container.error("Failed to display tool results")
 
 
-# def restart_agent():
-#     """Reset the agent and clear chat history"""
-#     logger.debug("---*--- Restarting LLM OS agent ---*---")
-#     st.session_state["llm_os_agent"] = None
-#     st.session_state["llm_os_team"] = None
-#     st.session_state["llm_os_session_id"] = None
-#     st.session_state["messages"] = []
-#     # Clear relevant config keys to force reinitialization with sidebar values
-#     # This ensures the new agent uses the current sidebar settings
-#     keys_to_clear = [
-#         "cb_calculator",
-#         "cb_ddg",
-#         "cb_file",
-#         "cb_shell",
-#         "cb_data",
-#         "cb_python",
-#         "cb_research",
-#         "cb_investment",
-#         "model_selector",
-#         "user_id_input",  # Clear these to re-read on rerun
-#     ]
-#     # for key in keys_to_clear:
-#     #     if key in st.session_state:
-#     #         del st.session_state[key] # Consider if clearing is needed vs. just re-reading in app.py
-#     st.rerun()
+async def knowledge_widget(uagi: Team) -> None:
+    """Display a knowledge widget in the sidebar."""
+
+    if uagi is not None and uagi.knowledge is not None:
+        # Add websites to knowledge base
+        if "url_scrape_key" not in st.session_state:
+            st.session_state["url_scrape_key"] = 0
+        input_url = st.sidebar.text_input(
+            "Add URL to Knowledge Base",
+            type="default",
+            key=st.session_state["url_scrape_key"],
+        )
+        add_url_button = st.sidebar.button("Add URL")
+        if add_url_button:
+            if input_url is not None:
+                alert = st.sidebar.info("Processing URLs...", icon="ℹ️")
+                if f"{input_url}_scraped" not in st.session_state:
+                    scraper = WebsiteReader(max_links=2, max_depth=1)
+                    web_documents: List[Document] = scraper.read(input_url)
+                    if web_documents:
+                        uagi.knowledge.load_documents(web_documents, upsert=True)
+                    else:
+                        st.sidebar.error("Could not read website")
+                    st.session_state[f"{input_url}_uploaded"] = True
+                alert.empty()
+
+        # Add documents to knowledge base
+        if "file_uploader_key" not in st.session_state:
+            st.session_state["file_uploader_key"] = 100
+        uploaded_file = st.sidebar.file_uploader(
+            "Add a Document (.pdf, .csv, .txt, or .docx)",
+            key=st.session_state["file_uploader_key"],
+        )
+        if uploaded_file is not None:
+            alert = st.sidebar.info("Processing document...", icon="🧠")
+            document_name = uploaded_file.name.split(".")[0]
+            if f"{document_name}_uploaded" not in st.session_state:
+                file_type = uploaded_file.name.split(".")[-1].lower()
+
+                reader: Reader
+                if file_type == "pdf":
+                    reader = PDFReader()
+                elif file_type == "csv":
+                    reader = CSVReader()
+                elif file_type == "txt":
+                    reader = TextReader()
+                elif file_type == "docx":
+                    reader = DocxReader()
+                else:
+                    st.sidebar.error("Unsupported file type")
+                    return
+                uploaded_file_documents: List[Document] = reader.read(uploaded_file)
+                if uploaded_file_documents:
+                    uagi.knowledge.load_documents(uploaded_file_documents, upsert=True)
+                else:
+                    st.sidebar.error("Could not read document")
+                st.session_state[f"{document_name}_uploaded"] = True
+            alert.empty()
+
+        # Load and delete knowledge
+        if st.sidebar.button("🗑️ Delete Knowledge"):
+            uagi.knowledge.delete()
+            st.sidebar.success("Knowledge deleted!")
 
 
-# def export_chat_history():
-#     """Export chat history as markdown"""
-#     if "messages" in st.session_state:
-#         chat_text = "# LLM OS - Chat History\n\n"
-#         for msg in st.session_state["messages"]:
-#             role = (
-#                 "🤖 Assistant" if msg["role"] == "assistant" else "👤 User"
-#             )  # Adjusted role check
-#             # Safely handle content, could be None
-#             content = msg.get("content", "*No content*")
-#             chat_text += f"### {role}\n{content}\n\n"
-#             # Optionally include tool calls (basic representation)
-#             if msg.get("tool_calls"):
-#                 chat_text += "**Tool Calls:**\n"
-#                 for tc in msg["tool_calls"]:
-#                     tool_name = tc.get("name", "Unknown Tool")
-#                     tool_args = tc.get("args", {})
-#                     chat_text += f"- `{tool_name}`: `{tool_args}`\n"
-#                 chat_text += "\n"
-#         return chat_text
-#     return ""
+async def session_selector(uagi: Team, uagi_config: UAgIConfig) -> None:
+    """Display a session selector in the sidebar, if a new session is selected, UAgI is restarted with the new session."""
+
+    if not uagi.storage:
+        return
+
+    try:
+        # Get all agent sessions.
+        uagi_sessions = uagi.storage.get_all_sessions()
+        if not uagi_sessions:
+            st.sidebar.info("No saved sessions found.")
+            return
+
+        # Get session names if available, otherwise use IDs.
+        sessions_list = []
+        for session in uagi_sessions:
+            session_id = session.session_id
+            session_name = (
+                session.session_data.get("session_name", None)
+                if session.session_data
+                else None
+            )
+            display_name = session_name if session_name else session_id
+            sessions_list.append({"id": session_id, "display_name": display_name})
+
+        # Display session selector.
+        st.sidebar.markdown("#### 💬 Session")
+        selected_session = st.sidebar.selectbox(
+            "Session",
+            options=[s["display_name"] for s in sessions_list],
+            key="session_selector",
+            label_visibility="collapsed",
+        )
+        # Find the selected session ID.
+        selected_session_id = next(
+            s["id"] for s in sessions_list if s["display_name"] == selected_session
+        )
+        # Update the agent session if it has changed.
+        if st.session_state["session_id"] != selected_session_id:
+            logger.info(f"---*--- Loading UAgI session: {selected_session_id} ---*---")
+            st.session_state["uagi"] = create_uagi(
+                config=uagi_config,
+                session_id=selected_session_id,
+            )
+            st.rerun()
+
+        # Show the rename session widget.
+        container = st.sidebar.container()
+        session_row = container.columns([3, 1], vertical_alignment="center")
+
+        # Initialize session_edit_mode if needed.
+        if "session_edit_mode" not in st.session_state:
+            st.session_state.session_edit_mode = False
+
+        # Show the session name.
+        with session_row[0]:
+            if st.session_state.session_edit_mode:
+                new_session_name = st.text_input(
+                    "Session Name",
+                    value=uagi.session_name,
+                    key="session_name_input",
+                    label_visibility="collapsed",
+                )
+            else:
+                st.markdown(f"Session Name: **{uagi.session_name}**")
+
+        # Show the rename session button.
+        with session_row[1]:
+            if st.session_state.session_edit_mode:
+                if st.button("✓", key="save_session_name", type="primary"):
+                    if new_session_name:
+                        uagi.rename_session(new_session_name)
+                        st.session_state.session_edit_mode = False
+                        container.success("Renamed!")
+                        # Trigger a rerun to refresh the sessions list
+                        st.rerun()
+            else:
+                if st.button("✎", key="edit_session_name"):
+                    st.session_state.session_edit_mode = True
+    except Exception as e:
+        logger.error(f"Error in session selector: {str(e)}")
+        st.sidebar.error("Failed to load sessions")
 
 
-# def about_widget() -> None:
-#     """Display an about section in the sidebar"""
-#     st.sidebar.markdown("---")
-#     st.sidebar.markdown("### ℹ️ About")
-#     st.sidebar.markdown("""
-#     LLM OS: Your versatile AI assistant.
+def export_chat_history():
+    """Export chat history in markdown format.
 
-#     Built with:
-#     - 🚀 Agno
-#     - 💫 Streamlit
-#     """)
-#     st.sidebar.markdown(
-#         "Build your own agents using [Agno](https://github.com/agytech/agno)!"
-#     )
+    Returns:
+        str: Formatted markdown string of the chat history
+    """
+    if "messages" not in st.session_state or not st.session_state["messages"]:
+        return f"# UAgI - Chat History\n\nNo messages to export."
 
+    chat_text = f"# UAgI - Chat History\n\n"
+    for msg in st.session_state["messages"]:
+        role_label = "🤖 Assistant" if msg["role"] == "assistant" else "👤 User"
+        chat_text += f"### {role_label}\n{msg['content']}\n\n"
 
-# def session_selector_widget(
-#     team: Team, current_config: Dict[str, Any]
-# ) -> Optional[str]:
-#     """Display a session selector for the LLM OS Team in the sidebar.
+        # Include tool calls if present
+        if msg.get("tool_calls"):
+            chat_text += "#### Tool Calls:\n"
+            for i, tool_call in enumerate(msg["tool_calls"]):
+                tool_name = tool_call.get("name", "Unknown Tool")
+                chat_text += f"**{i + 1}. {tool_name}**\n\n"
+                if "arguments" in tool_call:
+                    chat_text += (
+                        f"Arguments: ```json\n{tool_call['arguments']}\n```\n\n"
+                    )
+                if "content" in tool_call:
+                    chat_text += f"Results: ```\n{tool_call['content']}\n```\n\n"
 
-#     Args:
-#         team: The current LLM OS Team instance.
-#         current_config: The current configuration dict used to initialize the team.
-
-#     Returns:
-#         The selected session ID if a change occurred, otherwise None.
-#     """
-#     selected_session_id_to_load = None  # Return value
-
-#     if team.storage:
-#         try:
-#             agent_sessions = team.storage.get_all_sessions()
-#             if not agent_sessions:
-#                 st.sidebar.markdown("No past sessions found.")
-#                 return None
-
-#             # Get session names if available, otherwise use IDs
-#             session_options = []
-#             for session in agent_sessions:
-#                 session_id = session.session_id
-#                 session_name = (
-#                     session.session_data.get("session_name", None)
-#                     if session.session_data
-#                     else None
-#                 )
-#                 # Fallback to session ID if name is missing or empty
-#                 display_name = session_name if session_name else session_id
-#                 # Append session_id to ensure uniqueness if names clash
-#                 session_options.append(
-#                     {"id": session_id, "display": f"{display_name} ({session_id[:8]})"}
-#                 )
-
-#             # Sort sessions by display name (optional)
-#             session_options.sort(key=lambda x: x["display"])
-
-#             # Find the index of the current session
-#             current_session_id = st.session_state.get("llm_os_session_id")
-#             current_index = 0  # Default to first item
-#             for i, option in enumerate(session_options):
-#                 if option["id"] == current_session_id:
-#                     current_index = i
-#                     break
-
-#             # Display session selector
-#             selected_display_name = st.sidebar.selectbox(
-#                 "Chat History",
-#                 options=[s["display"] for s in session_options],
-#                 index=current_index,
-#                 key="session_selector",
-#             )
-
-#             # Find the selected session ID based on the display name
-#             selected_session_id = next(
-#                 (
-#                     s["id"]
-#                     for s in session_options
-#                     if s["display"] == selected_display_name
-#                 ),
-#                 None,
-#             )
-
-#             if selected_session_id and current_session_id != selected_session_id:
-#                 logger.info(
-#                     f"---*--- Loading LLM OS session: {selected_session_id} ---*---"
-#                 )
-#                 # Store the ID to be loaded, app.py will handle re-init
-#                 selected_session_id_to_load = selected_session_id
-#                 st.session_state["llm_os_session_id"] = (
-#                     selected_session_id_to_load  # Update state immediately
-#                 )
-#                 # Trigger rerun in app.py after state update
-#                 st.rerun()
-
-#         except Exception as e:
-#             st.sidebar.error(f"Error loading sessions: {e}")
-#             logger.error(f"Failed to get/display sessions: {e}")
-
-#     return selected_session_id_to_load  # Will likely be None due to rerun
+    return chat_text
 
 
-# def rename_session_widget(team: Team) -> None:
-#     """Rename the current session of the LLM OS Team and save to storage"""
-#     if not team or not team.storage or not team.team_id:
-#         return  # Cannot rename without team, storage, and session ID
+async def utilities_widget(uagi: Team) -> None:
+    """Display a utilities widget in the sidebar."""
+    st.sidebar.markdown("#### 🛠️ Utilities")
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("🔄 Start New Chat"):
+            restart_uagi()
+    with col2:
+        fn = f"uagi_chat_history.md"
+        if "session_id" in st.session_state:
+            fn = f"uagi_{st.session_state['session_id']}.md"
+        if st.download_button(
+            ":file_folder: Export Chat History",
+            export_chat_history(),
+            file_name=fn,
+            mime="text/markdown",
+        ):
+            st.sidebar.success("Chat history exported!")
 
-#     container = st.sidebar.container()
-#     session_row = container.columns([3, 1], vertical_alignment="center")
 
-#     # Initialize session_edit_mode if needed
-#     if "session_edit_mode" not in st.session_state:
-#         st.session_state.session_edit_mode = False
-
-#     # Get current session details by finding it in the list of all sessions
-#     current_session_data = None
-#     current_name = team.team_id  # Default to ID if lookup fails
-#     try:
-#         all_sessions = team.storage.get_all_sessions()
-#         for session in all_sessions:
-#             if session.session_id == team.team_id:
-#                 current_session_data = (
-#                     session.session_data or {}
-#                 )  # Use empty dict if None
-#                 current_name = current_session_data.get("session_name", team.team_id)
-#                 break
-#     except Exception as e:
-#         logger.error(f"Failed to get session list for rename: {e}")
-#         container.warning("Could not load session details.")
-#         # Allow continuing with default name (team_id)
-
-#     with session_row[0]:
-#         if st.session_state.session_edit_mode:
-#             new_session_name = st.text_input(
-#                 "Session Name",
-#                 value=current_name,  # Use fetched name
-#                 key="session_name_input",
-#                 label_visibility="collapsed",
-#             )
-#         else:
-#             st.markdown(f"**{current_name}**")  # Display fetched name
-
-#     with session_row[1]:
-#         if st.session_state.session_edit_mode:
-#             if st.button(
-#                 "✓", key="save_session_name", help="Save name", type="primary"
-#             ):
-#                 if new_session_name and new_session_name != current_name:
-#                     try:
-#                         # Use the fetched session data or an empty dict
-#                         updated_data = (
-#                             current_session_data
-#                             if current_session_data is not None
-#                             else {}
-#                         )
-#                         updated_data["session_name"] = new_session_name
-#                         team.storage.update_session(
-#                             team.team_id, session_data=updated_data
-#                         )
-#                         st.session_state.session_edit_mode = False
-#                         # No success message here to avoid immediate overwrite by rerun
-#                         st.rerun()  # Rerun to update selector display
-#                     except Exception as e:
-#                         logger.error(f"Failed to rename session: {e}")
-#                         container.error("Rename failed.")
-#                 else:
-#                     st.session_state.session_edit_mode = (
-#                         False  # Just exit edit mode if name is same or empty
-#                     )
-#                     st.rerun()  # Rerun even if name is unchanged to exit edit mode UI
-
-#         else:
-#             if st.button("✎", key="edit_session_name", help="Rename chat"):
-#                 st.session_state.session_edit_mode = True
-#                 st.rerun()
+def restart_uagi():
+    logger.debug("---*--- Restarting UAgI ---*---")
+    st.session_state["uagi"] = None
+    st.session_state["session_id"] = None
+    st.session_state["messages"] = []
+    if "url_scrape_key" in st.session_state:
+        st.session_state["url_scrape_key"] += 1
+    if "file_uploader_key" in st.session_state:
+        st.session_state["file_uploader_key"] += 1
+    st.rerun()

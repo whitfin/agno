@@ -370,13 +370,14 @@ class Team:
         # Team session
         self.team_session: Optional[TeamSession] = None
 
-        self._formatter: Optional[SafeFormatter] = None
-
         self._tools_for_model: Optional[List[Dict]] = None
         self._functions_for_model: Optional[Dict[str, Function]] = None
+        self._tool_instructions: Optional[List[str]] = None
 
         # True if we should parse a member response model
         self._member_response_model: Optional[Type[BaseModel]] = None
+
+        self._formatter: Optional[SafeFormatter] = None
 
     def _set_team_id(self) -> str:
         if self.team_id is None:
@@ -4062,9 +4063,12 @@ class Team:
                     self.model.response_format = None
                 self.model.structured_outputs = False
 
-            else:  # Model does not support structured or JSON schema outputs
+            else:
+                log_debug("Model does not support structured or JSON schema outputs.")
                 self.model.response_format = json_response_format if self.use_json_mode else None
                 self.model.structured_outputs = False
+
+            log_debug(f"Structured outputs: {self.model.structured_outputs}")
 
         # Set show_tool_calls on the Model
         self.model.show_tool_calls = show_tool_calls
@@ -4111,6 +4115,12 @@ class Team:
                             self._tools_for_model.append({"type": "function", "function": func.to_dict()})
                             log_debug(f"Added function {name} from {tool.name}")
 
+                    # Add instructions from the toolkit
+                    if tool.add_instructions and tool.instructions is not None:
+                        if self._tool_instructions is None:
+                            self._tool_instructions = []
+                        self._tool_instructions.append(tool.instructions)
+
                 elif isinstance(tool, Function):
                     if tool.name not in self._functions_for_model:
                         tool._agent = self
@@ -4120,6 +4130,12 @@ class Team:
                         self._functions_for_model[tool.name] = tool
                         self._tools_for_model.append({"type": "function", "function": tool.to_dict()})
                         log_debug(f"Added function {tool.name}")
+
+                    # Add instructions from the Function
+                    if tool.add_instructions and tool.instructions is not None:
+                        if self._tool_instructions is None:
+                            self._tool_instructions = []
+                        self._tool_instructions.append(tool.instructions)
 
                 elif callable(tool):
                     # We add the tools, which are callable functions
@@ -4358,6 +4374,10 @@ class Team:
             for _ai in additional_information:
                 system_message_content += f"\n- {_ai}"
             system_message_content += "\n</additional_information>\n\n"
+        # 3.3.7 Then add instructions for the tools
+        if self._tool_instructions is not None:
+            for _ti in self._tool_instructions:
+                system_message_content += f"{_ti}\n"
 
         # Format the system message with the session state variables
         if self.add_state_in_messages:
@@ -5845,7 +5865,7 @@ class Team:
                             log_warning(f"Failed to load session summaries: {e}")
         log_debug(f"-*- TeamSession loaded: {session.session_id}")
 
-    def load_session(self, force: bool = False) -> None:
+    def load_session(self, force: bool = False) -> Optional[str]:
         """Load an existing session from the database and return the session_id.
         If a session does not exist, create a new session.
 
@@ -5891,7 +5911,7 @@ class Team:
             return []
 
         if self.memory is None:
-            self.read_from_storage(session_id=_session_id, user_id=_user_id)
+            self.read_from_storage(session_id=_session_id)
 
         if self.memory is None:
             return []

@@ -1,3 +1,4 @@
+from copy import deepcopy
 from pathlib import Path
 from textwrap import dedent
 from typing import Optional
@@ -12,7 +13,6 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.exa import ExaTools
 from agno.tools.file import FileTools
 from agno.tools.python import PythonTools
-from agno.tools.reasoning import ReasoningTools
 from agno.tools.yfinance import YFinanceTools
 
 cwd = Path(__file__).parent.resolve()
@@ -23,20 +23,21 @@ tmp_dir.mkdir(exist_ok=True, parents=True)
 def get_agent(
     agent_name: str, model: Model, memory: Memory, knowledge: AgentKnowledge
 ) -> Optional[Agent]:
+    # Create a copy of the model to avoid side effects of the model being modified
+    model_copy = deepcopy(model)
     if agent_name == "calculator":
         return Agent(
             name="Calculator",
             role="Answer mathematical questions and perform precise calculations",
-            model=model,
+            model=model_copy,
             memory=memory,
-            tools=[CalculatorTools(enable_all=True), DuckDuckGoTools()],
+            tools=[CalculatorTools(enable_all=True)],
             description="You are a precise and comprehensive calculator agent. Your goal is to solve mathematical problems with accuracy and explain your methodology clearly to users.",
             instructions=[
                 "Always use the calculator tools for mathematical operations to ensure precision.",
                 "Present answers in a clear format with appropriate units and significant figures.",
                 "Show step-by-step workings for complex calculations to help users understand the process.",
                 "Ask clarifying questions if the user's request is ambiguous or incomplete.",
-                "Use internet search when needed to verify formulas or get contextual information.",
                 "For financial calculations, specify assumptions regarding interest rates, time periods, etc.",
             ],
         )
@@ -44,10 +45,10 @@ def get_agent(
         return Agent(
             name="Data Analyst",
             role="Analyze data sets and extract meaningful insights",
-            model=model,
+            model=model_copy,
             memory=memory,
             knowledge=knowledge,
-            tools=[DuckDbTools(), ReasoningTools(add_instructions=True)],
+            tools=[DuckDbTools()],
             description="You are an expert Data Scientist specialized in exploratory data analysis, statistical modeling, and data visualization. Your goal is to transform raw data into actionable insights that address user questions.",
             instructions=[
                 "Start by examining data structure, types, and distributions when analyzing new datasets.",
@@ -64,13 +65,12 @@ def get_agent(
         return Agent(
             name="Python Agent",
             role="Develop and execute Python code solutions",
-            model=model,
+            model=model_copy,
             memory=memory,
             knowledge=knowledge,
             tools=[
                 PythonTools(base_dir=tmp_dir),
                 FileTools(base_dir=cwd),
-                ReasoningTools(add_instructions=True),
             ],
             description="You are an expert Python Software Engineer with deep knowledge of software architecture, libraries, and best practices. Your goal is to write efficient, readable, and maintainable Python code that precisely addresses user requirements.",
             instructions=[
@@ -89,10 +89,10 @@ def get_agent(
         return Agent(
             name="Research Agent",
             role="Conduct comprehensive research and produce in-depth reports",
-            model=model,
+            model=model_copy,
             memory=memory,
             knowledge=knowledge,
-            tools=[ExaTools(num_results=3), ReasoningTools(add_instructions=True)],
+            tools=[ExaTools(num_results=3)],
             description="You are a meticulous research analyst with expertise in synthesizing information from diverse sources. Your goal is to produce balanced, fact-based, and thoroughly documented reports on any topic requested.",
             instructions=[
                 "Begin with broad searches to understand the topic landscape before narrowing to specific aspects.",
@@ -134,13 +134,12 @@ def get_agent(
         return Agent(
             name="Investment Agent",
             role="Provide comprehensive financial analysis and investment insights",
-            model=model,
+            model=model_copy,
             memory=memory,
             knowledge=knowledge,
             tools=[
                 YFinanceTools,
                 DuckDuckGoTools(),
-                ReasoningTools(add_instructions=True),
             ],
             description="You are a seasoned investment analyst with deep understanding of financial markets, valuation methodologies, and sector-specific dynamics. Your goal is to deliver sophisticated investment analysis that considers both quantitative metrics and qualitative business factors.",
             instructions=[

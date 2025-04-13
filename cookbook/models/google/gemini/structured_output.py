@@ -28,17 +28,7 @@ class MovieScript(BaseModel):
 structured_output_agent = Agent(
     model=Gemini(id="gemini-2.0-flash-exp"),
     description="You help people write movie scripts.",
-    structured_outputs=True,
     response_model=MovieScript,
 )
 
 structured_output_agent.print_response("New York")
-
-
-# json_agent = Agent(
-#     model=Gemini(id="gemini-2.0-flash-exp"),
-#     description="You help people write movie scripts.",
-#     response_model=MovieScript,
-# )
-#
-# json_agent.print_response("New York")

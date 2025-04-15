@@ -1305,7 +1305,9 @@ class Agent:
 
                             if len(reasoning_tool_calls) > 0:
                                 tool_args = reasoning_tool_calls[-1].get("tool_args", {})
-                                reasoning_step = self.update_reasoning_content_from_tool_call(tool_name, tool_args)
+                                reasoning_step = await self.aupdate_reasoning_content_from_tool_call(
+                                    tool_name, tool_args
+                                )
 
                                 metrics = reasoning_tool_calls[-1].get("metrics")
                                 time_taken = metrics.time
@@ -1327,6 +1329,7 @@ class Agent:
                                     event=RunEvent.reasoning_step,
                                     reasoning_content=self.run_response.reasoning_content,
                                 )
+                                break
 
                         yield self.create_run_response(
                             content=model_response_chunk.content,
@@ -1369,14 +1372,13 @@ class Agent:
                     self.run_response.tools = model_response.tool_calls
                 else:
                     self.run_response.tools.extend(model_response.tool_calls)
-                
+
                 # For Reasoning/Thinking/Knowledge Tools update reasoning_content in RunResponse
                 for tool_call in model_response.tool_calls:
                     tool_name = tool_call.get("tool_name", "")
                     if tool_name.lower() in ["think", "analyze"]:
                         tool_args = tool_call.get("tool_args", {})
-                        self.update_reasoning_content_from_tool_call(
-                            tool_name, tool_args)
+                        self.update_reasoning_content_from_tool_call(tool_name, tool_args)
 
             # Update the run_response audio with the model response audio
             if model_response.audio is not None:
@@ -4664,6 +4666,96 @@ class Agent:
                 live_log.update(Group(*panels))
 
     def update_reasoning_content_from_tool_call(
+        self, tool_name: str, tool_args: Dict[str, Any]
+    ) -> Optional[ReasoningStep]:
+        """Update reasoning_content based on tool calls that look like thinking or reasoning tools."""
+
+        # Case 1: ReasoningTools.think (has title, thought, optional action and confidence)
+        if tool_name.lower() == "think" and "title" in tool_args and "thought" in tool_args:
+            title = tool_args["title"]
+            thought = tool_args["thought"]
+            action = tool_args.get("action", "")
+            confidence = tool_args.get("confidence", None)
+
+            # Create a reasoning step
+            reasoning_step = ReasoningStep(
+                title=title,
+                reasoning=thought,
+                action=action,
+                next_action=NextAction.CONTINUE,
+                confidence=confidence,
+            )
+
+            # Add the step to the run response
+            self._add_reasoning_step_to_extra_data(reasoning_step)
+
+            formatted_content = f"## {title}\n{thought}\n"
+            if action:
+                formatted_content += f"Action: {action}\n"
+            if confidence is not None:
+                formatted_content += f"Confidence: {confidence}\n"
+            formatted_content += "\n"
+
+            self._append_to_reasoning_content(formatted_content)
+            return reasoning_step
+
+        # Case 2: ReasoningTools.analyze (has title, result, analysis, optional next_action and confidence)
+        elif tool_name.lower() == "analyze" and "title" in tool_args:
+            title = tool_args["title"]
+            result = tool_args.get("result", "")
+            analysis = tool_args.get("analysis", "")
+            next_action = tool_args.get("next_action", "")
+            confidence = tool_args.get("confidence", None)
+
+            # Map string next_action to enum
+            next_action_enum = NextAction.CONTINUE
+            if next_action.lower() == "validate":
+                next_action_enum = NextAction.VALIDATE
+            elif next_action.lower() in ["final", "final_answer", "finalize"]:
+                next_action_enum = NextAction.FINAL_ANSWER
+
+            # Create a reasoning step
+            reasoning_step = ReasoningStep(
+                title=title,
+                result=result,
+                reasoning=analysis,
+                next_action=next_action_enum,
+                confidence=confidence,
+            )
+
+            # Add the step to the run response
+            self._add_reasoning_step_to_extra_data(reasoning_step)
+
+            formatted_content = f"## {title}\n"
+            if result:
+                formatted_content += f"Result: {result}\n"
+            if analysis:
+                formatted_content += f"{analysis}\n"
+            if next_action and next_action.lower() != "continue":
+                formatted_content += f"Next Action: {next_action}\n"
+            if confidence is not None:
+                formatted_content += f"Confidence: {confidence}\n"
+            formatted_content += "\n"
+
+            self._append_to_reasoning_content(formatted_content)
+            return reasoning_step
+
+        # Case 3: ThinkingTools.think (simple format, just has 'thought')
+        elif tool_name.lower() == "think" and "thought" in tool_args:
+            thought = tool_args["thought"]
+            reasoning_step = ReasoningStep(
+                title="Thinking",
+                reasoning=thought,
+                confidence=None,
+            )
+            formatted_content = f"## Thinking\n{thought}\n\n"
+            self._add_reasoning_step_to_extra_data(reasoning_step)
+            self._append_to_reasoning_content(formatted_content)
+            return reasoning_step
+
+        return None
+
+    async def aupdate_reasoning_content_from_tool_call(
         self, tool_name: str, tool_args: Dict[str, Any]
     ) -> Optional[ReasoningStep]:
         """Update reasoning_content based on tool calls that look like thinking or reasoning tools."""

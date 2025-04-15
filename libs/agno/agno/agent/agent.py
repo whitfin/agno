@@ -1369,6 +1369,14 @@ class Agent:
                     self.run_response.tools = model_response.tool_calls
                 else:
                     self.run_response.tools.extend(model_response.tool_calls)
+                
+                # For Reasoning/Thinking/Knowledge Tools update reasoning_content in RunResponse
+                for tool_call in model_response.tool_calls:
+                    tool_name = tool_call.get("tool_name", "")
+                    if tool_name.lower() in ["think", "analyze"]:
+                        tool_args = tool_call.get("tool_args", {})
+                        self.update_reasoning_content_from_tool_call(
+                            tool_name, tool_args)
 
             # Update the run_response audio with the model response audio
             if model_response.audio is not None:

@@ -44,9 +44,8 @@ simple_agent = Agent(
     add_datetime_to_instructions=True,
     markdown=True,
     instructions=[
-        "Never answer like a bat",
+        "Always answer like a pirate",
     ],
-    register_on_platform=False,
 )
 
 web_agent = Agent(
@@ -68,7 +67,6 @@ web_agent = Agent(
     num_history_responses=5,
     add_datetime_to_instructions=True,
     markdown=True,
-    register_on_platform=True,
     debug_mode=True,
     knowledge=PDFUrlKnowledgeBase(
         urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"],

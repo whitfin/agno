@@ -1505,11 +1505,11 @@ class Agent:
         await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         # Define a synchronous wrapper to run the async function
-        def run_async_in_thread():
-            asyncio.run(alog_agent_run())
+        # def run_async_in_thread():
+        #     asyncio.run(alog_agent_run())
 
-        # Run the synchronous wrapper in a separate thread
-        await asyncio.to_thread(run_async_in_thread)
+        # # Run the synchronous wrapper in a separate thread
+        # await asyncio.to_thread(run_async_in_thread)
 
         log_debug(f"Async Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
         if self.stream_intermediate_steps:

@@ -79,8 +79,6 @@ class Memory:
     memories: Optional[Dict[str, Dict[str, UserMemory]]] = None
     # Manager to manage memories
     memory_manager: Optional[MemoryManager] = None
-    delete_memories: bool = False
-    clear_memories: bool = False
 
     # Session summaries per session per user
     summaries: Optional[Dict[str, Dict[str, SessionSummary]]] = None

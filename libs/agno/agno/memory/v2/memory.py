@@ -79,8 +79,8 @@ class Memory:
     memories: Optional[Dict[str, Dict[str, UserMemory]]] = None
     # Manager to manage memories
     memory_manager: Optional[MemoryManager] = None
-    delete_memories: bool = True
-    clear_memories: bool = True
+    delete_memories: bool = False
+    clear_memories: bool = False
 
     # Session summaries per session per user
     summaries: Optional[Dict[str, Dict[str, SessionSummary]]] = None
@@ -102,6 +102,8 @@ class Memory:
         self,
         model: Optional[Model] = None,
         memory_manager: Optional[MemoryManager] = None,
+        delete_memories: bool = False,
+        clear_memories: bool = False,
         summarizer: Optional[SessionSummarizer] = None,
         db: Optional[MemoryDb] = None,
         memories: Optional[Dict[str, Dict[str, UserMemory]]] = None,
@@ -121,6 +123,8 @@ class Memory:
             raise ValueError("Model must be a Model object, not a string")
 
         self.memory_manager = memory_manager
+        self.delete_memories = delete_memories
+        self.clear_memories = clear_memories
 
         self.summary_manager = summarizer
 

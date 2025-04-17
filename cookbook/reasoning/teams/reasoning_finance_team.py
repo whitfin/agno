@@ -24,12 +24,13 @@ finance_agent = Agent(
     tools=[
         YFinanceTools(stock_price=True, analyst_recommendations=True, company_info=True)
     ],
-    instructions=dedent("""\
-        You are a financial data specialist. Provide concise and accurate data.
-        - Use tables to display stock prices, fundamentals (P/E, Market Cap), and recommendations.
-        - Clearly state the company name and ticker symbol.
-        - Briefly summarize recent company-specific news if available.
-        - Focus on delivering the requested financial data points clearly."""),
+    instructions=[
+        "You are a financial data specialist. Provide concise and accurate data.",
+        "Use tables to display stock prices, fundamentals (P/E, Market Cap), and recommendations.",
+        "Clearly state the company name and ticker symbol.",
+        "Briefly summarize recent company-specific news if available.",
+        "Focus on delivering the requested financial data points clearly.",
+    ],
     add_datetime_to_instructions=True,
 )
 
@@ -42,7 +43,10 @@ team_leader = Team(
         finance_agent,
     ],
     tools=[ReasoningTools(add_instructions=True)],
-    instructions="Only output the final answer, no other text.",
+    instructions=[
+        "Only output the final answer, no other text.",
+        "Use tables to display data",
+    ],
     markdown=True,
     show_members_responses=True,
     enable_agentic_context=True,
@@ -62,7 +66,8 @@ def run_team(task: str):
 
 if __name__ == "__main__":
     run_team(
-        dedent("""Analyze the impact of recent US tariffs on market performance across these key sectors:
+        dedent("""\
+    Analyze the impact of recent US tariffs on market performance across these key sectors:
     - Steel & Aluminum: (X, NUE, AA)
     - Technology Hardware: (AAPL, DELL, HPQ)
     - Agricultural Products: (ADM, BG, INGR)

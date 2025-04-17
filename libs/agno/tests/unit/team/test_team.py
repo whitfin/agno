@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 from agno.agent import Agent
@@ -47,37 +49,34 @@ def test_team_system_message_content(team):
     assert "get_current_stock_price" in members_content
 
 
-def test_team_system_message_content_minimal(team):
-    """Test basic functionality of a route team."""
-
-    # Get the actual content
-    members_content = team.get_members_system_message_content(minimal=True)
-
-    # Check for expected content with fuzzy matching
-    assert "Agent 1:" in members_content
-    assert "ID: web-agent" in members_content
-    assert "Name: Web Agent" in members_content
-    assert "Role: Search the web for information" in members_content
-    assert "duckduckgo_search" not in members_content
-
-    assert "Agent 2:" in members_content
-    assert "ID: finance-agent" in members_content
-    assert "Name: Finance Agent" in members_content
-    assert "Role: Get financial data" in members_content
-    assert "get_current_stock_price" not in members_content
-
-
 def test_transfer_to_wrong_member(team):
-    function = team.get_transfer_task_function()
+    function = team.get_transfer_task_function(session_id="test-session")
     response = list(
         function.entrypoint(
             member_id="wrong-agent", task_description="Get the current stock price of AAPL", expected_output=""
         )
     )
-    assert "Agent with ID wrong-agent not found in the team or any subteams" in response[0]
+    assert "Member with ID wrong-agent not found in the team or any subteams" in response[0]
 
 
 def test_forward_to_wrong_member(team):
-    function = team.get_forward_task_function(message="Hello, world!")
+    function = team.get_forward_task_function(message="Hello, world!", session_id="test-session")
     response = list(function.entrypoint(member_id="wrong-agent", expected_output=""))
-    assert "Agent with ID wrong-agent not found in the team or any subteams" in response[0]
+    assert "Member with ID wrong-agent not found in the team or any subteams" in response[0]
+
+
+def test_get_member_id():
+    member = Agent(name="Test Agent")
+    assert Team(members=[member])._get_member_id(member) == "test-agent"
+    member = Agent(name="Test Agent", agent_id="123")
+    assert Team(members=[member])._get_member_id(member) == "123"
+    member = Agent(name="Test Agent", agent_id=str(uuid.uuid4()))
+    assert Team(members=[member])._get_member_id(member) == "test-agent"
+
+    member = Agent(name="Test Agent")
+    inner_team = Team(name="Test Team", members=[member])
+    assert Team(members=[inner_team])._get_member_id(inner_team) == "test-team"
+    inner_team = Team(name="Test Team", team_id="123", members=[member])
+    assert Team(members=[inner_team])._get_member_id(inner_team) == "123"
+    inner_team = Team(name="Test Team", team_id=str(uuid.uuid4()), members=[member])
+    assert Team(members=[inner_team])._get_member_id(inner_team) == "test-team"

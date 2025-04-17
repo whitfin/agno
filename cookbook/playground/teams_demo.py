@@ -217,7 +217,6 @@ financial_news_team = Team(
     enable_user_memories=True,
     expected_output="A good financial news report.",
     context="use USD as currency",
-    register_on_platform=True,
 )
 
 app = Playground(

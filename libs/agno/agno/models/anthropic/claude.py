@@ -38,7 +38,7 @@ class Claude(Model):
     id: str = "claude-3-5-sonnet-20241022"
     name: str = "Claude"
     provider: str = "Anthropic"
-
+    
     # Request parameters
     max_tokens: Optional[int] = 4096
     thinking: Optional[Dict[str, Any]] = None
@@ -348,7 +348,7 @@ class Claude(Model):
                         "content": str(_fc_message.content),
                     }
                 )
-            messages.append(Message(role="user", content=fc_responses))
+            messages.append(Message(role="tool", content=fc_responses))
 
     def get_system_message_for_model(self) -> Optional[str]:
         if self._functions is not None and len(self._functions) > 0:

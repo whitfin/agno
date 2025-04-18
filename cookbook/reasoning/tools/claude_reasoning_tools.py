@@ -14,14 +14,15 @@ reasoning_agent = Agent(
             company_news=True,
         ),
     ],
-    instructions="Use tables where possible",
+    instructions="Use tables to display data.",
     markdown=True,
 )
 
 if __name__ == "__main__":
     reasoning_agent.print_response(
-        "Write a report on NVDA. Only the report, no other text.",
+        "Write a report comparing NVDA to TSLA. Only output the report, no other text.",
         stream=True,
         show_full_reasoning=True,
         stream_intermediate_steps=True,
     )
+

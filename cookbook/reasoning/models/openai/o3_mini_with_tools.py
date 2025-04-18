@@ -3,7 +3,7 @@ from agno.models.openai import OpenAIChat
 from agno.tools.yfinance import YFinanceTools
 
 agent = Agent(
-    model=OpenAIChat(id="o3-mini"),
+    model=OpenAIChat(id="o4-mini"),
     tools=[
         YFinanceTools(
             stock_price=True,

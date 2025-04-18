@@ -3,6 +3,7 @@ from agno.api.routes import ApiRoutes
 from agno.api.schemas.agent import AgentRunCreate, AgentSessionCreate
 from agno.cli.settings import agno_cli_settings
 from agno.utils.log import log_debug
+import sys
 
 
 def create_agent_session(session: AgentSessionCreate, monitor: bool = False) -> None:
@@ -24,6 +25,11 @@ def create_agent_session(session: AgentSessionCreate, monitor: bool = False) -> 
 def create_agent_run(run: AgentRunCreate, monitor: bool = False) -> None:
     if not agno_cli_settings.api_enabled:
         return
+
+    # Print the size of the run object in bytes
+    run_size = sys.getsizeof(run)
+    run_dump_size = sys.getsizeof(run.model_dump(exclude_none=True))
+    log_debug(f"Agent Run size: {run_size} bytes, Run dump size: {run_dump_size} bytes")
 
     log_debug("Logging Agent Run")
     with api.AuthenticatedClient() as api_client:

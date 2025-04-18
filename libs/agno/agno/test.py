@@ -18,13 +18,13 @@ knowledge_base = PDFUrlKnowledgeBase(
 knowledge_base.load_url(
     url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
     metadata={"user_id": "user_1", "source": "Thai Cookbook"},
-    recreate=True,
+    recreate=False,
 )
 
 knowledge_base.load_url(
     url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
     metadata={"user_id": "user_2", "source": "Cape Cookbook"},
-    recreate=True,
+    recreate=False,
 )
 
 
@@ -33,14 +33,21 @@ agent = Agent(knowledge=knowledge_base, show_tool_calls=True)
 
 print("\nFiltered search example:")
 search_results = knowledge_base.search(
-    query="Chicken curry", 
+    query="How to make Chicken curry, give full steps",
     filters={"meta_data.user_id": "user_2"}
 )
 
-for i, doc in enumerate(search_results):
-    print(f"\nResult {i+1}:")
-    print(f"Name: {doc.name}")
-    print(f"Metadata: {doc.meta_data}")
+print("\n--- Filtered Search Results (User: user_2, Query: 'Chicken curry') ---")
+if search_results:
+    for i, doc in enumerate(search_results):
+        print(f"\n--- Result {i+1} ---")
+        print(f"Name: {doc.name}")
+        print(f"Metadata: {doc.meta_data}")
+        # Print first 500 characters of content
+        print(f"Content:\n{doc.content[:5000]}...")
+        print("-" * 20)  # Separator
+else:
+    print("No results found for the specified filter and query.")
 
 # # Standard agent response (no filters in this API yet)
 # print("\nStandard agent response:")

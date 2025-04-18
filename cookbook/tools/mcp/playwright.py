@@ -4,12 +4,10 @@ import os
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.tools.mcp import MCPTools
-
 from mcp import StdioServerParameters
 
-async def run_agent(message: str) -> None:
-    """Run the Playwright agent with the given message."""
 
+async def run_agent(message: str) -> None:
     server_params = StdioServerParameters(
         command="npx",
         args=[
@@ -17,7 +15,9 @@ async def run_agent(message: str) -> None:
         ],
     )
 
-    async with MCPTools(server_params=server_params, include_tools=["browser_navigate", "browser_click"]) as mcp_tools:
+    async with MCPTools(
+        server_params=server_params, include_tools=["browser_navigate", "browser_click"]
+    ) as mcp_tools:
         agent = Agent(
             model=Claude(id="claude-3-7-sonnet-latest"),
             tools=[mcp_tools],
@@ -34,6 +34,6 @@ async def run_agent(message: str) -> None:
 if __name__ == "__main__":
     asyncio.run(
         run_agent(
-            "Look for a personality test on the web and take it. Then, summarize the results of the test and provide a link to the test you took.",
+            "Look for a personality test with less than 10 questions on the web and take it. Summarize the results of the test and provide a link to the test you took.",
         )
     )

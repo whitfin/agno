@@ -38,7 +38,7 @@ class Claude(Model):
     id: str = "claude-3-5-sonnet-20241022"
     name: str = "Claude"
     provider: str = "Anthropic"
-    
+
     # Request parameters
     max_tokens: Optional[int] = 4096
     thinking: Optional[Dict[str, Any]] = None

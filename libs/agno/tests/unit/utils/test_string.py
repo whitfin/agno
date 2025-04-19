@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -42,7 +42,10 @@ def test_url_safe_string_preserve_dots():
 
 def test_url_safe_string_complex():
     """Test a complex string with multiple transformations"""
-    assert url_safe_string("Hello World_Example-String.With@Special#Chars") == "hello-world-example-string.withspecialchars"
+    assert (
+        url_safe_string("Hello World_Example-String.With@Special#Chars")
+        == "hello-world-example-string.withspecialchars"
+    )
 
 
 class MockModel(BaseModel):
@@ -147,6 +150,28 @@ def test_parse_non_json_string():
     assert result is None
 
 
+def test_parse_json_with_code_blocks_in_fields():
+    """Test parsing JSON with code blocks in field values"""
+    content = """
+    ```json
+    {
+        "name": "test",
+        "value": "```python
+    def hello():
+        print('Hello, world!')
+    ```",
+        "description": "A function that prints hello"
+    }
+    ```
+    """
+    result = parse_response_model_str(content, MockModel)
+    assert result is not None
+    assert result.name == "test"
+    assert "def hello()" in result.value
+    assert "print('Hello, world!')" in result.value
+    assert result.description == "A function that prints hello"
+
+
 def test_parse_complex_markdown():
     """Test parsing JSON embedded in complex markdown"""
     content = """# Title
@@ -166,3 +191,36 @@ def test_parse_complex_markdown():
     assert result.name == "test"
     assert result.value == "123"
     assert result.description == 'A "quoted" description'
+
+
+def test_parse_nested_json():
+    """Test parsing nested JSON"""
+
+    class Step(BaseModel):
+        step: str
+        description: str
+
+    class Steps(BaseModel):
+        steps: List[Step]
+
+    content = """
+    ```json
+    {
+        "steps": [
+            {
+                "step": "1",
+                "description": "Step 1 description"
+            },
+            {
+                "step": "2",
+                "description": "Step 2 description"
+            }
+        ]
+    }
+    ```"""
+    result = parse_response_model_str(content, Steps)
+    assert result is not None
+    assert result.steps[0].step == "1"
+    assert result.steps[0].description == "Step 1 description"
+    assert result.steps[1].step == "2"
+    assert result.steps[1].description == "Step 2 description"

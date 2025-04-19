@@ -26,6 +26,9 @@ class GoogleSearchTools(Toolkit):
         headers (Optional[Any]): Custom headers for the request.
         proxy (Optional[str]): Proxy settings for the request.
         timeout (Optional[int]): Timeout for the request, default is 10 seconds.
+        cache_results (bool): Enable caching of search results.
+        cache_ttl (int): Time-to-live for cached results in seconds.
+        cache_dir (Optional[str]): Directory to store cache files.
     """
 
     def __init__(
@@ -35,8 +38,9 @@ class GoogleSearchTools(Toolkit):
         headers: Optional[Any] = None,
         proxy: Optional[str] = None,
         timeout: Optional[int] = 10,
+        **kwargs,
     ):
-        super().__init__(name="googlesearch")
+        super().__init__(name="googlesearch", **kwargs)
 
         self.fixed_max_results: Optional[int] = fixed_max_results
         self.fixed_language: Optional[str] = fixed_language

@@ -1,7 +1,7 @@
 [project]
 name = "agno"
-version = "1.1.14"
-description = "Agno: a lightweight framework for building multi-modal Agents"
+version = "1.3.4"
+description = "Agno: a lightweight library for building Reasoning Agents"
 requires-python = ">=3.7,<4"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["mypy", "pytest", "pytest-asyncio", "pytest-cov", "ruff", "timeout-decorator", "types-pyyaml", "fastapi", "uvicorn"]
+dev = ["mypy", "pytest", "pytest-asyncio", "pytest-cov", "ruff", "timeout-decorator", "types-pyyaml", "types-aiofiles", "fastapi", "uvicorn", "arxiv"]
 
 # Dependencies for Models
 azure = ["azure-ai-inference", "aiohttp"]
@@ -72,11 +72,15 @@ fal = ["fal_client"]
 webex = ["webexpythonsdk"]
 mcp = ["mcp"]
 browserbase = ["browserbase", "playwright"]
+agentql = ["agentql"]
+confluence = ["atlassian-python-api"]
 
 # Dependencies for Storage
 sql = ["sqlalchemy"]
 postgres = ["psycopg-binary", "psycopg"]
 sqlite = ["sqlalchemy"]
+gcs = ["google-cloud-storage"]
+redis = ["redis"]
 
 # Dependencies for Vector databases
 pgvector = ["pgvector"]
@@ -86,10 +90,14 @@ qdrant = ["qdrant-client"]
 cassandra = ["cassio"]
 mongodb = ["pymongo[srv]"]
 singlestore = ["sqlalchemy"]
+weaviate = ["weaviate-client"]
+milvusdb = ["pymilvus"]
 
 # Dependencies for Knowledge
 pdf = ["pypdf", "rapidocr_onnxruntime"]
 docx = ["python-docx"]
+text = ["aiofiles"]
+csv = ["aiofiles"]
 
 # Dependencies for Performance
 performance = ["memory_profiler"]
@@ -135,7 +143,9 @@ tools = [
   "agno[webex]",
   "agno[mcp]",
   "agno[browserbase]",
+  "agno[agentql]",
 #  "agno[yfinance]",  # Broken right now
+  "agno[confluence]",
 ]
 
 # All storage
@@ -143,6 +153,8 @@ storage = [
   "agno[sql]",
   "agno[postgres]",
   "agno[sqlite]",
+  "agno[gcs]",
+  "agno[redis]",
 ]
 
 # All vector databases
@@ -153,13 +165,17 @@ vectordbs = [
   "agno[qdrant]",
   "agno[cassandra]",
   "agno[mongodb]",
-  "agno[singlestore]"
+  "agno[singlestore]",
+  "agno[weaviate]",
+  "agno[milvusdb]"
 ]
 
 # All knowledge
 knowledge = [
   "agno[pdf]",
   "agno[docx]",
+  "agno[text]",
+  "agno[csv]"
 ]
 
 # All libraries for testing
@@ -241,8 +257,10 @@ module = [
   "duckdb.*",
   "duckduckgo_search.*",
   "email_validator.*",
+  "e2b_code_interpreter.*",
   "exa_py.*",
   "fastapi.*",
+  "filetype.*",
   "firecrawl.*",
   "github.*",
   "google.*",
@@ -289,6 +307,7 @@ module = [
   "pytz.*",
   "qdrant_client.*",
   "rapidocr_onnxruntime.*",
+  "redis.*",
   "replicate.*",
   "requests.*",
   "scrapegraph_py.*",
@@ -312,6 +331,7 @@ module = [
   "twilio.*",
   "tzlocal.*",
   "upstash_vector.*",
+  "urllib3.*",
   "uvicorn.*",
   "vertexai.*",
   "voyageai.*",
@@ -320,5 +340,6 @@ module = [
   "wikipedia.*",
   "yfinance.*",
   "youtube_transcript_api.*",
+  "aiofiles.*",
 ]
 ignore_missing_imports = true

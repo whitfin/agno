@@ -61,8 +61,9 @@ class ExaTools(Toolkit):
         exclude_domains: Optional[List[str]] = None,
         show_results: bool = False,
         model: Optional[str] = None,
+        **kwargs,
     ):
-        super().__init__(name="exa")
+        super().__init__(name="exa", **kwargs)
 
         self.api_key = api_key or getenv("EXA_API_KEY")
         if not self.api_key:

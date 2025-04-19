@@ -11,7 +11,7 @@ from agno.models.base import MessageData, Model
 from agno.models.message import Citations, Message, UrlCitation
 from agno.models.response import ModelResponse
 from agno.utils.log import log_error, log_warning
-from agno.utils.openai_responses import images_to_message
+from agno.utils.models.openai_responses import images_to_message, sanitize_response_schema
 
 try:
     from openai import APIConnectionError, APIStatusError, AsyncOpenAI, OpenAI, RateLimitError
@@ -176,7 +176,8 @@ class OpenAIResponses(Model):
         if self.response_format is not None:
             if self.structured_outputs and issubclass(self.response_format, BaseModel):
                 schema = self.response_format.model_json_schema()
-                schema["additionalProperties"] = False
+                # Sanitize the schema to ensure it complies with OpenAI's requirements
+                sanitize_response_schema(schema)
                 base_params["text"] = {
                     "format": {
                         "type": "json_schema",
@@ -320,10 +321,10 @@ class OpenAIResponses(Model):
                         if message.images is not None:
                             message_dict["content"].extend(images_to_message(images=message.images))
 
-                if message.audio is not None:
+                if message.audio is not None and len(message.audio) > 0:
                     log_warning("Audio input is currently unsupported.")
 
-                if message.videos is not None:
+                if message.videos is not None and len(message.videos) > 0:
                     log_warning("Video input is currently unsupported.")
 
                 formatted_messages.append(message_dict)

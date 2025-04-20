@@ -1,6 +1,6 @@
-from typing import Any, Dict, List, Optional, Union
-import concurrent.futures
 import asyncio
+import concurrent.futures
+from typing import Any, Dict, List, Optional, Union
 
 try:
     from packaging import version
@@ -30,6 +30,7 @@ from agno.utils.log import log_debug, log_info, logger
 from agno.vectordb.base import VectorDb
 
 thread_pool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
+
 
 class PineconeDb(VectorDb):
     """A class representing a Pinecone database.
@@ -165,9 +166,10 @@ class PineconeDb(VectorDb):
         """
         list_indexes = self.client.list_indexes()
         return self.name in list_indexes.names()
-    
+
     async def async_exists(self) -> bool:
         """Check if the index exists asynchronously."""
+
         def _exists():
             return self.exists()
 
@@ -189,9 +191,10 @@ class PineconeDb(VectorDb):
                 metric=self.metric if self.metric is not None else "cosine",
                 timeout=self.timeout,
             )
-            
+
     async def async_create(self) -> None:
         """Create the index asynchronously if it does not exist."""
+
         def _create():
             self.create()
 
@@ -216,9 +219,10 @@ class PineconeDb(VectorDb):
         """
         response = self.index.fetch(ids=[document.id])
         return len(response.vectors) > 0
-    
+
     async def async_doc_exists(self, document: Document) -> bool:
         """Check if a document exists in the index asynchronously."""
+
         def _doc_exists():
             return self.doc_exists(document)
 
@@ -240,9 +244,10 @@ class PineconeDb(VectorDb):
             return True
         except Exception:
             return False
-        
+
     async def async_name_exists(self, name: str) -> bool:
         """Check if an index with the given name exists asynchronously."""
+
         def _name_exists():
             return self.name_exists(name)
 
@@ -287,7 +292,7 @@ class PineconeDb(VectorDb):
             batch_size=batch_size,
             show_progress=show_progress,
         )
-        
+
     async def async_upsert(
         self,
         documents: List[Document],
@@ -317,26 +322,22 @@ class PineconeDb(VectorDb):
                         "metadata": doc.meta_data,
                     }
                     if self.use_hybrid_search:
-                        data_to_upsert["sparse_values"] = self.sparse_encoder.encode_documents(
-                            doc.content)
+                        data_to_upsert["sparse_values"] = self.sparse_encoder.encode_documents(doc.content)
                     vectors.append(data_to_upsert)
                 return vectors
 
             return await asyncio.get_event_loop().run_in_executor(thread_pool_executor, _prepare_docs)
 
         # Split documents into batches
-        batches = [documents[i:i+_batch_size]
-                   for i in range(0, len(documents), _batch_size)]
-        log_debug(
-            f"Processing {len(documents)} documents in {len(batches)} batches for upsert")
+        batches = [documents[i : i + _batch_size] for i in range(0, len(documents), _batch_size)]
+        log_debug(f"Processing {len(documents)} documents in {len(batches)} batches for upsert")
 
         # Prepare all batches in parallel
         batch_tasks = [prepare_documents_batch(batch) for batch in batches]
         prepared_batches = await asyncio.gather(*batch_tasks)
 
         # Flatten the prepared vectors for upsert
-        all_vectors = [
-            vector for batch in prepared_batches for vector in batch]
+        all_vectors = [vector for batch in prepared_batches for vector in batch]
 
         # Now upsert all vectors in a thread
         def _upsert_vectors():
@@ -349,11 +350,10 @@ class PineconeDb(VectorDb):
 
         await asyncio.get_event_loop().run_in_executor(thread_pool_executor, _upsert_vectors)
         log_debug(f"Finished async upsert of {len(documents)} documents")
-        
+
     async def async_insert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """Pinecone doesn't support insert. Raise an error."""
-        raise NotImplementedError(
-            "Pinecone does not support insert operations. Use async_upsert instead.")
+        raise NotImplementedError("Pinecone does not support insert operations. Use async_upsert instead.")
 
     def upsert_available(self) -> bool:
         """Check if upsert operation is available.
@@ -462,24 +462,20 @@ class PineconeDb(VectorDb):
         if self.reranker:
             search_results = self.reranker.rerank(query=query, documents=search_results)
         return search_results
-    
+
     async def async_search(
         self,
         query: str,
         limit: int = 5,
-        filters: Optional[Dict[str, Union[str,
-                                          float, int, bool, List, dict]]] = None,
+        filters: Optional[Dict[str, Union[str, float, int, bool, List, dict]]] = None,
         namespace: Optional[str] = None,
         include_values: Optional[bool] = None,
     ) -> List[Document]:
         """Search for similar documents in the index asynchronously."""
+
         def _search():
             return self.search(
-                query=query,
-                limit=limit,
-                filters=filters,
-                namespace=namespace,
-                include_values=include_values
+                query=query, limit=limit, filters=filters, namespace=namespace, include_values=include_values
             )
 
         loop = asyncio.get_event_loop()

@@ -1,9 +1,9 @@
+import asyncio
 from os import getenv
 
 from agno.agent import Agent
 from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
 from agno.vectordb.pineconedb import PineconeDb
-import asyncio
 
 api_key = getenv("PINECONE_API_KEY")
 index_name = "thai-recipe-index"
@@ -36,5 +36,4 @@ if __name__ == "__main__":
     asyncio.run(knowledge_base.aload(recreate=False, upsert=True))
 
     # Create and use the agent
-    asyncio.run(agent.aprint_response(
-        "How to make Tom Kha Gai", markdown=True))
+    asyncio.run(agent.aprint_response("How to make Tom Kha Gai", markdown=True))

@@ -27,9 +27,10 @@ def get_function_call_for_tool_call(
 def get_function_call_for_tool_execution(
     tool_execution: ToolExecution, functions: Dict[str, Function]
 ) -> FunctionCall:
+    import json
     _tool_call_id = tool_execution.tool_call_id
     _tool_call_function_name = tool_execution.tool_name
-    _tool_call_function_arguments_str = tool_execution.tool_args
+    _tool_call_function_arguments_str = json.dumps(tool_execution.tool_args)
     return get_function_call(
         name=_tool_call_function_name,
         arguments=_tool_call_function_arguments_str,

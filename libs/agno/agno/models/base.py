@@ -350,6 +350,10 @@ class Model(ABC):
                 if any(tc.confirmation_required for tc in model_response.tool_executions):
                     break
 
+                # If we have any tool calls that require external execution, break the loop
+                if any(tc.external_execution_required for tc in model_response.tool_executions):
+                    break
+
                 # Continue loop to get next response
                 continue
 
@@ -421,6 +425,10 @@ class Model(ABC):
 
                 # If we have any tool calls that require confirmation, break the loop
                 if any(tc.confirmation_required for tc in model_response.tool_executions):
+                    break
+
+                # If we have any tool calls that require external execution, break the loop
+                if any(tc.external_execution_required for tc in model_response.tool_executions):
                     break
 
                 # Continue loop to get next response
@@ -697,6 +705,14 @@ class Model(ABC):
                 if any(m.stop_after_tool_call for m in function_call_results):
                     break
 
+                # If we have any tool calls that require confirmation, break the loop
+                if any(fc.function.requires_confirmation for fc in function_calls_to_run):
+                    break
+
+                # If we have any tool calls that require external execution, break the loop
+                if any(fc.function.external_execution for fc in function_calls_to_run):
+                    break
+
                 # Continue loop to get next response
                 continue
 
@@ -789,6 +805,14 @@ class Model(ABC):
 
                 # Check if we should stop after tool calls
                 if any(m.stop_after_tool_call for m in function_call_results):
+                    break
+
+                # If we have any tool calls that require confirmation, break the loop
+                if any(fc.function.requires_confirmation for fc in function_calls_to_run):
+                    break
+
+                # If we have any tool calls that require external execution, break the loop
+                if any(fc.function.external_execution for fc in function_calls_to_run):
                     break
 
                 # Continue loop to get next response

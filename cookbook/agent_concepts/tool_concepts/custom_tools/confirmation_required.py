@@ -58,19 +58,14 @@ agent = Agent(
     debug_mode=True
 )
 
-run_response: RunResponse = agent.run("Fetch the top 2 hackernews stories")
-print(type(run_response))    
-print(type(agent.run_response))
-for resp in run_response:
-    print("HERE")
-    print(resp)
-if run_response.event == RunEvent.tool_calls_paused.value:
-    print(run_response.tools)
-    for tool in run_response.tools:
+agent.run("Fetch the top 2 hackernews stories")
+if agent.run_response.event == RunEvent.tool_calls_paused.value:
+    for tool in agent.run_response.tools:
         print("Tool name: ", tool.tool_name)
         print("Tool args: ", tool.tool_args)
-        user_input = input("Do you want to proceed? (y/n)")
+        user_input = input("Do you want to proceed? (y/n) ")
+        # We update the tools in place
         tool.confirmed = user_input == "y"
         
-    run_response = agent.continue_run(tools=run_response.tools)
+    run_response = agent.continue_run()
     print(run_response.content)

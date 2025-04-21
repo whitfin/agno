@@ -293,6 +293,7 @@ class OpenAIChat(Model):
         # Manually add the content field even if it is None
         if message.content is None:
             message_dict["content"] = None
+        
         return message_dict
 
     def invoke(self, messages: List[Message]) -> Union[ChatCompletion, ParsedChatCompletion]:

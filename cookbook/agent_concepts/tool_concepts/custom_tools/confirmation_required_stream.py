@@ -22,6 +22,7 @@ import httpx
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools import tool
+from agno.utils import pprint
 
 
 @tool(requires_confirmation=True)
@@ -62,10 +63,10 @@ for run_response in agent.run(
 ):
     if run_response.event == RunEvent.tool_calls_paused.value:
         for tool in run_response.tools:
-            print(tool.tool_name)
-            print(tool.tool_args)
+            print("Tool name: ", tool.tool_name)
+            print("Tool args: ", tool.tool_args)
             user_input = input("Do you want to proceed? (y/n)")
             tool.confirmed = user_input == "y"
-        run_response = agent.continue_run(tools=run_response.tools)
+        run_response = agent.continue_run(run_response=run_response)
         for resp in run_response:
-            print(resp.content)
+            print(resp.content, end="")

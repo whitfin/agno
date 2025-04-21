@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 from typing import Any, Dict, List, Optional, Union
 
 try:
@@ -28,8 +27,6 @@ from agno.embedder import Embedder
 from agno.reranker.base import Reranker
 from agno.utils.log import log_debug, log_info, logger
 from agno.vectordb.base import VectorDb
-
-thread_pool_executor = concurrent.futures.ThreadPoolExecutor(max_workers=10)
 
 
 class PineconeDb(VectorDb):
@@ -169,12 +166,7 @@ class PineconeDb(VectorDb):
 
     async def async_exists(self) -> bool:
         """Check if the index exists asynchronously."""
-
-        def _exists():
-            return self.exists()
-
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(thread_pool_executor, _exists)
+        return await asyncio.to_thread(self.exists)
 
     def create(self) -> None:
         """Create the index if it does not exist."""
@@ -194,12 +186,7 @@ class PineconeDb(VectorDb):
 
     async def async_create(self) -> None:
         """Create the index asynchronously if it does not exist."""
-
-        def _create():
-            self.create()
-
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(thread_pool_executor, _create)
+        await asyncio.to_thread(self.create)
 
     def drop(self) -> None:
         """Delete the index if it exists."""
@@ -222,12 +209,7 @@ class PineconeDb(VectorDb):
 
     async def async_doc_exists(self, document: Document) -> bool:
         """Check if a document exists in the index asynchronously."""
-
-        def _doc_exists():
-            return self.doc_exists(document)
-
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(thread_pool_executor, _doc_exists)
+        return await asyncio.to_thread(self.doc_exists, document)
 
     def name_exists(self, name: str) -> bool:
         """Check if an index with the given name exists.
@@ -247,12 +229,7 @@ class PineconeDb(VectorDb):
 
     async def async_name_exists(self, name: str) -> bool:
         """Check if an index with the given name exists asynchronously."""
-
-        def _name_exists():
-            return self.name_exists(name)
-
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(thread_pool_executor, _name_exists)
+        return await asyncio.to_thread(self.name_exists, name)
 
     def upsert(
         self,
@@ -309,47 +286,51 @@ class PineconeDb(VectorDb):
         # to process document embedding in parallel
         _batch_size = batch_size or 100
 
-        # First, prepare documents in parallel
-        async def prepare_documents_batch(batch_docs):
-            def _prepare_docs():
-                vectors = []
-                for doc in batch_docs:
-                    doc.embed(embedder=self.embedder)
-                    doc.meta_data["text"] = doc.content
-                    data_to_upsert = {
-                        "id": doc.id,
-                        "values": doc.embedding,
-                        "metadata": doc.meta_data,
-                    }
-                    if self.use_hybrid_search:
-                        data_to_upsert["sparse_values"] = self.sparse_encoder.encode_documents(doc.content)
-                    vectors.append(data_to_upsert)
-                return vectors
-
-            return await asyncio.get_event_loop().run_in_executor(thread_pool_executor, _prepare_docs)
-
         # Split documents into batches
         batches = [documents[i : i + _batch_size] for i in range(0, len(documents), _batch_size)]
         log_debug(f"Processing {len(documents)} documents in {len(batches)} batches for upsert")
 
-        # Prepare all batches in parallel
-        batch_tasks = [prepare_documents_batch(batch) for batch in batches]
-        prepared_batches = await asyncio.gather(*batch_tasks)
+        # Process each batch in parallel
+        async def process_batch(batch_docs):
+            return await asyncio.to_thread(self._prepare_vectors, batch_docs)
 
-        # Flatten the prepared vectors for upsert
-        all_vectors = [vector for batch in prepared_batches for vector in batch]
+        # Run all batches in parallel
+        batch_vectors = await asyncio.gather(*[process_batch(batch) for batch in batches])
 
-        # Now upsert all vectors in a thread
-        def _upsert_vectors():
-            self.index.upsert(
-                vectors=all_vectors,
-                namespace=namespace or self.namespace,
-                batch_size=batch_size,  # Pinecone's internal batching
-                show_progress=show_progress,
-            )
+        # Flatten vectors
+        all_vectors = [vector for batch in batch_vectors for vector in batch]
 
-        await asyncio.get_event_loop().run_in_executor(thread_pool_executor, _upsert_vectors)
+        # Upsert all vectors
+        await asyncio.to_thread(
+            self._upsert_vectors, all_vectors, namespace or self.namespace, batch_size, show_progress
+        )
+
         log_debug(f"Finished async upsert of {len(documents)} documents")
+
+    def _prepare_vectors(self, documents):
+        """Prepare vectors for upsert."""
+        vectors = []
+        for doc in documents:
+            doc.embed(embedder=self.embedder)
+            doc.meta_data["text"] = doc.content
+            data_to_upsert = {
+                "id": doc.id,
+                "values": doc.embedding,
+                "metadata": doc.meta_data,
+            }
+            if self.use_hybrid_search:
+                data_to_upsert["sparse_values"] = self.sparse_encoder.encode_documents(doc.content)
+            vectors.append(data_to_upsert)
+        return vectors
+
+    def _upsert_vectors(self, vectors, namespace, batch_size, show_progress):
+        """Upsert vectors to the index."""
+        self.index.upsert(
+            vectors=vectors,
+            namespace=namespace,
+            batch_size=batch_size,
+            show_progress=show_progress,
+        )
 
     async def async_insert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
         """Pinecone doesn't support insert. Raise an error."""
@@ -472,14 +453,7 @@ class PineconeDb(VectorDb):
         include_values: Optional[bool] = None,
     ) -> List[Document]:
         """Search for similar documents in the index asynchronously."""
-
-        def _search():
-            return self.search(
-                query=query, limit=limit, filters=filters, namespace=namespace, include_values=include_values
-            )
-
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(thread_pool_executor, _search)
+        return await asyncio.to_thread(self.search, query, limit, filters, namespace, include_values)
 
     def optimize(self) -> None:
         """Optimize the index.

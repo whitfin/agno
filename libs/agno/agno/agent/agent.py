@@ -952,6 +952,7 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: bool = False,
         retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> RunResponse: ...
 
@@ -970,6 +971,7 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: bool = False,
         retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Iterator[RunResponse]: ...
 
@@ -987,9 +989,15 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: bool = False,
         retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
+        if knowledge_filters:
+            if self.context is None:
+                self.context = {}
+        self.context["knowledge_filters"] = knowledge_filters
+        log_debug(f"Added knowledge filters to context: {knowledge_filters}")
 
         # Initialize the Agent
         self.initialize_agent()
@@ -3107,10 +3115,21 @@ class Agent:
         return ""
 
     def get_relevant_docs_from_knowledge(
-        self, query: str, num_documents: Optional[int] = None, **kwargs
+        self, query: str, num_documents: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, **kwargs
     ) -> Optional[List[Dict[str, Any]]]:
-        """Return a list of references from the knowledge base"""
+        """Get relevant docs from the knowledge base to answer a query.
+
+        Args:
+            query (str): The query to search for.
+            num_documents (Optional[int]): Number of documents to return.
+            filters (Optional[Dict[str, Any]]): Filters to apply to the search.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            Optional[List[Dict[str, Any]]]: List of relevant document dicts.
+        """
         from agno.document import Document
+        from agno.utils.log import log_debug, log_warning
 
         if self.retriever is not None and callable(self.retriever):
             from inspect import signature
@@ -3120,19 +3139,37 @@ class Agent:
                 retriever_kwargs: Dict[str, Any] = {}
                 if "agent" in sig.parameters:
                     retriever_kwargs = {"agent": self}
+                if "filters" in sig.parameters:
+                    retriever_kwargs["filters"] = filters
                 retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
+
+                log_debug(f"Using custom retriever with filters: {filters}")
                 return self.retriever(**retriever_kwargs)
             except Exception as e:
                 log_warning(f"Retriever failed: {e}")
                 return None
 
-        if self.knowledge is None:
-            return None
+        # Use knowledge base search
+        try:
+            if num_documents is None:
+                num_documents = self.knowledge.num_documents
 
-        relevant_docs: List[Document] = self.knowledge.search(query=query, num_documents=num_documents, **kwargs)
-        if len(relevant_docs) == 0:
+            log_debug(f"Searching knowledge base with filters: {filters}")
+            relevant_docs: List[Document] = self.knowledge.search(
+                query=query, num_documents=num_documents, filters=filters, **kwargs
+            )
+
+            if not relevant_docs or len(relevant_docs) == 0:
+                log_debug("No relevant documents found for query")
+                return None
+
+            return [doc.to_dict() for doc in relevant_docs]
+        except Exception as e:
+            log_warning(f"Error searching knowledge base: {e}")
+            import traceback
+
+            log_debug(traceback.format_exc())
             return None
-        return [doc.to_dict() for doc in relevant_docs]
 
     async def aget_relevant_docs_from_knowledge(
         self, query: str, num_documents: Optional[int] = None, **kwargs
@@ -3980,12 +4017,19 @@ class Agent:
         Returns:
             str: A string containing the response from the knowledge base.
         """
+        # Get knowledge filters from context if available
+        filters = None
+        if self.context and "knowledge_filters" in self.context:
+            filters = self.context["knowledge_filters"]
+            from agno.utils.log import log_debug
 
-        # Get the relevant documents from the knowledge base
+            log_debug(f"Using knowledge filters from context: {filters}")
+
+        # Get the relevant documents from the knowledge base, passing filters
         self.run_response = cast(RunResponse, self.run_response)
         retrieval_timer = Timer()
         retrieval_timer.start()
-        docs_from_knowledge = self.get_relevant_docs_from_knowledge(query=query)
+        docs_from_knowledge = self.get_relevant_docs_from_knowledge(query=query, filters=filters)
         if docs_from_knowledge is not None:
             references = MessageReferences(
                 query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
@@ -3997,6 +4041,8 @@ class Agent:
                 self.run_response.extra_data.references = []
             self.run_response.extra_data.references.append(references)
         retrieval_timer.stop()
+        from agno.utils.log import log_debug
+
         log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
         if docs_from_knowledge is None:
@@ -4209,6 +4255,7 @@ class Agent:
         console: Optional[Any] = None,
         # Add tags to include in markdown content
         tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         import json
@@ -4268,6 +4315,7 @@ class Agent:
                     files=files,
                     stream=True,
                     stream_intermediate_steps=stream_intermediate_steps,
+                    knowledge_filters=knowledge_filters,
                     **kwargs,
                 ):
                     if isinstance(resp, RunResponse):
@@ -4448,6 +4496,7 @@ class Agent:
                     files=files,
                     stream=False,
                     stream_intermediate_steps=stream_intermediate_steps,
+                    knowledge_filters=knowledge_filters,
                     **kwargs,
                 )
                 response_timer.stop()

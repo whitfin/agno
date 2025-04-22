@@ -1,12 +1,9 @@
-from typing import AsyncIterator, Iterator, List, Union
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 
 from agno.document import Document
 from agno.document.reader.pdf_reader import PDFUrlImageReader, PDFUrlReader
 from agno.knowledge.agent import AgentKnowledge
-from agno.utils.log import logger
-from agno.utils.log import log_info, log_debug
-from typing import Optional, Any, Dict
-
+from agno.utils.log import log_debug, log_info, logger
 
 
 class PDFUrlKnowledgeBase(AgentKnowledge):
@@ -41,7 +38,7 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
                 yield await self.reader.async_read(url=url)
             else:
                 logger.error(f"Unsupported URL: {url}")
-                
+
     def load_url(
         self,
         url: str,
@@ -75,25 +72,18 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             # Apply chunking strategy from the knowledge base config
             self.update_reader()
         elif not hasattr(self.reader, "read"):
-            logger.error(
-                "Knowledge base reader is not configured correctly or lacks a 'read' method."
-            )
+            logger.error("Knowledge base reader is not configured correctly or lacks a 'read' method.")
             return
 
         # Ensure collection exists or recreate if requested
         if recreate:
-            log_info(
-                f"Recreating collection '{self.vector_db.collection}' before loading {url}."
-            )
+            log_info(f"Recreating collection '{self.vector_db.collection}' before loading {url}.")
             self.vector_db.drop()
 
         if not self.vector_db.exists():
-            log_info(
-                f"Collection '{self.vector_db.collection}' does not exist. Creating.")
+            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
             self.vector_db.create()
 
-        # Read documents from the URL
-        log_info(f"Reading documents from URL: {url}")
         try:
             documents = self.reader.read(url=url)
             if not documents:
@@ -103,8 +93,7 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.exception(f"Failed to read documents from URL {url}: {e}")
             return
 
-        log_info(
-            f"Loading {len(documents)} documents from {url} with metadata: {metadata}")
+        log_info(f"Loading {len(documents)} documents from {url} with metadata: {metadata}")
 
         # Decide loading strategy: upsert or insert (with optional skip)
         if upsert and self.vector_db.upsert_available():
@@ -121,29 +110,20 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
                 documents_to_insert_filtered = []
                 for doc in documents_to_insert:
                     # Check hash and existence in DB
-                    content_hash = (
-                        doc.content
-                    )  # Assuming doc.content is reliable hash key or use md5
-                    if content_hash not in seen_content and not self.vector_db.doc_exists(
-                        doc
-                    ):
+                    content_hash = doc.content  # Assuming doc.content is reliable hash key or use md5
+                    if content_hash not in seen_content and not self.vector_db.doc_exists(doc):
                         seen_content.add(content_hash)
                         documents_to_insert_filtered.append(doc)
                     else:
-                        log_debug(
-                            f"Skipping existing document: {doc.name} (or duplicate content)"
-                        )
+                        log_debug(f"Skipping existing document: {doc.name} (or duplicate content)")
                 documents_to_insert = documents_to_insert_filtered
                 if len(documents_to_insert) < original_count:
-                    log_info(
-                        f"Skipped {original_count - len(documents_to_insert)} existing/duplicate documents."
-                    )
+                    log_info(f"Skipped {original_count - len(documents_to_insert)} existing/duplicate documents.")
 
             if documents_to_insert:
                 log_debug(f"Inserting {len(documents_to_insert)} new documents.")
                 # Pass metadata directly
-                self.vector_db.insert(
-                    documents=documents_to_insert, filters=metadata)
+                self.vector_db.insert(documents=documents_to_insert, filters=metadata)
             else:
                 log_info("No new documents to insert after filtering.")
 

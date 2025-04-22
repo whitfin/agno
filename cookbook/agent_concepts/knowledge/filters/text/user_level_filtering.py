@@ -16,14 +16,14 @@ knowledge_base = TextKnowledgeBase(
 
 # Load some example text with metadata
 knowledge_base.load_text(
-    path=Path("data/kaustubh.txt"),
-    metadata={"user_id": "kausmos"},
+    path=Path("data/docs"),
+    metadata={"user_id": "user_1"},
     recreate=True,
 )
 
 knowledge_base.load_text(
-    path=Path("data/srijan.txt"),
-    metadata={"user_id": "srijansriv"},
+    path=Path("data/docs"),
+    metadata={"user_id": "user_2"},
     recreate=True,
 )
 
@@ -34,7 +34,7 @@ agent = Agent(
 )
 
 agent.print_response(
-    "Tell me about the what experience does Srijan have",
-    knowledge_filters={"user_id": "srijansriv"},
+    "Ask any question related to the documents",
+    knowledge_filters={"user_id": "user_1"},
     markdown=True,
 )

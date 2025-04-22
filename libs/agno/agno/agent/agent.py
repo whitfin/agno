@@ -1051,10 +1051,8 @@ class Agent:
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
         if knowledge_filters:
-            if self.context is None:
-                self.context = {}
-        self.context["knowledge_filters"] = knowledge_filters
-        log_debug(f"Added knowledge filters to context: {knowledge_filters}")
+            self.knowledge_filters = knowledge_filters
+            log_debug(f"Using knowledge filters: {knowledge_filters}")
 
         # Initialize the Agent
         self.initialize_agent()
@@ -4183,13 +4181,7 @@ class Agent:
         Returns:
             str: A string containing the response from the knowledge base.
         """
-        # Get knowledge filters from context if available
-        filters = None
-        if self.context and "knowledge_filters" in self.context:
-            filters = self.context["knowledge_filters"]
-            from agno.utils.log import log_debug
-
-            log_debug(f"Using knowledge filters from context: {filters}")
+        filters = getattr(self, "knowledge_filters", None)
 
         # Get the relevant documents from the knowledge base, passing filters
         self.run_response = cast(RunResponse, self.run_response)

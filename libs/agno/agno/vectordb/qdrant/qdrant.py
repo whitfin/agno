@@ -338,7 +338,7 @@ class Qdrant(VectorDb):
                 if "." not in key and not key.startswith("meta_data."):
                     # This is a simple field name, assume it's metadata
                     key = f"meta_data.{key}"
-                    
+
                 if isinstance(value, dict):
                     # Handle nested dictionaries
                     for sub_key, sub_value in value.items():

@@ -49,6 +49,6 @@ agent = Agent(knowledge=knowledge_base, show_tool_calls=True)
 
 agent.print_response(
     "List down the ingredients to make Pad Thai",
-    knowledge_filters={"meta_data.user_id": "user_1"},
+    knowledge_filters={"user_id": "user_1"},
     markdown=True,
 )

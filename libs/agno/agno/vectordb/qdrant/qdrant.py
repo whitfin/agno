@@ -329,12 +329,18 @@ class Qdrant(VectorDb):
             "limit": limit,
         }
 
-        # Handle filters if provided
+        # Handle filters if provided - normalize format for Qdrant
         if filters:
             filter_conditions = []
             for key, value in filters.items():
+                # If key contains a dot already, assume it's in the correct format
+                # Otherwise, assume it's a metadata field and add the prefix
+                if "." not in key and not key.startswith("meta_data."):
+                    # This is a simple field name, assume it's metadata
+                    key = f"meta_data.{key}"
+                    
                 if isinstance(value, dict):
-                    # Handle nested dictionaries like meta_data
+                    # Handle nested dictionaries
                     for sub_key, sub_value in value.items():
                         filter_conditions.append(
                             models.FieldCondition(key=f"{key}.{sub_key}", match=models.MatchValue(value=sub_value))

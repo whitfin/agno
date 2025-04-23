@@ -25,12 +25,20 @@ memory_agent = Agent(
     read_chat_history=True,
 )
 
-memory_agent.print_response("My name is Ava and I like to ski.", user_id=user_id)
+memory_agent.print_response(
+    "My name is Ava and I like to ski.",
+    user_id=user_id,
+    stream=True,
+    stream_intermediate_steps=True,
+)
 print("Memories about Ava:")
 pprint(memory.get_user_memories(user_id=user_id))
 
 memory_agent.print_response(
-    "I live in san francisco, shall i move to tahoe?", user_id=user_id
+    "I live in san francisco, shall i move to tahoe?",
+    user_id=user_id,
+    stream=True,
+    stream_intermediate_steps=True,
 )
 print("Memories about Ava:")
 pprint(memory.get_user_memories(user_id=user_id))

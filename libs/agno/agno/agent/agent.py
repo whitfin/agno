@@ -558,6 +558,7 @@ class Agent:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         stream_intermediate_steps: bool = False,
         **kwargs: Any,
     ) -> Iterator[RunResponse]:
@@ -594,7 +595,12 @@ class Agent:
         log_debug(f"Agent Run Start: {self.run_response.run_id}", center=True)
 
         # 2. Update the Model and resolve context
-        self.update_model(async_mode=False, user_id=user_id, session_id=session_id)
+        self.update_model(
+            async_mode=False,
+            user_id=user_id,
+            session_id=session_id,
+            knowledge_filters=knowledge_filters,
+        )
         self.run_response.model = self.model.id if self.model is not None else None
         if self.context is not None and self.resolve_context:
             self.resolve_run_context()
@@ -1052,9 +1058,9 @@ class Agent:
         **kwargs: Any,
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
-        if knowledge_filters:
-            self.knowledge_filters = knowledge_filters
-            log_debug(f"Using knowledge filters: {knowledge_filters}")
+        # if knowledge_filters:
+        #     self.knowledge_filters = knowledge_filters
+        #     log_debug(f"Using knowledge filters: {knowledge_filters}")
 
         # Initialize the Agent
         self.initialize_agent()
@@ -1106,6 +1112,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
+                            knowledge_filters=knowledge_filters,
                             **kwargs,
                         )
                     )
@@ -1146,6 +1153,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
+                            knowledge_filters=knowledge_filters,
                             **kwargs,
                         )
                         return resp
@@ -1161,6 +1169,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
+                            knowledge_filters=knowledge_filters,
                             **kwargs,
                         )
                         return next(resp)
@@ -1923,7 +1932,11 @@ class Agent:
         self.session_metrics = self.calculate_session_metrics(session_messages)
 
     def get_tools(
-        self, session_id: str, async_mode: bool = False, user_id: Optional[str] = None
+        self,
+        session_id: str,
+        async_mode: bool = False,
+        user_id: Optional[str] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
     ) -> Optional[List[Union[Toolkit, Callable, Function, Dict]]]:
         agent_tools: List[Union[Toolkit, Callable, Function, Dict]] = []
 
@@ -1949,7 +1962,7 @@ class Agent:
                 if async_mode:
                     agent_tools.append(self.async_search_knowledge_base)
                 else:
-                    agent_tools.append(self.search_knowledge_base)
+                    agent_tools.append(self.search_knowledge_base_function(knowledge_filters=knowledge_filters))
             if self.update_knowledge:
                 agent_tools.append(self.add_to_knowledge)
 
@@ -1961,12 +1974,19 @@ class Agent:
         return agent_tools
 
     def add_tools_to_model(
-        self, model: Model, session_id: str, async_mode: bool = False, user_id: Optional[str] = None
+        self,
+        model: Model,
+        session_id: str,
+        async_mode: bool = False,
+        user_id: Optional[str] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
     ) -> None:
         # Skip if functions_for_model is not None
         if self._functions_for_model is None or self._tools_for_model is None:
             # Get Agent tools
-            agent_tools = self.get_tools(session_id=session_id, async_mode=async_mode, user_id=user_id)
+            agent_tools = self.get_tools(
+                session_id=session_id, async_mode=async_mode, user_id=user_id, knowledge_filters=knowledge_filters
+            )
             if agent_tools is not None and len(agent_tools) > 0:
                 log_debug("Processing tools for model")
 
@@ -2043,7 +2063,13 @@ class Agent:
                 # Set functions on the model
                 model.set_functions(functions=self._functions_for_model)
 
-    def update_model(self, session_id: str, async_mode: bool = False, user_id: Optional[str] = None) -> None:
+    def update_model(
+        self,
+        session_id: str,
+        async_mode: bool = False,
+        user_id: Optional[str] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+    ) -> None:
         self.set_default_model()
 
         self.model = cast(Model, self.model)
@@ -2086,7 +2112,13 @@ class Agent:
             log_debug(f"Structured outputs: {self.model.structured_outputs}")
 
         # Add tools to the Model
-        self.add_tools_to_model(model=self.model, session_id=session_id, async_mode=async_mode, user_id=user_id)
+        self.add_tools_to_model(
+            model=self.model,
+            session_id=session_id,
+            async_mode=async_mode,
+            user_id=user_id,
+            knowledge_filters=knowledge_filters,
+        )
 
         # Set show_tool_calls on the Model
         if self.show_tool_calls is not None:
@@ -4223,40 +4255,45 @@ class Agent:
 
         return get_tool_call_history
 
-    def search_knowledge_base(self, query: str) -> str:
-        """Use this function to search the knowledge base for information about a query.
+    def search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Callable:
+        """Factory function to create an search_knowledge_base function with filters."""
 
-        Args:
-            query: The query to search for.
+        def search_knowledge_base(query: str) -> str:
+            """Use this function to search the knowledge base for information about a query.
 
-        Returns:
-            str: A string containing the response from the knowledge base.
-        """
-        filters = getattr(self, "knowledge_filters", None)
+            Args:
+                query: The query to search for.
 
-        # Get the relevant documents from the knowledge base, passing filters
-        self.run_response = cast(RunResponse, self.run_response)
-        retrieval_timer = Timer()
-        retrieval_timer.start()
-        docs_from_knowledge = self.get_relevant_docs_from_knowledge(query=query, filters=filters)
-        if docs_from_knowledge is not None:
-            references = MessageReferences(
-                query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
-            )
-            # Add the references to the run_response
-            if self.run_response.extra_data is None:
-                self.run_response.extra_data = RunResponseExtraData()
-            if self.run_response.extra_data.references is None:
-                self.run_response.extra_data.references = []
-            self.run_response.extra_data.references.append(references)
-        retrieval_timer.stop()
-        from agno.utils.log import log_debug
+            Returns:
+                str: A string containing the response from the knowledge base.
+            """
+            filters = knowledge_filters
 
-        log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
+            # Get the relevant documents from the knowledge base, passing filters
+            self.run_response = cast(RunResponse, self.run_response)
+            retrieval_timer = Timer()
+            retrieval_timer.start()
+            docs_from_knowledge = self.get_relevant_docs_from_knowledge(query=query, filters=filters)
+            if docs_from_knowledge is not None:
+                references = MessageReferences(
+                    query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
+                )
+                # Add the references to the run_response
+                if self.run_response.extra_data is None:
+                    self.run_response.extra_data = RunResponseExtraData()
+                if self.run_response.extra_data.references is None:
+                    self.run_response.extra_data.references = []
+                self.run_response.extra_data.references.append(references)
+            retrieval_timer.stop()
+            from agno.utils.log import log_debug
 
-        if docs_from_knowledge is None:
-            return "No documents found"
-        return self.convert_documents_to_string(docs_from_knowledge)
+            log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
+
+            if docs_from_knowledge is None:
+                return "No documents found"
+            return self.convert_documents_to_string(docs_from_knowledge)
+
+        return search_knowledge_base
 
     async def async_search_knowledge_base(self, query: str) -> str:
         """Use this function to search the knowledge base for information about a query asynchronously.

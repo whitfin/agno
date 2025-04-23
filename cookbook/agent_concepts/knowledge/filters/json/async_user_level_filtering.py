@@ -2,14 +2,14 @@ import asyncio
 from pathlib import Path
 
 from agno.agent import Agent
-from agno.knowledge.pdf import PDFKnowledgeBase
+from agno.knowledge.json import JSONKnowledgeBase
 from agno.vectordb.qdrant import Qdrant
 
-COLLECTION_NAME = "resume-pdf-test"
+COLLECTION_NAME = "resume-json-test"
 
 vector_db = Qdrant(collection=COLLECTION_NAME, url="http://localhost:6333")
 
-knowledge_base = PDFKnowledgeBase(
+knowledge_base = JSONKnowledgeBase(
     vector_db=vector_db,
 )
 
@@ -23,24 +23,24 @@ agent = Agent(
 if __name__ == "__main__":
     # Comment out after first run
     asyncio.run(
-        knowledge_base.aload_pdf(
+        knowledge_base.aload_json(
             path=Path("data/docs"),
-            metadata={"user_id": "user_1", "document_type": "Resume"},
-            recreate=True,
+            metadata={"user_id": "user_1", "document_type": "resume"},
+            recreate=True,  # only use at the first run, True/False
         )
     )
 
     asyncio.run(
-        knowledge_base.aload_pdf(
+        knowledge_base.aload_json(
             path=Path("data/docs"),
-            metadata={"user_id": "user_2", "document_type": "Resume"},
+            metadata={"user_id": "user_2", "document_type": "resume"},
         )
     )
 
     asyncio.run(
         agent.aprint_response(
-            "Ask anything from doc_1",
-            knowledge_filters={"user_id": "user_1"},
+            "Ask anything about doc_1",
+            knowledge_filters={"user_id": "kausmos"},
             markdown=True,
             stream=True,
         )

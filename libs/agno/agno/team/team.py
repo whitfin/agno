@@ -549,7 +549,8 @@ class Team:
         self._configure_model(show_tool_calls=show_tool_calls)
 
         # Register the team on the platform
-        self._register_team_on_platform()
+        thread = threading.Thread(target=self._register_team_on_platform)
+        thread.start()
 
 
         
@@ -643,15 +644,19 @@ class Team:
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
             for member in self.members:
                 if isinstance(member, Agent):
-                    member.register_agent_on_platform()
+                    thread = threading.Thread(target=member.register_agent_on_platform)
+                    thread.start()
                 elif isinstance(member, Team):
-                    member._register_team_on_platform()
+                    thread = threading.Thread(target=member._register_team_on_platform)
+                    thread.start()
                     # Register team members recursively
                     for team_member in member.members:
                         if isinstance(team_member, Agent):
-                            team_member.register_agent_on_platform()
+                            thread = threading.Thread(target=team_member.register_agent_on_platform)
+                            thread.start()
                         elif isinstance(team_member, Team):
-                            team_member._register_team_on_platform()
+                            thread = threading.Thread(target=team_member._register_team_on_platform)
+                            thread.start()
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -1246,13 +1251,9 @@ class Team:
         # Configure the model for runs
         self._configure_model(show_tool_calls=show_tool_calls)
 
-        def _run_async_in_thread(coro_func):
-            # Call the function to get the coroutine object
-            coro = coro_func()
-            asyncio.run(coro)
+  
 
-        t = threading.Thread(target=_run_async_in_thread, args=(self._aregister_team_on_platform,), daemon=True)
-        t.start()
+        asyncio.create_task(self._aregister_team_on_platform())
       
 
         # Run the team
@@ -1342,20 +1343,15 @@ class Team:
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
             for member in self.members:
                 if isinstance(member, Agent):
-                 
-                    t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_agent_on_platform,), daemon=True)
-                    t.start()
+                    asyncio.create_task(member._aregister_agent_on_platform())
                 elif isinstance(member, Team):
                 
-                    t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_team_on_platform,), daemon=True)
-                    t.start()
+                    asyncio.create_task(member._aregister_team_on_platform())
                     for team_member in member.members:
                         if isinstance(team_member, Agent):
-                            t2 = threading.Thread(target=_run_async_in_thread, args=(team_member._aregister_agent_on_platform,), daemon=True)
-                            t2.start()
+                            asyncio.create_task(team_member._aregister_agent_on_platform())
                         elif isinstance(team_member, Team):
-                            t2 = threading.Thread(target=_run_async_in_thread, args=(team_member._aregister_team_on_platform,), daemon=True)
-                            t2.start()
+                            asyncio.create_task(team_member._aregister_team_on_platform())
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)

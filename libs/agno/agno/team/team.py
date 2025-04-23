@@ -646,6 +646,12 @@ class Team:
                     member.register_agent_on_platform()
                 elif isinstance(member, Team):
                     member._register_team_on_platform()
+                    # Register team members recursively
+                    for team_member in member.members:
+                        if isinstance(team_member, Agent):
+                            team_member.register_agent_on_platform()
+                        elif isinstance(team_member, Team):
+                            team_member._register_team_on_platform()
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -1335,14 +1341,21 @@ class Team:
 
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
             for member in self.members:
-              if isinstance(member, Agent):
-                # Don't call the function directly, just pass the reference
-                t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_agent_on_platform,), daemon=True)
-                t.start()
-              elif isinstance(member, Team):
-                # Don't call the function directly, just pass the reference
-                t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_team_on_platform,), daemon=True)
-                t.start()
+                if isinstance(member, Agent):
+                 
+                    t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_agent_on_platform,), daemon=True)
+                    t.start()
+                elif isinstance(member, Team):
+                
+                    t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_team_on_platform,), daemon=True)
+                    t.start()
+                    for team_member in member.members:
+                        if isinstance(team_member, Agent):
+                            t2 = threading.Thread(target=_run_async_in_thread, args=(team_member._aregister_agent_on_platform,), daemon=True)
+                            t2.start()
+                        elif isinstance(team_member, Team):
+                            t2 = threading.Thread(target=_run_async_in_thread, args=(team_member._aregister_team_on_platform,), daemon=True)
+                            t2.start()
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -6322,7 +6335,7 @@ class Team:
         return {
             "members": [
                 {
-                    **member.get_agent_config_dict(),
+                    **(member.get_agent_config_dict() if isinstance(member, Agent) else member.to_platform_dict() if isinstance(member, Team) else {}),
                     "agent_id": member.agent_id if hasattr(member, "agent_id") else None,
                     "team_id": member.team_id if hasattr(member, "team_id") else None
                 } 

@@ -4163,7 +4163,7 @@ class Agent:
 
         try:
             log_debug(f"Creating Agent app: {self.name}, {self.agent_id}, {self.team_id},")
-            create_agent(app=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id,  config=self.get_agent_config_dict()))
+            create_agent(agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id,  config=self.get_agent_config_dict()))
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
 

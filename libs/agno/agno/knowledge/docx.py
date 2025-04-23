@@ -111,3 +111,66 @@ class DocxKnowledgeBase(AgentKnowledge):
                 log_info("No new documents to insert after filtering.")
 
         log_info(f"Finished loading documents from {_file_path}.")
+
+    async def aload_docx(
+        self,
+        path: Union[str, Path],
+        metadata: Optional[Dict[str, Any]] = None,
+        recreate: bool = False,
+        upsert: bool = False,
+        skip_existing: bool = True,
+    ) -> None:
+        _file_path = Path(path) if isinstance(path, str) else path
+
+        if not _file_path.exists():
+            logger.error(f"File not found: {_file_path}")
+            return
+
+        if _file_path.suffix not in self.formats:
+            logger.error(f"Unsupported file format: {_file_path.suffix}")
+            return
+
+        if self.vector_db is None:
+            logger.warning("Cannot load file: No vector db provided.")
+            return
+
+        # Track metadata structure for filter extraction
+        self.track_metadata_structure(metadata)
+
+        # Ensure collection exists or recreate if requested
+        if recreate:
+            log_info(f"Recreating collection '{self.vector_db.collection}' before loading {_file_path}.")
+            await self.vector_db.async_drop()
+
+        if not await self.vector_db.async_exists():
+            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
+            await self.vector_db.async_create()
+
+        try:
+            documents = await self.reader.async_read(file=_file_path)
+            if not documents:
+                logger.warning(f"No documents were read from file: {_file_path}")
+                return
+        except Exception as e:
+            logger.exception(f"Failed to read documents from file {_file_path}: {e}")
+            return
+
+        log_info(f"Loading {len(documents)} documents from {_file_path} with metadata: {metadata}")
+
+        # Decide loading strategy: upsert or insert (with optional skip)
+        if upsert and self.vector_db.upsert_available():
+            log_debug(f"Upserting {len(documents)} documents.")
+            await self.vector_db.async_upsert(documents=documents, filters=metadata)
+        else:
+            documents_to_insert = documents
+            if skip_existing:
+                log_debug("Filtering out existing documents before insertion.")
+                documents_to_insert = self.filter_existing_documents(documents)
+
+            if documents_to_insert:
+                log_debug(f"Inserting {len(documents_to_insert)} new documents.")
+                await self.vector_db.async_insert(documents=documents_to_insert, filters=metadata)
+            else:
+                log_info("No new documents to insert after filtering.")
+
+        log_info(f"Finished loading documents from {_file_path}.")

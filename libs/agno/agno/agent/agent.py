@@ -1240,6 +1240,7 @@ class Agent:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: bool = False,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncIterator[RunResponse]:
         """Run the Agent and yield the RunResponse.
@@ -1274,7 +1275,7 @@ class Agent:
         log_debug(f"Async Agent Run Start: {self.run_response.run_id}", center=True, symbol="*")
 
         # 2. Update the Model and resolve context
-        self.update_model(async_mode=True, user_id=user_id, session_id=session_id)
+        self.update_model(async_mode=True, user_id=user_id, session_id=session_id, knowledge_filters=knowledge_filters)
         self.run_response.model = self.model.id if self.model is not None else None
         if self.context is not None and self.resolve_context:
             await self.aresolve_run_context()
@@ -1685,9 +1686,29 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: bool = False,
         retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Any:
         """Async Run the Agent and return the response."""
+
+        # Determine which filters to use, with priority to run-level filters
+        effective_filters = None
+
+        # If agent has filters, use those as a base
+        if self.knowledge_filters:
+            effective_filters = self.knowledge_filters.copy()
+            log_debug(f"Using agent-level knowledge filters: {effective_filters}")
+
+        # If run has filters, they override agent filters
+        if knowledge_filters:
+            if effective_filters:
+                # Merge filters, with run filters taking priority
+                effective_filters.update(knowledge_filters)
+                log_debug(f"Run-level filters override agent-level filters. Effective filters: {effective_filters}")
+            else:
+                effective_filters = knowledge_filters
+                log_debug(f"Using run-level knowledge filters: {effective_filters}")
+
         # Initialize the Agent
         self.initialize_agent()
 
@@ -1736,6 +1757,7 @@ class Agent:
                         files=files,
                         messages=messages,
                         stream_intermediate_steps=stream_intermediate_steps,
+                        knowledge_filters=effective_filters,
                         **kwargs,
                     ).__anext__()
 
@@ -1775,6 +1797,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
+                            knowledge_filters=effective_filters,
                             **kwargs,
                         )
                         return resp
@@ -1790,6 +1813,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
+                            knowledge_filters=effective_filters,
                             **kwargs,
                         )
                         return await resp.__anext__()
@@ -1981,7 +2005,7 @@ class Agent:
             if self.search_knowledge:
                 # Use async or sync search based on async_mode
                 if async_mode:
-                    agent_tools.append(self.async_search_knowledge_base)
+                    agent_tools.append(self.async_search_knowledge_base_function(knowledge_filters=knowledge_filters))
                 else:
                     agent_tools.append(self.search_knowledge_base_function(knowledge_filters=knowledge_filters))
             if self.update_knowledge:
@@ -3342,8 +3366,6 @@ class Agent:
                 if "filters" in sig.parameters:
                     retriever_kwargs["filters"] = filters
                 retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
-
-                log_debug(f"Using custom retriever with filters: {filters}")
                 return self.retriever(**retriever_kwargs)
             except Exception as e:
                 log_warning(f"Retriever failed: {e}")
@@ -3372,10 +3394,23 @@ class Agent:
             return None
 
     async def aget_relevant_docs_from_knowledge(
-        self, query: str, num_documents: Optional[int] = None, **kwargs
+        self, query: str, num_documents: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, **kwargs
     ) -> Optional[List[Dict[str, Any]]]:
         """Get relevant documents from knowledge base asynchronously."""
         from agno.document import Document
+
+        # Validate the filters against known valid filter keys
+        valid_filters, invalid_keys = self.knowledge.validate_filters(filters)
+
+        # Warn about invalid filter keys
+        if invalid_keys:
+            log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
+            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")
+
+            # Only use valid filters
+            filters = valid_filters
+            if not filters:
+                log_warning("No valid filters remain after validation. Search will proceed without filters.")
 
         if self.retriever is not None and callable(self.retriever):
             from inspect import signature
@@ -3385,21 +3420,35 @@ class Agent:
                 retriever_kwargs: Dict[str, Any] = {}
                 if "agent" in sig.parameters:
                     retriever_kwargs = {"agent": self}
+                if "filters" in sig.parameters:
+                    retriever_kwargs["filters"] = filters
                 retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
                 return self.retriever(**retriever_kwargs)
             except Exception as e:
                 log_warning(f"Retriever failed: {e}")
                 return None
 
-        if self.knowledge is None or self.knowledge.vector_db is None:
-            return None
+        # Use knowledge base search
+        try:
+            if num_documents is None:
+                num_documents = self.knowledge.num_documents
 
-        relevant_docs: List[Document] = await self.knowledge.async_search(
-            query=query, num_documents=num_documents, **kwargs
-        )
-        if len(relevant_docs) == 0:
+            log_debug(f"Searching knowledge base with filters: {filters}")
+            relevant_docs: List[Document] = await self.knowledge.async_search(
+                query=query, num_documents=num_documents, filters=filters, **kwargs
+            )
+
+            if not relevant_docs or len(relevant_docs) == 0:
+                log_debug("No relevant documents found for query")
+                return None
+
+            return [doc.to_dict() for doc in relevant_docs]
+        except Exception as e:
+            log_warning(f"Error searching knowledge base: {e}")
+            import traceback
+
+            log_debug(traceback.format_exc())
             return None
-        return [doc.to_dict() for doc in relevant_docs]
 
     def convert_documents_to_string(self, docs: List[Dict[str, Any]]) -> str:
         if docs is None or len(docs) == 0:
@@ -4278,7 +4327,6 @@ class Agent:
 
     def search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Callable:
         """Factory function to create an search_knowledge_base function with filters."""
-
         # Determine which filters to use
         effective_filters = knowledge_filters if knowledge_filters is not None else self.knowledge_filters
 
@@ -4291,7 +4339,6 @@ class Agent:
             Returns:
                 str: A string containing the response from the knowledge base.
             """
-            filters = knowledge_filters
 
             # Get the relevant documents from the knowledge base, passing filters
             self.run_response = cast(RunResponse, self.run_response)
@@ -4319,34 +4366,40 @@ class Agent:
 
         return search_knowledge_base
 
-    async def async_search_knowledge_base(self, query: str) -> str:
-        """Use this function to search the knowledge base for information about a query asynchronously.
+    def async_search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Callable:
+        # Determine which filters to use
+        effective_filters = knowledge_filters if knowledge_filters is not None else self.knowledge_filters
 
-        Args:
-            query: The query to search for.
+        async def async_search_knowledge_base(query: str) -> str:
+            """Use this function to search the knowledge base for information about a query asynchronously.
 
-        Returns:
-            str: A string containing the response from the knowledge base.
-        """
-        self.run_response = cast(RunResponse, self.run_response)
-        retrieval_timer = Timer()
-        retrieval_timer.start()
-        docs_from_knowledge = await self.aget_relevant_docs_from_knowledge(query=query)
-        if docs_from_knowledge is not None:
-            references = MessageReferences(
-                query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
-            )
-            if self.run_response.extra_data is None:
-                self.run_response.extra_data = RunResponseExtraData()
-            if self.run_response.extra_data.references is None:
-                self.run_response.extra_data.references = []
-            self.run_response.extra_data.references.append(references)
-        retrieval_timer.stop()
-        log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
+            Args:
+                query: The query to search for.
 
-        if docs_from_knowledge is None:
-            return "No documents found"
-        return self.convert_documents_to_string(docs_from_knowledge)
+            Returns:
+                str: A string containing the response from the knowledge base.
+            """
+            self.run_response = cast(RunResponse, self.run_response)
+            retrieval_timer = Timer()
+            retrieval_timer.start()
+            docs_from_knowledge = await self.aget_relevant_docs_from_knowledge(query=query, filters=effective_filters)
+            if docs_from_knowledge is not None:
+                references = MessageReferences(
+                    query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
+                )
+                if self.run_response.extra_data is None:
+                    self.run_response.extra_data = RunResponseExtraData()
+                if self.run_response.extra_data.references is None:
+                    self.run_response.extra_data.references = []
+                self.run_response.extra_data.references.append(references)
+            retrieval_timer.stop()
+            log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
+
+            if docs_from_knowledge is None:
+                return "No documents found"
+            return self.convert_documents_to_string(docs_from_knowledge)
+
+        return async_search_knowledge_base
 
     def add_to_knowledge(self, query: str, result: str) -> str:
         """Use this function to add information to the knowledge base for future use.
@@ -4925,6 +4978,7 @@ class Agent:
         console: Optional[Any] = None,
         # Add tags to include in markdown content
         tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
         import json
@@ -4984,6 +5038,7 @@ class Agent:
                     files=files,
                     stream=True,
                     stream_intermediate_steps=stream_intermediate_steps,
+                    knowledge_filters=knowledge_filters,
                     **kwargs,
                 ):
                     if isinstance(resp, RunResponse):
@@ -5164,6 +5219,7 @@ class Agent:
                     files=files,
                     stream=False,
                     stream_intermediate_steps=stream_intermediate_steps,
+                    knowledge_filters=knowledge_filters,
                     **kwargs,
                 )
                 response_timer.stop()

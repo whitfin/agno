@@ -551,8 +551,7 @@ class Team:
         # Register the team on the platform
         self._register_team_on_platform()
 
-        for member in self.members:
-            member._register_agent_on_platform()
+
         
         # Run the team
         last_exception = None
@@ -642,7 +641,11 @@ class Team:
                     _tools.append(self.get_member_information)
 
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
-
+            for member in self.members:
+                if isinstance(member, Agent):
+                    member.register_agent_on_platform()
+                elif isinstance(member, Team):
+                    member._register_team_on_platform()
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -1237,14 +1240,14 @@ class Team:
         # Configure the model for runs
         self._configure_model(show_tool_calls=show_tool_calls)
 
-        def _run_async_in_thread(coro):
+        def _run_async_in_thread(coro_func):
+            # Call the function to get the coroutine object
+            coro = coro_func()
             asyncio.run(coro)
 
-        t = threading.Thread(target=_run_async_in_thread, args=(self._aregister_team_on_platform(),), daemon=True)
+        t = threading.Thread(target=_run_async_in_thread, args=(self._aregister_team_on_platform,), daemon=True)
         t.start()
-        for member in self.members:
-            t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_agent_on_platform(),), daemon=True)
-            t.start()
+      
 
         # Run the team
         last_exception = None
@@ -1331,7 +1334,15 @@ class Team:
                     _tools.append(self.get_set_shared_context_function(session_id=session_id))
 
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
-
+            for member in self.members:
+              if isinstance(member, Agent):
+                # Don't call the function directly, just pass the reference
+                t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_agent_on_platform,), daemon=True)
+                t.start()
+              elif isinstance(member, Team):
+                # Don't call the function directly, just pass the reference
+                t = threading.Thread(target=_run_async_in_thread, args=(member._aregister_team_on_platform,), daemon=True)
+                t.start()
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -6207,7 +6218,7 @@ class Team:
             created_at=int(time()),
         )
 
-    def _log_team_run(self) -> None:
+    def _log_team_run(self, session_id: str, user_id: Optional[str] = None) -> None:
         if not self.telemetry and not self.monitoring:
             return
 
@@ -6276,99 +6287,6 @@ class Team:
         except Exception as e:
             log_debug(f"Could not create team monitor: {e}")
 
-    def deep_copy(self, *, update: Optional[Dict[str, Any]] = None) -> "Team":
-        """Create a deep copy of the Team with optional updates.
-        Args:
-            update: Optional dictionary of attributes to update in the copy
-        Returns:
-            A new Team instance with copied attributes
-        """
-        # Get all instance attributes
-        attributes = self.__dict__.copy()
-
-        excluded_fields = ["team_session", "session_name", "_functions_for_model"]
-        # Deep copy each field
-        copied_attributes = {}
-        for field_name, field_value in attributes.items():
-            if field_name in excluded_fields:
-                continue
-            copied_attributes[field_name] = self._deep_copy_field(field_name, field_value)
-
-        # Create new instance
-        team_copy = Team.__new__(Team)
-        team_copy.__dict__ = copied_attributes
-
-        # Apply any updates
-        if update:
-            for key, value in update.items():
-                setattr(team_copy, key, value)
-
-        return team_copy
-
-    def _deep_copy_field(self, field_name: str, field_value: Any) -> Any:
-        """Deep copy a single field value.
-        Args:
-            field_name: Name of the field being copied
-            field_value: Value to copy
-        Returns:
-            Deep copied value
-        """
-        from copy import copy, deepcopy
-
-        # Handle special cases
-        if field_name == "members":
-            # Deep copy each member
-            if field_value is not None:
-                return [member.deep_copy() for member in field_value]
-            return None
-
-        # For memory use the deep_copy methods
-        if field_name == "memory" and field_value is not None:
-            return field_value.deep_copy()
-
-        # For storage, model and reasoning_model, use a deep copy
-        elif field_name in ("storage", "model", "reasoning_model") and field_value is not None:
-            try:
-                return deepcopy(field_value)
-            except Exception:
-                try:
-                    return copy(field_value)
-                except Exception as e:
-                    log_warning(f"Failed to copy field: {field_name} - {e}")
-                    return field_value
-
-        # For compound types, attempt a deep copy
-        elif isinstance(field_value, (list, dict, set)):
-            try:
-                return deepcopy(field_value)
-            except Exception as e:
-                log_warning(f"Failed to deepcopy field: {field_name} - {e}")
-                try:
-                    return copy(field_value)
-                except Exception as e:
-                    log_warning(f"Failed to copy field: {field_name} - {e}")
-                    return field_value
-
-        # For pydantic models, attempt a model_copy
-        elif isinstance(field_value, BaseModel):
-            try:
-                return field_value.model_copy(deep=True)
-            except Exception:
-                try:
-                    return field_value.model_copy(deep=False)
-                except Exception as e:
-                    log_warning(f"Failed to copy field: {field_name} - {e}")
-                    return field_value
-
-        # For other types, attempt a shallow copy first
-        try:
-            from copy import copy
-
-            return copy(field_value)
-        except Exception:
-            # If copy fails, return as is
-            return field_value
-
     def _register_team_on_platform(self) -> None:
         from agno.api.team import TeamCreate, create_team
 
@@ -6402,13 +6320,20 @@ class Team:
 
     def to_platform_dict(self) -> Dict[str, Any]:
         return {
-            "members": [member.to_platform_dict() for member in self.members ],
+            "members": [
+                {
+                    **member.get_agent_config_dict(),
+                    "agent_id": member.agent_id if hasattr(member, "agent_id") else None,
+                    "team_id": member.team_id if hasattr(member, "team_id") else None
+                } 
+                for member in self.members if member is not None
+            ],
             "mode": self.mode,
             "model": self.model.to_dict() if self.model is not None else None,
             "name": self.name,
             "instructions": self.instructions,
             "description": self.description,
             "storage": self.storage.__class__.__name__ if self.storage is not None else None,
-            # "tools": [tool.to_dict() for tool in self.tools] if self.tools is not None else None,
+            # "tools": [tool.to_dict() for tool in self.tools] if self.tools is not None else None, 
             # "memory": self.memory.to_dict() if self.memory is not None else None,
         }

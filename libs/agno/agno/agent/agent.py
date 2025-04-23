@@ -575,7 +575,7 @@ class Agent:
         self.run_response = RunResponse(run_id=self.run_id, session_id=session_id, agent_id=self.agent_id)
 
         
-        self._register_agent_on_platform()
+        self.register_agent_on_platform()
 
         log_debug(f"Agent Run Start: {self.run_response.run_id}", center=True)
 
@@ -4153,7 +4153,7 @@ class Agent:
 
         return run_data
 
-    def _register_agent_on_platform(self) -> None:
+    def register_agent_on_platform(self) -> None:
 
         self.set_monitoring()
         if not self.monitoring:
@@ -4163,7 +4163,7 @@ class Agent:
 
         try:
             log_debug(f"Creating Agent app: {self.name}, {self.agent_id}, {self.team_id},")
-            create_agent(app=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id,  config=self.to_platform_dict()))
+            create_agent(app=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id,  config=self.get_agent_config_dict()))
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
 
@@ -4176,12 +4176,12 @@ class Agent:
 
         try:
             await acreate_agent(
-                agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id, config=self.to_platform_dict())
+                agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id, config=self.get_agent_config_dict())
             )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
 
-    def _log_agent_run(self) -> None:
+    def _log_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
         self.set_monitoring()
 
         if not self.telemetry and not self.monitoring:
@@ -5058,7 +5058,7 @@ class Agent:
 
             self.print_response(message=message, stream=stream, markdown=markdown, **kwargs)
 
-    def to_platform_dict(self) -> Dict[str, Any]:
+    def get_agent_config_dict(self) -> Dict[str, Any]:
         tools = []
         if self.tools is not None:
             for tool in self.tools:

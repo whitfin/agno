@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -26,6 +26,10 @@ class AgentKnowledge(BaseModel):
     chunking_strategy: ChunkingStrategy = Field(default_factory=FixedSizeChunking)
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    valid_filter_keys: Set[str] = Field(default_factory=set)
+    last_metadata_structure: Optional[Dict[str, Any]] = None
+    tracked_metadata_fields: List[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def update_reader(self) -> "AgentKnowledge":
@@ -425,3 +429,49 @@ class AgentKnowledge(BaseModel):
             log_info(f"Skipped {original_count - len(filtered_documents)} existing/duplicate documents.")
 
         return filtered_documents
+
+    def track_metadata_structure(self, metadata: Optional[Dict[str, Any]]) -> None:
+        """Track metadata structure to enable filter extraction from queries
+
+        Args:
+            metadata (Optional[Dict[str, Any]]): Metadata to track
+        """
+        if metadata:
+            self.last_metadata_structure = metadata
+            # Extract top-level keys to track as potential filter fields
+            for key in metadata.keys():
+                # Add to tracked fields
+                if key not in self.tracked_metadata_fields:
+                    self.tracked_metadata_fields.append(key)
+                    log_debug(f"Now tracking metadata field: {key}")
+
+                # Add to valid filter keys set
+                self.valid_filter_keys.add(key)
+
+    # New method to validate filters
+    def validate_filters(self, filters: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
+        """Validate user-provided filters against known valid filter keys
+
+        Args:
+            filters (Optional[Dict[str, Any]]): Filters to validate
+
+        Returns:
+            Tuple[Dict[str, Any], List[str]]: (valid_filters, invalid_keys)
+        """
+        if not filters:
+            return {}, []
+
+        valid_filters = {}
+        invalid_keys = []
+
+        for key, value in filters.items():
+            # Handle both normal keys and prefixed keys like meta_data.key
+            base_key = key.split(".")[-1] if "." in key else key
+
+            if base_key in self.valid_filter_keys or key in self.valid_filter_keys:
+                valid_filters[key] = value
+            else:
+                invalid_keys.append(key)
+                log_debug(f"Invalid filter key: {key} - not present in knowledge base")
+
+        return valid_filters, invalid_keys

@@ -1,0 +1,54 @@
+KAUSTUBH SHUKLA
+
+Delhi, India • +917617842774 • kaustubh08.ugcs20@iiitranchi.ac.in • linkedin.com/in/kausmos
+github.com/kausmeows • twitter.com/kaus_mos • leetcode.com/kaus_mos • hashnode.dev/kausmos
+EDUCATION
+Indian Institute of Information Technology, Ranchi, India [Dec 2020 - June 2024]
+Bachelor of Technology (Hons.), Computer Science and Engineering, CGPA: 8.81/10
+● Lead, Machine Learning, and A.I Wing, House of Geeks (Technical Society) [July 2022 - July 2023]
+PROFESSIONAL EXPERIENCE
+WENDOR, New Delhi, India (On-site) [Feb 2024 - Present]
+Software Engineer Intern
+● Spearheaded a vending system architecture utilizing the Pub/Sub pattern and MQTT, ensuring real-time
+communication between hardware and servers for 500+ machines in India and Dubai.
+● Accelerated camera based vision-detection system on a Raspberry Pi 5 to ensure successful vending along
+with motor and IR sensors, increasing customer trust and reliability by 20 %.
+● Operational Efficiency: Rolled out a refactored architecture for the VMC (Vending Machine Controller)
+code utilizing the factory design pattern and increasing maintainability and up time by 10%.
+● Engineered an internal tooling software built on top of Appsmith to help the Operations and Support team
+with a more structured workflow for onboarding new users into the database.
+COFACTORY, California, United States (Remote) [July 2023 - Feb 2024]
+Machine Learning Engineer
+● Pioneered the growth and upkeep of a high-performance software project, garnering 1.3k GitHub stars;
+leveraged data-driven insights to expand user base by 20%, driving revenue growth in a competitive market.
+● Orchestrated seamless integration of GCP cloud run and storage bucket to automate and streamline the
+dockerization and deployment of FastAPI servers to effectively serve various apps and ML models.
+● Leveraged efficient prompt engineering techniques like Chain of Thought (COT) and Maieutic prompting
+for better personalized results using LLMs, resulting in 25% more accurate responses.
+CLEARSPOT.AI, Paris, Île-de-France, France (Remote) [July 2023 - Aug 2023]
+Computer Vision Intern
+● Worked on agricultural use case of drones including weed and livestock (animal/bird) detection using Efficient
+Net B0 and YOLO-ROS model and its integration inside the drone for faster and more efficient performance.
+● Performed benchmarking and validation on DJI drones.
+UNIVERSITY OF AUCKLAND, Auckland, New Zealand (On-site) [Dec 2022 - Feb 2023]
+Research Intern
+● Engineered an innovative emotion annotation and visualization tool (GitHub) for a cutting-edge research
+at the University of Auckland, under the supervision of Dr. Jesin James and Dr. Felix Marattakulam.
+● Upgraded and packaged a PyQt5-based desktop application(GUI) for Windows OS using PyInstaller.
+● Configured and fine-tuned the Wave2Vec 2.0 deep learning model on raw NZ English audio to predict
+valence-arousal values signifying emotions, improving the evaluation metric (CCC) by 8 %.
+● Enhanced creation of emotionally annotated database for training deep learning models through real-time
+audio recording and simultaneous spectrogram generation, improving data quality by 15%.
+● Collaborated with a team of 3 researchers for the writing of the research paper (under publication).
+TECHNICAL PROJECTS
+TEXTBASE | GitHub Python, LLMs, GCP, Javascript
+● Textbase is a framework for building chatbots using NLP and ML.
+● Led the development and maintenance (with over 1.3k GitHub stars) and increasing user base by 20%.
+SKILLS
+● Programming: Python, C++17, Javascript, Typescript
+● Machine Learning/DL: Pytorch, Tensorflow, OpenCV, NLTK, Langchain, Vector Embeddings, LLMs
+● Database and Backend Frameworks: Flask, Django, NestJS, ExpressJS, MySQL, AWS, DynamoDB
+● Developer Tools: Git, AWS, Heroku, Netlify, Railway, Docker, Gradio, Hugging Face
+ACHIEVEMENTS
+● Selected for the Summer Research Scholarship Programme at the University of Auckland and awarded
+a scholarship of 6,750 NZD to carry out a research project at the university for a period of about 3 months.

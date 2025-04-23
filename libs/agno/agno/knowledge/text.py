@@ -71,6 +71,9 @@ class TextKnowledgeBase(AgentKnowledge):
             log_debug.warning("Cannot load file: No vector db provided.")
             return
 
+        # Track metadata structure for filter extraction
+        self.track_metadata_structure(metadata)
+
         # Ensure collection exists or recreate if requested
         if recreate:
             log_info(f"Recreating collection '{self.vector_db.collection}' before loading {_file_path}.")

@@ -3261,7 +3261,19 @@ class Agent:
             Optional[List[Dict[str, Any]]]: List of relevant document dicts.
         """
         from agno.document import Document
-        from agno.utils.log import log_debug, log_warning
+
+        # Validate the filters against known valid filter keys
+        valid_filters, invalid_keys = self.knowledge.validate_filters(filters)
+
+        # Warn about invalid filter keys
+        if invalid_keys:
+            log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
+            log_info(f"Valid filter keys are: {self.knowledge.valid_filter_keys}")
+
+            # Only use valid filters
+            filters = valid_filters
+            if not filters:
+                log_warning("No valid filters remain after validation. Search will proceed without filters.")
 
         if self.retriever is not None and callable(self.retriever):
             from inspect import signature

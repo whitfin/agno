@@ -114,6 +114,10 @@ class Agent:
     # --- Agent Knowledge ---
     knowledge: Optional[AgentKnowledge] = None
     # Enable RAG by adding references from AgentKnowledge to the user prompt.
+
+    # Add knowledge_filters to the Agent class attributes
+    knowledge_filters: Optional[Dict[str, Any]] = None
+
     add_references: bool = False
     # Retrieval function to get references
     # This function, if provided, is used instead of the default search_knowledge function
@@ -290,6 +294,7 @@ class Agent:
         num_history_responses: Optional[int] = None,
         num_history_runs: int = 3,
         knowledge: Optional[AgentKnowledge] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
         add_references: bool = False,
         retriever: Optional[Callable[..., Optional[List[Dict]]]] = None,
         references_format: Literal["json", "yaml"] = "json",
@@ -380,6 +385,7 @@ class Agent:
             self.num_history_runs = num_history_responses
 
         self.knowledge = knowledge
+        self.knowledge_filters = knowledge_filters
         self.add_references = add_references
         self.retriever = retriever
         self.references_format = references_format
@@ -1059,6 +1065,24 @@ class Agent:
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
 
+        # Determine which filters to use, with priority to run-level filters
+        effective_filters = None
+
+        # If agent has filters, use those as a base
+        if self.knowledge_filters:
+            effective_filters = self.knowledge_filters.copy()
+            log_debug(f"Using agent-level knowledge filters: {effective_filters}")
+
+        # If run has filters, they override agent filters
+        if knowledge_filters:
+            if effective_filters:
+                # Merge filters, with run filters taking priority
+                effective_filters.update(knowledge_filters)
+                log_debug(f"Run-level filters override agent-level filters. Effective filters: {effective_filters}")
+            else:
+                effective_filters = knowledge_filters
+                log_debug(f"Using run-level knowledge filters: {effective_filters}")
+
         # Initialize the Agent
         self.initialize_agent()
 
@@ -1109,7 +1133,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
-                            knowledge_filters=knowledge_filters,
+                            knowledge_filters=effective_filters,
                             **kwargs,
                         )
                     )
@@ -1150,7 +1174,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
-                            knowledge_filters=knowledge_filters,
+                            knowledge_filters=effective_filters,
                             **kwargs,
                         )
                         return resp
@@ -1166,7 +1190,7 @@ class Agent:
                             files=files,
                             messages=messages,
                             stream_intermediate_steps=stream_intermediate_steps,
-                            knowledge_filters=knowledge_filters,
+                            knowledge_filters=effective_filters,
                             **kwargs,
                         )
                         return next(resp)
@@ -4255,6 +4279,9 @@ class Agent:
     def search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Callable:
         """Factory function to create an search_knowledge_base function with filters."""
 
+        # Determine which filters to use
+        effective_filters = knowledge_filters if knowledge_filters is not None else self.knowledge_filters
+
         def search_knowledge_base(query: str) -> str:
             """Use this function to search the knowledge base for information about a query.
 
@@ -4270,7 +4297,7 @@ class Agent:
             self.run_response = cast(RunResponse, self.run_response)
             retrieval_timer = Timer()
             retrieval_timer.start()
-            docs_from_knowledge = self.get_relevant_docs_from_knowledge(query=query, filters=filters)
+            docs_from_knowledge = self.get_relevant_docs_from_knowledge(query=query, filters=effective_filters)
             if docs_from_knowledge is not None:
                 references = MessageReferences(
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)

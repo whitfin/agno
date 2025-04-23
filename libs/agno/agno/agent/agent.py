@@ -574,8 +574,9 @@ class Agent:
         self.run_id = str(uuid4())
         self.run_response = RunResponse(run_id=self.run_id, session_id=session_id, agent_id=self.agent_id)
 
-        
-        self.register_agent_on_platform()
+        # 1.4 Register the agent on the platform
+        thread = threading.Thread(target=self.register_agent_on_platform)
+        thread.start()
 
         log_debug(f"Agent Run Start: {self.run_response.run_id}", center=True)
 
@@ -1163,12 +1164,10 @@ class Agent:
         self.run_response = RunResponse(run_id=self.run_id, session_id=session_id, agent_id=self.agent_id)
 
         # 1.4 Register the agent on the platform
- 
-        def _run_async_in_thread(coro):
-            asyncio.run(coro)
-
-        t = threading.Thread(target=_run_async_in_thread, args=(self._aregister_agent_on_platform(),), daemon=True)
-        t.start()
+        
+        # Create a task to run the agent registration in the background
+        # This won't block the execution flow
+        asyncio.create_task(self._aregister_agent_on_platform())
 
         log_debug(f"Async Agent Run Start: {self.run_response.run_id}", center=True, symbol="*")
 
@@ -4162,10 +4161,12 @@ class Agent:
         from agno.api.agent import AgentCreate, create_agent
 
         try:
-            log_debug(f"Creating Agent app: {self.name}, {self.agent_id}, {self.team_id},")
+            log_debug(f"Creating Agent on Platform: {self.name}, {self.agent_id}, {self.team_id},")
+            print("HERE", self.agent_id, self.get_agent_config_dict())
             create_agent(agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id,  config=self.get_agent_config_dict()))
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
+        log_debug(f"Agent app created: {self.name}, {self.agent_id}, {self.team_id},")
 
     async def _aregister_agent_on_platform(self) -> None:
         self.set_monitoring()
@@ -4175,11 +4176,13 @@ class Agent:
         from agno.api.agent import AgentCreate, acreate_agent
 
         try:
+            log_debug(f"Creating Agent on Platform: {self.name}, {self.agent_id}, {self.team_id},")
             await acreate_agent(
                 agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id, config=self.get_agent_config_dict())
             )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
+        log_debug(f"Agent app created: {self.name}, {self.agent_id}, {self.team_id},")
 
     def _log_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
         self.set_monitoring()
@@ -5064,7 +5067,6 @@ class Agent:
             for tool in self.tools:
                 functions = []
                 for function in tool.functions.keys():
-                    print(function)
                     functions.append({"name": function, "parameters": tool.functions[function].to_dict()})
                 tools.append({"name": tool.name, "functions": functions})
 

@@ -60,15 +60,15 @@ class TextKnowledgeBase(AgentKnowledge):
         _file_path = Path(path) if isinstance(path, str) else path
 
         if not _file_path.exists():
-            log_debug.error(f"File not found: {_file_path}")
+            logger.error(f"File not found: {_file_path}")
             return
 
         if _file_path.suffix not in self.formats:
-            log_debug.error(f"Unsupported file format: {_file_path.suffix}")
+            logger.error(f"Unsupported file format: {_file_path.suffix}")
             return
 
         if self.vector_db is None:
-            log_debug.warning("Cannot load file: No vector db provided.")
+            logger.warning("Cannot load file: No vector db provided.")
             return
 
         # Track metadata structure for filter extraction

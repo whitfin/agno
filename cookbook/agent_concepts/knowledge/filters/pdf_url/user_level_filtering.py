@@ -17,13 +17,12 @@ knowledge_base = PDFUrlKnowledgeBase(
 knowledge_base.load_url(
     url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
     metadata={"user_id": "user_1", "source": "Thai Cookbook"},
-    recreate=False,
+    recreate=False,  # only use at the first run, True/False
 )
 
 knowledge_base.load_url(
     url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
     metadata={"user_id": "user_2", "source": "Cape Cookbook"},
-    recreate=False,
 )
 
 

@@ -1058,9 +1058,6 @@ class Agent:
         **kwargs: Any,
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
-        # if knowledge_filters:
-        #     self.knowledge_filters = knowledge_filters
-        #     log_debug(f"Using knowledge filters: {knowledge_filters}")
 
         # Initialize the Agent
         self.initialize_agent()

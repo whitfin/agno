@@ -27,9 +27,7 @@ class AgentKnowledge(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    valid_filter_keys: Set[str] = Field(default_factory=set)
-    last_metadata_structure: Optional[Dict[str, Any]] = None
-    tracked_metadata_fields: List[str] = Field(default_factory=list)
+    valid_metadata_filters: Set[str] = None
 
     @model_validator(mode="after")
     def update_reader(self) -> "AgentKnowledge":
@@ -437,18 +435,13 @@ class AgentKnowledge(BaseModel):
             metadata (Optional[Dict[str, Any]]): Metadata to track
         """
         if metadata:
-            self.last_metadata_structure = metadata
+            if self.valid_metadata_filters is None:
+                self.valid_metadata_filters = set()
+
             # Extract top-level keys to track as potential filter fields
             for key in metadata.keys():
-                # Add to tracked fields
-                if key not in self.tracked_metadata_fields:
-                    self.tracked_metadata_fields.append(key)
-                    log_debug(f"Now tracking metadata field: {key}")
+                self.valid_metadata_filters.add(key)
 
-                # Add to valid filter keys set
-                self.valid_filter_keys.add(key)
-
-    # New method to validate filters
     def validate_filters(self, filters: Optional[Dict[str, Any]]) -> Tuple[Dict[str, Any], List[str]]:
         """Validate user-provided filters against known valid filter keys
 
@@ -464,11 +457,17 @@ class AgentKnowledge(BaseModel):
         valid_filters = {}
         invalid_keys = []
 
+        # If no metadata filters tracked yet, all keys are considered invalid
+        if self.valid_metadata_filters is None:
+            invalid_keys = list(filters.keys())
+            log_debug(f"No valid metadata filters tracked yet. All filter keys considered invalid: {invalid_keys}")
+            return {}, invalid_keys
+
         for key, value in filters.items():
             # Handle both normal keys and prefixed keys like meta_data.key
             base_key = key.split(".")[-1] if "." in key else key
 
-            if base_key in self.valid_filter_keys or key in self.valid_filter_keys:
+            if base_key in self.valid_metadata_filters or key in self.valid_metadata_filters:
                 valid_filters[key] = value
             else:
                 invalid_keys.append(key)

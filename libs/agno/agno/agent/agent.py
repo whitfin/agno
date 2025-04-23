@@ -3271,7 +3271,7 @@ class Agent:
         # Warn about invalid filter keys
         if invalid_keys:
             log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
-            log_info(f"Valid filter keys are: {self.knowledge.valid_filter_keys}")
+            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")
 
             # Only use valid filters
             filters = valid_filters

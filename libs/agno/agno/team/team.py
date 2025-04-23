@@ -6322,7 +6322,7 @@ class Team:
         return {
             "members": [
                 {
-                    **member.get_agent_config_dict(),
+                    **(member.get_agent_config_dict() if isinstance(member, Agent) else member.to_platform_dict() if isinstance(member, Team) else {}),
                     "agent_id": member.agent_id if hasattr(member, "agent_id") else None,
                     "team_id": member.team_id if hasattr(member, "team_id") else None
                 } 

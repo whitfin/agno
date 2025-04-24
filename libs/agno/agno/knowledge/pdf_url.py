@@ -8,6 +8,7 @@ from agno.utils.log import log_debug, log_info, logger
 
 class PDFUrlKnowledgeBase(AgentKnowledge):
     urls: List[str] = []
+    formats: List[str] = [".pdf"]
     reader: Union[PDFUrlReader, PDFUrlImageReader] = PDFUrlReader()
 
     @property
@@ -61,21 +62,8 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.error(f"Unsupported URL provided to load_url: {url}")
             return
 
-        if self.vector_db is None:
-            logger.warning("Cannot load URL: No vector db provided.")
+        if not self.prepare_load(url, self.formats, metadata, recreate, is_url=True):
             return
-
-        # Track metadata structure for filter extraction
-        self.track_metadata_structure(metadata)
-
-        # Ensure collection exists or recreate if requested
-        if recreate:
-            log_info(f"Recreating collection '{self.vector_db.collection}' before loading {url}.")
-            self.vector_db.drop()
-
-        if not self.vector_db.exists():
-            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
-            self.vector_db.create()
 
         try:
             documents = self.reader.read(url=url)
@@ -86,26 +74,14 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.exception(f"Failed to read documents from URL {url}: {e}")
             return
 
-        log_info(f"Loading {len(documents)} documents from {url} with metadata: {metadata}")
-
-        # Decide loading strategy: upsert or insert (with optional skip)
-        if upsert and self.vector_db.upsert_available():
-            log_debug(f"Upserting {len(documents)} documents.")
-            # Pass metadata directly; the vector_db's insert/upsert handles merging it
-            self.vector_db.upsert(documents=documents, filters=metadata)
-        else:
-            documents_to_insert = documents
-            if skip_existing:
-                log_debug("Filtering out existing documents before insertion.")
-                documents_to_insert = self.filter_existing_documents(documents)
-
-            if documents_to_insert:
-                log_debug(f"Inserting {len(documents_to_insert)} new documents.")
-                self.vector_db.insert(documents=documents_to_insert, filters=metadata)
-            else:
-                log_info("No new documents to insert after filtering.")
-
-        log_info(f"Finished loading documents from {url}.")
+        # Process documents
+        self.process_documents(
+            documents=documents,
+            metadata=metadata,
+            upsert=upsert,
+            skip_existing=skip_existing,
+            source_info=str(url),
+        )
 
     async def aload_url(
         self,
@@ -119,21 +95,8 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.error(f"Unsupported URL provided to load_url: {url}")
             return
 
-        if self.vector_db is None:
-            logger.warning("Cannot load URL: No vector db provided.")
+        if not await self.aprepare_load(url, self.formats, metadata, recreate, is_url=True):
             return
-
-        # Track metadata structure for filter extraction
-        self.track_metadata_structure(metadata)
-
-        # Ensure collection exists or recreate if requested
-        if recreate:
-            log_info(f"Recreating collection '{self.vector_db.collection}' before loading {url}.")
-            await self.vector_db.async_drop()
-
-        if not self.vector_db.exists():
-            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
-            await self.vector_db.async_create()
 
         try:
             documents = await self.reader.async_read(url=url)
@@ -144,23 +107,11 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.exception(f"Failed to read documents from URL {url}: {e}")
             return
 
-        log_info(f"Loading {len(documents)} documents from {url} with metadata: {metadata}")
-
-        # Decide loading strategy: upsert or insert (with optional skip)
-        if upsert and self.vector_db.upsert_available():
-            log_debug(f"Upserting {len(documents)} documents.")
-            # Pass metadata directly; the vector_db's insert/upsert handles merging it
-            await self.vector_db.async_upsert(documents=documents, filters=metadata)
-        else:
-            documents_to_insert = documents
-            if skip_existing:
-                log_debug("Filtering out existing documents before insertion.")
-                documents_to_insert = self.filter_existing_documents(documents)
-
-            if documents_to_insert:
-                log_debug(f"Inserting {len(documents_to_insert)} new documents.")
-                await self.vector_db.async_insert(documents=documents_to_insert, filters=metadata)
-            else:
-                log_info("No new documents to insert after filtering.")
-
-        log_info(f"Finished loading documents from {url}.")
+        # Process documents
+        await self.aprocess_documents(
+            documents=documents,
+            metadata=metadata,
+            upsert=upsert,
+            skip_existing=skip_existing,
+            source_info=str(url),
+        )

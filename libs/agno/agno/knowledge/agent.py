@@ -478,9 +478,10 @@ class AgentKnowledge(BaseModel):
     def prepare_load(
         self,
         file_path: Path,
-        allowed_formats: List[str],
+        allowed_formats: Optional[List[str]],
         metadata: Optional[Dict[str, Any]] = None,
         recreate: bool = False,
+        is_url: bool = False,
     ) -> bool:
         """Validate file path and prepare collection for loading.
 
@@ -494,13 +495,14 @@ class AgentKnowledge(BaseModel):
             bool: True if preparation succeeded, False otherwise
         """
         # 1. Validate file path
-        if not file_path.exists():
-            logger.error(f"File not found: {file_path}")
-            return False
+        if not is_url:
+            if not file_path.exists():
+                logger.error(f"File not found: {file_path}")
+                return False
 
-        if file_path.suffix not in allowed_formats:
-            logger.error(f"Unsupported file format: {file_path.suffix}")
-            return False
+            if file_path.suffix not in allowed_formats:
+                logger.error(f"Unsupported file format: {file_path.suffix}")
+                return False
 
         # 2. Track metadata
         if metadata:
@@ -529,6 +531,7 @@ class AgentKnowledge(BaseModel):
         allowed_formats: List[str],
         metadata: Optional[Dict[str, Any]] = None,
         recreate: bool = False,
+        is_url: bool = False,
     ) -> bool:
         """Validate file path and prepare collection for loading.
 
@@ -542,13 +545,14 @@ class AgentKnowledge(BaseModel):
             bool: True if preparation succeeded, False otherwise
         """
         # 1. Validate file path
-        if not file_path.exists():
-            logger.error(f"File not found: {file_path}")
-            return False
+        if not is_url:
+            if not file_path.exists():
+                logger.error(f"File not found: {file_path}")
+                return False
 
-        if file_path.suffix not in allowed_formats:
-            logger.error(f"Unsupported file format: {file_path.suffix}")
-            return False
+            if file_path.suffix not in allowed_formats:
+                logger.error(f"Unsupported file format: {file_path.suffix}")
+                return False
 
         # 2. Track metadata
         if metadata:

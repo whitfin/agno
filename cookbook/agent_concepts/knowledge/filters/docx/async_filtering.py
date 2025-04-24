@@ -20,9 +20,7 @@ agent = Agent(
     search_knowledge=True,
 )
 
-
 if __name__ == "__main__":
-    # Comment out after first run
     asyncio.run(
         knowledge_base.aload_docx(
             path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.docx"),

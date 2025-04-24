@@ -21,26 +21,30 @@ agent = Agent(
 
 
 if __name__ == "__main__":
-    # Comment out after first run
     asyncio.run(
         knowledge_base.aload_json(
-            path=Path("data/docs"),
-            metadata={"user_id": "user_1", "document_type": "resume"},
-            recreate=True,  # only use at the first run, True/False
+            path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.docx"),
+            metadata={
+                "user_id": "jordan_mitchell",
+                "document_type": "cv",
+                "year": 2025,
+            },
+            recreate=True,
         )
     )
 
     asyncio.run(
         knowledge_base.aload_json(
-            path=Path("data/docs"),
-            metadata={"user_id": "user_2", "document_type": "resume"},
+            path=Path.joinpath(Path(__file__).parent.parent, "data/cv_2.docx"),
+            metadata={"user_id": "taylor_brooks",
+                      "document_type": "cv", "year": 2025},
         )
     )
 
     asyncio.run(
-        agent.aprint_response(
-            "Ask anything about doc_1",
-            knowledge_filters={"user_id": "kausmos"},
+        agent.aload_json(
+            "Tell me about jordan mitchell's cv",
+            knowledge_filters={"user_id": "jordan_mitchell"},
             markdown=True,
             stream=True,
         )

@@ -428,7 +428,7 @@ class AgentKnowledge(BaseModel):
 
         return filtered_documents
 
-    def track_metadata_structure(self, metadata: Optional[Dict[str, Any]]) -> None:
+    def _track_metadata_structure(self, metadata: Optional[Dict[str, Any]]) -> None:
         """Track metadata structure to enable filter extraction from queries
 
         Args:
@@ -504,7 +504,7 @@ class AgentKnowledge(BaseModel):
 
         # 2. Track metadata
         if metadata:
-            self.track_metadata_structure(metadata)
+            self._track_metadata_structure(metadata)
 
         # 3. Prepare vector DB
         if self.vector_db is None:
@@ -552,7 +552,7 @@ class AgentKnowledge(BaseModel):
 
         # 2. Track metadata
         if metadata:
-            self.track_metadata_structure(metadata)
+            self._track_metadata_structure(metadata)
 
         # 3. Prepare vector DB
         if self.vector_db is None:

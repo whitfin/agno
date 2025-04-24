@@ -8,7 +8,7 @@ from agno.utils.log import log_debug, log_info, logger
 
 
 class DocxKnowledgeBase(AgentKnowledge):
-    path: Union[str, Path]
+    path: Optional[Union[str, Path]] = None
     formats: List[str] = [".doc", ".docx"]
     reader: DocxReader = DocxReader()
 
@@ -20,6 +20,9 @@ class DocxKnowledgeBase(AgentKnowledge):
         Returns:
             Iterator[List[Document]]: Iterator yielding list of documents
         """
+        if self.path is None:
+            raise ValueError("Path is not set")
+
         _file_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
 
         if _file_path.exists() and _file_path.is_dir():
@@ -36,6 +39,9 @@ class DocxKnowledgeBase(AgentKnowledge):
         Returns:
             AsyncIterator[List[Document]]: Async iterator yielding list of documents
         """
+        if self.path is None:
+            raise ValueError("Path is not set")
+
         _file_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
 
         if _file_path.exists() and _file_path.is_dir():

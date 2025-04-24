@@ -32,19 +32,19 @@ knowledge_base.load_text(
     metadata={"user_id": "taylor_brooks", "document_type": "cv", "year": 2025},
 )
 
-# Load second document with user_2 metadata
+# Load second document with user_3 metadata
 knowledge_base.load_text(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_3.txt"),
     metadata={"user_id": "morgan_lee", "document_type": "cv", "year": 2025},
 )
 
-# Load second document with user_2 metadata
+# Load second document with user_4 metadata
 knowledge_base.load_text(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_4.txt"),
     metadata={"user_id": "casey_jordan", "document_type": "cv", "year": 2025},
 )
 
-# Load second document with user_2 metadata
+# Load second document with user_5 metadata
 knowledge_base.load_text(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_5.txt"),
     metadata={"user_id": "alex_rivera", "document_type": "cv", "year": 2025},

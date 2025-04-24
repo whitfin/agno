@@ -419,7 +419,8 @@ class Team:
             member.markdown = True
 
         member.team_session_id = session_id
-        member.team_id = self.team_id
+        if isinstance(member, Agent):
+            member.team_id = self.team_id
 
         if member.name is None:
             log_warning("Team member name is undefined.")

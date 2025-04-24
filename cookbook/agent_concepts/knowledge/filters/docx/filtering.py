@@ -77,7 +77,9 @@ knowledge_base.load_docx(
 agent = Agent(
     knowledge=knowledge_base,
     search_knowledge=True,
-    knowledge_filters={"user_id": "alex_rivera"},  # This will only return information from documents associated with Alex Rivera
+    knowledge_filters={
+        "user_id": "alex_rivera"
+    },  # This will only return information from documents associated with Alex Rivera
 )
 agent.print_response(
     "Tell me about alex rivera",

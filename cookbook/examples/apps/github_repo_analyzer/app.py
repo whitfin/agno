@@ -3,13 +3,13 @@ from os import getenv
 import streamlit as st
 from agno.utils.log import logger
 from agents import get_github_chat_agent
-from dotenv import load_dotenv
 from prompts import SIDEBAR_EXAMPLE_QUERIES
 from utils import (
     CUSTOM_CSS,
     about_widget,
     add_message,
     get_combined_repositories,
+    sidebar_widget,
 )
 
 nest_asyncio.apply()
@@ -19,7 +19,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# Load custom CSS with dark mode support
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 def main() -> None:
@@ -45,97 +44,36 @@ def main() -> None:
     if "agent" not in st.session_state:
         st.session_state.agent = None  # Initialize agent later
 
-    # --- Sidebar for Repository Selection ---
-    with st.sidebar:
-        # Fetch/Update repositories list
-        # Fetch only if the list is currently empty
-        if not st.session_state.repo_list:
-            with st.spinner("Fetching repositories..."):
-                # Pass the token from session state (which came from env var)
-                st.session_state.repo_list = get_combined_repositories(
-                    st.session_state.github_token, user_repo_limit=5
-                )
-                if not st.session_state.repo_list:
-                    st.sidebar.warning("Could not load any repositories.")
-
-        # Repository Selection Dropdown
-        if st.session_state.repo_list:
-            st.header("Select Repository")
-            # Ensure agno-agi/agno is the default if nothing is selected yet
-            default_repo = "agno-agi/agno"
-            options = st.session_state.repo_list
-            try:
-                # Set default index to agno-agi/agno if available, otherwise 0
-                default_index = (
-                    options.index(default_repo) if default_repo in options else 0
-                )
-            except ValueError:
-                default_index = 0 
-
-            # Determine current selection index for persistence
-            current_selection_index = default_index  # Start with default
-            if st.session_state.selected_repo in options:
-                try:
-                    current_selection_index = options.index(st.session_state.selected_repo)
-                except ValueError:
-                    # Selected repo might have disappeared if token changed/expired and user repos are gone
-                    st.session_state.selected_repo = None  # Reset selection
-                    st.session_state.agent = None
-                    logger.warning(
-                        "Previously selected repo not found in current list. Resetting."
-                    )
-                    st.rerun()  # Rerun to reflect reset
-
-            selected_repo = st.selectbox(
-                "Choose a repository to chat with:",
-                options=options,
-                index=current_selection_index,
-                key="repo_selector",
-            )
-
-            # Update selected repo in session state if changed
-            if selected_repo != st.session_state.selected_repo:
-                st.session_state.selected_repo = selected_repo
-                st.session_state.messages = []  # Clear messages when repo changes
-                st.session_state.agent = None  # Re-initialize agent for the new repo
-                logger.info(f"Selected repository changed to: {selected_repo}")
-                st.rerun()  # Rerun to clear chat and potentially update agent context
-
-        # Show info message if token is missing
-        if not st.session_state.github_token:
-            st.sidebar.info(
-                "Set GITHUB_ACCESS_TOKEN environment variable to see your private/org repos."
-            )
-
-        st.markdown("---")
-        st.markdown("### Example Queries")
-        # Use the imported list
-        for query in SIDEBAR_EXAMPLE_QUERIES:
-            st.markdown(f"- {query}")
-
-        st.markdown("---")
-        about_widget()  # This now uses text from prompts.py
-
     ####################################################################
     # Initialize Agent
     ####################################################################
+    # Initialize the agent only if a repository is selected and the agent isn't already initialized.
     if st.session_state.selected_repo and not st.session_state.agent:
+        # Crucially, check for the token *before* attempting to initialize the agent.
         if not st.session_state.github_token:
             st.error(
-                "GitHub token (GITHUB_ACCESS_TOKEN env var) is missing. Agent cannot function."
+                "GitHub token (GITHUB_ACCESS_TOKEN env var) is missing. Agent cannot function without it."
             )
+            # Use st.stop() to halt execution if the token is missing, preventing downstream errors.
             st.stop()
 
-        # Proceed with agent initialization if token exists
-        st.session_state.agent = get_github_chat_agent(
-            st.session_state.selected_repo, debug_mode=True
-        )
+        # Proceed with agent initialization only if the token exists.
+        logger.info(f"Initializing agent for repository: {st.session_state.selected_repo}")
+        with st.spinner(f"Initializing agent for {st.session_state.selected_repo}..."):
+            st.session_state.agent = get_github_chat_agent(
+                st.session_state.selected_repo, debug_mode=True
+            )
 
-        if not st.session_state.agent:
-            # Error handling is now within get_github_chat_agent, but we can add UI feedback
-            st.error("Failed to initialize the AI agent. Check logs for details.")
-        else:
-            logger.info("Agent initialized successfully via agents.py function.")
+            # Check if agent initialization was successful.
+            if not st.session_state.agent:
+                # Provide user feedback if initialization failed.
+                st.error("Failed to initialize the AI agent. Please check the logs for more details.")
+                # Optionally, log the failure event more explicitly if needed.
+                logger.error("Agent initialization failed.")
+                # Consider if st.stop() is appropriate here if the app cannot proceed without an agent.
+                # For now, we'll allow the app to continue but show the error.
+            else:
+                logger.info("Agent initialized successfully.")
 
     # --- Main Chat Interface ---
     if st.session_state.selected_repo:
@@ -193,11 +131,27 @@ def main() -> None:
                     # Add error message to chat history
                     add_message("assistant", error_message)
         else:
-            # Update error message if agent failed init due to missing token earlier
+            # Handle cases where the agent is not available when the user tries to chat
+            logger.warning("Agent run skipped: Agent not initialized or failed to initialize.")
+            # Check if the reason is the missing token (which should ideally be caught earlier)
             if not st.session_state.github_token:
+                # This error might be redundant if st.stop() was called during initialization,
+                # but serves as a fallback.
                 st.error(
                     "Agent cannot run because the GitHub token (GITHUB_ACCESS_TOKEN env var) is missing."
                 )
+            elif not st.session_state.selected_repo:
+                 # This state should ideally not be reachable due to the chat_input disable logic,
+                 # but included for robustness.
+                 st.error("Please select a repository first.")
             else:
+                 # General error if agent failed initialization for other reasons.
                 st.error("Agent is not initialized. Please check configuration and logs.")
-            logger.warning("Agent run skipped: Agent not initialized.")
+
+    ####################################################################
+    # Sidebar
+    ####################################################################
+    sidebar_widget()
+
+if __name__ == "__main__":
+    main()

@@ -9,7 +9,7 @@ from agno.utils.log import log_debug, log_info, logger
 
 
 class JSONKnowledgeBase(AgentKnowledge):
-    path: Union[str, Path] = None
+    path: Optional[Union[str, Path]] = None
     reader: JSONReader = JSONReader()
 
     @property

@@ -8,7 +8,7 @@ from agno.utils.log import log_debug, log_info, logger
 
 
 class TextKnowledgeBase(AgentKnowledge):
-    path: Union[str, Path] = None
+    path: Optional[Union[str, Path]] = None
     formats: List[str] = [".txt"]
     reader: TextReader = TextReader()
 

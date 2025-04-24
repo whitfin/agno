@@ -13,24 +13,65 @@ knowledge_base = PDFKnowledgeBase(
     vector_db=vector_db,
 )
 
+# Step 1: Load documents with user-specific metadata
+# ------------------------------------------------------------------------------
+# When loading documents, we can attach metadata that will be used for filtering
+# This metadata can include user IDs, document types, dates, or any other attributes
+
+# Load first document with user_1 metadata
 knowledge_base.load_pdf(
-    path=Path("data/kaus.pdf"),
-    metadata={"user_id": "user_1", "document_type": "doc_1"},
-    recreate=True,  # only use at the first run, True/False
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.pdf"),
+    metadata={"user_id": "jordan_mitchell", "document_type": "cv", "year": 2025},
+    recreate=True,  # Set to True only for the first run, then set to False
 )
 
+# Load second document with user_2 metadata
 knowledge_base.load_pdf(
-    path=Path("data/srijan.pdf"),
-    metadata={"user_id": "user_2", "document_type": "doc_2"},
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_2.pdf"),
+    metadata={"user_id": "taylor_brooks", "document_type": "cv", "year": 2025},
 )
 
+# Load second document with user_2 metadata
+knowledge_base.load_pdf(
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_3.pdf"),
+    metadata={"user_id": "morgan_lee", "document_type": "cv", "year": 2025},
+)
+
+# Load second document with user_2 metadata
+knowledge_base.load_pdf(
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_4.pdf"),
+    metadata={"user_id": "casey_jordan", "document_type": "cv", "year": 2025},
+)
+
+# Load second document with user_2 metadata
+knowledge_base.load_pdf(
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_5.pdf"),
+    metadata={"user_id": "alex_rivera", "document_type": "cv", "year": 2025},
+)
+
+# Step 2: Query the knowledge base with different filter combinations
+# ------------------------------------------------------------------------------
+# Uncomment the example you want to run
+
+# Option 1: Filters on the Agent
+# Initialize the Agent with the knowledge base
 agent = Agent(
     knowledge=knowledge_base,
     search_knowledge=True,
+    knowledge_filters={"user_id": "alex_rivera"},  # This will only return information from documents associated with Alex Rivera
 )
-
 agent.print_response(
-    "Ask anything about user_1 doc",
-    knowledge_filters={"user_id": "user_1"},
+    "Tell me about alex rivera",
     markdown=True,
 )
+
+# # Option 2: Filters on the run/print_response
+# agent = Agent(
+#     knowledge=knowledge_base,
+#     search_knowledge=True,
+# )
+# agent.print_response(
+#     "I have a position for a software engineer. Tell me about alex rivera as a candidate.",
+#     knowledge_filters={"user_id": "alex_rivera"},
+#     markdown=True,
+# )

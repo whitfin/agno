@@ -24,23 +24,23 @@ if __name__ == "__main__":
     # Comment out after first run
     asyncio.run(
         knowledge_base.aload_pdf(
-            path=Path("data/docs"),
-            metadata={"user_id": "user_1", "document_type": "Resume"},
+            path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.pdf"),
+            metadata={"user_id": "jordan_mitchell", "document_type": "cv", "year": 2025},
             recreate=True,
         )
     )
 
     asyncio.run(
         knowledge_base.aload_pdf(
-            path=Path("data/docs"),
-            metadata={"user_id": "user_2", "document_type": "Resume"},
+            path=Path.joinpath(Path(__file__).parent.parent, "data/cv_2.pdf"),
+            metadata={"user_id": "taylor_brooks", "document_type": "cv", "year": 2025},
         )
     )
 
     asyncio.run(
         agent.aprint_response(
-            "Ask anything from doc_1",
-            knowledge_filters={"user_id": "user_1"},
+            "Tell me about jordan mitchell",
+            knowledge_filters={"user_id": "jordan_mitchell"},
             markdown=True,
             stream=True,
         )

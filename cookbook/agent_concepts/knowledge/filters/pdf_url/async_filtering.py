@@ -25,7 +25,7 @@ if __name__ == "__main__":
     asyncio.run(
         knowledge_base.aload_url(
             url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
-            metadata={"user_id": "user_1", "source": "Thai Cookbook"},
+            metadata={"cuisine": "Thai", "source": "Thai Cookbook"},
             recreate=True,  # only use at the first run, True/False
         )
     )
@@ -33,14 +33,14 @@ if __name__ == "__main__":
     asyncio.run(
         knowledge_base.aload_url(
             url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
-            metadata={"user_id": "user_2", "source": "Cape Cookbook"},
+            metadata={"cuisine": "Cape", "source": "Cape Cookbook"},
         )
     )
 
     asyncio.run(
         agent.aprint_response(
             "Tell me about Pad Thai and how to make it",
-            knowledge_filters={"user_id": "user_2"},
+            knowledge_filters={"cuisine": "Thai"},
             markdown=True,
             stream=True,
         )

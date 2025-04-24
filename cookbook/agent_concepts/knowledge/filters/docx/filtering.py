@@ -22,7 +22,7 @@ from agno.knowledge.docx import DocxKnowledgeBase
 from agno.vectordb.qdrant import Qdrant
 
 # Set a unique collection name to avoid conflicts with other examples
-COLLECTION_NAME = "cookbook-user-filtering"
+COLLECTION_NAME = "resume-docx-test"
 
 # Initialize the vector database
 vector_db = Qdrant(collection=COLLECTION_NAME, url="http://localhost:6333")
@@ -84,13 +84,13 @@ agent.print_response(
     markdown=True,
 )
 
-# Option 2: Filters on the run/print_response
-agent = Agent(
-    knowledge=knowledge_base,
-    search_knowledge=True,
-)
-agent.print_response(
-    "I have a position for a software engineer. Tell me about alex rivera as a candidate.",
-    knowledge_filters={"user_id": "alex_rivera"},
-    markdown=True,
-)
+# # Option 2: Filters on the run/print_response
+# agent = Agent(
+#     knowledge=knowledge_base,
+#     search_knowledge=True,
+# )
+# agent.print_response(
+#     "I have a position for a software engineer. Tell me about alex rivera as a candidate.",
+#     knowledge_filters={"user_id": "alex_rivera"},
+#     markdown=True,
+# )

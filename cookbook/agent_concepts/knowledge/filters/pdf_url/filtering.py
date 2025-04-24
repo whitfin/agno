@@ -16,38 +16,35 @@ knowledge_base = PDFUrlKnowledgeBase(
 
 knowledge_base.load_url(
     url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
-    metadata={"user_id": "user_1", "source": "Thai Cookbook"},
+    metadata={"cuisine": "Thai", "source": "Thai Cookbook"},
     recreate=False,  # only use at the first run, True/False
 )
 
 knowledge_base.load_url(
     url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
-    metadata={"user_id": "user_2", "source": "Cape Cookbook"},
+    metadata={"cuisine": "Cape", "source": "Cape Cookbook"},
 )
 
 
-# Create agent with the knowledge base
-agent = Agent(knowledge=knowledge_base, show_tool_calls=True)
-
-# print("\nFiltered search example:")
-# search_results = knowledge_base.search(
-#     query="Tell me about how to make Pad Thai",
-#     filters={"meta_data.user_id": "user_2"}
-# )
-
-# if search_results:
-#     for i, doc in enumerate(search_results):
-#         print(f"\n--- Result {i+1} ---")
-#         print(f"Name: {doc.name}")
-#         print(f"Metadata: {doc.meta_data}")
-#         # Print first 500 characters of content
-#         print(f"Content:\n{doc.content[:5000]}...")
-#         print("-" * 20)  # Separator
-# else:
-#     print("No results found for the specified filter and query.")
-
+# Option 1: Filters on the Agent
+# Initialize the Agent with the knowledge base
+agent = Agent(
+    knowledge=knowledge_base,
+    search_knowledge=True,
+    knowledge_filters={"cuisine": "Thai"},  # This will only return information from documents associated with Thai cuisine
+)
 agent.print_response(
-    "List down the ingredients to make Pad Thai",
-    knowledge_filters={"user_id": "user_1"},
+    "Tell me how to make Pad Thai",
+    markdown=True,
+)
+
+# # Option 2: Filters on the run/print_response
+agent = Agent(
+    knowledge=knowledge_base,
+    search_knowledge=True,
+)
+agent.print_response(
+    "Tell me how to make Cape Malay Curry",
+    knowledge_filters={"cuisine": "Cape"},
     markdown=True,
 )

@@ -39,57 +39,58 @@ knowledge_base = DocxKnowledgeBase(
 
 # Load first document with user_1 metadata
 knowledge_base.load_docx(
-    path=Path("data/docs"),
-    metadata={"user_id": "user_1", "document_type": "resume", "year": 2024},
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.docx"),
+    metadata={"user_id": "jordan_mitchell", "document_type": "cv", "year": 2025},
     recreate=True,  # Set to True only for the first run, then set to False
 )
 
 # Load second document with user_2 metadata
 knowledge_base.load_docx(
-    path=Path("data/docs"),
-    metadata={"user_id": "user_2", "document_type": "resume", "year": 2024},
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_2.docx"),
+    metadata={"user_id": "taylor_brooks", "document_type": "cv", "year": 2025},
 )
 
 # Load second document with user_2 metadata
 knowledge_base.load_docx(
-    path=Path("data/docs"),
-    metadata={"user_id": "user_3", "document_type": "resume", "year": 2024},
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_3.docx"),
+    metadata={"user_id": "morgan_lee", "document_type": "cv", "year": 2025},
 )
 
 # Load second document with user_2 metadata
 knowledge_base.load_docx(
-    path=Path("data/docs"),
-    metadata={"user_id": "user_4", "document_type": "resume", "year": 2024},
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_4.docx"),
+    metadata={"user_id": "casey_jordan", "document_type": "cv", "year": 2025},
 )
 
 # Load second document with user_2 metadata
 knowledge_base.load_docx(
-    path=Path("data/docs"),
-    metadata={"user_id": "user_5", "document_type": "resume", "year": 2024},
-)
-
-# Initialize the Agent with the knowledge base
-agent = Agent(
-    knowledge=knowledge_base,
-    search_knowledge=True,
-    # knowledge_filters={"user_id": "user_1"},
+    path=Path.joinpath(Path(__file__).parent.parent, "data/cv_5.docx"),
+    metadata={"user_id": "alex_rivera", "document_type": "cv", "year": 2025},
 )
 
 # Step 2: Query the knowledge base with different filter combinations
 # ------------------------------------------------------------------------------
 # Uncomment the example you want to run
 
-# This will only return information from documents associated with user_1
+# Option 1: Filters on the Agent
+# Initialize the Agent with the knowledge base
+agent = Agent(
+    knowledge=knowledge_base,
+    search_knowledge=True,
+    knowledge_filters={"user_id": "alex_rivera"},  # This will only return information from documents associated with Alex Rivera
+)
 agent.print_response(
-    "Ask anything about this document",
-    knowledge_filters={"user_id": "user_2"},
+    "Tell me about alex rivera",
     markdown=True,
 )
 
-# Example 2: Filter by a different user_id
-# This will only return information from documents associated with user_2
-# agent.print_response(
-#     "Ask anything about this document",
-#     knowledge_filters={"user_id": "user_2"},
-#     markdown=True,
-# )
+# Option 2: Filters on the run/print_response
+agent = Agent(
+    knowledge=knowledge_base,
+    search_knowledge=True,
+)
+agent.print_response(
+    "I have a position for a software engineer. Tell me about alex rivera as a candidate.",
+    knowledge_filters={"user_id": "alex_rivera"},
+    markdown=True,
+)

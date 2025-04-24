@@ -5,7 +5,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 from agno.document import Document
 from agno.document.reader.json_reader import JSONReader
 from agno.knowledge.agent import AgentKnowledge
-from agno.utils.log import log_debug, log_info, logger
+from agno.utils.log import logger
 
 
 class JSONKnowledgeBase(AgentKnowledge):

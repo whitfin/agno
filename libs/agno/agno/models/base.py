@@ -1073,6 +1073,8 @@ class Model(ABC):
                 assistant_message.metrics.output_tokens = response_usage.get("completion_tokens", 0)
             if "total_tokens" in response_usage:
                 assistant_message.metrics.total_tokens = response_usage.get("total_tokens", 0)
+            if "cached_tokens" in response_usage:
+                assistant_message.metrics.cached_tokens = response_usage.get("cached_tokens", 0)
             else:
                 assistant_message.metrics.total_tokens = (
                     assistant_message.metrics.input_tokens + assistant_message.metrics.output_tokens
@@ -1090,6 +1092,8 @@ class Model(ABC):
                 assistant_message.metrics.completion_tokens = response_usage.completion_tokens
             if hasattr(response_usage, "total_tokens") and response_usage.total_tokens is not None:
                 assistant_message.metrics.total_tokens = response_usage.total_tokens
+            if hasattr(response_usage, "cached_tokens") and response_usage.cached_tokens is not None:
+                assistant_message.metrics.cached_tokens = response_usage.cached_tokens
             else:
                 assistant_message.metrics.total_tokens = (
                     assistant_message.metrics.input_tokens + assistant_message.metrics.output_tokens
@@ -1198,7 +1202,7 @@ class Model(ABC):
         Returns:
             Model: A new Model instance with deeply copied attributes.
         """
-        from copy import deepcopy
+        from copy import copy, deepcopy
 
         # Create a new instance without calling __init__
         cls = self.__class__
@@ -1209,7 +1213,13 @@ class Model(ABC):
         for k, v in self.__dict__.items():
             if k in {"response_format", "_tools", "_functions", "_function_call_stack"}:
                 continue
-            setattr(new_model, k, deepcopy(v, memo))
+            try:
+                setattr(new_model, k, deepcopy(v, memo))
+            except Exception:
+                try:
+                    setattr(new_model, k, copy(v))
+                except Exception:
+                    setattr(new_model, k, v)
 
         # Clear the new model to remove any references to the old model
         new_model.clear()

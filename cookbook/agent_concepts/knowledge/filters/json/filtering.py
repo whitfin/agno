@@ -91,12 +91,12 @@ agent_with_filters.print_response(
 
 # Option 2: Filters on the run/print_response
 # This approach applies filters at the query level, useful for one-time specific queries
-agent = Agent(
-    knowledge=knowledge_base,
-    search_knowledge=True,
-)
-agent.print_response(
-    "I have a position for a software engineer. Tell me about Taylor Brooks as a candidate.",
-    knowledge_filters={"user_id": "taylor_brooks"},
-    markdown=True,
-)
+# agent = Agent(
+#     knowledge=knowledge_base,
+#     search_knowledge=True,
+# )
+# agent.print_response(
+#     "I have a position for a software engineer. Tell me about Taylor Brooks as a candidate.",
+#     knowledge_filters={"user_id": "taylor_brooks"},
+#     markdown=True,
+# )

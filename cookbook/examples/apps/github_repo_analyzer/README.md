@@ -12,7 +12,7 @@ This application provides a chat-based interface to interact with and analyze Gi
   - Detailed pull request information, including code changes (diff/patch analysis).
   - File contents and directory structures.
   - Code searching within the repository.
-- **Powered by Agno & OpenAI:** Leverages the `agno` framework for agent creation and tool usage, interacting with the GitHub API via `PyGithub`.
+- **Powered by Agno & OpenAI:** Leverages the `agno` framework for agent creation and tool usage.
 
 ### 1. Create a virtual environment
 
@@ -36,7 +36,7 @@ export OPENAI_API_KEY=***
 export GITHUB_ACCESS_TOKEN=**
 ```
 
-### 4. Run the Game
+### 4. Run the app
 
 ```shell
 streamlit run cookbook/examples/apps/github_repo_analyzer/app.py
@@ -50,10 +50,10 @@ The project uses a streamlined structure with all functionality in a single file
 
 ```
 github-repo-analyzer/
-├── main.py           # Main application with all functionality
+├── app.py            # Main application with all functionality
+├── agent.py          # Agent initialization
 ├── requirements.txt  # Dependencies
 ├── README.md         # Documentation
-├── .env              # Environment variables (gitignored)
 └── output/           # Generated analysis reports
 ```
 
@@ -61,5 +61,4 @@ github-repo-analyzer/
 
 - [Agno](https://docs.agno.com) - AI agent framework for GitHub analysis
 - [Streamlit](https://streamlit.io/) - Interactive web interface
-- [Matplotlib](https://matplotlib.org/) - Data visualization
 - [PyGithub](https://pygithub.readthedocs.io/) - GitHub API access

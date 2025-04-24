@@ -2,11 +2,11 @@
 Utility functions for the GitHub Repository Analyzer.
 """
 
+import json
 import logging
 from typing import Dict, List, Optional
 
 import streamlit as st
-from github import Github, GithubException
 from agno.utils.log import logger
 
 def add_message(
@@ -22,123 +22,57 @@ def add_message(
 
     st.session_state["messages"].append(message)
 
-# Predefined list of popular repositories
-POPULAR_REPOS = [
-    "agno-agi/agno",  # Ensure agno is included
-    "facebook/react",
-    "tensorflow/tensorflow",
-    "microsoft/vscode",
-    "torvalds/linux",
-    "openai/openai-python",  # Added one more popular repo
-]
-
-
-def get_combined_repositories(
-    token: Optional[str], user_repo_limit: int = 5
-) -> list[str]:
-    """
-    Fetches user repositories (if token provided) and combines them with
-    a predefined list of popular repositories.
-
-    Args:
-        token: Optional GitHub Personal Access Token.
-        user_repo_limit: Max number of user-specific repos to fetch.
-
-    Returns:
-        A combined list of unique repository names.
-    """
-    user_repos = []
-    if token:
-        try:
-            g = Github(token)
-            user = g.get_user()
-            logging.info(f"Authenticated as GitHub user: {user.login}")
-            repos = user.get_repos(
-                affiliation="owner,collaborator,organization_member",
-                sort="updated",
-                direction="desc",
-            )
-
-            count = 0
-                if count >= user_repo_limit:
-                    break
-                user_repos.append(repo.full_name)
-                count += 1
-            logging.info(f"Fetched {len(user_repos)} user repositories: {user_repos}")
-        except Exception as e:
-            logging.error(
-                f"An unexpected error occurred while fetching user repositories: {e}"
-            )
-
 def sidebar_widget() -> None:
-    """Renders the sidebar for repository selection and other info."""
+    """Renders the sidebar for configuration and example queries."""
     with st.sidebar:
-        if not st.session_state.repo_list:
-            with st.spinner("Fetching repositories..."):
-                # Pass the token from session state (which came from env var)
-                st.session_state.repo_list = get_combined_repositories(
-                    st.session_state.github_token, user_repo_limit=5
-                )
-                if not st.session_state.repo_list:
-                    st.sidebar.warning("Could not load any repositories.")
+        st.header("Configuration")
 
-        # Repository Selection Dropdown
-        if st.session_state.repo_list:
-            st.header("Select Repository")
-            # Ensure agno-agi/agno is the default if nothing is selected yet
-            default_repo = "agno-agi/agno"
-            options = st.session_state.repo_list
-            try:
-                # Set default index to agno-agi/agno if available, otherwise 0
-                default_index = (
-                    options.index(default_repo) if default_repo in options else 0
-                )
-            except ValueError:
-                default_index = 0
+        st.markdown("**GitHub Token**")
+        token_input = st.text_input(
+            "Enter your GitHub Personal Access Token (needed for most queries):",
+            type="password",
+            key="github_token_input",
+            value=st.session_state.get("github_token", ""),
+            help="Allows the agent to access GitHub API, including your private/org data."
+        )
+        st.markdown(
+            "[How to create a GitHub PAT?](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic)",
+            unsafe_allow_html=True,
+        )
 
-            # Determine current selection index for persistence
-            current_selection_index = default_index  # Start with default
-            if st.session_state.selected_repo in options:
-                try:
-                    current_selection_index = options.index(
-                        st.session_state.selected_repo
-                    )
-                except ValueError:
-                    # Selected repo might have disappeared if token changed/expired and user repos are gone
-                    st.session_state.selected_repo = None  # Reset selection
-                    st.session_state.agent = None
-                    logger.warning(
-                        "Previously selected repo not found in current list. Resetting."
-                    )
-                    st.rerun()  # Rerun to reflect reset
-
-            selected_repo = st.selectbox(
-                "Choose a repository to chat with:",
-                options=options,
-                index=current_selection_index,
-                key="repo_selector",
-            )
-
-            # Update selected repo in session state if changed
-            if selected_repo != st.session_state.selected_repo:
-                st.session_state.selected_repo = selected_repo
-                st.session_state.messages = []  # Clear messages when repo changes
-                st.session_state.agent = None  # Re-initialize agent for the new repo
-                logger.info(f"Selected repository changed to: {selected_repo}")
-                st.rerun()  # Rerun to clear chat and potentially update agent context
-
-        # Show info message if token is missing
-        if not st.session_state.github_token:
-            st.sidebar.info(
-                "Set GITHUB_ACCESS_TOKEN environment variable to see your private/org repos."
-            )
+        # Update session state if token input changes
+        current_token_in_state = st.session_state.get("github_token")
+        if token_input != current_token_in_state and (token_input or current_token_in_state is not None):
+            st.session_state.github_token = token_input if token_input else None
+            logger.info(f"GitHub token updated via sidebar input {'(cleared)' if not token_input else ''}.")
+            # No need to clear repo list/selection anymore
+            st.session_state.agent = None # Force re-initialization of agent with new/cleared token
+            st.rerun()
 
         st.markdown("---")
         st.markdown("### Example Queries")
-        st.markdown("""- Summarize recent activity, List open issues labeled 'bug', Show details for PR #123, Review PR #100, Who are the top contributors this month?""")
+
+        example_queries = [
+            "Fetch all my repositories",
+            "Analyze 'tensorflow/tensorflow' repo",
+            "Get star count for 'agno-agi/agno'",
+            "List open issues in 'microsoft/vscode'",
+            "Summarize 'agno-agi/agno' repo"
+        ]
+
+        if 'sidebar_query' not in st.session_state:
+            st.session_state.sidebar_query = None
+
+        for query in example_queries:
+            sanitized_query = query.lower().replace(' ', '_').replace('/', '_').replace('#', 'num').replace("'", "")
+            button_key = f"btn_{sanitized_query}"
+            if st.button(query, key=button_key, use_container_width=True):
+                logger.info(f"Sidebar button clicked: {query}")
+                st.session_state.sidebar_query = query
+                st.rerun()
 
         st.markdown("---")
-        about_widget() # This is already defined in this file
+        about_widget() # Keep about section
 
 def about_widget() -> None:
     """Display the about section with application information."""

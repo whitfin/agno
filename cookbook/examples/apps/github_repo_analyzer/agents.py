@@ -1,76 +1,84 @@
-"""
-GitHub Repository Analyzer Agents
-"""
-
 import logging
 from typing import Optional
+from textwrap import dedent
 
 import streamlit as st
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.github import GithubTools
+from agno.tools.reasoning import ReasoningTools
 
-def get_github_agent(repo_name: str, debug_mode: bool = True) -> Optional[Agent]:
+def get_github_agent(repo_name: Optional[str] = None, debug_mode: bool = True) -> Optional[Agent]:
     """
-    Initialize and return a GitHub agent focused on a specific repository,
-    with enhanced capabilities for detailed PR code review.
-
     Args:
-        repo_name: The repository name in "owner/repo" format.
+        repo_name: Optional repository name ("owner/repo"). If None, agent relies on user query.
         debug_mode: Whether to enable debug mode for tool calls.
     """
-    if not repo_name:
-        logging.error("Cannot initialize chat agent without a repository name.")
-        return None
-    
+    # Dynamically set context based on whether a repo_name was provided
+    initial_repo_context = f"The user has pre-selected the repository: **{repo_name}**. Focus your analysis here unless the user explicitly specifies a different one." if repo_name else "No repository is pre-selected. You MUST determine the target repository from the user's query or conversation history."
 
     agent = Agent(
         model=OpenAIChat(id="gpt-4o"),
-        
-        description_mode=dedent("""
+        description=dedent("""
             You are an expert Code Reviewing Agent specializing in analyzing GitHub repositories,
             with a strong focus on detailed code reviews for Pull Requests.
             Use your tools to answer questions accurately and provide insightful analysis.
         """),
         instructions=dedent(f"""\
-        Strictly focus all your analysis and answers on the selected repository: **{repo_name}**.,
-        Leverage the conversation history to understand context for follow-up questions.,
-        Your primary goal is to assist with understanding and reviewing code changes, especially within Pull Requests (PRs),
-        You can analyze:,
-        1. Issues: Listing, summarizing, searching.,
-        2. Pull Requests (PRs): Listing, summarizing, searching, getting details, and performing detailed code reviews of changes.,
-        3. Code & Files: Searching code, getting file/directory contents.,
-        4. Repository Stats & Activity: Stars, contributors, recent activity.,
-        5. Fetching Changes: When asked to review a PR (e.g., 'Review PR #123'), use `get_pull_request_changes` or `get_pull_request_with_details` to get the list of changed files and their associated 'patch' data.,
-        6. Analyzing the Patch: The 'patch' data contains the line-by-line code changes (diff). Analyze this patch content thoroughly for each relevant file.,
-        7. Review Criteria: Evaluate the code changes based on the following criteria (unless the user specifies otherwise):,
-            - Functionality: Does the code seem logically correct? Does it address the PR's goal? Are there potential bugs or edge cases?,
-            - Best Practices: Does the code follow general programming best practices (e.g., DRY principle, error handling, security considerations)?,
-            - Style & Formatting: Is the code style consistent with common conventions for the language? Is it well-formatted and readable?,
-            - Clarity & Maintainability: Is the code easy to understand? Are variable/function names clear? Is there sufficient commenting where needed?,
-            - Efficiency: Are there obvious performance issues?,
-        8. Presenting the Review: Structure your review clearly, often file by file.,
-        Refer to specific line numbers or code snippets from the patch data when making comments.,
-        9. Provide constructive feedback, explaining *why* a change might be needed.,
-        10. Summarize the overall assessment if appropriate.,
-        11. Handling Large Diffs: If a PR has many changed files or very large diffs, inform the user. You might review a subset of files first or ask the user to specify which files/aspects to focus on.
+        **Core Task:** Analyze GitHub repositories and answer user questions based on the available tools and conversation history.
+
+        **Repository Context Management:**
+        1.  **Initial Context:** {initial_repo_context}
+        2.  **Context Persistence:** Once a target repository (owner/repo) is identified (either initially or from a user query like 'analyze owner/repo'), **MAINTAIN THAT CONTEXT** for all subsequent questions in the current conversation unless the user clearly specifies a *different* repository.
+        3.  **Determining Context:** If no repository is specified in the *current* user query, **CAREFULLY REVIEW THE CONVERSATION HISTORY** to find the most recently established target repository. Use that repository context.
+        4.  **Accuracy:** When extracting a repository name (owner/repo) from the query or history, **BE EXTREMELY CAREFUL WITH SPELLING AND FORMATTING**. Double-check against the user's exact input.
+        5.  **Ambiguity:** If no repository context has been established in the conversation history and the current query doesn't specify one, **YOU MUST ASK THE USER** to clarify which repository (using owner/repo format) they are interested in before using tools that require a repository name.
+
+        **How to Answer Questions:**
+        *   **Identify Key Information:** Understand the user's goal and the target repository (using the context rules above).
+        *   **Select Appropriate Tools:** Choose the best tool(s) for the task, ensuring you provide the correct `repo_name` argument (owner/repo format, checked for accuracy) if required by the tool.
+            *   Project Overview: `get_repository`, `get_file_content` (for README.md).
+            *   Libraries/Dependencies: `get_file_content` (for requirements.txt, pyproject.toml, etc.), `get_directory_content`, `search_code`.
+            *   PRs/Issues: Use relevant PR/issue tools.
+            *   List User Repos: `list_repositories` (no repo_name needed).
+            *   Search Repos: `search_repositories` (no repo_name needed).
+        *   **Execute Tools:** Run the selected tools.
+        *   **Synthesize Answer:** Combine tool results into a clear, concise answer using markdown. If a tool fails (e.g., 404 error because the repo name was incorrect), state that you couldn't find the specified repository and suggest checking the name.
+        *   **Cite Sources:** Mention specific files (e.g., "According to README.md...").
+
+        **Specific Analysis Areas (Most require a specific repository):**
+        *   Issues: Listing, summarizing, searching.
+        *   Pull Requests (PRs): Listing, summarizing, searching, getting details/changes.
+        *   Code & Files: Searching code, getting file content, listing directory contents.
+        *   Repository Stats & Activity: Stars, contributors, recent activity.
+
+        **Code Review Guidelines (Requires repository and PR):**
+        *   Fetch Changes: Use `get_pull_request_changes` or `get_pull_request_with_details`.
+        *   Analyze Patch: Evaluate based on functionality, best practices, style, clarity, efficiency.
+        *   Present Review: Structure clearly, cite lines/code, be constructive.
         """),
-        tools= [GithubTools(
-        search_repositories=True,
-        list_repositories=True,
-        get_repository=True,
-        list_pull_requests=True,
-        get_pull_request=True,
-        get_pull_request_changes=True,
-        list_branches=True,
-        get_pull_request_count=True,
-        get_pull_requests=True,
-        get_pull_request_comments=True,
-        get_pull_request_with_details=True,
-        list_issues=True,
-        get_issue=True,
-    )],
-    debug_mode=debug_mode,
-    markdown=True,
+        tools=[
+            GithubTools(
+                search_repositories=True,
+                list_repositories=True,
+                get_repository=True,
+                list_pull_requests=True,
+                get_pull_request=True,
+                get_pull_request_changes=True,
+                list_branches=True,
+                get_pull_request_count=True,
+                get_pull_requests=True,
+                get_pull_request_comments=True,
+                get_pull_request_with_details=True,
+                list_issues=True,
+                get_issue=True,
+                update_file=True,
+                get_file_content=True,
+                get_directory_content=True,
+                search_code=True,
+            ),
+        ],
+        markdown=True,
+        debug_mode=debug_mode,
     )
     return agent

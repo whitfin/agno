@@ -1390,7 +1390,12 @@ class GithubTools(Toolkit):
         log_debug(f"Getting content of file {path} in repository: {repo_name}")
         try:
             repo = self.g.get_repo(repo_name)
-            file_content = repo.get_contents(path, ref=ref)
+
+            # Conditionally call get_contents based on ref
+            if ref is not None:
+                file_content = repo.get_contents(path, ref=ref)
+            else:
+                file_content = repo.get_contents(path)
 
             # If it's a list (directory), raise an error
             if isinstance(file_content, list):
@@ -1400,15 +1405,12 @@ class GithubTools(Toolkit):
             try:
                 decoded_content = file_content.decoded_content.decode("utf-8")
             except UnicodeDecodeError:
-                # If we can't decode as utf-8, it's definitely a binary file
                 decoded_content = "Binary file (content not displayed)"
             except Exception as e:
-                # Handle any other exceptions during decoding
                 log_debug(f"Error decoding file content: {e}")
                 decoded_content = "Binary file (content not displayed)"
 
-            # Make sure we don't try to display binary content even if decoding doesn't raise an error
-            # Check if content looks like binary data (contains null bytes or too many non-printable chars)
+            # Make sure we don't try to display binary content
             if isinstance(decoded_content, str) and (
                 "\x00" in decoded_content or sum(1 for c in decoded_content[:1000] if not (32 <= ord(c) <= 126)) > 200
             ):
@@ -1541,7 +1543,12 @@ class GithubTools(Toolkit):
         log_debug(f"Getting contents of directory {path} in repository: {repo_name}")
         try:
             repo = self.g.get_repo(repo_name)
-            contents = repo.get_contents(path, ref=ref)
+
+            # Conditionally call get_contents based on ref
+            if ref is not None:
+                contents = repo.get_contents(path, ref=ref)
+            else:
+                contents = repo.get_contents(path)
 
             # If it's not a list, it's a file not a directory
             if not isinstance(contents, list):

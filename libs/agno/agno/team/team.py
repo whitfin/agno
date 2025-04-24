@@ -648,7 +648,7 @@ class Team:
                     thread = threading.Thread(target=member.register_agent_on_platform)
                     thread.start()
                 elif isinstance(member, Team):
-                    thread = threading.Thread(target=member._register_team_on_platform)
+                    thread = threading.Thread(target=member._register_team_on_platform(team_id=self.team_id))
                     thread.start()
                     # Register team members recursively
                     for team_member in member.members:
@@ -656,7 +656,7 @@ class Team:
                             thread = threading.Thread(target=team_member.register_agent_on_platform)
                             thread.start()
                         elif isinstance(team_member, Team):
-                            thread = threading.Thread(target=team_member._register_team_on_platform)
+                            thread = threading.Thread(target=team_member._register_team_on_platform(team_id=self.team_id))
                             thread.start()
             # Run the team
             try:
@@ -1344,15 +1344,15 @@ class Team:
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
             for member in self.members:
                 if isinstance(member, Agent):
-                    asyncio.create_task(member._aregister_agent_on_platform())
+                    asyncio.create_task(member.aregister_agent_on_platform)
                 elif isinstance(member, Team):
                 
-                    asyncio.create_task(member._aregister_team_on_platform())
+                    asyncio.create_task(member._aregister_team_on_platform(team_id=self.team_id))
                     for team_member in member.members:
                         if isinstance(team_member, Agent):
                             asyncio.create_task(team_member._aregister_agent_on_platform())
                         elif isinstance(team_member, Team):
-                            asyncio.create_task(team_member._aregister_team_on_platform())
+                            asyncio.create_task(team_member._aregister_team_on_platform(team_id=self.team_id)) 
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -6297,7 +6297,7 @@ class Team:
         except Exception as e:
             log_debug(f"Could not create team monitor: {e}")
 
-    def _register_team_on_platform(self) -> None:
+    def _register_team_on_platform(self,team_id: Optional[str] = None) -> None:
         from agno.api.team import TeamCreate, create_team
 
         try:
@@ -6306,6 +6306,7 @@ class Team:
                     team_id=self.team_id,
                     name=self.name,
                     config=self.to_platform_dict(),
+                    parent_team_id=team_id
                 ),
             )
             
@@ -6313,7 +6314,7 @@ class Team:
             log_debug(f"Could not create team on platform: {e}")
             print(f"Could not create team on platform: {e}")
 
-    async def _aregister_team_on_platform(self) -> None:
+    async def _aregister_team_on_platform(self,team_id: Optional[str] = None) -> None:
         from agno.api.team import TeamCreate, acreate_team
 
         try:
@@ -6322,6 +6323,7 @@ class Team:
                     team_id=self.team_id,
                     name=self.name,
                     config=self.to_platform_dict(),
+                    parent_team_id=team_id
                 ),
             )
         except Exception as e:

@@ -1167,7 +1167,7 @@ class Agent:
         
         # Create a task to run the agent registration in the background
         # This won't block the execution flow
-        asyncio.create_task(self._aregister_agent_on_platform())
+        asyncio.create_task(self.aregister_agent_on_platform())
 
         log_debug(f"Async Agent Run Start: {self.run_response.run_id}", center=True, symbol="*")
 
@@ -4168,7 +4168,7 @@ class Agent:
             log_debug(f"Could not create Agent app: {e}")
         log_debug(f"Agent app created: {self.name}, {self.agent_id}, {self.team_id},")
 
-    async def _aregister_agent_on_platform(self) -> None:
+    async def aregister_agent_on_platform(self) -> None:
         self.set_monitoring()
         if not self.monitoring:
             return

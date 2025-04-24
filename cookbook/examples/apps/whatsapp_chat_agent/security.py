@@ -37,9 +37,8 @@ def validate_webhook_signature(payload: bytes, signature_header: Optional[str]) 
     """
     # In development mode, we can bypass signature validation
     if is_development_mode():
-        if not signature_header:
-            print("WARNING: Bypassing signature validation in development mode")
-            return True
+        print("WARNING: Using dummy secret for local development. Do not use in production!")
+        return True
 
     if not signature_header or not signature_header.startswith('sha256='):
         return False

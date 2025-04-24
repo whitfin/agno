@@ -8,7 +8,7 @@ from agno.utils.log import log_debug, log_info, logger
 
 
 class DocxKnowledgeBase(AgentKnowledge):
-    path: Union[str, Path]
+    path: Union[str, Path] = None
     formats: List[str] = [".doc", ".docx"]
     reader: DocxReader = DocxReader()
 

@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Set, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -473,3 +474,181 @@ class AgentKnowledge(BaseModel):
                 log_debug(f"Invalid filter key: {key} - not present in knowledge base")
 
         return valid_filters, invalid_keys
+
+    def prepare_load(
+        self,
+        file_path: Path,
+        allowed_formats: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+        recreate: bool = False,
+    ) -> bool:
+        """Validate file path and prepare collection for loading.
+
+        Args:
+            file_path (Path): Path to validate
+            allowed_formats (List[str]): List of allowed file formats
+            metadata (Optional[Dict[str, Any]]): Metadata to track
+            recreate (bool): Whether to recreate the collection
+
+        Returns:
+            bool: True if preparation succeeded, False otherwise
+        """
+        # 1. Validate file path
+        if not file_path.exists():
+            logger.error(f"File not found: {file_path}")
+            return False
+
+        if file_path.suffix not in allowed_formats:
+            logger.error(f"Unsupported file format: {file_path.suffix}")
+            return False
+
+        # 2. Track metadata
+        if metadata:
+            self.track_metadata_structure(metadata)
+
+        # 3. Prepare vector DB
+        if self.vector_db is None:
+            logger.warning("Cannot load file: No vector db provided.")
+            return False
+
+        # Recreate collection if requested
+        if recreate:
+            log_info(f"Recreating collection '{self.vector_db.collection}'.")
+            self.vector_db.drop()
+
+        # Create collection if it doesn't exist
+        if not self.vector_db.exists():
+            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
+            self.vector_db.create()
+
+        return True
+
+    async def aprepare_load(
+        self,
+        file_path: Path,
+        allowed_formats: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+        recreate: bool = False,
+    ) -> bool:
+        """Validate file path and prepare collection for loading.
+
+        Args:
+            file_path (Path): Path to validate
+            allowed_formats (List[str]): List of allowed file formats
+            metadata (Optional[Dict[str, Any]]): Metadata to track
+            recreate (bool): Whether to recreate the collection
+
+        Returns:
+            bool: True if preparation succeeded, False otherwise
+        """
+        # 1. Validate file path
+        if not file_path.exists():
+            logger.error(f"File not found: {file_path}")
+            return False
+
+        if file_path.suffix not in allowed_formats:
+            logger.error(f"Unsupported file format: {file_path.suffix}")
+            return False
+
+        # 2. Track metadata
+        if metadata:
+            self.track_metadata_structure(metadata)
+
+        # 3. Prepare vector DB
+        if self.vector_db is None:
+            logger.warning("Cannot load file: No vector db provided.")
+            return False
+
+        # Recreate collection if requested
+        if recreate:
+            log_info(f"Recreating collection '{self.vector_db.collection}'.")
+            await self.vector_db.async_drop()
+
+        # Create collection if it doesn't exist
+        if not await self.vector_db.async_exists():
+            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
+            await self.vector_db.async_create()
+
+        return True
+
+    def process_documents(
+        self,
+        documents: List[Document],
+        metadata: Optional[Dict[str, Any]] = None,
+        upsert: bool = False,
+        skip_existing: bool = True,
+        source_info: str = "documents",
+    ) -> None:
+        """Process and load documents asynchronously.
+
+        Args:
+            documents (List[Document]): Documents to process
+            metadata (Optional[Dict[str, Any]]): Metadata to add to documents
+            upsert (bool): Whether to upsert documents
+            skip_existing (bool): Whether to skip existing documents
+            source_info (str): Information about document source for logging
+        """
+        if not documents:
+            logger.warning(f"No documents were read from {source_info}")
+            return
+
+        log_info(f"Loading {len(documents)} documents from {source_info} with metadata: {metadata}")
+
+        # Decide loading strategy: upsert or insert (with optional skip)
+        if upsert and self.vector_db.upsert_available():
+            log_debug(f"Upserting {len(documents)} documents.")
+            self.vector_db.upsert(documents=documents, filters=metadata)
+        else:
+            documents_to_insert = documents
+            if skip_existing:
+                log_debug("Filtering out existing documents before insertion.")
+                documents_to_insert = self.filter_existing_documents(documents)
+
+            if documents_to_insert:
+                log_debug(f"Inserting {len(documents_to_insert)} new documents.")
+                self.vector_db.insert(documents=documents_to_insert, filters=metadata)
+            else:
+                log_info("No new documents to insert after filtering.")
+
+        log_info(f"Finished loading documents from {source_info}.")
+
+    async def aprocess_documents(
+        self,
+        documents: List[Document],
+        metadata: Optional[Dict[str, Any]] = None,
+        upsert: bool = False,
+        skip_existing: bool = True,
+        source_info: str = "documents",
+    ) -> None:
+        """Process and load documents asynchronously.
+
+        Args:
+            documents (List[Document]): Documents to process
+            metadata (Optional[Dict[str, Any]]): Metadata to add to documents
+            upsert (bool): Whether to upsert documents
+            skip_existing (bool): Whether to skip existing documents
+            source_info (str): Information about document source for logging
+        """
+        if not documents:
+            logger.warning(f"No documents were read from {source_info}")
+            return
+
+        log_info(f"Loading {len(documents)} documents from {source_info} with metadata: {metadata}")
+
+        # Decide loading strategy: upsert or insert (with optional skip)
+        if upsert and self.vector_db.upsert_available():
+            log_debug(f"Upserting {len(documents)} documents.")
+            await self.vector_db.async_upsert(documents=documents, filters=metadata)
+        else:
+            documents_to_insert = documents
+            if skip_existing:
+                log_debug("Filtering out existing documents before insertion.")
+                documents_to_insert = self.filter_existing_documents(documents)
+
+            if documents_to_insert:
+                log_debug(f"Inserting {len(documents_to_insert)} new documents.")
+                await self.vector_db.async_insert(documents=documents_to_insert, filters=metadata)
+            else:
+                log_info("No new documents to insert after filtering.")
+
+        log_info(f"Finished loading documents from {source_info}.")

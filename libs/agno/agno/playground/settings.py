@@ -45,6 +45,7 @@ class PlaygroundSettings(BaseSettings):
                 "https://www.agno.com",
                 "https://app.agno.com",
                 "https://app-stg.agno.com",
+                "https://agno-agent-ui.vercel.app"
             ]
         )
 

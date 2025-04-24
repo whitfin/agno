@@ -1074,17 +1074,16 @@ class Agent:
         # If agent has filters, use those as a base
         if self.knowledge_filters:
             effective_filters = self.knowledge_filters.copy()
-            log_debug(f"Using agent-level knowledge filters: {effective_filters}")
 
         # If run has filters, they override agent filters
         if knowledge_filters:
             if effective_filters:
                 # Merge filters, with run filters taking priority
                 effective_filters.update(knowledge_filters)
-                log_debug(f"Run-level filters override agent-level filters. Effective filters: {effective_filters}")
             else:
                 effective_filters = knowledge_filters
-                log_debug(f"Using run-level knowledge filters: {effective_filters}")
+        if effective_filters:
+            log_debug(f"Using knowledge filters: {effective_filters}")
 
         # Initialize the Agent
         self.initialize_agent()
@@ -1700,17 +1699,16 @@ class Agent:
         # If agent has filters, use those as a base
         if self.knowledge_filters:
             effective_filters = self.knowledge_filters.copy()
-            log_debug(f"Using agent-level knowledge filters: {effective_filters}")
 
         # If run has filters, they override agent filters
         if knowledge_filters:
             if effective_filters:
                 # Merge filters, with run filters taking priority
                 effective_filters.update(knowledge_filters)
-                log_debug(f"Run-level filters override agent-level filters. Effective filters: {effective_filters}")
             else:
                 effective_filters = knowledge_filters
-                log_debug(f"Using run-level knowledge filters: {effective_filters}")
+        if effective_filters:
+            log_debug(f"Using knowledge filters: {effective_filters}")
 
         # Initialize the Agent
         self.initialize_agent()
@@ -2007,10 +2005,7 @@ class Agent:
         if self.knowledge is not None or self.retriever is not None:
             if self.search_knowledge:
                 # Use async or sync search based on async_mode
-                if async_mode:
-                    agent_tools.append(self.async_search_knowledge_base_function(knowledge_filters=knowledge_filters))
-                else:
-                    agent_tools.append(self.search_knowledge_base_function(knowledge_filters=knowledge_filters))
+                agent_tools.append(self.search_knowledge_base_function(knowledge_filters=knowledge_filters, async_mode=async_mode))
             if self.update_knowledge:
                 agent_tools.append(self.add_to_knowledge)
 
@@ -3391,9 +3386,6 @@ class Agent:
             return [doc.to_dict() for doc in relevant_docs]
         except Exception as e:
             log_warning(f"Error searching knowledge base: {e}")
-            import traceback
-
-            log_debug(traceback.format_exc())
             return None
 
     async def aget_relevant_docs_from_knowledge(
@@ -3448,9 +3440,6 @@ class Agent:
             return [doc.to_dict() for doc in relevant_docs]
         except Exception as e:
             log_warning(f"Error searching knowledge base: {e}")
-            import traceback
-
-            log_debug(traceback.format_exc())
             return None
 
     def convert_documents_to_string(self, docs: List[Dict[str, Any]]) -> str:
@@ -4328,7 +4317,7 @@ class Agent:
 
         return get_tool_call_history
 
-    def search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Callable:
+    def search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None, async_mode: bool = False) -> Callable:
         """Factory function to create an search_knowledge_base function with filters."""
         # Determine which filters to use
         effective_filters = knowledge_filters if knowledge_filters is not None else self.knowledge_filters
@@ -4367,13 +4356,7 @@ class Agent:
                 return "No documents found"
             return self.convert_documents_to_string(docs_from_knowledge)
 
-        return search_knowledge_base
-
-    def async_search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Callable:
-        # Determine which filters to use
-        effective_filters = knowledge_filters if knowledge_filters is not None else self.knowledge_filters
-
-        async def async_search_knowledge_base(query: str) -> str:
+        async def asearch_knowledge_base(query: str) -> str:
             """Use this function to search the knowledge base for information about a query asynchronously.
 
             Args:
@@ -4402,7 +4385,10 @@ class Agent:
                 return "No documents found"
             return self.convert_documents_to_string(docs_from_knowledge)
 
-        return async_search_knowledge_base
+        if async_mode:
+            return asearch_knowledge_base
+        else:
+            return search_knowledge_base
 
     def add_to_knowledge(self, query: str, result: str) -> str:
         """Use this function to add information to the knowledge base for future use.

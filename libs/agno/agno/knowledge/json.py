@@ -11,6 +11,7 @@ from agno.utils.log import log_debug, log_info, logger
 class JSONKnowledgeBase(AgentKnowledge):
     path: Optional[Union[str, Path]] = None
     reader: JSONReader = JSONReader()
+    formats: List[str] = [".json"]
 
     @property
     def document_lists(self) -> Iterator[List[Document]]:
@@ -25,7 +26,7 @@ class JSONKnowledgeBase(AgentKnowledge):
         if _json_path.exists() and _json_path.is_dir():
             for _json in _json_path.glob("*.json"):
                 yield self.reader.read(path=_json)
-        elif _json_path.exists() and _json_path.is_file() and _json_path.suffix == ".json":
+        elif _json_path.exists() and _json_path.is_file() and _json_path.suffix in self.formats:
             yield self.reader.read(path=_json_path)
 
     @property
@@ -47,7 +48,7 @@ class JSONKnowledgeBase(AgentKnowledge):
                 for result in results:
                     yield result
 
-        elif _json_path.exists() and _json_path.is_file() and _json_path.suffix == ".json":
+        elif _json_path.exists() and _json_path.is_file() and _json_path.suffix in self.formats:
             result = await self.reader.async_read(path=_json_path)
             yield result
 
@@ -65,7 +66,7 @@ class JSONKnowledgeBase(AgentKnowledge):
             logger.error(f"File not found: {_file_path}")
             return
 
-        if _file_path.suffix != ".json":
+        if _file_path.suffix not in self.formats:
             logger.error(f"Unsupported file format: {_file_path.suffix}")
             return
 

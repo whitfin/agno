@@ -42,33 +42,48 @@ knowledge_base = JSONKnowledgeBase(
 # Load CV files with appropriate metadata for filtering
 knowledge_base.load_json(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.json"),
-    metadata={"user_id": "jordan_mitchell",
-              "experience_level": "entry", "location": "San Francisco"},
+    metadata={
+        "user_id": "jordan_mitchell",
+        "experience_level": "entry",
+        "location": "San Francisco",
+    },
     recreate=True,  # Set to True only for the first run, then set to False
 )
 
 knowledge_base.load_json(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_2.json"),
-    metadata={"user_id": "taylor_brooks",
-              "experience_level": "mid", "location": "Austin"},
+    metadata={
+        "user_id": "taylor_brooks",
+        "experience_level": "mid",
+        "location": "Austin",
+    },
 )
 
 knowledge_base.load_json(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_3.json"),
-    metadata={"user_id": "morgan_lee",
-              "experience_level": "senior", "location": "Seattle"},
+    metadata={
+        "user_id": "morgan_lee",
+        "experience_level": "senior",
+        "location": "Seattle",
+    },
 )
 
 knowledge_base.load_json(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_4.json"),
-    metadata={"user_id": "casey_jordan",
-              "experience_level": "mid", "location": "Denver"},
+    metadata={
+        "user_id": "casey_jordan",
+        "experience_level": "mid",
+        "location": "Denver",
+    },
 )
 
 knowledge_base.load_json(
     path=Path.joinpath(Path(__file__).parent.parent, "data/cv_5.json"),
-    metadata={"user_id": "alex_rivera",
-              "experience_level": "principal", "location": "New York"},
+    metadata={
+        "user_id": "alex_rivera",
+        "experience_level": "principal",
+        "location": "New York",
+    },
 )
 
 # Step 2: Query the knowledge base with different filter combinations

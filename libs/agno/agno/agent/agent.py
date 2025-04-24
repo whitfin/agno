@@ -2005,7 +2005,9 @@ class Agent:
         if self.knowledge is not None or self.retriever is not None:
             if self.search_knowledge:
                 # Use async or sync search based on async_mode
-                agent_tools.append(self.search_knowledge_base_function(knowledge_filters=knowledge_filters, async_mode=async_mode))
+                agent_tools.append(
+                    self.search_knowledge_base_function(knowledge_filters=knowledge_filters, async_mode=async_mode)
+                )
             if self.update_knowledge:
                 agent_tools.append(self.add_to_knowledge)
 
@@ -4317,7 +4319,9 @@ class Agent:
 
         return get_tool_call_history
 
-    def search_knowledge_base_function(self, knowledge_filters: Optional[Dict[str, Any]] = None, async_mode: bool = False) -> Callable:
+    def search_knowledge_base_function(
+        self, knowledge_filters: Optional[Dict[str, Any]] = None, async_mode: bool = False
+    ) -> Callable:
         """Factory function to create an search_knowledge_base function with filters."""
         # Determine which filters to use
         effective_filters = knowledge_filters if knowledge_filters is not None else self.knowledge_filters

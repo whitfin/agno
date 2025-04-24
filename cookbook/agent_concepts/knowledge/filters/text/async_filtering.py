@@ -26,7 +26,11 @@ if __name__ == "__main__":
     asyncio.run(
         knowledge_base.aload_text(
             path=Path.joinpath(Path(__file__).parent.parent, "data/cv_1.txt"),
-            metadata={"user_id": "jordan_mitchell", "document_type": "cv", "year": 2025},
+            metadata={
+                "user_id": "jordan_mitchell",
+                "document_type": "cv",
+                "year": 2025,
+            },
             recreate=True,  # only use at the first run, True/False
         )
     )

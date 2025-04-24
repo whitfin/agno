@@ -31,7 +31,9 @@ knowledge_base.load_url(
 agent = Agent(
     knowledge=knowledge_base,
     search_knowledge=True,
-    knowledge_filters={"cuisine": "Thai"},  # This will only return information from documents associated with Thai cuisine
+    knowledge_filters={
+        "cuisine": "Thai"
+    },  # This will only return information from documents associated with Thai cuisine
 )
 agent.print_response(
     "Tell me how to make Pad Thai",

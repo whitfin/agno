@@ -116,23 +116,20 @@ class AgentKnowledge(BaseModel):
         log_info("Loading knowledge base")
         num_documents = 0
         for document_list in self.document_lists:
-            documents_to_load = document_list
-
             # Upsert documents if upsert is True and vector db supports upsert
             if upsert and self.vector_db.upsert_available():
-                self.vector_db.upsert(documents=documents_to_load, filters=filters)
+                self.vector_db.upsert(documents=document_list, filters=filters)
             # Insert documents
             else:
                 # Filter out documents which already exist in the vector db
+                documents_to_load = document_list
                 if skip_existing:
-                    # Use set for O(1) lookups
-                    seen_content = set()
-                    documents_to_load = []
-                    for doc in document_list:
-                        if doc.content not in seen_content and not self.vector_db.doc_exists(doc):
-                            seen_content.add(doc.content)
-                            documents_to_load.append(doc)
-                self.vector_db.insert(documents=documents_to_load, filters=filters)
+                    log_debug("Filtering out existing documents before insertion.")
+                    documents_to_load = self.filter_existing_documents(document_list)
+
+                if documents_to_load:
+                    self.vector_db.insert(documents=documents_to_load, filters=filters)
+
             num_documents += len(documents_to_load)
             log_info(f"Added {len(documents_to_load)} documents to knowledge base")
 
@@ -143,7 +140,7 @@ class AgentKnowledge(BaseModel):
         skip_existing: bool = True,
         filters: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Load the knowledge base to the vector db
+        """Load the knowledge base to the vector db asynchronously
 
         Args:
             recreate (bool): If True, recreates the collection in the vector db. Defaults to False.
@@ -167,22 +164,20 @@ class AgentKnowledge(BaseModel):
         log_info("Loading knowledge base")
         num_documents = 0
         async for document_list in self.async_document_lists:
-            documents_to_load = document_list
             # Upsert documents if upsert is True and vector db supports upsert
             if upsert and self.vector_db.upsert_available():
-                await self.vector_db.async_upsert(documents=documents_to_load, filters=filters)
+                await self.vector_db.async_upsert(documents=document_list, filters=filters)
             # Insert documents
             else:
                 # Filter out documents which already exist in the vector db
+                documents_to_load = document_list
                 if skip_existing:
-                    # Use set for O(1) lookups
-                    seen_content = set()
-                    documents_to_load = []
-                    for doc in document_list:
-                        if doc.content not in seen_content and not (await self.vector_db.async_doc_exists(doc)):
-                            seen_content.add(doc.content)
-                            documents_to_load.append(doc)
-                await self.vector_db.async_insert(documents=documents_to_load, filters=filters)
+                    log_debug("Filtering out existing documents before insertion.")
+                    documents_to_load = self.filter_existing_documents(document_list)
+
+                if documents_to_load:
+                    await self.vector_db.async_insert(documents=documents_to_load, filters=filters)
+
             num_documents += len(documents_to_load)
             log_info(f"Added {len(documents_to_load)} documents to knowledge base")
 
@@ -397,6 +392,10 @@ class AgentKnowledge(BaseModel):
 
     def filter_existing_documents(self, documents: List[Document]) -> List[Document]:
         """Filter out documents that already exist in the vector database.
+
+        This helper method is used across various knowledge base implementations
+        to avoid inserting duplicate documents.
+
         Args:
             documents (List[Document]): List of documents to filter
 

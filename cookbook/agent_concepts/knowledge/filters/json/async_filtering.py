@@ -36,8 +36,7 @@ if __name__ == "__main__":
     asyncio.run(
         knowledge_base.aload_json(
             path=Path.joinpath(Path(__file__).parent.parent, "data/cv_2.json"),
-            metadata={"user_id": "taylor_brooks",
-                      "document_type": "cv", "year": 2025},
+            metadata={"user_id": "taylor_brooks", "document_type": "cv", "year": 2025},
         )
     )
 

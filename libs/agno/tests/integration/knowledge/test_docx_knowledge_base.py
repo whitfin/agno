@@ -90,8 +90,8 @@ async def test_docx_knowledge_base_async_directory(setup_vector_db):
             tool_calls.extend(msg.tool_calls)
 
     function_calls = [call for call in tool_calls if call.get("type") == "function"]
-    # For async operations, we use async_search_knowledge_base
-    assert any(call["function"]["name"] == "async_search_knowledge_base" for call in function_calls)
+    # For async operations, we use asearch_knowledge_base
+    assert any(call["function"]["name"] == "asearch_knowledge_base" for call in function_calls)
 
 
 @pytest.mark.asyncio
@@ -115,5 +115,5 @@ async def test_docx_knowledge_base_async_single_file(setup_vector_db):
             tool_calls.extend(msg.tool_calls)
 
     function_calls = [call for call in tool_calls if call.get("type") == "function"]
-    # For async operations, we use async_search_knowledge_base
-    assert any(call["function"]["name"] == "async_search_knowledge_base" for call in function_calls)
+    # For async operations, we use asearch_knowledge_base
+    assert any(call["function"]["name"] == "asearch_knowledge_base" for call in function_calls)

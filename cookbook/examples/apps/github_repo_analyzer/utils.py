@@ -21,6 +21,7 @@ def add_message(
 def sidebar_widget() -> None:
     """Renders the sidebar for configuration and example queries."""
     with st.sidebar:
+        # Configuration
         st.header("Configuration")
 
         st.markdown("**GitHub Token**")
@@ -53,6 +54,7 @@ def sidebar_widget() -> None:
 
         st.markdown("#### 🏆 Sample Queries")
         if st.button("📋 Summarize 'agno-agi/agno' repo"):
+            # Run this query in the current session
             add_message("user", "Summarize 'agno-agi/agno' repo")
         if st.button("🥇 List all my repositories"):
             add_message("user", "List all my repositories")
@@ -60,7 +62,11 @@ def sidebar_widget() -> None:
             add_message("user", "List all issues in 'agno-agi/agno' repo")
         if st.button("🥇 List all PRs in 'agno-agi/agno' repo"):
             add_message("user", "List all PRs in 'agno-agi/agno' repo")
-
+        # Chat controls
+        st.header("Chat")
+        if st.button("🆕 New Chat"):
+            # Use restart logic to clear everything and rerun
+            restart_agent()
 
 def about_widget() -> None:
     """Display an about section in the sidebar"""

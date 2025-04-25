@@ -59,18 +59,21 @@ def main() -> None:
         return
 
     ####################################################################
-    # Load runs from memory
+    # Load runs from memory (v2 Memory) only on initial load
     ####################################################################
-    if github_agent.memory is not None:
-        agent_runs = github_agent.memory.runs
-        if len(agent_runs) > 0:
+    if github_agent.memory is not None and not st.session_state.get("messages"):
+        session_id = st.session_state.get("github_agent_session_id")
+        # Fetch stored runs for this session
+        agent_runs = github_agent.memory.get_runs(session_id)
+        if agent_runs:
             logger.debug("Loading run history")
             st.session_state["messages"] = []
-            for _run in agent_runs:
-                if _run.message is not None:
-                    add_message(_run.message.role, _run.message.content)
-                if _run.response is not None:
-                    add_message("assistant", _run.response.content, _run.response.tools)
+            for run_response in agent_runs:
+                # Iterate through stored messages in the run
+                for msg in run_response.messages or []:
+                    if msg.role in ["user", "assistant"] and msg.content is not None:
+                        # Include any tool calls attached to this message
+                        add_message(msg.role, msg.content, getattr(msg, "tool_calls", None))
         else:
             logger.debug("No run history found")
             st.session_state["messages"] = []

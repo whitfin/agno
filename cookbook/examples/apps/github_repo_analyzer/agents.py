@@ -22,7 +22,7 @@ def get_github_agent(
     )
 
     return Agent(
-        model=OpenAIChat(id="gpt-4o"),
+        model=OpenAIChat(id="gpt-4.1"),
         description=dedent("""
             You are an expert Code Reviewing Agent specializing in analyzing GitHub repositories,
             with a strong focus on detailed code reviews for Pull Requests.

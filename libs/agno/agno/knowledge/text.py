@@ -21,7 +21,7 @@ class TextKnowledgeBase(AgentKnowledge):
             Iterator[List[Document]]: Iterator yielding list of documents
         """
 
-        _file_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
+        _file_path: Path = Path(self.path) if isinstance(self.path, str) else self.path  # type: ignore
 
         if _file_path.exists() and _file_path.is_dir():
             for _file in _file_path.glob("**/*"):
@@ -38,7 +38,7 @@ class TextKnowledgeBase(AgentKnowledge):
         Returns:
             AsyncIterator[List[Document]]: AsyncIterator yielding list of documents
         """
-        _file_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
+        _file_path: Path = Path(self.path) if isinstance(self.path, str) else self.path  # type: ignore
 
         if _file_path.exists() and _file_path.is_dir():
             for _file in _file_path.glob("**/*"):

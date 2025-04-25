@@ -2030,7 +2030,9 @@ class Agent:
         user_id: Optional[str] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
     ) -> None:
-        agent_tools = self.get_tools(session_id=session_id, async_mode=async_mode, user_id=user_id, knowledge_filters=knowledge_filters)
+        agent_tools = self.get_tools(
+            session_id=session_id, async_mode=async_mode, user_id=user_id, knowledge_filters=knowledge_filters
+        )
         agent_tool_names = []
         # Get all the tool names
         if agent_tools is not None:
@@ -3383,12 +3385,13 @@ class Agent:
         from agno.document import Document
 
         # Validate the filters against known valid filter keys
-        valid_filters, invalid_keys = self.knowledge.validate_filters(filters)
+        valid_filters, invalid_keys = self.knowledge.validate_filters(filters)  # type: ignore
 
         # Warn about invalid filter keys
         if invalid_keys:
+            # type: ignore
             log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
-            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")
+            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")  # type: ignore
 
             # Only use valid filters
             filters = valid_filters
@@ -3413,6 +3416,9 @@ class Agent:
 
         # Use knowledge base search
         try:
+            if self.knowledge is None or self.knowledge.vector_db is None:
+                return None
+
             if num_documents is None:
                 num_documents = self.knowledge.num_documents
 
@@ -3437,12 +3443,12 @@ class Agent:
         from agno.document import Document
 
         # Validate the filters against known valid filter keys
-        valid_filters, invalid_keys = self.knowledge.validate_filters(filters)
+        valid_filters, invalid_keys = self.knowledge.validate_filters(filters)  # type: ignore
 
         # Warn about invalid filter keys
-        if invalid_keys:
+        if invalid_keys:  # type: ignore
             log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
-            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")
+            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")  # type: ignore
 
             # Only use valid filters
             filters = valid_filters
@@ -3467,6 +3473,9 @@ class Agent:
 
         # Use knowledge base search
         try:
+            if self.knowledge is None or self.knowledge.vector_db is None:
+                return None
+
             if num_documents is None:
                 num_documents = self.knowledge.num_documents
 

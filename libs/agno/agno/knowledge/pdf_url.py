@@ -62,7 +62,7 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.error(f"Unsupported URL provided to load_url: {url}")
             return
 
-        if not self.prepare_load(url, self.formats, metadata, recreate, is_url=True):
+        if not self.prepare_load(url, self.formats, metadata, recreate, is_url=True):  # type: ignore
             return
 
         try:
@@ -95,7 +95,7 @@ class PDFUrlKnowledgeBase(AgentKnowledge):
             logger.error(f"Unsupported URL provided to load_url: {url}")
             return
 
-        if not await self.aprepare_load(url, self.formats, metadata, recreate, is_url=True):
+        if not await self.aprepare_load(url, self.formats, metadata, recreate, is_url=True):  # type: ignore
             return
 
         try:

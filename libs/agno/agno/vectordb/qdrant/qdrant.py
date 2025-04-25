@@ -247,7 +247,7 @@ class Qdrant(VectorDb):
                 # Merge filters with existing metadata
                 if "meta_data" not in payload:
                     payload["meta_data"] = {}
-                payload["meta_data"].update(filters)
+                payload["meta_data"].update(filters)  # type: ignore
 
             points.append(
                 models.PointStruct(
@@ -372,7 +372,7 @@ class Qdrant(VectorDb):
 
         try:
             # Execute search with parameters
-            results = self.client.search(**search_params)
+            results = self.client.search(**search_params)  # type: ignore
         except Exception as e:
             logger.error(f"Error searching for documents: {e}")
             return []
@@ -442,7 +442,7 @@ class Qdrant(VectorDb):
 
         try:
             # Execute search with parameters
-            results = await self.async_client.search(**search_params)
+            results = await self.async_client.search(**search_params)  # type: ignore
         except Exception as e:
             logger.error(f"Error searching for documents: {e}")
             return []

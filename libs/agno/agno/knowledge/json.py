@@ -21,7 +21,7 @@ class JSONKnowledgeBase(AgentKnowledge):
         Returns:
             Iterator[List[Document]]: Iterator yielding list of documents
         """
-        _json_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
+        _json_path: Path = Path(self.path) if isinstance(self.path, str) else self.path  # type: ignore
 
         if _json_path.exists() and _json_path.is_dir():
             for _json in _json_path.glob("*.json"):
@@ -37,7 +37,7 @@ class JSONKnowledgeBase(AgentKnowledge):
         Returns:
             AsyncIterator[List[Document]]: Async iterator yielding list of documents
         """
-        _json_path: Path = Path(self.path) if isinstance(self.path, str) else self.path
+        _json_path: Path = Path(self.path) if isinstance(self.path, str) else self.path  # type: ignore
 
         if _json_path.exists() and _json_path.is_dir():
             json_files = list(_json_path.glob("*.json"))

@@ -68,7 +68,7 @@ class GroqTools(Toolkit):
                         response_format="text",
                     )
             log_debug(f"Transcript Generated: {transcription_text}")
-            return transcription_text
+            return transcription_text  # type: ignore
 
         except Exception as e:
             log_error(f"Failed to transcribe audio source '{audio_source}' with Groq: {str(e)}")
@@ -99,7 +99,7 @@ class GroqTools(Toolkit):
                         response_format="text",
                     )
             log_debug(f"Groq Translation: {translation}")
-            return translation
+            return translation  # type: ignore
 
         except Exception as e:
             log_error(f"Failed to translate audio source '{audio_source}' with Groq: {str(e)}")

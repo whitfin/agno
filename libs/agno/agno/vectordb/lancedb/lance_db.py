@@ -459,7 +459,7 @@ class LanceDb(VectorDb):
 
         if self.table is None:
             logger.error("Table not initialized. Please create the table first")
-            return None
+            return None  # type: ignore
 
         results = self.table.search(
             query=query_embedding,

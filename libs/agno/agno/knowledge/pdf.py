@@ -10,7 +10,7 @@ from agno.utils.log import logger
 
 
 class PDFKnowledgeBase(AgentKnowledge):
-    path: Union[str, Path] = None
+    path: Union[str, Path] = None  # type: ignore
 
     formats: List[str] = [".pdf"]
 

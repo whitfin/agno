@@ -73,7 +73,9 @@ def main() -> None:
                 for msg in run_response.messages or []:
                     if msg.role in ["user", "assistant"] and msg.content is not None:
                         # Include any tool calls attached to this message
-                        add_message(msg.role, msg.content, getattr(msg, "tool_calls", None))
+                        add_message(
+                            msg.role, msg.content, getattr(msg, "tool_calls", None)
+                        )
         else:
             logger.debug("No run history found")
             st.session_state["messages"] = []

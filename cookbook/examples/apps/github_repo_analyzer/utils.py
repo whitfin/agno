@@ -68,6 +68,7 @@ def sidebar_widget() -> None:
             # Use restart logic to clear everything and rerun
             restart_agent()
 
+
 def about_widget() -> None:
     """Display an about section in the sidebar"""
     with st.sidebar:

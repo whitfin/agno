@@ -1,23 +1,27 @@
-import logging
-from typing import Optional
 from textwrap import dedent
+from typing import Optional
 
-import streamlit as st
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.github import GithubTools
-from agno.tools.reasoning import ReasoningTools
 
-def get_github_agent(repo_name: Optional[str] = None, debug_mode: bool = True) -> Optional[Agent]:
+
+def get_github_agent(
+    repo_name: Optional[str] = None, debug_mode: bool = True
+) -> Optional[Agent]:
     """
     Args:
         repo_name: Optional repository name ("owner/repo"). If None, agent relies on user query.
         debug_mode: Whether to enable debug mode for tool calls.
     """
     # Dynamically set context based on whether a repo_name was provided
-    initial_repo_context = f"The user has pre-selected the repository: **{repo_name}**. Focus your analysis here unless the user explicitly specifies a different one." if repo_name else "No repository is pre-selected. You MUST determine the target repository from the user's query or conversation history."
+    initial_repo_context = (
+        f"The user has pre-selected the repository: **{repo_name}**. Focus your analysis here unless the user explicitly specifies a different one."
+        if repo_name
+        else "No repository is pre-selected. You MUST determine the target repository from the user's query or conversation history."
+    )
 
-    agent = Agent(
+    return Agent(
         model=OpenAIChat(id="gpt-4o"),
         description=dedent("""
             You are an expert Code Reviewing Agent specializing in analyzing GitHub repositories,
@@ -80,5 +84,5 @@ def get_github_agent(repo_name: Optional[str] = None, debug_mode: bool = True) -
         ],
         markdown=True,
         debug_mode=debug_mode,
+        add_history_to_messages=True,
     )
-    return agent

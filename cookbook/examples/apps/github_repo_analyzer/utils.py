@@ -1,26 +1,22 @@
-"""
-Utility functions for the GitHub Repository Analyzer.
-"""
-
 import json
-import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import streamlit as st
-from agno.utils.log import logger
+from agno.utils.log import log_debug, log_error, log_info
+
 
 def add_message(
-    role: str, content: str, tool_calls: Optional[List[Dict]] = None
+    role: str, content: str, tool_calls: Optional[List[Dict[str, Any]]] = None
 ) -> None:
-    """Add a message to the chat history."""
-    if "messages" not in st.session_state:
+    """Safely add a message to the session state"""
+    if "messages" not in st.session_state or not isinstance(
+        st.session_state["messages"], list
+    ):
         st.session_state["messages"] = []
+    st.session_state["messages"].append(
+        {"role": role, "content": content, "tool_calls": tool_calls}
+    )
 
-    message = {"role": role, "content": content}
-    if tool_calls:
-        message["tool_calls"] = tool_calls
-
-    st.session_state["messages"].append(message)
 
 def sidebar_widget() -> None:
     """Renders the sidebar for configuration and example queries."""
@@ -29,11 +25,11 @@ def sidebar_widget() -> None:
 
         st.markdown("**GitHub Token**")
         token_input = st.text_input(
-            "Enter your GitHub Personal Access Token (needed for most queries):",
+            "Enter your GitHub Personal Access Token (required for most queries):",
             type="password",
             key="github_token_input",
             value=st.session_state.get("github_token", ""),
-            help="Allows the agent to access GitHub API, including your private/org data."
+            help="Allows the agent to access GitHub API, including your private/org data.",
         )
         st.markdown(
             "[How to create a GitHub PAT?](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-personal-access-token-classic)",
@@ -42,54 +38,115 @@ def sidebar_widget() -> None:
 
         # Update session state if token input changes
         current_token_in_state = st.session_state.get("github_token")
-        if token_input != current_token_in_state and (token_input or current_token_in_state is not None):
+        if token_input != current_token_in_state and (
+            token_input or current_token_in_state is not None
+        ):
             st.session_state.github_token = token_input if token_input else None
-            logger.info(f"GitHub token updated via sidebar input {'(cleared)' if not token_input else ''}.")
-            # No need to clear repo list/selection anymore
-            st.session_state.agent = None # Force re-initialization of agent with new/cleared token
+            log_info(
+                f"GitHub token updated via sidebar input {'(cleared)' if not token_input else ''}."
+            )
+            st.session_state.github_agent = None
             st.rerun()
 
         st.markdown("---")
         st.markdown("### Example Queries")
 
-        example_queries = [
-            "Fetch all my repositories",
-            "Analyze 'tensorflow/tensorflow' repo",
-            "Get star count for 'agno-agi/agno'",
-            "List open issues in 'microsoft/vscode'",
-            "Summarize 'agno-agi/agno' repo"
-        ]
+        st.markdown("#### 🏆 Sample Queries")
+        if st.button("📋 Summarize 'agno-agi/agno' repo"):
+            add_message("user", "Summarize 'agno-agi/agno' repo")
+        if st.button("🥇 List all my repositories"):
+            add_message("user", "List all my repositories")
+        if st.button("🏆 List all issues in 'agno-agi/agno' repo"):
+            add_message("user", "List all issues in 'agno-agi/agno' repo")
+        if st.button("🥇 List all PRs in 'agno-agi/agno' repo"):
+            add_message("user", "List all PRs in 'agno-agi/agno' repo")
 
-        if 'sidebar_query' not in st.session_state:
-            st.session_state.sidebar_query = None
-
-        for query in example_queries:
-            sanitized_query = query.lower().replace(' ', '_').replace('/', '_').replace('#', 'num').replace("'", "")
-            button_key = f"btn_{sanitized_query}"
-            if st.button(query, key=button_key, use_container_width=True):
-                logger.info(f"Sidebar button clicked: {query}")
-                st.session_state.sidebar_query = query
-                st.rerun()
-
-        st.markdown("---")
-        about_widget() # Keep about section
 
 def about_widget() -> None:
-    """Display the about section with application information."""
-    st.sidebar.markdown("### About GitHub Repo Chat")
-    st.sidebar.markdown("""This tool provides insights into GitHub repositories using an Agno Agent, with a focus on AI-assisted code review.
+    """Display an about section in the sidebar"""
+    with st.sidebar:
+        st.markdown("### About Agno ✨")
+        st.markdown("""
+        Agno is a lightweight library for building Reasoning Agents.
 
-    ### Features
-    - Repository metrics analysis
-    - Issue and PR insights
-    - Detailed PR code review based on patch analysis
-    - Community health evaluation
-    
-    Built with:
-    - 🚀 Agno
-    - 💫 Streamlit
-    - 🔍 GitHub API
-""")
+        [GitHub](https://github.com/agno-agi/agno) | [Docs](https://docs.agno.com)
+        """)
+
+        st.markdown("### Need Help?")
+        st.markdown(
+            "If you have any questions, catch us on [discord](https://agno.link/discord) or post in the community [forum](https://agno.link/community)."
+        )
+
+
+def is_json(myjson):
+    """Check if a string is valid JSON"""
+    try:
+        json.loads(myjson)
+    except (ValueError, TypeError):
+        return False
+    return True
+
+
+def display_tool_calls(tool_calls_container, tools):
+    """Display tool calls in a streamlit container with expandable sections.
+
+    Args:
+        tool_calls_container: Streamlit container to display the tool calls
+        tools: List of tool call dictionaries containing name, args, content, and metrics
+    """
+    try:
+        with tool_calls_container.container():
+            for tool_call in tools:
+                tool_name = tool_call.get("tool_name", "Unknown Tool")
+                tool_args = tool_call.get("tool_args", {})
+                content = tool_call.get("content", None)
+                metrics = tool_call.get("metrics", None)
+
+                # Add timing information
+                execution_time_str = "N/A"
+                try:
+                    if metrics is not None and hasattr(metrics, "time"):
+                        execution_time = metrics.time
+                        if execution_time is not None:
+                            execution_time_str = f"{execution_time:.4f}s"
+                except Exception as e:
+                    log_error(f"Error displaying tool calls: {str(e)}")
+                    pass
+
+                with st.expander(
+                    f"🛠️ {tool_name.replace('_', ' ').title()} ({execution_time_str})",
+                    expanded=False,
+                ):
+                    # Show query with syntax highlighting
+                    if isinstance(tool_args, dict) and "query" in tool_args:
+                        st.code(tool_args["query"], language="sql")
+
+                    # Display arguments in a more readable format
+                    if tool_args and tool_args != {"query": None}:
+                        st.markdown("**Arguments:**")
+                        st.json(tool_args)
+
+                    if content is not None:
+                        try:
+                            if is_json(content):
+                                st.markdown("**Results:**")
+                                st.json(content)
+                        except Exception as e:
+                            log_debug(f"Skipped tool call content: {e}")
+    except Exception as e:
+        log_error(f"Error displaying tool calls: {str(e)}")
+        tool_calls_container.error("Failed to display tool results")
+
+
+def restart_agent():
+    """Reset the agent and clear chat history"""
+    log_debug("---*--- Restarting agent ---*---")
+    st.session_state["sql_agent"] = None
+    st.session_state["sql_agent_session_id"] = None
+    st.session_state["messages"] = []
+    st.session_state["github_agent"] = None
+    st.rerun()
+
 
 # Keep only necessary CSS styles
 CUSTOM_CSS = """

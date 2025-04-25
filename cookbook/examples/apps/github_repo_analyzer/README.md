@@ -1,4 +1,4 @@
-# GitHub Repository Chat Analyzer
+# GitHub Repository Analyzer
 
 This application provides a chat-based interface to interact with and analyze GitHub repositories using the Agno framework and OpenAI models. Users can select a repository and ask questions about its code, issues, pull requests, statistics, and more.
 

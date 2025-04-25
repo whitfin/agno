@@ -1072,25 +1072,10 @@ class Agent:
     ) -> Union[RunResponse, Iterator[RunResponse]]:
         """Run the Agent and return the response."""
 
-        # Determine which filters to use, with priority to run-level filters
-        effective_filters = None
-
-        # If agent has filters, use those as a base
-        if self.knowledge_filters:
-            effective_filters = self.knowledge_filters.copy()
-
-        # If run has filters, they override agent filters
-        if knowledge_filters:
-            if effective_filters:
-                # Merge filters, with run filters taking priority
-                effective_filters.update(knowledge_filters)
-            else:
-                effective_filters = knowledge_filters
-        if effective_filters:
-            log_debug(f"Using knowledge filters: {effective_filters}")
-
         # Initialize the Agent
         self.initialize_agent()
+
+        effective_filters = self._get_effective_filters(knowledge_filters)
 
         # If no retries are set, use the agent's default retries
         if retries is None:
@@ -1697,25 +1682,10 @@ class Agent:
     ) -> Any:
         """Async Run the Agent and return the response."""
 
-        # Determine which filters to use, with priority to run-level filters
-        effective_filters = None
-
-        # If agent has filters, use those as a base
-        if self.knowledge_filters:
-            effective_filters = self.knowledge_filters.copy()
-
-        # If run has filters, they override agent filters
-        if knowledge_filters:
-            if effective_filters:
-                # Merge filters, with run filters taking priority
-                effective_filters.update(knowledge_filters)
-            else:
-                effective_filters = knowledge_filters
-        if effective_filters:
-            log_debug(f"Using knowledge filters: {effective_filters}")
-
         # Initialize the Agent
         self.initialize_agent()
+
+        effective_filters = self._get_effective_filters(knowledge_filters)
 
         # If no retries are set, use the agent's default retries
         if retries is None:
@@ -5535,6 +5505,35 @@ class Agent:
             from agno.utils.log import log_error
 
             log_error(f"Failed to add reasoning metrics to extra_data: {str(e)}")
+
+    def _get_effective_filters(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """
+        Determine which knowledge filters to use, with priority to run-level filters.
+
+        Args:
+            knowledge_filters: Filters passed at run time
+
+        Returns:
+            The effective filters to use, with run-level filters taking priority
+        """
+        effective_filters = None
+
+        # If agent has filters, use those as a base
+        if self.knowledge_filters:
+            effective_filters = self.knowledge_filters.copy()
+
+        # If run has filters, they override agent filters
+        if knowledge_filters:
+            if effective_filters:
+                # Merge filters, with run filters taking priority
+                effective_filters.update(knowledge_filters)
+            else:
+                effective_filters = knowledge_filters
+
+        if effective_filters:
+            log_debug(f"Using knowledge filters: {effective_filters}")
+
+        return effective_filters
 
     def cli_app(
         self,

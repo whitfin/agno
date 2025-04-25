@@ -1344,13 +1344,13 @@ class Team:
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
             for member in self.members:
                 if isinstance(member, Agent):
-                    asyncio.create_task(member.aregister_agent_on_platform)
+                    asyncio.create_task(member.aregister_agent_on_platform())
                 elif isinstance(member, Team):
                 
                     asyncio.create_task(member._aregister_team_on_platform(team_id=self.team_id))
                     for team_member in member.members:
                         if isinstance(team_member, Agent):
-                            asyncio.create_task(team_member._aregister_agent_on_platform())
+                            asyncio.create_task(team_member.aregister_agent_on_platform())
                         elif isinstance(team_member, Team):
                             asyncio.create_task(team_member._aregister_team_on_platform(team_id=self.team_id)) 
             # Run the team

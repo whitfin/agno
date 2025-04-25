@@ -515,12 +515,12 @@ class AgentKnowledge(BaseModel):
 
         # Recreate collection if requested
         if recreate:
-            log_info(f"Recreating collection '{self.vector_db.collection}'.")
+            # log_info(f"Recreating collection.")
             self.vector_db.drop()
 
         # Create collection if it doesn't exist
         if not self.vector_db.exists():
-            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
+            # log_info(f"Collection does not exist. Creating.")
             self.vector_db.create()
 
         return True
@@ -565,12 +565,12 @@ class AgentKnowledge(BaseModel):
 
         # Recreate collection if requested
         if recreate:
-            log_info(f"Recreating collection '{self.vector_db.collection}'.")
+            log_info(f"Recreating collection.")
             await self.vector_db.async_drop()
 
         # Create collection if it doesn't exist
         if not await self.vector_db.async_exists():
-            log_info(f"Collection '{self.vector_db.collection}' does not exist. Creating.")
+            log_info(f"Collection does not exist. Creating.")
             await self.vector_db.async_create()
 
         return True

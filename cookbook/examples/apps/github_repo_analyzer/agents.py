@@ -63,10 +63,9 @@ def get_github_agent(
         """),
         tools=[
             GithubTools(
+                get_repository=True,
                 search_repositories=True,
                 list_repositories=True,
-                get_repository=True,
-                list_pull_requests=True,
                 get_pull_request=True,
                 get_pull_request_changes=True,
                 list_branches=True,

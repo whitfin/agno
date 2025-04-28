@@ -17,7 +17,6 @@ class GithubTools(Toolkit):
         access_token: Optional[str] = None,
         base_url: Optional[str] = None,
         search_repositories: bool = True,
-        list_repositories: bool = True,
         get_repository: bool = False,
         list_pull_requests: bool = False,
         get_pull_request: bool = False,
@@ -56,7 +55,6 @@ class GithubTools(Toolkit):
         search_code: bool = False,
         search_issues_and_prs: bool = False,
         create_review_request: bool = False,
-        get_pulls_by_query: bool = False,
         **kwargs,
     ):
         super().__init__(name="github", **kwargs)
@@ -68,12 +66,8 @@ class GithubTools(Toolkit):
 
         if search_repositories:
             self.register(self.search_repositories)
-        if list_repositories:
-            self.register(self.list_repositories)
         if get_repository:
             self.register(self.get_repository)
-        if list_pull_requests:
-            self.register(self.list_pull_requests)
         if get_pull_request:
             self.register(self.get_pull_request)
         if get_pull_request_changes:
@@ -148,8 +142,6 @@ class GithubTools(Toolkit):
             self.register(self.search_issues_and_prs)
         if create_review_request:
             self.register(self.create_review_request)
-        if get_pulls_by_query:
-            self.register(self.get_pulls_by_query)
 
     def authenticate(self):
         """Authenticate with GitHub using the provided access token."""
@@ -328,36 +320,6 @@ class GithubTools(Toolkit):
             logger.error(f"Error getting repository languages: {e}")
             return json.dumps({"error": str(e)})
 
-    def list_pull_requests(self, repo_name: str, state: str = "open") -> str:
-        """List pull requests for a repository.
-
-        Args:
-            repo_name (str): The full name of the repository (e.g., 'owner/repo').
-            state (str, optional): The state of the PRs to list ('open', 'closed', 'all'). Defaults to 'open'.
-
-        Returns:
-            A JSON-formatted string containing a list of pull requests.
-        """
-        log_debug(f"Listing pull requests for repository: {repo_name} with state: {state}")
-        try:
-            repo = self.g.get_repo(repo_name)
-            pulls = repo.get_pulls(state=state)
-            pr_list = []
-            for pr in pulls:
-                pr_info = {
-                    "number": pr.number,
-                    "title": pr.title,
-                    "user": pr.user.login,
-                    "created_at": pr.created_at.isoformat(),
-                    "state": pr.state,
-                    "url": pr.html_url,
-                }
-                pr_list.append(pr_info)
-            return json.dumps(pr_list, indent=2)
-        except GithubException as e:
-            logger.error(f"Error listing pull requests: {e}")
-            return json.dumps({"error": str(e)})
-
     def get_pull_request_count(
         self,
         repo_name: str,
@@ -493,13 +455,13 @@ class GithubTools(Toolkit):
             logger.error(f"Error creating issue: {e}")
             return json.dumps({"error": str(e)})
 
-    def list_issues(self, repo_name: str, state: str = "open") -> str:
+    def list_issues(self, repo_name: str, state: str = "open", limit: int = 20) -> str:
         """List issues for a repository.
 
         Args:
             repo_name (str): The full name of the repository (e.g., 'owner/repo').
             state (str, optional): The state of issues to list ('open', 'closed', 'all'). Defaults to 'open'.
-
+            limit (int, optional): The maximum number of issues to return. Defaults to 20.
         Returns:
             A JSON-formatted string containing a list of issues.
         """
@@ -508,9 +470,10 @@ class GithubTools(Toolkit):
             repo = self.g.get_repo(repo_name)
             issues = repo.get_issues(state=state)
             # Filter out pull requests after fetching issues
+            logger.info(f"Issues: {issues}")
             filtered_issues = [issue for issue in issues if not issue.pull_request]
             issue_list = []
-            for issue in filtered_issues:
+            for issue in filtered_issues[:limit]:
                 issue_info = {
                     "number": issue.number,
                     "title": issue.title,
@@ -787,6 +750,7 @@ class GithubTools(Toolkit):
         direction: str = "desc",
         base: Optional[str] = None,
         head: Optional[str] = None,
+        limit: int = 20,
     ) -> str:
         """Get pull requests matching query parameters.
 
@@ -797,6 +761,7 @@ class GithubTools(Toolkit):
             direction (str, optional): The direction of the sort. Can be 'asc' or 'desc'. Defaults to 'desc'.
             base (str, optional): Filter pulls by base branch name. Defaults to None.
             head (str, optional): Filter pulls by head branch name. Defaults to None.
+            limit (int, optional): The maximum number of pull requests to return. Defaults to 20.
 
         Returns:
             A JSON-formatted string containing a list of pull requests.
@@ -807,7 +772,7 @@ class GithubTools(Toolkit):
             pulls = repo.get_pulls(state=state, sort=sort, direction=direction, base=base, head=head)
 
             pr_list = []
-            for pr in pulls:
+            for pr in pulls[:limit]:
                 pr_info = {
                     "number": pr.number,
                     "title": pr.title,
@@ -1831,54 +1796,4 @@ class GithubTools(Toolkit):
             )
         except GithubException as e:
             logger.error(f"Error searching issues and PRs: {e}")
-            return json.dumps({"error": str(e)})
-
-    def get_pulls_by_query(
-        self,
-        repo_name: str,
-        state: str = "open",
-        sort: str = "created",
-        direction: str = "desc",
-        base: Optional[str] = None,
-        head: Optional[str] = None,
-    ) -> str:
-        """Get pull requests from a repository with query parameters.
-
-        Args:
-            repo_name (str): The name of the repository in the format "owner/repo".
-            state (str, optional): The state of the pull requests. Can be "open", "closed", or "all". Defaults to "open".
-            sort (str, optional): The field to sort pull requests by. Can be "created", "updated", or "popularity". Defaults to "created".
-            direction (str, optional): The direction of the sort. Can be "asc" or "desc". Defaults to "desc".
-            base (str, optional): Filter by base branch name. Defaults to None.
-            head (str, optional): Filter by head branch name. Defaults to None.
-
-        Returns:
-            A JSON-formatted string containing a list of pull requests.
-        """
-        log_debug(
-            f"Getting pull requests from {repo_name} with query parameters: state={state}, sort={sort}, direction={direction}, base={base}, head={head}"
-        )
-        try:
-            repo = self.g.get_repo(repo_name)
-            pulls = repo.get_pulls(state=state, sort=sort, direction=direction, base=base, head=head)
-
-            pull_list = []
-            for pr in pulls:
-                pull_info = {
-                    "number": pr.number,
-                    "title": pr.title,
-                    "user": pr.user.login,
-                    "state": pr.state,
-                    "created_at": pr.created_at.isoformat() if pr.created_at else None,
-                    "updated_at": pr.updated_at.isoformat() if pr.updated_at else None,
-                    "url": pr.html_url,
-                    "base": pr.base.ref,
-                    "head": pr.head.ref,
-                }
-                pull_list.append(pull_info)
-
-            return json.dumps(pull_list, indent=2)
-
-        except GithubException as e:
-            logger.error(f"Error getting pull requests from {repo_name}: {e}")
             return json.dumps({"error": str(e)})

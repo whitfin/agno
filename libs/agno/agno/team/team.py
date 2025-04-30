@@ -440,7 +440,11 @@ class Team:
         if isinstance(member, Agent):
             member.team_id = self.team_id
             member.set_agent_id()
-
+        elif isinstance(member, Team):
+            if member.team_id is None:
+                member.team_id = str(uuid4())
+            for sub_member in member.members:
+                self._initialize_member(sub_member, session_id)
         if member.name is None:
             log_warning("Team member name is undefined.")
 
@@ -6785,7 +6789,26 @@ class Team:
                         else {}
                     ),
                     "agent_id": member.agent_id if hasattr(member, "agent_id") else None,
-                    "team_id": member.team_id if hasattr(member, "team_id") else None
+                    "team_id": member.team_id if hasattr(member, "team_id") else None,
+                    "members": (
+                        [
+                            {
+                                **(
+                                    sub_member.get_agent_config_dict()
+                                    if isinstance(sub_member, Agent)
+                                    else sub_member.to_platform_dict()
+                                    if isinstance(sub_member, Team)
+                                    else {}
+                                ),
+                                "agent_id": sub_member.agent_id if hasattr(sub_member, "agent_id") else None,
+                                "team_id": sub_member.team_id if hasattr(sub_member, "team_id") else None
+                            }
+                            for sub_member in member.members
+                            if sub_member is not None
+                        ]
+                        if isinstance(member, Team) and hasattr(member, "members")
+                        else []
+                    )
                 }
                 for member in self.members
                 if member is not None

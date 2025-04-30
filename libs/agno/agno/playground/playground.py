@@ -55,30 +55,25 @@ class Playground:
         self.description = description
         if self.agents:
             for agent in self.agents:
-
-                if not agent.agent_id:
-                    agent.agent_id = generate_id(agent.name) 
                 if not agent.app_id:
                     agent.app_id = self.app_id
-
-        if self.teams:
-            for team in self.teams:
-                if not team.team_id:
-                    team.team_id = generate_id(team.name)
-                if not team.app_id:
-                    team.app_id = self.app_id
-
                 agent.initialize_agent()
 
         if self.teams:
             for team in self.teams:
+                if not team.app_id:
+                    team.app_id = self.app_id
                 team.initialize_team()
                 for member in team.members:
                     if isinstance(member, Agent):
+                        # Ensure agent is initialized independently without team_id
+                        if not member.app_id:
+                            member.app_id = self.app_id
+                        # Clear any team_id before initialization
+                        member.team_id = None
                         member.initialize_agent()
                     elif isinstance(member, Team):
                         member.initialize_team()
-
 
         if self.workflows:
             for workflow in self.workflows:

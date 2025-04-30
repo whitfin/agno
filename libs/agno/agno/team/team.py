@@ -439,6 +439,7 @@ class Team:
 
         if isinstance(member, Agent):
             member.team_id = self.team_id
+            member.set_agent_id()
 
         if member.name is None:
             log_warning("Team member name is undefined.")
@@ -6735,7 +6736,7 @@ class Team:
             return
 
         from agno.api.team import TeamCreate, create_team
-
+        print(self.to_platform_dict(),"--------------------------------_________---------***************")
         try:
             create_team(
                 team=TeamCreate(
@@ -6783,12 +6784,8 @@ class Team:
                         if isinstance(member, Team)
                         else {}
                     ),
-                    "agent_id": member.agent_id
-                    if isinstance(member, Agent) and member.agent_id is not None
-                    else str(uuid4()),
-                    "team_id": member.team_id
-                    if isinstance(member, Agent) and member.team_id is not None
-                    else str(uuid4()),
+                    "agent_id": member.agent_id if hasattr(member, "agent_id") else None,
+                    "team_id": member.team_id if hasattr(member, "team_id") else None
                 }
                 for member in self.members
                 if member is not None

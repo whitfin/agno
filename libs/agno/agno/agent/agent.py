@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-
 import asyncio
 import threading
 from collections import ChainMap, defaultdict, deque
-
 from dataclasses import asdict, dataclass
 from os import getenv
 from textwrap import dedent
@@ -269,7 +267,6 @@ class Agent:
 
     # Optional team session state. Set by the team leader agent.
     team_session_state: Optional[Dict[str, Any]] = None
-
 
     # --- Debug & Monitoring ---
     # Enable debug logs
@@ -1260,7 +1257,7 @@ class Agent:
         self.run_response = RunResponse(run_id=self.run_id, session_id=session_id, agent_id=self.agent_id)
 
         # 1.4 Register the agent on the platform
-        
+
         # Create a task to run the agent registration in the background
         # This won't block the execution flow
         asyncio.create_task(self.aregister_agent_on_platform())
@@ -4420,7 +4417,6 @@ class Agent:
         return run_data
 
     def register_agent_on_platform(self) -> None:
-
         self.set_monitoring()
         if not self.monitoring:
             return
@@ -4430,7 +4426,15 @@ class Agent:
         try:
             log_debug(f"Creating Agent on Platform: {self.name}, {self.agent_id}, {self.team_id},")
             print("HERE", self.agent_id, self.get_agent_config_dict())
-            create_agent(agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id, app_id=self.app_id, config=self.get_agent_config_dict()))
+            create_agent(
+                agent=AgentCreate(
+                    name=self.name,
+                    agent_id=self.agent_id,
+                    team_id=self.team_id,
+                    app_id=self.app_id,
+                    config=self.get_agent_config_dict(),
+                )
+            )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
         log_debug(f"Agent app created: {self.name}, {self.agent_id}, {self.team_id},")
@@ -4445,7 +4449,13 @@ class Agent:
         try:
             log_debug(f"Creating Agent on Platform: {self.name}, {self.agent_id}, {self.team_id},")
             await acreate_agent(
-                agent=AgentCreate(name=self.name, agent_id=self.agent_id, team_id=self.team_id, app_id=self.app_id, config=self.get_agent_config_dict())
+                agent=AgentCreate(
+                    name=self.name,
+                    agent_id=self.agent_id,
+                    team_id=self.team_id,
+                    app_id=self.app_id,
+                    config=self.get_agent_config_dict(),
+                )
             )
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")

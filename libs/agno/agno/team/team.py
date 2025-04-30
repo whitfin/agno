@@ -228,7 +228,6 @@ class Team:
     # This helps us improve the Teams implementation and provide better support
     telemetry: bool = True
 
-
     def __init__(
         self,
         members: List[Union[Agent, "Team"]],
@@ -422,7 +421,6 @@ class Team:
         if self.markdown:
             member.markdown = True
 
-
         if session_id is not None:
             member.team_session_id = session_id
 
@@ -605,8 +603,6 @@ class Team:
         thread = threading.Thread(target=self._register_team_on_platform)
         thread.start()
 
-
-        
         # Run the team
         last_exception = None
         num_attempts = retries + 1
@@ -708,7 +704,9 @@ class Team:
                             thread = threading.Thread(target=team_member.register_agent_on_platform)
                             thread.start()
                         elif isinstance(team_member, Team):
-                            thread = threading.Thread(target=team_member._register_team_on_platform(team_id=self.team_id))
+                            thread = threading.Thread(
+                                target=team_member._register_team_on_platform(team_id=self.team_id)
+                            )
                             thread.start()
             # Run the team
             try:
@@ -1367,10 +1365,7 @@ class Team:
         # Configure the model for runs
         self._configure_model(show_tool_calls=show_tool_calls)
 
-  
-
         asyncio.create_task(self._aregister_team_on_platform())
-      
 
         # Run the team
         last_exception = None
@@ -1461,13 +1456,12 @@ class Team:
                 if isinstance(member, Agent):
                     asyncio.create_task(member.aregister_agent_on_platform())
                 elif isinstance(member, Team):
-                
                     asyncio.create_task(member._aregister_team_on_platform(team_id=self.team_id))
                     for team_member in member.members:
                         if isinstance(team_member, Agent):
                             asyncio.create_task(team_member.aregister_agent_on_platform())
                         elif isinstance(team_member, Team):
-                            asyncio.create_task(team_member._aregister_team_on_platform(team_id=self.team_id)) 
+                            asyncio.create_task(team_member._aregister_team_on_platform(team_id=self.team_id))
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
@@ -6735,11 +6729,11 @@ class Team:
         except Exception as e:
             log_debug(f"Could not create team monitor: {e}")
 
-    def _register_team_on_platform(self,team_id: Optional[str] = None) -> None:
+    def _register_team_on_platform(self, team_id: Optional[str] = None) -> None:
         self._set_monitoring()
         if not self.monitoring:
             return
-        
+
         from agno.api.team import TeamCreate, create_team
 
         try:
@@ -6749,19 +6743,19 @@ class Team:
                     name=self.name,
                     config=self.to_platform_dict(),
                     parent_team_id=team_id,
-                    app_id=self.app_id
+                    app_id=self.app_id,
                 ),
             )
-            
+
         except Exception as e:
             log_debug(f"Could not create team on platform: {e}")
             print(f"Could not create team on platform: {e}")
 
-    async def _aregister_team_on_platform(self,team_id: Optional[str] = None) -> None:
+    async def _aregister_team_on_platform(self, team_id: Optional[str] = None) -> None:
         self._set_monitoring()
         if not self.monitoring:
             return
-        
+
         from agno.api.team import TeamCreate, acreate_team
 
         try:
@@ -6771,7 +6765,7 @@ class Team:
                     name=self.name,
                     config=self.to_platform_dict(),
                     parent_team_id=team_id,
-                    app_id=self.app_id
+                    app_id=self.app_id,
                 ),
             )
         except Exception as e:
@@ -6782,11 +6776,22 @@ class Team:
         return {
             "members": [
                 {
-                    **(member.get_agent_config_dict() if isinstance(member, Agent) else member.to_platform_dict() if isinstance(member, Team) else {}),
-                    "agent_id": member.agent_id if isinstance(member, Agent) and member.agent_id is not None else str(uuid4()),
-                    "team_id": member.team_id if isinstance(member, Agent) and member.team_id is not None else str(uuid4())
-                } 
-                for member in self.members if member is not None
+                    **(
+                        member.get_agent_config_dict()
+                        if isinstance(member, Agent)
+                        else member.to_platform_dict()
+                        if isinstance(member, Team)
+                        else {}
+                    ),
+                    "agent_id": member.agent_id
+                    if isinstance(member, Agent) and member.agent_id is not None
+                    else str(uuid4()),
+                    "team_id": member.team_id
+                    if isinstance(member, Agent) and member.team_id is not None
+                    else str(uuid4()),
+                }
+                for member in self.members
+                if member is not None
             ],
             "mode": self.mode,
             "model": self.model.to_dict() if self.model is not None else None,
@@ -6794,6 +6799,6 @@ class Team:
             "instructions": self.instructions,
             "description": self.description,
             "storage": self.storage.__class__.__name__ if self.storage is not None else None,
-            # "tools": [tool.to_dict() for tool in self.tools] if self.tools is not None else None, 
+            # "tools": [tool.to_dict() for tool in self.tools] if self.tools is not None else None,
             # "memory": self.memory.to_dict() if self.memory is not None else None,
         }

@@ -8,6 +8,7 @@ from textwrap import dedent
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.playground import Playground
+
 simple_agent = Agent(
     name="Simple Agent",
     agent_id="simple-agent",
@@ -30,11 +31,11 @@ simple_agent = Agent(
 
 
 playground = Playground(
-        agents=[simple_agent],
-        name="Simple Agent",
-        app_id="simple-agent",
-        monitoring=True,
-    )
+    agents=[simple_agent],
+    name="Simple Agent",
+    app_id="simple-agent",
+    monitoring=True,
+)
 
 # Get the FastAPI app
 app = playground.get_app(use_async=False)
@@ -47,4 +48,3 @@ if __name__ == "__main__":
         port=7777,
         reload=True,
     )
-

@@ -66,10 +66,9 @@ class Playground:
                 team.initialize_team()
                 for member in team.members:
                     if isinstance(member, Agent):
-                        # Ensure agent is initialized independently without team_id
                         if not member.app_id:
                             member.app_id = self.app_id
-                        # Clear any team_id before initialization
+
                         member.team_id = None
                         member.initialize_agent()
                     elif isinstance(member, Team):
@@ -162,7 +161,6 @@ class Playground:
             expose_headers=["*"],
         )
 
-
         # asyncio.create_task(self.aregister_app_on_platform())
         return self.api_app
 
@@ -195,7 +193,6 @@ class Playground:
         encoded_endpoint = quote(f"{host}:{port}")
         self.endpoints_created = f"{scheme}://{host}:{port}"
 
-        
         # Create a panel with the playground URL
         url = f"{agno_cli_settings.playground_url}?endpoint={encoded_endpoint}"
         panel = Panel(
@@ -210,7 +207,7 @@ class Playground:
         # Print the panel
         console.print(panel)
         print(app, "this is app")
-        self.set_app_id()   
+        self.set_app_id()
         thread = threading.Thread(target=self.register_app_on_platform)
         thread.start()
         if self.agents:
@@ -256,21 +253,17 @@ class Playground:
     def playground_to_dict(self) -> Dict[str, Any]:
         payload = {
             "agents": [
-                {
-                    **agent.get_agent_config_dict(),
-                    "agent_id": agent.agent_id,
-                    "team_id": agent.team_id
-                } for agent in self.agents
-            ] if self.agents else [],
-            "teams": [
-                {
-                    **team.to_platform_dict(),
-                    "team_id": team.team_id
-                } for team in self.teams
-            ] if self.teams else [],
+                {**agent.get_agent_config_dict(), "agent_id": agent.agent_id, "team_id": agent.team_id}
+                for agent in self.agents
+            ]
+            if self.agents
+            else [],
+            "teams": [{**team.to_platform_dict(), "team_id": team.team_id} for team in self.teams]
+            if self.teams
+            else [],
             "endpoint": self.endpoints_created,
             "type": "playground",
-            "description": self.description
+            "description": self.description,
         }
         print(payload, "this is payload")
         return payload

@@ -219,10 +219,24 @@ financial_news_team = Team(
     context="use USD as currency",
 )
 
-app = Playground(
+# Create a single Playground instance to avoid duplication
+playground = Playground(
     teams=[research_team, financial_news_team, multimodal_team],
     agents=[web_agent, finance_agent, research_agent, simple_agent],
-).get_app()
+    name="Playground Demo app",
+    description="This is a demo app for the Playground.",
+    app_id="playground-demo-app",
+    monitoring=True,
+)
+
+# Get the FastAPI app
+app = playground.get_app(use_async=False)
 
 if __name__ == "__main__":
-    serve_playground_app("teams_demo:app", reload=True)
+    # Start the playground server
+    playground.register_playground_app(
+        app="teams_demo:app",
+        host="localhost",
+        port=7777,
+        reload=True,
+    )

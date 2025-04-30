@@ -208,7 +208,8 @@ class Team:
     reasoning_model: Optional[Model] = None
     reasoning_min_steps: int = 1
     reasoning_max_steps: int = 10
-
+    # Optional app ID. Indicates this team is part of an app.
+    app_id: Optional[str] = None
     # --- Debug & Monitoring ---
     # Enable debug logs
     debug_mode: bool = False
@@ -6310,7 +6311,8 @@ class Team:
                     team_id=self.team_id,
                     name=self.name,
                     config=self.to_platform_dict(),
-                    parent_team_id=team_id
+                    parent_team_id=team_id,
+                    app_id=self.app_id
                 ),
             )
             
@@ -6331,7 +6333,8 @@ class Team:
                     team_id=self.team_id,
                     name=self.name,
                     config=self.to_platform_dict(),
-                    parent_team_id=team_id
+                    parent_team_id=team_id,
+                    app_id=self.app_id
                 ),
             )
         except Exception as e:
@@ -6343,8 +6346,8 @@ class Team:
             "members": [
                 {
                     **(member.get_agent_config_dict() if isinstance(member, Agent) else member.to_platform_dict() if isinstance(member, Team) else {}),
-                    "agent_id": member.agent_id if hasattr(member, "agent_id") else None,
-                    "team_id": member.team_id if hasattr(member, "team_id") else None
+                    "agent_id": member.agent_id if isinstance(member, Agent) and member.agent_id is not None else str(uuid4()),
+                    "team_id": member.team_id if isinstance(member, Agent) and member.team_id is not None else str(uuid4())
                 } 
                 for member in self.members if member is not None
             ],

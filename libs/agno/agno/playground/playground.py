@@ -82,16 +82,7 @@ class Playground:
     def set_app_id(self) -> str:
         # If app_id is already set, keep it instead of overriding with UUID
         if self.app_id is None:
-            app_id_parts = []
-            if self.agents and self.agents is not None:
-                app_id_parts.append(f"agent-{self.agents[0].agent_id}")
-            if self.teams and self.teams is not None:
-                app_id_parts.append(f"team-{self.teams[0].team_id}")
-            if self.workflows and self.workflows is not None:
-                app_id_parts.append(f"workflow-{self.workflows[0].workflow_id}")
-
-            if app_id_parts:
-                self.app_id = "-".join(app_id_parts)
+            self.app_id = str(uuid4())
 
         # Don't override existing app_id
         return self.app_id

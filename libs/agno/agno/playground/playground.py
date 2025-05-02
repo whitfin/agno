@@ -164,7 +164,7 @@ class Playground:
         # asyncio.create_task(self.aregister_app_on_platform())
         return self.api_app
 
-    def register_playground_app(
+    def serve_playground_app(
         self,
         app: Union[str, FastAPI],
         *,
@@ -206,7 +206,6 @@ class Playground:
 
         # Print the panel
         console.print(panel)
-        print(app, "this is app")
         self.set_app_id()
         thread = threading.Thread(target=self.register_app_on_platform)
         thread.start()
@@ -228,8 +227,7 @@ class Playground:
         from agno.api.app import AppCreate, create_app
 
         try:
-            print(f"Creating Agent on Platform: {self.name}, {self.app_id}")
-            # print("HERE", self.playground_to_dict())
+            log_debug(f"Creating app on Platform: {self.name}, {self.app_id}")
             create_app(app=AppCreate(name=self.name, app_id=self.app_id, config=self.playground_to_dict()))
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
@@ -265,7 +263,6 @@ class Playground:
             "type": "playground",
             "description": self.description,
         }
-        print(payload, "this is payload")
         return payload
 
 

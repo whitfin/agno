@@ -6740,7 +6740,7 @@ class Team:
             return
 
         from agno.api.team import TeamCreate, create_team
-        print(self.to_platform_dict(),"--------------------------------_________---------***************")
+
         try:
             create_team(
                 team=TeamCreate(
@@ -6801,14 +6801,14 @@ class Team:
                                     else {}
                                 ),
                                 "agent_id": sub_member.agent_id if hasattr(sub_member, "agent_id") else None,
-                                "team_id": sub_member.team_id if hasattr(sub_member, "team_id") else None
+                                "team_id": sub_member.team_id if hasattr(sub_member, "team_id") else None,
                             }
                             for sub_member in member.members
                             if sub_member is not None
                         ]
                         if isinstance(member, Team) and hasattr(member, "members")
                         else []
-                    )
+                    ),
                 }
                 for member in self.members
                 if member is not None

@@ -1654,14 +1654,7 @@ class Agent:
         # Log Agent Run
         await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
-        # Define a synchronous wrapper to run the async function
-        # def run_async_in_thread():
-        #     asyncio.run(alog_agent_run())
-
-        # # Run the synchronous wrapper in a separate thread
-        # await asyncio.to_thread(run_async_in_thread)
-
-        log_debug(f"Async Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
+        log_debug(f" Agent Run End: {self.run_response.run_id}", center=True, symbol="*")
         if self.stream_intermediate_steps:
             yield self.create_run_response(
                 content=self.run_response.content,
@@ -4425,7 +4418,6 @@ class Agent:
 
         try:
             log_debug(f"Creating Agent on Platform: {self.name}, {self.agent_id}, {self.team_id},")
-            print("HERE", self.agent_id, self.get_agent_config_dict())
             create_agent(
                 agent=AgentCreate(
                     name=self.name,
@@ -5473,7 +5465,9 @@ class Agent:
             if message in _exit_on:
                 break
 
-            self.print_response(message=message, stream=stream, markdown=markdown, **kwargs)
+            self.print_response(
+                message=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id**kwargs
+            )
 
     def get_agent_config_dict(self) -> Dict[str, Any]:
         tools = []
@@ -5498,13 +5492,19 @@ class Agent:
             "tools": tools,
             "memory": {
                 "name": self.memory.__class__.__name__ if self.memory is not None else None,
-            },
+            }
+            if self.memory is not None
+            else None,
             "storage": {
                 "name": self.storage.__class__.__name__ if self.storage is not None else None,
-            },
+            }
+            if self.storage is not None
+            else None,
             "knowledge": {
                 "name": self.knowledge.__class__.__name__ if self.knowledge is not None else None,
-            },
+            }
+            if self.knowledge is not None
+            else None,
             "model": model,
             "name": self.name,
             "description": self.description,

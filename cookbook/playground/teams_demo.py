@@ -78,7 +78,7 @@ web_agent = Agent(
     tools=[DuckDuckGoTools()],
     agent_id="web_agent",
     instructions=[
-        "You are an experienced web researcher and news analyst!",
+        "You are an experienced web researcher and news analyst! 🔍",
     ],
     memory=memory,
     enable_user_memories=True,
@@ -98,7 +98,7 @@ finance_agent = Agent(
         YFinanceTools(stock_price=True, analyst_recommendations=True, company_info=True)
     ],
     instructions=[
-        "You are a skilled financial analyst with expertise in market data!",
+        "You are a skilled financial analyst with expertise in market data! 📊",
         "Follow these steps when analyzing financial data:",
         "Start with the latest stock price, trading volume, and daily range",
         "Present detailed analyst recommendations and consensus target prices",
@@ -142,7 +142,7 @@ research_team = Team(
         A comprehensive research report with clear sections and data-driven insights.
     """),
     instructions=[
-        "You are the lead researcher of a research team!",
+        "You are the lead researcher of a research team! 🔍",
     ],
     memory=memory,
     enable_user_memories=True,
@@ -169,7 +169,7 @@ multimodal_team = Team(
         A comprehensive report with clear sections and data-driven insights.
     """),
     instructions=[
-        "You are the lead editor of a prestigious financial news desk!",
+        "You are the lead editor of a prestigious financial news desk! 📰",
     ],
     memory=memory,
     enable_user_memories=True,
@@ -188,14 +188,14 @@ financial_news_team = Team(
         finance_agent,
         research_agent,
         file_agent,
-        # audio_agent,
-        # video_agent,
+        audio_agent,
+        video_agent,
     ],
     model=OpenAIChat(id="gpt-4o"),
     mode="route",
     team_id="financial_news_team",
     instructions=[
-        "You are the lead editor of a prestigious financial news desk!",
+        "You are the lead editor of a prestigious financial news desk! 📰",
         "If you are given a file send it to the file agent.",
         "If you are given an audio file send it to the audio agent.",
         "If you are given a video file send it to the video agent.",
@@ -216,27 +216,12 @@ financial_news_team = Team(
     memory=memory,
     enable_user_memories=True,
     expected_output="A good financial news report.",
-    context="use USD as currency",
 )
 
-# Create a single Playground instance to avoid duplication
-playground = Playground(
+app = Playground(
     teams=[research_team, financial_news_team, multimodal_team],
     agents=[web_agent, finance_agent, research_agent, simple_agent],
-    name="Playground Demo app",
-    description="This is a demo app for the Playground.",
-    app_id="playground-demo-app",
-    monitoring=True,
-)
-
-# Get the FastAPI app
-app = playground.get_app(use_async=False)
+).get_app()
 
 if __name__ == "__main__":
-    # Start the playground server
-    playground.register_playground_app(
-        app="teams_demo:app",
-        host="localhost",
-        port=7777,
-        reload=True,
-    )
+    serve_playground_app("teams_demo:app", reload=True)

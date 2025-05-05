@@ -14,7 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
 from agno.agent.agent import Agent
-from agno.api.playground import PlaygroundEndpointCreate, create_playground_endpoint
+from agno.api.playground import PlaygroundEndpointCreate
 from agno.cli.console import console
 from agno.cli.settings import agno_cli_settings
 from agno.playground.async_router import get_async_playground_router
@@ -167,21 +167,11 @@ class Playground:
     ):
         import uvicorn
 
-        try:
-            create_playground_endpoint(
-                playground=PlaygroundEndpointCreate(
-                    endpoint=f"{scheme}://{host}:{port}", playground_data={"prefix": prefix}
-                ),
-            )
-        except Exception as e:
-            logger.error(f"Could not create playground endpoint: {e}")
-            logger.error("Please try again.")
-            return
 
         logger.info(f"Starting playground on {scheme}://{host}:{port}")
         # Encode the full endpoint (host:port)
         encoded_endpoint = quote(f"{host}:{port}")
-        self.endpoints_created = f"{scheme}://{host}:{port}"
+        self.endpoints_created = PlaygroundEndpointCreate(endpoint=f"{scheme}://{host}:{port}", playground_data={"prefix": prefix})
 
         # Create a panel with the playground URL
         url = f"{agno_cli_settings.playground_url}?endpoint={encoded_endpoint}"

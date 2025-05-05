@@ -63,7 +63,7 @@ def create_team(team: TeamCreate) -> None:
         try:
             api_client.post(
                 ApiRoutes.TEAM_CREATE,
-                json={"team": team.model_dump(exclude_none=True)},
+                json=team.model_dump(exclude_none=True),
             )
         except Exception as e:
             log_debug(f"Could not create Team: {e}")
@@ -75,10 +75,9 @@ async def acreate_team(team: TeamCreate) -> None:
 
     async with api.AuthenticatedAsyncClient() as api_client:
         try:
-            payload = {"team": team.model_dump(exclude_none=True)}
             await api_client.post(
                 ApiRoutes.TEAM_CREATE,
-                json=payload,
+                json=team.model_dump(exclude_none=True),
             )
         except Exception as e:
             print(f"Could not create Team: {e}")

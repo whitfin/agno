@@ -13,7 +13,7 @@ def create_app(app: AppCreate) -> None:
         try:
             api_client.post(
                 ApiRoutes.APP_CREATE,
-                json={"app": app.model_dump()},
+                json=app.model_dump(exclude_none=True),
             )
 
         except Exception as e:
@@ -26,10 +26,9 @@ async def acreate_app(app: AppCreate) -> None:
 
     async with api.AuthenticatedAsyncClient() as api_client:
         try:
-            payload = {"app": app.model_dump(exclude_none=True)}
             await api_client.post(
                 ApiRoutes.APP_CREATE,
-                json=payload,
+                json=app.model_dump(exclude_none=True),
             )
 
         except Exception as e:

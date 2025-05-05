@@ -58,7 +58,7 @@ def create_agent(agent: AgentCreate) -> None:
         try:
             api_client.post(
                 ApiRoutes.AGENT_CREATE,
-                json={"agent": agent.model_dump()},
+                json=agent.model_dump(exclude_none=True),
             )
         except Exception as e:
             log_debug(f"Could not create Agent: {e}")
@@ -70,10 +70,9 @@ async def acreate_agent(agent: AgentCreate) -> None:
 
     async with api.AuthenticatedAsyncClient() as api_client:
         try:
-            payload = {"agent": agent.model_dump(exclude_none=True)}
             await api_client.post(
                 ApiRoutes.AGENT_CREATE,
-                json=payload,
+                json=agent.model_dump(exclude_none=True),
             )
         except Exception as e:
             log_debug(f"Could not create Agent: {e}")

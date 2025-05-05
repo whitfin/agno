@@ -605,7 +605,7 @@ class Agent:
         self.run_response = RunResponse(run_id=self.run_id, session_id=session_id, agent_id=self.agent_id)
 
         # 1.4 Register the agent on the platform
-        thread = threading.Thread(target=self.register_agent_on_platform)
+        thread = threading.Thread(target=self._register_agent)
         thread.start()
 
         log_debug(f"Agent Run Start: {self.run_response.run_id}", center=True)
@@ -1260,7 +1260,7 @@ class Agent:
 
         # Create a task to run the agent registration in the background
         # This won't block the execution flow
-        asyncio.create_task(self.aregister_agent_on_platform())
+        asyncio.create_task(self._aregister_agent())
 
         log_debug(f"Async Agent Run Start: {self.run_response.run_id}", center=True, symbol="*")
 
@@ -4409,7 +4409,7 @@ class Agent:
 
         return run_data
 
-    def register_agent_on_platform(self) -> None:
+    def _register_agent(self) -> None:
         self.set_monitoring()
         if not self.monitoring:
             return
@@ -4431,7 +4431,7 @@ class Agent:
             log_debug(f"Could not create Agent app: {e}")
         log_debug(f"Agent app created: {self.name}, {self.agent_id}, {self.team_id},")
 
-    async def aregister_agent_on_platform(self) -> None:
+    async def _aregister_agent(self) -> None:
         self.set_monitoring()
         if not self.monitoring:
             return

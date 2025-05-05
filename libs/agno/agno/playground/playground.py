@@ -152,10 +152,9 @@ class Playground:
             expose_headers=["*"],
         )
 
-        # asyncio.create_task(self.aregister_app_on_platform())
         return self.api_app
 
-    def serve_playground_app(
+    def serve(
         self,
         app: Union[str, FastAPI],
         *,
@@ -198,16 +197,13 @@ class Playground:
         # Print the panel
         console.print(panel)
         self.set_app_id()
-        thread = threading.Thread(target=self.register_app_on_platform)
-        thread.start()
+        self.register_app_on_platform()
         if self.agents:
             for agent in self.agents:
-                t1 = threading.Thread(target=agent.register_agent_on_platform)
-                t1.start()
+                agent._register_agent() 
         if self.teams:
             for team in self.teams:
-                t2 = threading.Thread(target=team._register_team_on_platform)
-                t2.start()
+                team._register_team()
         uvicorn.run(app=app, host=host, port=port, reload=reload, **kwargs)
 
     def register_app_on_platform(self) -> None:
@@ -219,27 +215,12 @@ class Playground:
 
         try:
             log_debug(f"Creating app on Platform: {self.name}, {self.app_id}")
-            create_app(app=AppCreate(name=self.name, app_id=self.app_id, config=self.playground_to_dict()))
+            create_app(app=AppCreate(name=self.name, app_id=self.app_id, config=self.to_dict()))
         except Exception as e:
             log_debug(f"Could not create Agent app: {e}")
         log_debug(f"Agent app created: {self.name}, {self.app_id}")
 
-    async def aregister_app_on_platform(self) -> None:
-        self._set_monitoring()
-        if not self.monitoring:
-            return
-
-        from agno.api.app import AppCreate, acreate_app
-
-        try:
-            log_debug(f"Creating App on Platform: {self.name}, {self.agent_id}, {self.team_id},")
-            await acreate_app(app=AppCreate(name=self.name, app_id=self.app_id, config=self.playground_to_dict()))
-
-        except Exception as e:
-            log_debug(f"Could not create App: {e}")
-        log_debug(f"App created: {self.name}, {self.agent_id}, {self.team_id},")
-
-    def playground_to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         payload = {
             "agents": [
                 {**agent.get_agent_config_dict(), "agent_id": agent.agent_id, "team_id": agent.team_id}

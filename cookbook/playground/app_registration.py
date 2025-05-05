@@ -234,7 +234,7 @@ app = playground.get_app(use_async=False)
 
 if __name__ == "__main__":
     # Start the playground server
-    playground.serve_playground_app(
+    playground.serve(
         app="app_registration:app",
         host="localhost",
         port=7777,

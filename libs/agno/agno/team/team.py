@@ -696,24 +696,8 @@ class Team:
                     _tools.append(self.get_member_information)
 
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
-            for member in self.members:
-                if isinstance(member, Agent):
-                    thread = threading.Thread(target=member.register_agent_on_platform)
-                    thread.start()
-                elif isinstance(member, Team):
-                    thread = threading.Thread(target=member._register_team_on_platform(team_id=self.team_id))
-                    thread.start()
-                    # Register team members recursively
-                    for team_member in member.members:
-                        if isinstance(team_member, Agent):
-                            thread = threading.Thread(target=team_member.register_agent_on_platform)
-                            thread.start()
-                        elif isinstance(team_member, Team):
-                            thread = threading.Thread(
-                                target=team_member._register_team_on_platform(team_id=self.team_id)
-                            )
-                            thread.start()
-            # Run the team
+
+            # # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)
                 # Configure the team leader model
@@ -1457,16 +1441,7 @@ class Team:
                     _tools.append(self.get_set_shared_context_function(session_id=session_id))
 
             self._add_tools_to_model(self.model, tools=_tools)  # type: ignore
-            for member in self.members:
-                if isinstance(member, Agent):
-                    asyncio.create_task(member.aregister_agent_on_platform())
-                elif isinstance(member, Team):
-                    asyncio.create_task(member._aregister_team_on_platform(team_id=self.team_id))
-                    for team_member in member.members:
-                        if isinstance(team_member, Agent):
-                            asyncio.create_task(team_member.aregister_agent_on_platform())
-                        elif isinstance(team_member, Team):
-                            asyncio.create_task(team_member._aregister_team_on_platform(team_id=self.team_id))
+
             # Run the team
             try:
                 self.run_response = TeamRunResponse(run_id=self.run_id, session_id=session_id, team_id=self.team_id)

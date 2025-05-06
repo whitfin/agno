@@ -221,7 +221,7 @@ class Playground:
             "teams": [{**team.to_platform_dict(), "team_id": team.team_id} for team in self.teams]
             if self.teams
             else [],
-            "endpoint": self.endpoints_created,
+            "endpointData": self.endpoints_created,
             "type": "playground",
             "description": self.description,
         }

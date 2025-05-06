@@ -283,6 +283,15 @@ class Message(BaseModel):
             "created_at": self.created_at,
         }
 
+    def to_observability_dict(self) -> Dict[str, Any]:
+        _msg_dict = {
+            "role": self.role,
+            "content": self.content,
+            "tool_calls": self.tool_calls
+        }
+        _msg_dict = {k: v for k, v in _msg_dict.items() if v is not None}
+        return _msg_dict
+
     def log(self, metrics: bool = True, level: Optional[str] = None):
         """Log the message to the console
 

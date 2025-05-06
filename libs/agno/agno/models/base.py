@@ -183,20 +183,30 @@ class Model(ABC):
         self._log_messages(messages)
 
         if observability is not None:
-            observability.start_span(name=f"Model {self.id} Execution")
+            observability.start_span(
+                name=f"Model {self.id} Execution",
+                input_dict={"messages": [msg.to_observability_dict() for msg in messages]},
+            )
 
         model_response = ModelResponse()
 
         while True:
             # Get response from model
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id, input_dict={"messages": [msg.to_observability_dict() for msg in messages]})
             assistant_message, has_tool_calls = self._process_model_response(
                 messages=messages,
                 model_response=model_response,
             )
             if observability is not None:
-                observability.end_generation()
+                observability.end_generation(
+                    output_dict=assistant_message.to_observability_dict(),
+                    usage_details_dict={
+                        "input": assistant_message.metrics.input_tokens,
+                        "output": assistant_message.metrics.output_tokens,
+                        "total": assistant_message.metrics.total_tokens,
+                    },
+                )
 
             # Handle tool calls if present
             if has_tool_calls:
@@ -209,11 +219,6 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 # Execute function calls
-                if observability is not None:
-                    observability.create_event(
-                        name=f"Model {self.id} Executing Tool Calls",
-                        input_dict={"function_calls": function_calls_to_run},
-                    )
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
@@ -229,6 +234,12 @@ class Model(ABC):
                         if function_call_response.content:
                             model_response.content += function_call_response.content  # type: ignore
 
+                if observability is not None:
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": [fc.get_call_str() for fc in function_calls_to_run]},
+                        output_dict={"results": [fcr.to_dict() for fcr in function_call_results]},
+                    )
                 # Format and add results to messages
                 self.format_function_call_results(
                     messages=messages, function_call_results=function_call_results, **model_response.extra or {}
@@ -268,20 +279,30 @@ class Model(ABC):
         self._log_messages(messages)
 
         if observability is not None:
-            observability.start_span(name=f"Model {self.id} Execution")
+            observability.start_span(
+                name=f"Model {self.id} Execution",
+                input_dict={"messages": [msg.to_observability_dict() for msg in messages]},
+            )
 
         model_response = ModelResponse()
 
         while True:
             # Get response from model
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id, input_dict={"messages": [msg.to_observability_dict() for msg in messages]})
             assistant_message, has_tool_calls = await self._aprocess_model_response(
                 messages=messages,
                 model_response=model_response,
             )
             if observability is not None:
-                observability.end_generation()
+                observability.end_generation(
+                    output_dict=assistant_message.to_observability_dict(),
+                    usage_details_dict={
+                        "input": assistant_message.metrics.input_tokens,
+                        "output": assistant_message.metrics.output_tokens,
+                        "total": assistant_message.metrics.total_tokens,
+                    },
+                )
 
             # Handle tool calls if present
             if has_tool_calls:
@@ -294,12 +315,6 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 # Execute function calls
-
-                if observability is not None:
-                    observability.create_event(
-                        name=f"Model {self.id} Executing Tool Calls",
-                        input_dict={"function_calls": function_calls_to_run},
-                    )
                 async for function_call_response in self.arun_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
@@ -315,6 +330,12 @@ class Model(ABC):
                         if function_call_response.content:
                             model_response.content += function_call_response.content
 
+                if observability is not None:
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": [fc.get_call_str() for fc in function_calls_to_run]},
+                        output_dict={"results": [fcr.to_dict() for fcr in function_call_results]},
+                    )
                 # Format and add results to messages
                 self.format_function_call_results(
                     messages=messages, function_call_results=function_call_results, **model_response.extra or {}
@@ -547,7 +568,10 @@ class Model(ABC):
         self._log_messages(messages)
 
         if observability is not None:
-            observability.start_span(name=f"Model {self.id} Execution")
+            observability.start_span(
+                name=f"Model {self.id} Execution",
+                input_dict={"messages": [msg.to_observability_dict() for msg in messages]},
+            )
 
         while True:
             # Create assistant message and stream data
@@ -557,12 +581,10 @@ class Model(ABC):
             # Generate response
             assistant_message.metrics.start_timer()
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id, input_dict={"messages": [msg.to_observability_dict() for msg in messages]})
             yield from self.process_response_stream(
                 messages=messages, assistant_message=assistant_message, stream_data=stream_data
             )
-            if observability is not None:
-                observability.end_generation()
             assistant_message.metrics.stop_timer()
 
             # Populate assistant message from stream data
@@ -584,6 +606,15 @@ class Model(ABC):
             # Add assistant message to messages
             messages.append(assistant_message)
             assistant_message.log(metrics=True)
+            if observability is not None:
+                observability.end_generation(
+                    output_dict=assistant_message.to_observability_dict(),
+                    usage_details_dict={
+                        "input": assistant_message.metrics.input_tokens,
+                        "output": assistant_message.metrics.output_tokens,
+                        "total": assistant_message.metrics.total_tokens,
+                    },
+                )
 
             # Handle tool calls if present
             if assistant_message.tool_calls is not None:
@@ -591,17 +622,18 @@ class Model(ABC):
                 function_calls_to_run: List[FunctionCall] = self.get_function_calls_to_run(assistant_message, messages)
                 function_call_results: List[Message] = []
 
-                if observability is not None:
-                    observability.create_event(
-                        name=f"Model {self.id} Executing Tool Calls",
-                        input_dict={"function_calls": function_calls_to_run},
-                    )
                 # Execute function calls
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
                     yield function_call_response
 
+                if observability is not None:
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": [fc.get_call_str() for fc in function_calls_to_run]},
+                        output_dict={"results": [fcr.to_dict() for fcr in function_call_results]},
+                    )
                 # Format and add results to messages
                 if stream_data.extra is not None:
                     self.format_function_call_results(
@@ -658,7 +690,10 @@ class Model(ABC):
         log_debug(f"Model: {self.id}", center=True, symbol="-")
         self._log_messages(messages)
         if observability is not None:
-            observability.start_span(name=f"Model {self.id} Execution")
+            observability.start_span(
+                name=f"Model {self.id} Execution",
+                input_dict={"messages": [msg.to_observability_dict() for msg in messages]},
+            )
 
         while True:
             # Create assistant message and stream data
@@ -668,13 +703,11 @@ class Model(ABC):
             # Generate response
             assistant_message.metrics.start_timer()
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id, input_dict={"messages": [msg.to_observability_dict() for msg in messages]})
             async for response in self.aprocess_response_stream(
                 messages=messages, assistant_message=assistant_message, stream_data=stream_data
             ):
                 yield response
-            if observability is not None:
-                observability.end_generation()
             assistant_message.metrics.stop_timer()
 
             # Populate assistant message from stream data
@@ -694,6 +727,15 @@ class Model(ABC):
             # Add assistant message to messages
             messages.append(assistant_message)
             assistant_message.log(metrics=True)
+            if observability is not None:
+                observability.end_generation(
+                    output_dict=assistant_message.to_observability_dict(),
+                    usage_details_dict={
+                        "input": assistant_message.metrics.input_tokens,
+                        "output": assistant_message.metrics.output_tokens,
+                        "total": assistant_message.metrics.total_tokens,
+                    },
+                )
 
             # Handle tool calls if present
             if assistant_message.tool_calls is not None:
@@ -701,17 +743,18 @@ class Model(ABC):
                 function_calls_to_run: List[FunctionCall] = self.get_function_calls_to_run(assistant_message, messages)
                 function_call_results: List[Message] = []
 
-                if observability is not None:
-                    observability.create_event(
-                        name=f"Model {self.id} Executing Tool Calls",
-                        input_dict={"function_calls": function_calls_to_run},
-                    )
                 # Execute function calls
                 async for function_call_response in self.arun_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
                     yield function_call_response
 
+                if observability is not None:
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": [fc.get_call_str() for fc in function_calls_to_run]},
+                        output_dict={"results": [fcr.to_dict() for fcr in function_call_results]},
+                    )
                 # Format and add results to messages
                 if stream_data.extra is not None:
                     self.format_function_call_results(

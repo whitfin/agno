@@ -593,9 +593,6 @@ class Agent:
         12. Save output to file if save_response_to_file is set
         """
 
-        if self.observability is not None:
-            self.observability.trace(name=f"Agent {self.name} Run" if self.name else "Agent Run")
-
         # 1. Prepare the Agent for the run
         if isinstance(self.memory, AgentMemory):
             self.memory = cast(AgentMemory, self.memory)
@@ -636,6 +633,15 @@ class Agent:
             log_error("No messages to be sent to the model.")
 
         self.run_messages = run_messages
+
+        if self.observability is not None:
+            self.observability.trace(
+                name=f"{self.name} Run" if self.name else "Agent Run",
+                input_dict={
+                    "message": self.run_messages.user_message.to_observability_dict(),
+                    "system_message": self.run_messages.system_message.to_observability_dict(),
+                },
+            )
 
         # 5. Reason about the task if reasoning is enabled
         if self.reasoning or self.reasoning_model is not None:
@@ -1018,6 +1024,9 @@ class Agent:
                 event=RunEvent.run_completed,
             )
 
+        if self.observability is not None:
+            self.observability.update_trace(output_dict={"run_response": self.run_response.to_dict()})
+
         # Yield final response if not streaming so that run() can get the response
         if not self.stream:
             yield self.run_response
@@ -1249,9 +1258,6 @@ class Agent:
         12. Save output to file if save_response_to_file is set
         """
 
-        if self.observability is not None:
-            self.observability.trace(name=f"Agent {self.name} Run" if self.name else "Agent Run")
-
         # 1. Prepare the Agent for the run
         if isinstance(self.memory, AgentMemory):
             self.memory = cast(AgentMemory, self.memory)
@@ -1290,6 +1296,15 @@ class Agent:
         if len(run_messages.messages) == 0:
             log_error("No messages to be sent to the model.")
         self.run_messages = run_messages
+
+        if self.observability is not None:
+            self.observability.trace(
+                name=f"{self.name} Run" if self.name else "Agent Run",
+                input_dict={
+                    "message": self.run_messages.user_message.to_observability_dict(),
+                    "system_message": self.run_messages.system_message.to_observability_dict(),
+                },
+            )
 
         # 5. Reason about the task if reasoning is enabled
         if self.reasoning or self.reasoning_model is not None:
@@ -1666,6 +1681,8 @@ class Agent:
                 session_id=session_id,
                 event=RunEvent.run_completed,
             )
+        if self.observability is not None:
+            self.observability.update_trace(output_dict={"run_response": self.run_response.to_dict()})
 
         # Yield final response if not streaming so that run() can get the response
         if not self.stream:

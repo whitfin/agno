@@ -66,12 +66,14 @@ class LangfuseObservability:
         self,
         name: Optional[str] = None,
         input_dict: Optional[Dict[str, Any]] = None,
-        output_dict: Optional[Dict[str, Any]] = None,
     ):
         self._current_span_id = None
         self._current_generation_id = None
-        trace = self.get_client().trace(name=name, input=input_dict, output=output_dict, **self.request_params)
+        trace = self.get_client().trace(name=name, input=input_dict, **self.request_params)
         self._current_trace_id = trace.id
+
+    def update_trace(self, output_dict: Optional[Dict[str, Any]] = None):
+        self.get_client().trace(id=self._current_trace_id, output=output_dict)
 
     def start_span(self, name: str, input_dict: Optional[Dict[str, Any]] = None):
         start_time = datetime.now()
@@ -85,13 +87,13 @@ class LangfuseObservability:
         self.get_client().span(id=self._current_span_id, output=output_dict, end_time=end_time)
         self._current_span_id = None
 
-    def start_generation(self, name: str, model: str, input_dict: Optional[Dict[str, Any]] = None):
+    def start_generation(self, name: str, model: str):
         start_time = datetime.now()
         generation = self.get_client().generation(
             trace_id=self._current_trace_id,
+            parent_observation_id=self._current_span_id,
             name=name,
             model=model,
-            input=input_dict,
             start_time=start_time,
             **self.request_params,
         )

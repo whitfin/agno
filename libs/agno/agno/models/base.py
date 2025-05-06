@@ -10,6 +10,7 @@ from agno.exceptions import AgentRunException
 from agno.media import AudioResponse, ImageArtifact
 from agno.models.message import Citations, Message, MessageMetrics
 from agno.models.response import ModelResponse, ModelResponseEvent
+from agno.observability import Observability
 from agno.tools.function import Function, FunctionCall
 from agno.utils.log import log_debug, log_error, log_warning
 from agno.utils.timer import Timer
@@ -165,7 +166,7 @@ class Model(ABC):
         self._tools = None
         self._functions = None
 
-    def response(self, messages: List[Message]) -> ModelResponse:
+    def response(self, messages: List[Message], observability: Optional[Observability] = None) -> ModelResponse:
         """
         Generate a response from the model.
 
@@ -180,14 +181,22 @@ class Model(ABC):
         log_debug(f"Model: {self.id}", center=True, symbol="-")
 
         self._log_messages(messages)
+        
+        if observability is not None:
+            observability.start_span(name=f"Model {self.id} Execution")
+        
         model_response = ModelResponse()
 
         while True:
             # Get response from model
+            if observability is not None:
+                observability.start_generation(name=f"Model {self.id} Generation")
             assistant_message, has_tool_calls = self._process_model_response(
                 messages=messages,
                 model_response=model_response,
             )
+            if observability is not None:
+                observability.end_generation()
 
             # Handle tool calls if present
             if has_tool_calls:
@@ -200,6 +209,8 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 # Execute function calls
+                if observability is not None:
+                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
@@ -231,11 +242,14 @@ class Model(ABC):
 
             # No tool calls or finished processing them
             break
+        
+        if observability is not None:
+            observability.end_span()
 
         log_debug(f"{self.get_provider()} Response End", center=True, symbol="-")
         return model_response
 
-    async def aresponse(self, messages: List[Message]) -> ModelResponse:
+    async def aresponse(self, messages: List[Message], observability: Optional[Observability] = None) -> ModelResponse:
         """
         Generate an asynchronous response from the model.
 
@@ -249,14 +263,22 @@ class Model(ABC):
         log_debug(f"{self.get_provider()} Async Response Start", center=True, symbol="-")
         log_debug(f"Model: {self.id}", center=True, symbol="-")
         self._log_messages(messages)
+        
+        if observability is not None:
+            observability.start_span(name=f"Model {self.id} Execution")
+        
         model_response = ModelResponse()
 
         while True:
             # Get response from model
+            if observability is not None:
+                observability.start_generation(name=f"Model {self.id} Generation")
             assistant_message, has_tool_calls = await self._aprocess_model_response(
                 messages=messages,
                 model_response=model_response,
             )
+            if observability is not None:
+                observability.end_generation()
 
             # Handle tool calls if present
             if has_tool_calls:
@@ -269,6 +291,9 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 # Execute function calls
+                
+                if observability is not None:
+                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
                 async for function_call_response in self.arun_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
@@ -300,6 +325,9 @@ class Model(ABC):
 
             # No tool calls or finished processing them
             break
+        
+        if observability is not None:
+            observability.end_span()
 
         log_debug(f"{self.get_provider()} Async Response End", center=True, symbol="-")
         return model_response
@@ -495,7 +523,7 @@ class Model(ABC):
                 stream_data=stream_data, assistant_message=assistant_message, model_response=model_response_delta
             )
 
-    def response_stream(self, messages: List[Message]) -> Iterator[ModelResponse]:
+    def response_stream(self, messages: List[Message], observability: Optional[Observability] = None) -> Iterator[ModelResponse]:
         """
         Generate a streaming response from the model.
 
@@ -509,6 +537,9 @@ class Model(ABC):
         log_debug(f"{self.get_provider()} Response Stream Start", center=True, symbol="-")
         log_debug(f"Model: {self.id}", center=True, symbol="-")
         self._log_messages(messages)
+        
+        if observability is not None:
+            observability.start_span(name=f"Model {self.id} Execution")
 
         while True:
             # Create assistant message and stream data
@@ -517,9 +548,13 @@ class Model(ABC):
 
             # Generate response
             assistant_message.metrics.start_timer()
+            if observability is not None:
+                observability.start_generation(name=f"Model {self.id} Generation")
             yield from self.process_response_stream(
                 messages=messages, assistant_message=assistant_message, stream_data=stream_data
             )
+            if observability is not None:
+                observability.end_generation()
             assistant_message.metrics.stop_timer()
 
             # Populate assistant message from stream data
@@ -548,6 +583,8 @@ class Model(ABC):
                 function_calls_to_run: List[FunctionCall] = self.get_function_calls_to_run(assistant_message, messages)
                 function_call_results: List[Message] = []
 
+                if observability is not None:
+                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
                 # Execute function calls
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
@@ -575,6 +612,9 @@ class Model(ABC):
             # No tool calls or finished processing them
             break
 
+        if observability is not None:
+            observability.end_span()
+
         log_debug(f"{self.get_provider()} Response Stream End", center=True, symbol="-")
 
     async def aprocess_response_stream(
@@ -590,7 +630,7 @@ class Model(ABC):
             ):
                 yield model_response
 
-    async def aresponse_stream(self, messages: List[Message]) -> AsyncIterator[ModelResponse]:
+    async def aresponse_stream(self, messages: List[Message], observability: Optional[Observability] = None) -> AsyncIterator[ModelResponse]:
         """
         Generate an asynchronous streaming response from the model.
 
@@ -604,6 +644,8 @@ class Model(ABC):
         log_debug(f"{self.get_provider()} Async Response Stream Start", center=True, symbol="-")
         log_debug(f"Model: {self.id}", center=True, symbol="-")
         self._log_messages(messages)
+        if observability is not None:
+            observability.start_span(name=f"Model {self.id} Execution")
 
         while True:
             # Create assistant message and stream data
@@ -612,10 +654,14 @@ class Model(ABC):
 
             # Generate response
             assistant_message.metrics.start_timer()
+            if observability is not None:
+                observability.start_generation(name=f"Model {self.id} Generation")
             async for response in self.aprocess_response_stream(
                 messages=messages, assistant_message=assistant_message, stream_data=stream_data
             ):
                 yield response
+            if observability is not None:
+                observability.end_generation()
             assistant_message.metrics.stop_timer()
 
             # Populate assistant message from stream data
@@ -642,6 +688,8 @@ class Model(ABC):
                 function_calls_to_run: List[FunctionCall] = self.get_function_calls_to_run(assistant_message, messages)
                 function_call_results: List[Message] = []
 
+                if observability is not None:
+                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
                 # Execute function calls
                 async for function_call_response in self.arun_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
@@ -668,6 +716,9 @@ class Model(ABC):
 
             # No tool calls or finished processing them
             break
+        
+        if observability is not None:
+            observability.end_span()
 
         log_debug(f"{self.get_provider()} Async Response Stream End", center=True, symbol="-")
 

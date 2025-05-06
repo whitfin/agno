@@ -181,16 +181,16 @@ class Model(ABC):
         log_debug(f"Model: {self.id}", center=True, symbol="-")
 
         self._log_messages(messages)
-        
+
         if observability is not None:
             observability.start_span(name=f"Model {self.id} Execution")
-        
+
         model_response = ModelResponse()
 
         while True:
             # Get response from model
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation")
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
             assistant_message, has_tool_calls = self._process_model_response(
                 messages=messages,
                 model_response=model_response,
@@ -210,7 +210,10 @@ class Model(ABC):
 
                 # Execute function calls
                 if observability is not None:
-                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": function_calls_to_run},
+                    )
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
@@ -242,7 +245,7 @@ class Model(ABC):
 
             # No tool calls or finished processing them
             break
-        
+
         if observability is not None:
             observability.end_span()
 
@@ -263,16 +266,16 @@ class Model(ABC):
         log_debug(f"{self.get_provider()} Async Response Start", center=True, symbol="-")
         log_debug(f"Model: {self.id}", center=True, symbol="-")
         self._log_messages(messages)
-        
+
         if observability is not None:
             observability.start_span(name=f"Model {self.id} Execution")
-        
+
         model_response = ModelResponse()
 
         while True:
             # Get response from model
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation")
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
             assistant_message, has_tool_calls = await self._aprocess_model_response(
                 messages=messages,
                 model_response=model_response,
@@ -291,9 +294,12 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 # Execute function calls
-                
+
                 if observability is not None:
-                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": function_calls_to_run},
+                    )
                 async for function_call_response in self.arun_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
                 ):
@@ -325,7 +331,7 @@ class Model(ABC):
 
             # No tool calls or finished processing them
             break
-        
+
         if observability is not None:
             observability.end_span()
 
@@ -523,7 +529,9 @@ class Model(ABC):
                 stream_data=stream_data, assistant_message=assistant_message, model_response=model_response_delta
             )
 
-    def response_stream(self, messages: List[Message], observability: Optional[Observability] = None) -> Iterator[ModelResponse]:
+    def response_stream(
+        self, messages: List[Message], observability: Optional[Observability] = None
+    ) -> Iterator[ModelResponse]:
         """
         Generate a streaming response from the model.
 
@@ -537,7 +545,7 @@ class Model(ABC):
         log_debug(f"{self.get_provider()} Response Stream Start", center=True, symbol="-")
         log_debug(f"Model: {self.id}", center=True, symbol="-")
         self._log_messages(messages)
-        
+
         if observability is not None:
             observability.start_span(name=f"Model {self.id} Execution")
 
@@ -549,7 +557,7 @@ class Model(ABC):
             # Generate response
             assistant_message.metrics.start_timer()
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation")
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
             yield from self.process_response_stream(
                 messages=messages, assistant_message=assistant_message, stream_data=stream_data
             )
@@ -584,7 +592,10 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 if observability is not None:
-                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": function_calls_to_run},
+                    )
                 # Execute function calls
                 for function_call_response in self.run_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
@@ -630,7 +641,9 @@ class Model(ABC):
             ):
                 yield model_response
 
-    async def aresponse_stream(self, messages: List[Message], observability: Optional[Observability] = None) -> AsyncIterator[ModelResponse]:
+    async def aresponse_stream(
+        self, messages: List[Message], observability: Optional[Observability] = None
+    ) -> AsyncIterator[ModelResponse]:
         """
         Generate an asynchronous streaming response from the model.
 
@@ -655,7 +668,7 @@ class Model(ABC):
             # Generate response
             assistant_message.metrics.start_timer()
             if observability is not None:
-                observability.start_generation(name=f"Model {self.id} Generation")
+                observability.start_generation(name=f"Model {self.id} Generation", model=self.id)
             async for response in self.aprocess_response_stream(
                 messages=messages, assistant_message=assistant_message, stream_data=stream_data
             ):
@@ -689,7 +702,10 @@ class Model(ABC):
                 function_call_results: List[Message] = []
 
                 if observability is not None:
-                    observability.create_event(name=f"Model {self.id} Executing Tool Calls", input_dict={"function_calls": function_calls_to_run})
+                    observability.create_event(
+                        name=f"Model {self.id} Executing Tool Calls",
+                        input_dict={"function_calls": function_calls_to_run},
+                    )
                 # Execute function calls
                 async for function_call_response in self.arun_function_calls(
                     function_calls=function_calls_to_run, function_call_results=function_call_results
@@ -716,7 +732,7 @@ class Model(ABC):
 
             # No tool calls or finished processing them
             break
-        
+
         if observability is not None:
             observability.end_span()
 

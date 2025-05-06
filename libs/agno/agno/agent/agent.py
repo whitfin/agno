@@ -239,7 +239,7 @@ class Agent:
     stream: Optional[bool] = None
     # Stream the intermediate steps from the Agent
     stream_intermediate_steps: bool = False
-    
+
     # --- Observability ---
     observability: Optional[Observability] = None
 
@@ -440,7 +440,7 @@ class Agent:
 
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
-        
+
         self.observability = observability
 
         self.team = team
@@ -592,10 +592,9 @@ class Agent:
         11. Save session to storage
         12. Save output to file if save_response_to_file is set
         """
-        
+
         if self.observability is not None:
             self.observability.trace(name=f"Agent {self.name} Run" if self.name else "Agent Run")
-
 
         # 1. Prepare the Agent for the run
         if isinstance(self.memory, AgentMemory):
@@ -663,7 +662,9 @@ class Agent:
         reasoning_time_taken = 0.0
         if self.stream:
             model_response = ModelResponse()
-            for model_response_chunk in self.model.response_stream(messages=run_messages.messages, observability=self.observability):
+            for model_response_chunk in self.model.response_stream(
+                messages=run_messages.messages, observability=self.observability
+            ):
                 # If the model response is an assistant_response, yield a RunResponse
                 if model_response_chunk.event == ModelResponseEvent.assistant_response.value:
                     # Process content and thinking
@@ -1247,6 +1248,9 @@ class Agent:
         11. Save session to storage
         12. Save output to file if save_response_to_file is set
         """
+
+        if self.observability is not None:
+            self.observability.trace(name=f"Agent {self.name} Run" if self.name else "Agent Run")
 
         # 1. Prepare the Agent for the run
         if isinstance(self.memory, AgentMemory):

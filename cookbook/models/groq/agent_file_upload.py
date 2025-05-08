@@ -8,7 +8,10 @@ agent = Agent(
     debug_mode=True,
 )
 
-file_local = File(filepath="tmp/sample.pdf")
+# file_local = File(filepath="tmp/LSTM.pdf")
+file_local = File(
+    url="https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf"
+)
 agent.print_response(
-    "explain to me the DC microgrid structure and control figure", files=[file_local]
+    "What is the Cost of Goods Sold based on the document?", files=[file_local]
 )

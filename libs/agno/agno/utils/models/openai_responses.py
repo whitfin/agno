@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from agno.media import Image
+from agno.media import File, Image
+from agno.utils.file_utils import prepare_inline_files
 from agno.utils.log import logger
 
 
@@ -122,3 +123,38 @@ def sanitize_response_schema(schema: dict):
     elif isinstance(schema, list):
         for item in schema:
             sanitize_response_schema(item)
+
+
+# Utility to process files for the OpenAI Responses API
+def files_to_message(
+    files: Sequence[File],
+    upload_file: Callable[[File], Optional[str]],
+) -> List[Dict[str, Any]]:
+    """
+    Process files for Responses API input:
+    - Upload PDFs via upload_file when supports_file_upload is True
+    - Inline all other files via prepare_inline_files
+    Returns a list of message items with types 'input_file' or 'input_text'.
+    """
+    upload_items: List[Dict[str, Any]] = []
+    to_upload = [f for f in files if Path(f.filepath or f.url or "").suffix.lower() == ".pdf"]
+    for f in to_upload:
+        fid = upload_file(f)
+        if fid:
+            upload_items.append({"type": "input_file", "file_id": fid})
+    to_inline = [f for f in files if f not in to_upload]
+    raw_items = prepare_inline_files(to_inline)
+    inline_items: List[Dict[str, Any]] = []
+    for part in raw_items:
+        if part.get("type") == "text":
+            inline_items.append({"type": "input_text", "text": part.get("text", "")})
+        elif part.get("type") == "file" and "file" in part:
+            finfo = part["file"]
+            inline_items.append(
+                {
+                    "type": "input_file",
+                    "filename": finfo.get("filename"),
+                    "file_data": finfo.get("file_data"),
+                }
+            )
+    return upload_items + inline_items

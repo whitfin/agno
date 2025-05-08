@@ -2,7 +2,7 @@
 import base64
 import mimetypes
 from pathlib import Path
-from typing import Any, Dict, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 from urllib.parse import urlparse
 
 from agno.media import File
@@ -21,8 +21,10 @@ def _format_file_inline(file: File) -> Optional[Dict[str, Any]]:
     """
     try:
         # Determine content source
+        print(f"Formatting file inline: {file.filepath or file.url}")
         if file.url:
             result = file.file_url_content
+            log_debug(f"File URL content: {result[:100]}")
             if not result:
                 log_error(f"Failed to fetch file from URL: {file.url}")
                 return None
@@ -61,16 +63,32 @@ def _process_with_reader(file: File) -> Optional[list[dict[str, str]]]:
     Process file using its assigned reader.
     This is the highest priority method - if a reader is present, we use it.
     """
+    # Handle JSON URLs directly: fetch and parse JSON into text
+    if file.url and str(file.url).lower().endswith(".json"):
+        try:
+            import json
+
+            import httpx
+
+            response = httpx.get(file.url)
+            parsed = response.json()
+            text = json.dumps(parsed, indent=2)
+            return [{"type": "text", "text": text}]
+        except Exception as e:
+            log_error(f"Error fetching or parsing JSON from URL {file.url}: {e}")
+            return None
     if not getattr(file, "reader", None):
         return None
 
     reader_cls = file.reader.__class__.__name__
     log_debug(f"Using reader {reader_cls} on {file.filepath or file.url}")
     try:
-        docs = file.reader.read(file.filepath)  # type: ignore
+        # Determine source: filepath or URL
+        source = file.filepath if getattr(file, "filepath", None) else file.url  # type: ignore
+        docs = file.reader.read(source)  # type: ignore
         content_parts = []
         for doc in reversed(docs):
-            snippet = (doc.content or "").strip().replace("\n", " ")
+            snippet = (doc.content or "").strip().replace("\n", " ")[:10]
             log_debug(f"Reader {reader_cls} produced doc id={doc.id}, snippet='{snippet}...'")
             content_parts.append({"type": "text", "text": doc.content or ""})
         return content_parts
@@ -81,16 +99,24 @@ def _process_with_reader(file: File) -> Optional[list[dict[str, str]]]:
 
 def _auto_detect_reader(file: File) -> None:
     """Auto-detect and apply appropriate reader based on file type."""
-    if getattr(file, "reader", None) is None and getattr(file, "filepath", None):
-        path_lower = str(file.filepath).lower()
+    if getattr(file, "reader", None) is None and (getattr(file, "filepath", None) or getattr(file, "url", None)):
+        # Use filepath or URL to detect reader
+        path_lower = str(file.filepath or file.url).lower()
         if path_lower.endswith(".pdf"):
             try:
-                from agno.document.reader.pdf_reader import PDFReader
+                # Use URL reader for PDF URLs, else local PDF reader
+                if getattr(file, "url", None):
+                    from agno.document.reader.pdf_reader import PDFUrlReader as ReaderClass
 
-                file.reader = PDFReader()
-                log_debug(f"Auto-applied PDFReader for {file.filepath}")
+                    file.reader = ReaderClass()
+                    log_debug(f"Auto-applied PDFUrlReader for {file.url}")
+                else:
+                    from agno.document.reader.pdf_reader import PDFReader as ReaderClass
+
+                    file.reader = ReaderClass()
+                    log_debug(f"Auto-applied PDFReader for {file.filepath}")
             except ImportError as e:
-                log_error(f"Failed to import PDFReader for {file.filepath}: {e}")
+                log_error(f"Failed to import PDFReader for {file.filepath or file.url}: {e}")
         elif path_lower.endswith(".csv"):
             try:
                 from agno.document.reader.csv_reader import CSVReader
@@ -125,37 +151,51 @@ def _auto_detect_reader(file: File) -> None:
                 log_error(f"Failed to import TextReader for {file.filepath}: {e}")
 
 
-def handle_files_for_message(message_dict: dict[str, Any], files: Sequence[File], model: Any) -> None:
+# Add a utility to normalize various file inputs into File objects
+def normalize_files(files: Sequence[Union[File, Path, str]]) -> List[File]:
     """
-    Process attached File objects on a chat message following strict precedence:
-    1. If file.reader present → extract text using reader
-    2. If model supports attachments → use native file upload
-    3. Default to inline base64 embedding
-
-    Modifies message_dict in-place.
+    Convert a sequence of File, Path, or URL/filepath strings to a list of File objects.
     """
-    # Initialize content list
-    content = message_dict.get("content")
-    if isinstance(content, str):
-        message_dict["content"] = [{"type": "text", "text": content}]
-    elif content is None:
-        message_dict["content"] = []
+    from pathlib import Path as _Path
 
+    normalized: List[File] = []
+    for f in files:
+        if isinstance(f, File):
+            normalized.append(f)
+        elif isinstance(f, _Path):
+            normalized.append(File(filepath=f))
+        elif isinstance(f, str):
+            if f.startswith("http://") or f.startswith("https://"):
+                normalized.append(File(url=f))
+            else:
+                normalized.append(File(filepath=_Path(f)))
+        else:
+            raise ValueError(f"Unsupported file type: {f!r}")
+    return normalized
+
+
+def prepare_inline_files(files: Sequence[File]) -> List[Dict[str, Any]]:
+    """
+    For a sequence of File objects, attempt text extraction via reader,
+    falling back to Base64 inline embedding. Returns list of message items:
+    either {'type':'text','text':...} or the raw inline dict from _format_file_inline.
+    """
+    items: List[Dict[str, Any]] = []
     for file in files:
-        log_debug(f"Processing file: {file.filepath or file.url}")
-
-        # Step 1: Try reader-based processing (highest priority)
-        if reader_content := _process_with_reader(file):
-            message_dict["content"].extend(reader_content)
+        # Try reader-based extraction
+        parts = _process_with_reader(file)
+        if not parts:
+            log_debug(f"No parts found for {file.filepath or file.url}")
+            _auto_detect_reader(file)
+            parts = _process_with_reader(file)
+        if parts:
+            # parts are dicts like {'type':'text','text':...}
+            items.extend(parts)
             continue
-
-        # Step 3: Auto-detect and apply reader if no explicit handling yet
-        _auto_detect_reader(file)
-        if reader_content := _process_with_reader(file):
-            message_dict["content"].extend(reader_content)
-            continue
-
-        # Step 4: Fallback to inline embedding (lowest priority)
-        log_debug(f"Falling back to inline embed for {file.filepath or file.url}")
-        if inline_content := _format_file_inline(file):
-            message_dict["content"].insert(0, inline_content)
+        # Fallback to inline embedding
+        log_debug(f"Falling back to inline embedding for {file.filepath or file.url}")
+        inline = _format_file_inline(file)
+        if inline:
+            # inline is a dict like {'type':'file','file':{...}}
+            items.append(inline)
+    return items

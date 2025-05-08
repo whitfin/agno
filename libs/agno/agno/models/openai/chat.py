@@ -11,7 +11,7 @@ from agno.media import AudioResponse
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.models.response import ModelResponse
-from agno.utils.file_utils import handle_files_for_message
+from agno.utils.file_utils import prepare_inline_files
 from agno.utils.log import log_debug, log_error, log_warning
 from agno.utils.openai import audio_to_message, images_to_message
 
@@ -293,9 +293,19 @@ class OpenAIChat(Model):
         if message.tool_calls is not None and len(message.tool_calls) == 0:
             message_dict["tool_calls"] = None
 
-        if message.files is not None and len(message.files) > 0
-            log_debug(f"message.files: {message.files}")
-            handle_files_for_message(message_dict, message.files, self)
+        if message.files is not None and len(message.files) > 0:
+            log_debug(f"Inlining files for chat: {message.files}")
+            # Inline all files via shared utility
+            inline_items = prepare_inline_files(message.files)
+            # Merge with existing content
+            existing = message_dict.get("content")
+            if isinstance(existing, str):
+                base = [{"type": "text", "text": existing}]
+            elif isinstance(existing, list):
+                base = existing
+            else:
+                base = []
+            message_dict["content"] = base + inline_items
         # Manually add the content field even if it is None
         if message.content is None:
             message_dict["content"] = None

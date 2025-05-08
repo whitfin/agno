@@ -8,6 +8,7 @@ from agno.exceptions import ModelProviderError
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.models.response import ModelResponse
+from agno.utils.file_utils import handle_files_for_message
 from agno.utils.log import log_error, log_warning
 from agno.utils.openai import images_to_message
 
@@ -232,7 +233,7 @@ class Groq(Model):
                 message_dict["content"].extend(images_to_message(images=message.images))
 
         if message.files is not None and len(message.files) > 0:
-            log_warning("File input is currently unsupported.")
+            handle_files_for_message(message_dict, message.files, self)
 
         if message.audio is not None and len(message.audio) > 0:
             log_warning("Audio input is currently unsupported.")

@@ -2836,6 +2836,25 @@ class Agent:
         2. If create_default_user_message is False or if the message is a list, return the message as is.
         3. Build the default user message for the Agent
         """
+        # Convert file paths and URLs in files argument to File objects for convenience
+        if files:
+            from pathlib import Path as _Path
+
+            _new_files = []
+            for _f in files:
+                if isinstance(_f, File):
+                    _new_files.append(_f)
+                elif isinstance(_f, _Path):
+                    _new_files.append(File(filepath=_f))
+                elif isinstance(_f, str):
+                    if _f.startswith("http://") or _f.startswith("https://"):
+                        _new_files.append(File(url=_f))
+                    else:
+                        _new_files.append(File(filepath=_Path(_f)))
+                else:
+                    raise ValueError(f"Unsupported file type: {_f!r}")
+            files = _new_files
+
         # Get references from the knowledge base to use in the user message
         references = None
         self.run_response = cast(RunResponse, self.run_response)

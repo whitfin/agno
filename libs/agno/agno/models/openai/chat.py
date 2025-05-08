@@ -11,8 +11,9 @@ from agno.media import AudioResponse
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.models.response import ModelResponse
-from agno.utils.log import log_error, log_warning
-from agno.utils.openai import _format_file_for_message, audio_to_message, images_to_message
+from agno.utils.file_utils import handle_files_for_message
+from agno.utils.log import log_debug, log_error, log_warning
+from agno.utils.openai import audio_to_message, images_to_message
 
 try:
     from openai import APIConnectionError, APIStatusError, RateLimitError
@@ -42,6 +43,7 @@ class OpenAIChat(Model):
     name: str = "OpenAIChat"
     provider: str = "OpenAI"
     supports_native_structured_outputs: bool = True
+    supports_native_file_upload: bool = False
 
     # Request parameters
     store: Optional[bool] = None
@@ -291,20 +293,9 @@ class OpenAIChat(Model):
         if message.tool_calls is not None and len(message.tool_calls) == 0:
             message_dict["tool_calls"] = None
 
-        if message.files is not None:
-            # Ensure content is a list of parts
-            content = message_dict.get("content")
-            if isinstance(content, str):  # wrap existing text
-                text = content
-                message_dict["content"] = [{"type": "text", "text": text}]
-            elif content is None:
-                message_dict["content"] = []
-            # Insert each file part before text parts
-            for file in message.files:
-                file_part = _format_file_for_message(file)
-                if file_part:
-                    message_dict["content"].insert(0, file_part)
-
+        if message.files is not None and len(message.files) > 0
+            log_debug(f"message.files: {message.files}")
+            handle_files_for_message(message_dict, message.files, self)
         # Manually add the content field even if it is None
         if message.content is None:
             message_dict["content"] = None

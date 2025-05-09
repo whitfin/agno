@@ -220,6 +220,8 @@ class LanceDb(VectorDb):
         data = []
 
         for document in documents:
+            if self.doc_exists(document):
+                continue
             document.embed(embedder=self.embedder)
             cleaned_content = document.content.replace("\x00", "\ufffd")
             doc_id = str(md5(cleaned_content.encode()).hexdigest())
@@ -270,6 +272,8 @@ class LanceDb(VectorDb):
 
         # Prepare documents for insertion
         for document in documents:
+            if await self.async_doc_exists(document):
+                continue
             document.embed(embedder=self.embedder)
             cleaned_content = document.content.replace("\x00", "\ufffd")
             doc_id = str(md5(cleaned_content.encode()).hexdigest())
@@ -518,3 +522,6 @@ class LanceDb(VectorDb):
         except Exception as e:
             logger.error(f"Error checking name existence: {e}")
             return False
+
+    async def async_name_exists(self, name: str) -> bool:
+        raise NotImplementedError(f"Async not supported on {self.__class__.__name__}.")

@@ -1,12 +1,19 @@
 [project]
 name = "agno"
-version = "1.1.13"
-description = "Agno: a lightweight framework for building multi-modal Agents"
+version = "1.4.5"
+description = "Agno: a lightweight library for building Reasoning Agents"
 requires-python = ">=3.7,<4"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
   {name = "Ashpreet Bedi", email = "ashpreet@agno.com"}
+]
+keywords = [
+  "agent",
+  "reasoning",
+  "llm",
+  "large-language-model",
+  "framework",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -39,7 +46,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["mypy", "pytest", "pytest-asyncio", "pytest-cov", "ruff", "timeout-decorator", "types-pyyaml", "fastapi", "uvicorn"]
+dev = ["mypy", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock", "ruff", "timeout-decorator", "types-pyyaml", "types-aiofiles", "fastapi", "uvicorn", "arxiv"]
 
 # Dependencies for Models
 azure = ["azure-ai-inference", "aiohttp"]
@@ -53,8 +60,12 @@ ollama = ["ollama"]
 ibm = ["ibm-watsonx-ai"]
 lmstudio = ["lmstudio"]
 litellm = ["litellm"]
+meta = ["llama-api-client"]
+cerebras = ["cerebras-cloud-sdk"]
 
 # Dependencies for Tools
+apify = ["apify-client"]
+cartesia = ["cartesia"]
 exa = ["exa_py"]
 yfinance = ["yfinance"]
 ddg = ["duckduckgo-search"]
@@ -71,11 +82,16 @@ fal = ["fal_client"]
 webex = ["webexpythonsdk"]
 mcp = ["mcp"]
 browserbase = ["browserbase", "playwright"]
+agentql = ["agentql"]
+confluence = ["atlassian-python-api"]
+zep = ["zep-cloud"]
 
 # Dependencies for Storage
 sql = ["sqlalchemy"]
 postgres = ["psycopg-binary", "psycopg"]
 sqlite = ["sqlalchemy"]
+gcs = ["google-cloud-storage"]
+redis = ["redis"]
 
 # Dependencies for Vector databases
 pgvector = ["pgvector"]
@@ -85,10 +101,16 @@ qdrant = ["qdrant-client"]
 cassandra = ["cassio"]
 mongodb = ["pymongo[srv]"]
 singlestore = ["sqlalchemy"]
+weaviate = ["weaviate-client"]
+milvusdb = ["pymilvus"]
+clickhouse = ["clickhouse-connect"]
+pinecone = ["pinecone==5.4.2"]
 
 # Dependencies for Knowledge
 pdf = ["pypdf", "rapidocr_onnxruntime"]
 docx = ["python-docx"]
+text = ["aiofiles"]
+csv = ["aiofiles"]
 
 # Dependencies for Performance
 performance = ["memory_profiler"]
@@ -113,12 +135,16 @@ models = [
   "agno[ollama]",
   "agno[openai]",
   "agno[ibm]",
-  "agno[litellm]"
+  "agno[litellm]",
+  "agno[meta]",
+  "agno[cerebras]"
 ]
 
 # All tools
 tools = [
+  "agno[apify]",
   "agno[exa]",
+  "agno[cartesia]",
   "agno[ddg]",
   "agno[duckdb]",
   "agno[newspaper]",
@@ -133,7 +159,10 @@ tools = [
   "agno[webex]",
   "agno[mcp]",
   "agno[browserbase]",
+  "agno[agentql]",
 #  "agno[yfinance]",  # Broken right now
+  "agno[confluence]",
+  "agno[zep]"
 ]
 
 # All storage
@@ -141,6 +170,8 @@ storage = [
   "agno[sql]",
   "agno[postgres]",
   "agno[sqlite]",
+  "agno[gcs]",
+  "agno[redis]",
 ]
 
 # All vector databases
@@ -151,13 +182,19 @@ vectordbs = [
   "agno[qdrant]",
   "agno[cassandra]",
   "agno[mongodb]",
-  "agno[singlestore]"
+  "agno[singlestore]",
+  "agno[weaviate]",
+  "agno[milvusdb]",
+  "agno[clickhouse]",
+  "agno[pinecone]"
 ]
 
 # All knowledge
 knowledge = [
   "agno[pdf]",
   "agno[docx]",
+  "agno[text]",
+  "agno[csv]"
 ]
 
 # All libraries for testing
@@ -215,6 +252,7 @@ exclude = ["tests*"]
 [[tool.mypy.overrides]]
 module = [
   "agentql.*",
+  "aiofiles.*",
   "altair.*",
   "anthropic.*",
   "apify_client.*",
@@ -228,6 +266,8 @@ module = [
   "bson.*",
   "browserbase.*",
   "cassio.*",
+  "cerebras.*",
+  "cerebras_cloud_sdk.*",
   "chonkie.*",
   "chromadb.*",
   "clickhouse_connect.*",
@@ -239,8 +279,10 @@ module = [
   "duckdb.*",
   "duckduckgo_search.*",
   "email_validator.*",
+  "e2b_code_interpreter.*",
   "exa_py.*",
   "fastapi.*",
+  "filetype.*",
   "firecrawl.*",
   "github.*",
   "google.*",
@@ -258,8 +300,8 @@ module = [
   "lancedb.*",
   "langchain_core.*",
   "langchain.*",
-  "litellm.*",
   "llama_index.*",
+  "llama_api_client.*",
   "litellm.*",
   "mem0.*",
   "mcp.*",
@@ -287,6 +329,7 @@ module = [
   "pytz.*",
   "qdrant_client.*",
   "rapidocr_onnxruntime.*",
+  "redis.*",
   "replicate.*",
   "requests.*",
   "scrapegraph_py.*",
@@ -310,6 +353,7 @@ module = [
   "twilio.*",
   "tzlocal.*",
   "upstash_vector.*",
+  "urllib3.*",
   "uvicorn.*",
   "vertexai.*",
   "voyageai.*",
@@ -318,5 +362,6 @@ module = [
   "wikipedia.*",
   "yfinance.*",
   "youtube_transcript_api.*",
+  "zep_cloud.*"
 ]
 ignore_missing_imports = true

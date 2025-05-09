@@ -10,6 +10,21 @@ except ImportError:
 
 
 class YFinanceTools(Toolkit):
+    """
+    YFinanceTools is a toolkit for getting financial data from Yahoo Finance.
+    Args:
+        stock_price (bool): Whether to get the current stock price.
+        company_info (bool): Whether to get company information.
+        stock_fundamentals (bool): Whether to get stock fundamentals.
+        income_statements (bool): Whether to get income statements.
+        key_financial_ratios (bool): Whether to get key financial ratios.
+        analyst_recommendations (bool): Whether to get analyst recommendations.
+        company_news (bool): Whether to get company news.
+        technical_indicators (bool): Whether to get technical indicators.
+        historical_prices (bool): Whether to get historical prices.
+        enable_all (bool): Whether to enable all tools.
+    """
+
     def __init__(
         self,
         stock_price: bool = True,
@@ -22,8 +37,9 @@ class YFinanceTools(Toolkit):
         technical_indicators: bool = False,
         historical_prices: bool = False,
         enable_all: bool = False,
+        **kwargs,
     ):
-        super().__init__(name="yfinance_tools")
+        super().__init__(name="yfinance_tools", **kwargs)
 
         if stock_price or enable_all:
             self.register(self.get_current_stock_price)

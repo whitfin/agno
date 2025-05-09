@@ -8,11 +8,14 @@ except ImportError:
 
 
 class NewspaperTools(Toolkit):
-    def __init__(
-        self,
-        get_article_text: bool = True,
-    ):
-        super().__init__(name="newspaper_toolkit")
+    """
+    Newspaper is a tool for getting the text of an article from a URL.
+    Args:
+        get_article_text (bool): Whether to get the text of an article from a URL.
+    """
+
+    def __init__(self, get_article_text: bool = True, **kwargs):
+        super().__init__(name="newspaper_toolkit", **kwargs)
 
         if get_article_text:
             self.register(self.get_article_text)

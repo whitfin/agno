@@ -29,7 +29,7 @@ class AgentKnowledge(BaseModel):
 
     @model_validator(mode="after")
     def update_reader(self) -> "AgentKnowledge":
-        if self.reader is not None:
+        if self.reader is not None and self.reader.chunking_strategy is None:
             self.reader.chunking_strategy = self.chunking_strategy
         return self
 
@@ -77,7 +77,7 @@ class AgentKnowledge(BaseModel):
             try:
                 return await self.vector_db.async_search(query=query, limit=_num_documents, filters=filters)
             except NotImplementedError:
-                logger.warning("Vector db does not support async search")
+                logger.info("Vector db does not support async search")
                 return self.search(query=query, num_documents=_num_documents, filters=filters)
         except Exception as e:
             logger.error(f"Error searching for documents: {e}")

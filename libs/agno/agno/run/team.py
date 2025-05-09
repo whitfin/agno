@@ -29,12 +29,15 @@ class TeamRunResponse:
     session_id: Optional[str] = None
 
     tools: Optional[List[Dict[str, Any]]] = None
+    formatted_tool_calls: Optional[List[str]] = None
 
     images: Optional[List[ImageArtifact]] = None  # Images from member runs
     videos: Optional[List[VideoArtifact]] = None  # Videos from member runs
     audio: Optional[List[AudioArtifact]] = None  # Audio from member runs
 
     response_audio: Optional[AudioResponse] = None  # Model audio response
+
+    reasoning_content: Optional[str] = None
 
     citations: Optional[Citations] = None
 
@@ -45,7 +48,8 @@ class TeamRunResponse:
         _dict = {
             k: v
             for k, v in asdict(self).items()
-            if v is not None and k not in ["messages", "extra_data", "images", "videos", "audio", "response_audio"]
+            if v is not None
+            and k not in ["messages", "extra_data", "images", "videos", "audio", "response_audio", "citations"]
         }
         if self.messages is not None:
             _dict["messages"] = [m.to_dict() for m in self.messages]
@@ -68,6 +72,9 @@ class TeamRunResponse:
         if self.member_responses:
             _dict["member_responses"] = [response.to_dict() for response in self.member_responses]
 
+        if self.citations is not None:
+            _dict["citations"] = self.citations.model_dump(exclude_none=True)
+
         if isinstance(self.content, BaseModel):
             _dict["content"] = self.content.model_dump(exclude_none=True)
 
@@ -79,6 +86,47 @@ class TeamRunResponse:
         _dict = self.to_dict()
 
         return json.dumps(_dict, indent=2)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TeamRunResponse":
+        messages = data.pop("messages", None)
+        messages = [Message.model_validate(message) for message in messages] if messages else None
+
+        member_responses = data.pop("member_responses", None)
+        parsed_member_responses: List[Union["TeamRunResponse", RunResponse]] = []
+        if member_responses is not None:
+            for response in member_responses:
+                if "agent_id" in response:
+                    parsed_member_responses.append(RunResponse.from_dict(response))
+                else:
+                    parsed_member_responses.append(cls.from_dict(response))
+
+        extra_data = data.pop("extra_data", None)
+        if extra_data is not None:
+            extra_data = RunResponseExtraData.from_dict(extra_data)
+
+        images = data.pop("images", None)
+        images = [ImageArtifact.model_validate(image) for image in images] if images else None
+
+        videos = data.pop("videos", None)
+        videos = [VideoArtifact.model_validate(video) for video in videos] if videos else None
+
+        audio = data.pop("audio", None)
+        audio = [AudioArtifact.model_validate(audio) for audio in audio] if audio else None
+
+        response_audio = data.pop("response_audio", None)
+        response_audio = AudioResponse.model_validate(response_audio) if response_audio else None
+
+        return cls(
+            messages=messages,
+            member_responses=parsed_member_responses,
+            extra_data=extra_data,
+            images=images,
+            videos=videos,
+            audio=audio,
+            response_audio=response_audio,
+            **data,
+        )
 
     def get_content_as_string(self, **kwargs) -> str:
         import json

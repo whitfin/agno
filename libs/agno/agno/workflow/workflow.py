@@ -5,19 +5,20 @@ import inspect
 from dataclasses import dataclass, field, fields
 from os import getenv
 from types import GeneratorType
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Union, cast
 from uuid import uuid4
 
 from pydantic import BaseModel
 
 from agno.agent import Agent
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
+from agno.memory.v2.memory import Memory
 from agno.memory.workflow import WorkflowMemory, WorkflowRun
 from agno.run.response import RunEvent, RunResponse  # noqa: F401
 from agno.storage.base import Storage
 from agno.storage.session.workflow import WorkflowSession
 from agno.utils.common import nested_model_dump
-from agno.utils.log import log_debug, logger, set_log_level_to_debug, set_log_level_to_info
+from agno.utils.log import log_debug, log_warning, logger, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.merge_dict import merge_dictionaries
 
 
@@ -44,7 +45,7 @@ class Workflow:
     session_state: Dict[str, Any] = field(default_factory=dict)
 
     # --- Workflow Memory ---
-    memory: Optional[WorkflowMemory] = None
+    memory: Optional[Union[WorkflowMemory, Memory]] = None
 
     # --- Workflow Storage ---
     storage: Optional[Storage] = None
@@ -81,7 +82,7 @@ class Workflow:
         session_id: Optional[str] = None,
         session_name: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
-        memory: Optional[WorkflowMemory] = None,
+        memory: Optional[Union[WorkflowMemory, Memory]] = None,
         storage: Optional[Storage] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         debug_mode: bool = False,
@@ -145,7 +146,6 @@ class Workflow:
         self.set_workflow_id()
         self.set_session_id()
         self.initialize_memory()
-        self.memory = cast(WorkflowMemory, self.memory)
 
         # Create a run_id
         self.run_id = str(uuid4())
@@ -160,7 +160,7 @@ class Workflow:
         # Update the session_id for all Agent instances
         self.update_agent_session_ids()
 
-        log_debug(f"*********** Workflow Run Start: {self.run_id} ***********")
+        log_debug(f"Workflow Run Start: {self.run_id}", center=True)
         try:
             self._subclass_run = cast(Callable, self._subclass_run)
             result = self._subclass_run(**kwargs)
@@ -176,7 +176,11 @@ class Workflow:
 
             def result_generator():
                 self.run_response = cast(RunResponse, self.run_response)
-                self.memory = cast(WorkflowMemory, self.memory)
+                if isinstance(self.memory, WorkflowMemory):
+                    self.memory = cast(WorkflowMemory, self.memory)
+                elif isinstance(self.memory, Memory):
+                    self.memory = cast(Memory, self.memory)
+
                 for item in result:
                     if isinstance(item, RunResponse):
                         # Update the run_id, session_id and workflow_id of the RunResponse
@@ -192,10 +196,13 @@ class Workflow:
                     yield item
 
                 # Add the run to the memory
-                self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
+                if isinstance(self.memory, WorkflowMemory):
+                    self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
+                elif isinstance(self.memory, Memory):
+                    self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
                 # Write this run to the database
                 self.write_to_storage()
-                log_debug(f"*********** Workflow Run End: {self.run_id} ***********")
+                log_debug(f"Workflow Run End: {self.run_id}", center=True)
 
             return result_generator()
         # Case 2: The run method returns a RunResponse
@@ -210,10 +217,13 @@ class Workflow:
                 self.run_response.content = result.content
 
             # Add the run to the memory
-            self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
+            if isinstance(self.memory, WorkflowMemory):
+                self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
+            elif isinstance(self.memory, Memory):
+                self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
             # Write this run to the database
             self.write_to_storage()
-            log_debug(f"*********** Workflow Run End: {self.run_id} ***********")
+            log_debug(f"Workflow Run End: {self.run_id}", center=True)
             return result
         else:
             logger.warning(f"Workflow.run() should only return RunResponse objects, got: {type(result)}")
@@ -221,21 +231,18 @@ class Workflow:
 
     def set_storage_mode(self):
         if self.storage is not None:
-            if self.storage.mode in ["agent", "team"]:
-                logger.warning(f"You shouldn't use storage in multiple modes. Current mode is {self.storage.mode}.")
-
             self.storage.mode = "workflow"
 
     def set_workflow_id(self) -> str:
         if self.workflow_id is None:
             self.workflow_id = str(uuid4())
-        log_debug(f"*********** Workflow ID: {self.workflow_id} ***********")
+        log_debug(f"Workflow ID: {self.workflow_id}", center=True)
         return self.workflow_id
 
     def set_session_id(self) -> str:
         if self.session_id is None:
             self.session_id = str(uuid4())
-        log_debug(f"*********** Session ID: {self.session_id} ***********")
+        log_debug(f"Session ID: {self.session_id}", center=True)
         return self.session_id
 
     def set_debug(self) -> None:
@@ -259,7 +266,7 @@ class Workflow:
 
     def initialize_memory(self) -> None:
         if self.memory is None:
-            self.memory = WorkflowMemory()
+            self.memory = Memory()
 
     def update_run_method(self):
         # Update the run() method to call run_workflow() instead of the subclass's run()
@@ -351,11 +358,29 @@ class Workflow:
         self.memory = cast(WorkflowMemory, self.memory)
         self.session_id = cast(str, self.session_id)
         self.workflow_id = cast(str, self.workflow_id)
+        if self.memory is not None:
+            if isinstance(self.memory, WorkflowMemory):
+                self.memory = cast(WorkflowMemory, self.memory)
+                memory_dict = self.memory.to_dict()
+                # We only persist the runs for the current session ID (not all runs in memory)
+                memory_dict["runs"] = [
+                    agent_run.model_dump()
+                    for agent_run in self.memory.runs
+                    if agent_run.response is not None and agent_run.response.session_id == self.session_id
+                ]
+            else:
+                self.memory = cast(Memory, self.memory)
+                # We fake the structure on storage, to maintain the interface with the legacy implementation
+                run_responses = self.memory.runs[self.session_id]  # type: ignore
+                memory_dict = self.memory.to_dict()
+                memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
+        else:
+            memory_dict = None
         return WorkflowSession(
             session_id=self.session_id,
             workflow_id=self.workflow_id,
             user_id=self.user_id,
-            memory=self.memory.to_dict() if self.memory is not None else None,
+            memory=memory_dict,
             workflow_data=self.get_workflow_data(),
             session_data=self.get_session_data(),
             extra_data=self.extra_data,
@@ -430,16 +455,28 @@ class Workflow:
 
         if session.memory is not None:
             if self.memory is None:
-                self.memory = WorkflowMemory()
+                self.memory = Memory()
 
-            try:
-                if "runs" in session.memory:
-                    try:
-                        self.memory.runs = [WorkflowRun(**m) for m in session.memory["runs"]]
-                    except Exception as e:
-                        logger.warning(f"Failed to load runs from memory: {e}")
-            except Exception as e:
-                logger.warning(f"Failed to load WorkflowMemory: {e}")
+            if isinstance(self.memory, Memory):
+                try:
+                    if self.memory.runs is None:
+                        self.memory.runs = {}
+                    self.memory.runs[session.session_id] = []
+                    for run in session.memory["runs"]:
+                        run_session_id = run["session_id"]
+                        self.memory.runs[run_session_id].append(RunResponse.from_dict(run))
+                except Exception as e:
+                    log_warning(f"Failed to load runs from memory: {e}")
+            else:
+                try:
+                    if "runs" in session.memory:
+                        try:
+                            self.memory.runs = [WorkflowRun(**m) for m in session.memory["runs"]]
+                        except Exception as e:
+                            logger.warning(f"Failed to load runs from memory: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to load WorkflowMemory: {e}")
+
         log_debug(f"-*- WorkflowSession loaded: {session.session_id}")
 
     def read_from_storage(self) -> Optional[WorkflowSession]:

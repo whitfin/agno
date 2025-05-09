@@ -11,13 +11,18 @@ except ImportError:
 
 
 class Newspaper4kTools(Toolkit):
+    """
+    Newspaper4kTools is a toolkit for getting the text of an article from a URL.
+    Args:
+        read_article (bool): Whether to read an article from a URL.
+        include_summary (bool): Whether to include the summary of an article.
+        article_length (Optional[int]): The length of the article to read.
+    """
+
     def __init__(
-        self,
-        read_article: bool = True,
-        include_summary: bool = False,
-        article_length: Optional[int] = None,
+        self, read_article: bool = True, include_summary: bool = False, article_length: Optional[int] = None, **kwargs
     ):
-        super().__init__(name="newspaper_tools")
+        super().__init__(name="newspaper4k_tools", **kwargs)
 
         self.include_summary: bool = include_summary
         self.article_length: Optional[int] = article_length

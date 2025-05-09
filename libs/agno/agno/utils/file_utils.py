@@ -53,7 +53,7 @@ def _format_file_inline(file: File) -> Optional[Dict[str, Any]]:
             # result is a tuple (bytes, mime_type)
             content, mime_type = result
             # Log first 100 bytes of content
-            log_debug(f"File URL content (first 100 bytes): {content[:100]}")
+            log_debug(f"File URL content (first 100 bytes): {content[:100]!r}")  # type: ignore[index]
             filename = Path(urlparse(file.url).path).name or "file"
         elif file.filepath:
             path = Path(file.filepath)

@@ -9,5 +9,6 @@ agent = Agent(
 )
 
 agent.print_response(
-    "What is the Cost of Goods Sold based on the document?", files=["https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf"]
+    "What is the Cost of Goods Sold based on the document?",
+    files=["https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf"],
 )

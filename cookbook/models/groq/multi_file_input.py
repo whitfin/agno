@@ -11,7 +11,6 @@ agent = Agent(
 agent.print_response(
     "Analyze all the files and give me a summary of the content",
     files=[
-        # "tmp/plan.md",
         File(filepath="data/car.json"),
         File(filepath="data/boston_housing.csv"),
         File(filepath="data/LSTM.pdf"),

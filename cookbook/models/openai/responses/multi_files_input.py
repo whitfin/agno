@@ -12,10 +12,8 @@ agent = Agent(
 agent.print_response(
     "Analyze all the files and give me a summary of the content",
     files=[
-        "tmp/plan.md",
-        File(filepath="tmp/car.json"),
-        File(filepath="tmp/boston_housing.csv"),
-        File(filepath="tmp/LSTM.pdf"),
+        "data/car.json",
+        File(filepath="data/boston_housing.csv"),
         File(url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"),
     ],
 )

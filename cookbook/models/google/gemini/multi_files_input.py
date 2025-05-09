@@ -11,12 +11,10 @@ agent = Agent(
 agent.print_response(
     "Analyze all the files and give me a summary of the content",
     files=[
-        File(filepath="data/plan.md"),
         File(filepath="data/car.json"),
         File(filepath="data/boston_housing.csv"),
         File(url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"),
         "https://api.fda.gov/food/enforcement.json",
-        "https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf"
-
+        "https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf",
     ],
 )

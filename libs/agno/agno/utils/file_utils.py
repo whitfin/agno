@@ -9,6 +9,29 @@ from agno.media import File
 from agno.utils.log import log_debug, log_error
 
 
+# Add a utility to normalize various file inputs into File objects
+def normalize_files(files: Sequence[Union[File, Path, str]]) -> List[File]:
+    """
+    Convert a sequence of File, Path, or URL/filepath strings to a list of File objects.
+    """
+    from pathlib import Path as _Path
+
+    normalized: List[File] = []
+    for f in files:
+        if isinstance(f, File):
+            normalized.append(f)
+        elif isinstance(f, _Path):
+            normalized.append(File(filepath=f))
+        elif isinstance(f, str):
+            if f.startswith("http://") or f.startswith("https://"):
+                normalized.append(File(url=f))
+            else:
+                normalized.append(File(filepath=_Path(f)))
+        else:
+            raise ValueError(f"Unsupported file type: {f!r}")
+    return normalized
+
+
 def _get_mime_type(file: File, filename: str) -> str:
     """Determine MIME type from File object or filename."""
     return file.mime_type or mimetypes.guess_type(filename)[0] or "application/octet-stream"
@@ -21,14 +44,16 @@ def _format_file_inline(file: File) -> Optional[Dict[str, Any]]:
     """
     try:
         # Determine content source
-        print(f"Formatting file inline: {file.filepath or file.url}")
+        print(f"oFrmatting file inline: {file.filepath or file.url}")
         if file.url:
             result = file.file_url_content
-            log_debug(f"File URL content: {result[:100]}")
-            if not result:
+            if result is None:
                 log_error(f"Failed to fetch file from URL: {file.url}")
                 return None
+            # result is a tuple (bytes, mime_type)
             content, mime_type = result
+            # Log first 100 bytes of content
+            log_debug(f"File URL content (first 100 bytes): {content[:100]}")
             filename = Path(urlparse(file.url).path).name or "file"
         elif file.filepath:
             path = Path(file.filepath)
@@ -59,11 +84,6 @@ def _format_file_inline(file: File) -> Optional[Dict[str, Any]]:
 
 
 def _process_with_reader(file: File) -> Optional[list[dict[str, str]]]:
-    """
-    Process file using its assigned reader.
-    This is the highest priority method - if a reader is present, we use it.
-    """
-    # Handle JSON URLs directly: fetch and parse JSON into text
     if file.url and str(file.url).lower().endswith(".json"):
         try:
             import json
@@ -106,17 +126,17 @@ def _auto_detect_reader(file: File) -> None:
             try:
                 # Use URL reader for PDF URLs, else local PDF reader
                 if getattr(file, "url", None):
-                    from agno.document.reader.pdf_reader import PDFUrlReader as ReaderClass
+                    from agno.document.reader.pdf_reader import PDFUrlReader
 
-                    file.reader = ReaderClass()
+                    file.reader = PDFUrlReader()
                     log_debug(f"Auto-applied PDFUrlReader for {file.url}")
                 else:
-                    from agno.document.reader.pdf_reader import PDFReader as ReaderClass
+                    from agno.document.reader.pdf_reader import PDFReader
 
-                    file.reader = ReaderClass()
+                    file.reader = PDFReader()
                     log_debug(f"Auto-applied PDFReader for {file.filepath}")
             except ImportError as e:
-                log_error(f"Failed to import PDFReader for {file.filepath or file.url}: {e}")
+                log_error(f"Failed to import PDF reader for {file.filepath or file.url}: {e}")
         elif path_lower.endswith(".csv"):
             try:
                 from agno.document.reader.csv_reader import CSVReader
@@ -151,29 +171,6 @@ def _auto_detect_reader(file: File) -> None:
                 log_error(f"Failed to import TextReader for {file.filepath}: {e}")
 
 
-# Add a utility to normalize various file inputs into File objects
-def normalize_files(files: Sequence[Union[File, Path, str]]) -> List[File]:
-    """
-    Convert a sequence of File, Path, or URL/filepath strings to a list of File objects.
-    """
-    from pathlib import Path as _Path
-
-    normalized: List[File] = []
-    for f in files:
-        if isinstance(f, File):
-            normalized.append(f)
-        elif isinstance(f, _Path):
-            normalized.append(File(filepath=f))
-        elif isinstance(f, str):
-            if f.startswith("http://") or f.startswith("https://"):
-                normalized.append(File(url=f))
-            else:
-                normalized.append(File(filepath=_Path(f)))
-        else:
-            raise ValueError(f"Unsupported file type: {f!r}")
-    return normalized
-
-
 def prepare_inline_files(files: Sequence[File]) -> List[Dict[str, Any]]:
     """
     For a sequence of File objects, attempt text extraction via reader,
@@ -182,17 +179,18 @@ def prepare_inline_files(files: Sequence[File]) -> List[Dict[str, Any]]:
     """
     items: List[Dict[str, Any]] = []
     for file in files:
-        # Try reader-based extraction
+        # Case 1: User provided a reader
         parts = _process_with_reader(file)
         if not parts:
             log_debug(f"No parts found for {file.filepath or file.url}")
+            # Case 2: Auto-detect reader
             _auto_detect_reader(file)
             parts = _process_with_reader(file)
         if parts:
             # parts are dicts like {'type':'text','text':...}
             items.extend(parts)
             continue
-        # Fallback to inline embedding
+        # Case 3: Embed file as base64 data URL
         log_debug(f"Falling back to inline embedding for {file.filepath or file.url}")
         inline = _format_file_inline(file)
         if inline:

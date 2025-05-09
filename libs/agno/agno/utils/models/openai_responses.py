@@ -131,21 +131,25 @@ def files_to_message(
     upload_file: Callable[[File], Optional[str]],
 ) -> List[Dict[str, Any]]:
     """
-    Process files for Responses API input:
-    - Upload PDFs via upload_file when supports_file_upload is True
-    - Inline all other files via prepare_inline_files
-    Returns a list of message items with types 'input_file' or 'input_text'.
+    Adds files to a message for the model. We upload PDFs and inline all other files.
+
+    Args:
+        files: Sequence of files in various formats:
+            - str: base64 encoded image, URL, or file path
+
+    Returns:
+        Message content with files added in the format expected by the model
     """
     upload_items: List[Dict[str, Any]] = []
-    to_upload = [f for f in files if Path(f.filepath or f.url or "").suffix.lower() == ".pdf"]
-    for f in to_upload:
-        fid = upload_file(f)
-        if fid:
-            upload_items.append({"type": "input_file", "file_id": fid})
-    to_inline = [f for f in files if f not in to_upload]
-    raw_items = prepare_inline_files(to_inline)
+    to_upload = [file for file in files if Path(file.filepath or file.url or "").suffix.lower() == ".pdf"]
+    for file_obj in to_upload:
+        file_id = upload_file(file_obj)
+        if file_id:
+            upload_items.append({"type": "input_file", "file_id": file_id})
+    to_inline = [file for file in files if file not in to_upload]
+    extracted_items = prepare_inline_files(to_inline)
     inline_items: List[Dict[str, Any]] = []
-    for part in raw_items:
+    for part in extracted_items:
         if part.get("type") == "text":
             inline_items.append({"type": "input_text", "text": part.get("text", "")})
         elif part.get("type") == "file" and "file" in part:

@@ -1,4 +1,3 @@
-import base64
 import json
 import time
 from dataclasses import dataclass
@@ -14,8 +13,7 @@ from agno.media import Audio, File, ImageArtifact, Video
 from agno.models.base import Model
 from agno.models.message import Citations, Message, MessageMetrics, UrlCitation
 from agno.models.response import ModelResponse
-from agno.utils.file_utils import prepare_inline_files
-from agno.utils.gemini import format_function_definitions, format_image_for_message
+from agno.utils.gemini import format_files_for_message, format_function_definitions, format_image_for_message
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:
@@ -424,7 +422,9 @@ class Gemini(Model):
                 # Add files to the message for the model
                 if message.files:
                     # Process attachments via shared utility
-                    file_parts = self._format_files_for_message(message.files)
+                    file_parts = format_files_for_message(
+                        message.files, upload_file_to_parts=self._upload_file_and_get_parts
+                    )
                     for part in reversed(file_parts):
                         message_parts.insert(0, part)
 
@@ -548,36 +548,6 @@ class Gemini(Model):
             log_warning(f"Unknown video type: {type(video.content)}")
             return None
 
-    def _format_files_for_message(self, files: List[File]) -> List[Part]:
-        """Process file attachments for Gemini API message format.
-
-        For PDF files:
-        - Files ≤ 20MB are inlined via Part.from_bytes
-        - Files > 20MB are uploaded through File API
-
-        All other file types are processed via prepare_inline_files utility.
-
-        Args:
-            files: List of File objects to process
-
-        Returns:
-            List of Gemini API Part objects ready for message inclusion
-        """
-        parts: List[Part] = []
-        pdf_files, other_files = self._partition_files_by_type(files)
-
-        # Handle PDFs with size-based upload/inline decision
-        for pdf_file in pdf_files:
-            log_debug(f"Processing PDF file: {pdf_file}")
-            pdf_parts = self._process_pdf_file(pdf_file)
-            if pdf_parts:
-                parts.extend(pdf_parts)
-
-        # Process remaining files via shared utility
-        parts.extend(self._process_non_pdf_files(other_files))
-
-        return parts
-
     def _partition_files_by_type(self, files: List[File]) -> tuple[List[File], List[File]]:
         """Separate files into PDF and non-PDF lists.
 
@@ -598,98 +568,6 @@ class Gemini(Model):
                 other_files.append(f)
 
         return pdf_files, other_files
-
-    def _process_pdf_file(self, pdf_file: File) -> List[Part]:
-        """Process a single PDF file, extracting text for small files and uploading large ones.
-
-        Attempts to use a reader for PDFs ≤ 20MB to extract text into the conversation. Falls back
-        to raw PDF bytes if no reader output is available. PDFs > 20MB are uploaded via the File API.
-
-        Args:
-            pdf_file: PDF File object to process
-
-        Returns:
-            List of Gemini API Part objects for this PDF
-        """
-        parts: List[Part] = []
-        threshold = 20 * 1024 * 1024  # 20MB
-        try:
-            # Local PDF handling
-            if pdf_file.filepath:
-                log_debug(f"Processing local PDF file: {pdf_file.filepath}")
-                path = Path(pdf_file.filepath)
-                if not path.exists() or not path.is_file():
-                    log_error(f"PDF file {path} does not exist.")
-                    return parts
-                data = path.read_bytes()
-                if len(data) <= threshold:
-                    # Extract via reader for text context
-                    inline_parts = self._process_non_pdf_files([pdf_file])
-                    if inline_parts:
-                        return inline_parts
-                    # Fallback: inline raw PDF
-                    parts.append(Part.from_bytes(mime_type="application/pdf", data=data))
-                else:
-                    clean_name = f"files/{path.stem.lower().replace('_', '')}"
-                    self._upload_file_to_parts(pdf_file, parts, clean_name=clean_name)
-            # URL-based PDF handling
-            elif pdf_file.url:
-                log_debug(f"Processing URL-based PDF file: {pdf_file.url}")
-                pdf_tuple = pdf_file.file_url_content
-                if not pdf_tuple:
-                    log_error(f"Failed to download PDF from {pdf_file.url}")
-                    return parts
-                data, mime = pdf_tuple
-                if len(data) <= threshold:
-                    inline_parts = self._process_non_pdf_files([pdf_file])
-                    if inline_parts:
-                        return inline_parts
-                    parts.append(Part.from_bytes(mime_type=mime, data=data))
-                else:
-                    self._upload_file_to_parts(pdf_file, parts, default_name=True)
-            else:
-                log_warning(f"No source found for PDF file: {pdf_file}")
-        except Exception as e:
-            log_error(f"Error processing PDF file {pdf_file.filepath or pdf_file.url}: {e}")
-        return parts
-
-    def _process_non_pdf_files(self, files: List[File]) -> List[Part]:
-        """Process non-PDF files using prepare_inline_files utility.
-
-        Args:
-            files: List of non-PDF files
-
-        Returns:
-            List of resulting Part objects
-        """
-        parts: List[Part] = []
-        inline_items = prepare_inline_files(files)
-
-        for item in inline_items:
-            if item.get("type") == "text":
-                # Plain text part
-                parts.append(Part.from_text(text=item.get("text", "")))
-            elif item.get("type") == "file" and "file" in item:
-                # Inline file fallback: if textual, decode as text; otherwise, embed binary
-                try:
-                    file_info = item["file"]
-                    data_url = file_info.get("file_data", "")
-                    header, b64_data = data_url.split(",", 1)
-                    mime_type = header.split(";")[0].split(":", 1)[1]
-                    data_bytes = base64.b64decode(b64_data)
-                    # Treat JSON and text/* as text parts
-                    if mime_type.startswith("text/") or mime_type == "application/json":
-                        try:
-                            text = data_bytes.decode("utf-8")
-                        except Exception:
-                            text = data_bytes.decode("utf-8", errors="ignore")
-                        parts.append(Part.from_text(text=text))
-                    else:
-                        parts.append(Part.from_bytes(mime_type=mime_type, data=data_bytes))
-                except Exception as e:
-                    log_error(f"Error processing inline file {file_info.get('filename')}: {e}")
-
-        return parts
 
     def _upload_file_to_parts(
         self,
@@ -735,6 +613,14 @@ class Gemini(Model):
                 parts.append(Part.from_uri(file_uri=remote.uri, mime_type=remote.mime_type))
         except Exception as e:
             log_error(f"Error uploading file {f.filepath or f.url}: {e}")
+
+    def _upload_file_and_get_parts(self, f: File) -> List[Part]:
+        """
+        Upload a file and return a list of Parts using _upload_file_to_parts.
+        """
+        parts: List[Part] = []
+        self._upload_file_to_parts(f, parts)
+        return parts
 
     def format_function_call_results(
         self, messages: List[Message], function_call_results: List[Message], **kwargs

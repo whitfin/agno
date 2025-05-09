@@ -340,24 +340,6 @@ class OpenAIResponses(Model):
                 }
                 message_dict = {k: v for k, v in message_dict.items() if v is not None}
 
-                # Handle file inputs per plan
-                if message.files:
-                    # Process file inputs via shared helper
-                    items = files_to_message(
-                        message.files,
-                        self._upload_file,
-                    )
-                    base = (
-                        []
-                        if message_dict.get("content") is None
-                        else (
-                            [{"type": "input_text", "text": message_dict["content"]}]
-                            if isinstance(message_dict["content"], str)
-                            else message_dict["content"]
-                        )
-                    )
-                    message_dict["content"] = items + base
-
                 if message.images is not None and len(message.images) > 0:
                     # Ignore non-string message content
                     # because we assume that the images/audio are already added to the message
@@ -371,6 +353,16 @@ class OpenAIResponses(Model):
 
                 if message.videos is not None and len(message.videos) > 0:
                     log_warning("Video input is currently unsupported.")
+
+                if message.files:
+                    file_items = files_to_message(message.files, self._upload_file)
+                    existing_content = message_dict.get("content")
+                    content_items: List[Dict[str, Any]] = []
+                    if isinstance(existing_content, str):
+                        content_items = [{"type": "input_text", "text": existing_content}]
+                    elif isinstance(existing_content, list):
+                        content_items = existing_content
+                    message_dict["content"] = file_items + content_items
 
                 formatted_messages.append(message_dict)
 

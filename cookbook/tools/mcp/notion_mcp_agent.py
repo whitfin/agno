@@ -17,13 +17,14 @@ import asyncio
 import json
 import os
 from textwrap import dedent
+from typing import Any, Dict, List, Optional, Union
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.tools.mcp import MCPTools
 from mcp import StdioServerParameters
 from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional, Union
+
 
 class StoryFacts(BaseModel):
     id: str = Field(..., description="ID of the Notion page")
@@ -33,7 +34,9 @@ class StoryFacts(BaseModel):
     inciting_event: str = Field(..., description="Inciting event of the story")
     portal_discovery: str = Field(..., description="Discovery of the portal")
     outcome: str = Field(..., description="Outcome of the story")
-    facts: List[str] = Field(..., description="List of key factual statements about the story content")
+    facts: List[str] = Field(
+        ..., description="List of key factual statements about the story content"
+    )
 
 
 async def run_agent():
@@ -59,26 +62,23 @@ async def run_agent():
             tools=[mcp_tools],
             description="Agent to extract key facts from a Notion-hosted story",
             response_model=StoryFacts,
-            use_json_mode=True,
             instructions=dedent("""\
                 Extract the key factual statements from the story on a Notion page:
-                1. Use 'API-post-search' with query=<page title> filter={'property':'object','value':'page'} to find the page ID.
-                2. Use 'API-retrieve-a-page' to get the title and properties; ignore all metadata except page title.
-                3. Use 'API-get-block-children' to retrieve all paragraph blocks containing story text.
-                4. Read the concatenated story text and identify discrete facts (e.g., main character, setting, inciting event, portal discovery, outcome).
-                5. Output a JSON StoryFacts object with:
+                Use the available MCP tools to extract the key facts from the story.
+                Read the story and identify discrete facts (e.g., main character, setting, inciting event, portal discovery, outcome).
+                Output a JSON StoryFacts object with:
                    id: the page ID
                    title: the story title
                    facts: an ordered list of key fact statements extracted from the story text
                 Respond with valid JSON only, no extra text.
             """),
-            markdown=True,
+            use_json_mode=True,
             show_tool_calls=True,
             debug_mode=True,
         )
 
         await agent.aprint_response(
-            message="Extract key facts from the story on the Notion page Short-story-1ee7ee79d1c580108159d4b7b76bfccf",
+            message="Extract key facts from the story on the Notion page with title 'Short story'",
             stream=True,
         )
 

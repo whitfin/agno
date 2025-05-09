@@ -8,10 +8,6 @@ agent = Agent(
     debug_mode=True,
 )
 
-# file_local = File(filepath="tmp/LSTM.pdf")
-file_local = File(
-    url="https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf"
-)
 agent.print_response(
-    "What is the Cost of Goods Sold based on the document?", files=[file_local]
+    "What is the Cost of Goods Sold based on the document?", files=["https://www.jsu.edu/business/fea/docs/financial_stament_review.pdf"]
 )

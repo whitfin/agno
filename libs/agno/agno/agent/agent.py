@@ -39,7 +39,7 @@ from agno.run.response import RunEvent, RunResponse, RunResponseExtraData
 from agno.run.team import TeamRunResponse
 from agno.storage.base import Storage
 from agno.storage.session.agent import AgentSession
-from agno.tools.function import Function, FunctionCallResult
+from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.log import (
     log_debug,
@@ -783,25 +783,11 @@ class Agent:
                             }
                             # Process tool calls
                             for tool_call_dict in new_tool_calls_list:
-                                print("--> 1")
                                 tool_call_id = tool_call_dict.get("tool_call_id")
                                 index = tool_call_index_map.get(tool_call_id)
                                 if index is not None:
-                                    print("--> 2")
-                                    # process the FunctionCallResult
-                                    tool_result = tool_call_dict.get("tool_result")
-                                    if isinstance(tool_result, FunctionCallResult):
-                                        # Add any images from the tool result
-                                        print("--> 3")
-                                        if tool_result.images:
-                                            for image in tool_result.images:
-                                                self.add_image(image)
-                                        print("--> tool result  images", tool_result)
-                                        tool_call_dict["tool_result"] = str(tool_result)
-
                                     self.run_response.tools[index] = tool_call_dict
                         else:
-                            print("--> 4")
                             self.run_response.tools = new_tool_calls_list
 
                         # Only iterate through new tool calls
@@ -878,14 +864,6 @@ class Agent:
 
                 # For Reasoning/Thinking/Knowledge Tools update reasoning_content in RunResponse
                 for tool_call in model_response.tool_calls:
-                    tool_result = tool_call.get("tool_result")
-                    if isinstance(tool_result, FunctionCallResult):
-                        # Add any images from the tool result
-                        if tool_result.images:
-                            for image in tool_result.images:
-                                self.add_image(image)
-                        # Update the tool call result with the string content
-                        tool_call_dict["tool_result"] = str(tool_result)
                     tool_name = tool_call.get("tool_name", "")
                     if tool_name.lower() in ["think", "analyze"]:
                         tool_args = tool_call.get("tool_args", {})
@@ -1673,7 +1651,8 @@ class Agent:
             # Add AgentRun to memory
             self.memory.add_run(session_id=session_id, run=self.run_response)
 
-            await self._amake_memories_and_summaries(run_messages, session_id, user_id, messages)  # type: ignore
+            # type: ignore
+            await self._amake_memories_and_summaries(run_messages, session_id, user_id, messages)
 
             if self.session_metrics is None:
                 self.session_metrics = self.calculate_metrics(run_messages.messages)  # Calculate metrics for the run
@@ -2620,7 +2599,8 @@ class Agent:
                             response=RunResponse(
                                 content=introduction,
                                 messages=[
-                                    Message(role=self.model.assistant_message_role, content=introduction)  # type: ignore
+                                    # type: ignore
+                                    Message(role=self.model.assistant_message_role, content=introduction)
                                 ],
                             )
                         )
@@ -2731,7 +2711,8 @@ class Agent:
                     and (not self.use_json_mode or self.structured_outputs is True)
                 )
             ):
-                sys_message_content += f"\n{get_json_output_prompt(self.response_model)}"  # type: ignore
+                # type: ignore
+                sys_message_content += f"\n{get_json_output_prompt(self.response_model)}"
 
             # type: ignore
             return Message(role=self.system_message_role, content=sys_message_content)
@@ -2965,7 +2946,8 @@ class Agent:
             (self.model.supports_native_structured_outputs or self.model.supports_json_schema_outputs)
             and (not self.use_json_mode or self.structured_outputs is True)
         ):
-            system_message_content += f"{get_json_output_prompt(self.response_model)}"  # type: ignore
+            # type: ignore
+            system_message_content += f"{get_json_output_prompt(self.response_model)}"
 
         # Return the system message
         return (
@@ -3489,7 +3471,8 @@ class Agent:
         if invalid_keys:
             # type: ignore
             log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
-            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")  # type: ignore
+            # type: ignore
+            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")
 
             # Only use valid filters
             filters = valid_filters
@@ -3546,7 +3529,8 @@ class Agent:
         # Warn about invalid filter keys
         if invalid_keys:  # type: ignore
             log_warning(f"Invalid filter keys provided: {invalid_keys}. These filters will be ignored.")
-            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")  # type: ignore
+            # type: ignore
+            log_info(f"Valid filter keys are: {self.knowledge.valid_metadata_filters}")
 
             # Only use valid filters
             filters = valid_filters
@@ -4036,7 +4020,8 @@ class Agent:
             from agno.reasoning.helpers import get_next_action, update_messages_with_reasoning
 
             # Get default reasoning agent
-            reasoning_agent: Optional[Agent] = self.reasoning_agent  # type: ignore
+            # type: ignore
+            reasoning_agent: Optional[Agent] = self.reasoning_agent
             if reasoning_agent is None:
                 reasoning_agent = get_default_reasoning_agent(
                     reasoning_model=reasoning_model,
@@ -4247,7 +4232,8 @@ class Agent:
             from agno.reasoning.helpers import get_next_action, update_messages_with_reasoning
 
             # Get default reasoning agent
-            reasoning_agent: Optional[Agent] = self.reasoning_agent  # type: ignore
+            # type: ignore
+            reasoning_agent: Optional[Agent] = self.reasoning_agent
             if reasoning_agent is None:
                 reasoning_agent = get_default_reasoning_agent(
                     reasoning_model=reasoning_model,

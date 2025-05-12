@@ -783,6 +783,3 @@ class FunctionCall(BaseModel):
 class FunctionCallResult(BaseModel):
     content: str
     images: Optional[List[ImageArtifact]] = None
-
-    def __str__(self) -> str:
-        return self.content

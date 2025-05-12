@@ -39,7 +39,7 @@ from agno.run.response import RunEvent, RunResponse, RunResponseExtraData
 from agno.run.team import TeamRunResponse
 from agno.storage.base import Storage
 from agno.storage.session.agent import AgentSession
-from agno.tools.function import Function
+from agno.tools.function import Function, FunctionCallResult
 from agno.tools.toolkit import Toolkit
 from agno.utils.log import (
     log_debug,
@@ -783,11 +783,25 @@ class Agent:
                             }
                             # Process tool calls
                             for tool_call_dict in new_tool_calls_list:
+                                print("--> 1")
                                 tool_call_id = tool_call_dict.get("tool_call_id")
                                 index = tool_call_index_map.get(tool_call_id)
                                 if index is not None:
+                                    print("--> 2")
+                                    # process the FunctionCallResult
+                                    tool_result = tool_call_dict.get("tool_result")
+                                    if isinstance(tool_result, FunctionCallResult):
+                                        # Add any images from the tool result
+                                        print("--> 3")
+                                        if tool_result.images:
+                                            for image in tool_result.images:
+                                                self.add_image(image)
+                                        print("--> tool result  images", tool_result)
+                                        tool_call_dict["tool_result"] = str(tool_result)
+
                                     self.run_response.tools[index] = tool_call_dict
                         else:
+                            print("--> 4")
                             self.run_response.tools = new_tool_calls_list
 
                         # Only iterate through new tool calls
@@ -864,6 +878,14 @@ class Agent:
 
                 # For Reasoning/Thinking/Knowledge Tools update reasoning_content in RunResponse
                 for tool_call in model_response.tool_calls:
+                    tool_result = tool_call.get("tool_result")
+                    if isinstance(tool_result, FunctionCallResult):
+                        # Add any images from the tool result
+                        if tool_result.images:
+                            for image in tool_result.images:
+                                self.add_image(image)
+                        # Update the tool call result with the string content
+                        tool_call_dict["tool_result"] = str(tool_result)
                     tool_name = tool_call.get("tool_name", "")
                     if tool_name.lower() in ["think", "analyze"]:
                         tool_args = tool_call.get("tool_args", {})

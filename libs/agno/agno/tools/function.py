@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, get_type_hints
 
@@ -5,6 +6,7 @@ from docstring_parser import parse
 from pydantic import BaseModel, Field, validate_call
 
 from agno.exceptions import AgentRunException
+from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.utils.log import log_debug, log_error, log_exception, log_warning
 
 T = TypeVar("T")
@@ -776,3 +778,11 @@ class FunctionCall(BaseModel):
             self._handle_post_hook()
 
         return function_call_success
+
+
+class FunctionCallResult(BaseModel):
+    content: str
+    images: Optional[List[ImageArtifact]] = None
+
+    def __str__(self) -> str:
+        return self.content

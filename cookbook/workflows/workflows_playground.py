@@ -55,7 +55,8 @@ playground = Playground(
         investment_report_generator,
         startup_idea_validator,
     ],
-    # app_id="workflows-playground-app",
+    app_id="workflows-playground-app",
+    name="Workflows Playground",
 )
 app = playground.get_app(use_async=False)
 

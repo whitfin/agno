@@ -148,7 +148,10 @@ class RunResponse:
             _dict["content"] = self.content.model_dump(exclude_none=True)
 
         if self.citations is not None:
-            _dict["citations"] = self.citations.model_dump(exclude_none=True)
+            if isinstance(self.citations, Citations):
+                _dict["citations"] = self.citations.model_dump(exclude_none=True)
+            elif isinstance(self.citations, dict):
+                _dict["citations"] = self.citations
 
         return _dict
 

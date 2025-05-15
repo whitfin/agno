@@ -37,7 +37,7 @@ class Playground:
         app_id: Optional[str] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        monitoring: bool = False,
+        monitoring: bool = True,
     ):
         if not agents and not workflows and not teams:
             raise ValueError("Either agents, teams or workflows must be provided.")
@@ -237,6 +237,7 @@ class Playground:
             "type": "playground",
             "description": self.description,
         }
+        payload = {k: v for k, v in payload.items() if v is not None}
         return payload
 
 

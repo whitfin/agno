@@ -11,7 +11,8 @@ finance_agent = Agent(
     debug_mode=True,
 )
 
-app = Playground(agents=[finance_agent]).get_app(use_async=False)
+playground = Playground(agents=[finance_agent])
+app = playground.get_app(use_async=False)
 
 if __name__ == "__main__":
-    serve_playground_app("gemini_agents:app", reload=True)
+    playground.serve(app="gemini_agents:app", reload=True)

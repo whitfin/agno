@@ -5968,24 +5968,19 @@ class Agent:
             "instructions": self.instructions if self.instructions is not None else [],
             "tools": tools,
             "memory": {
-                "name": self.memory.__class__.__name__ if self.memory is not None else None,
-            }
-            if self.memory is not None
-            else None,
+                "name": self.memory.__class__.__name__,
+            } if self.memory is not None else None,
             "storage": {
-                "name": self.storage.__class__.__name__ if self.storage is not None else None,
-            }
-            if self.storage is not None
-            else None,
+                "name": self.storage.__class__.__name__,
+            } if self.storage is not None else None,
             "knowledge": {
-                "name": self.knowledge.__class__.__name__ if self.knowledge is not None else None,
-            }
-            if self.knowledge is not None
-            else None,
+                "name": self.knowledge.__class__.__name__,
+            } if self.knowledge is not None else None,
             "model": model,
             "name": self.name,
             "description": self.description,
         }
+        payload = {k: v for k, v in payload.items() if v is not None}
         return payload
 
     async def acli_app(

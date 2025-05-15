@@ -11,9 +11,6 @@ def create_workflow(workflow: WorkflowCreate) -> None:
 
     with api.AuthenticatedClient() as api_client:
         try:
-            print(
-                f"Creating Workflow**********************************************************, {workflow.workflow_id}"
-            )
             api_client.post(
                 ApiRoutes.WORKFLOW_CREATE,
                 json=workflow.model_dump(exclude_none=True),

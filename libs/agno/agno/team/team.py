@@ -6794,7 +6794,7 @@ class Team:
             log_debug(f"Could not create team on platform: {e}")
 
     def to_platform_dict(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "members": [
                 {
                     **(
@@ -6836,5 +6836,7 @@ class Team:
             "description": self.description,
             "storage": self.storage.__class__.__name__ if self.storage is not None else None,
             # "tools": [tool.to_dict() for tool in self.tools] if self.tools is not None else None,
-            # "memory": self.memory.to_dict() if self.memory is not None else None,
+            "memory": self.memory.to_dict() if self.memory is not None else None,
         }
+        payload = {k: v for k, v in payload.items() if v is not None}
+        return payload

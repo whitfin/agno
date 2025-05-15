@@ -232,6 +232,7 @@ playground = Playground(
     ],
     teams=[reasoning_finance_team],
     name="Reasoning Demo",
+    app_id="reasoning-demo",
     description="A playground for reasoning",
 )
 app = playground.get_app()

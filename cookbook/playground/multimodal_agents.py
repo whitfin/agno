@@ -185,7 +185,10 @@ playground= Playground(
         fal_agent,
         gif_agent,
         audio_agent,
-    ]
+    ],
+    name="Multimodal Agents",
+    description="A playground for multimodal agents",
+    app_id="multimodal-agents",
 )
 app=playground.get_app(use_async=False)  
 

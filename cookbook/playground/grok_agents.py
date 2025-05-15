@@ -90,7 +90,7 @@ youtube_agent = Agent(
     markdown=True,
 )
 
-playground = Playground(agents=[finance_agent, youtube_agent, web_agent])
+playground = Playground(agents=[finance_agent, youtube_agent, web_agent], name="Grok Agents", description="A playground for Grok agents", app_id="grok-agents")
 app = playground.get_app()
 
 if __name__ == "__main__":

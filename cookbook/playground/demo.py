@@ -220,6 +220,7 @@ playground = Playground(
     agents=[simple_agent, web_agent, finance_agent, youtube_agent, research_agent, image_agent, movie_writer],
     app_id="demo-playground-app",
     name="Demo Playground",
+    description="A playground for demo",
 )
 app = playground.get_app()
 

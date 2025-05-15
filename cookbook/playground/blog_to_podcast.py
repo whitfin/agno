@@ -46,6 +46,7 @@ playground = Playground(
     agents=[blog_to_podcast_agent],
     app_id="blog-to-podcast-playground-app",
     name="Blog to Podcast Playground",
+    description="A playground for blog to podcast",
 )
 app = playground.get_app()
 

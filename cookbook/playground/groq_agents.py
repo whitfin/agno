@@ -91,9 +91,10 @@ youtube_agent = Agent(
     markdown=True,
 )
 
-app = Playground(agents=[finance_agent, youtube_agent, web_agent]).get_app(
-    use_async=False
-)
+playground = Playground(agents=[finance_agent, youtube_agent, web_agent]).get_app(
+        use_async=False
+    )
 
 if __name__ == "__main__":
-    serve_playground_app("groq_agents:app", reload=True)
+
+    playground.serve(app="groq_agents:app", reload=True)

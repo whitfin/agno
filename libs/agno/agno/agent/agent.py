@@ -4889,6 +4889,7 @@ class Agent:
         # Add tags to include in markdown content
         tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False,
         **kwargs: Any,
     ) -> None:
         import json
@@ -4899,7 +4900,45 @@ class Agent:
         from rich.markdown import Markdown
         from rich.status import Status
         from rich.text import Text
+        from uuid import uuid4
 
+        # Dry run: initialize and debug
+        self.initialize_agent()
+        log_debug("Dry run start", center=True)
+        # Handle dry run before any API calls
+        if dry_run:
+            # Build messages without calling the LLM
+            session_id = session_id or self.session_id or str(uuid4())
+            user_id = user_id or self.user_id
+            run_messages = self.get_run_messages(
+                message=message,
+                session_id=session_id,
+                user_id=user_id,
+                audio=audio,
+                images=images,
+                videos=videos,
+                files=files,
+                messages=messages,
+                knowledge_filters=knowledge_filters,
+                **kwargs,
+            )
+            print("==== Dry Run ====")
+            print("System Message:")
+            if run_messages.system_message:
+                print(run_messages.system_message.content)
+            else:
+                print("None")
+            print("User Message:")
+            if run_messages.user_message:
+                print(run_messages.user_message.content)
+            else:
+                print("None")
+            metrics = self.calculate_metrics(run_messages.messages)
+            print("Metrics:")
+            print(metrics)
+            return
+
+        # Proceed normally
         if markdown:
             self.markdown = True
 
@@ -5290,6 +5329,7 @@ class Agent:
         # Add tags to include in markdown content
         tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        dry_run: bool = False,
         **kwargs: Any,
     ) -> None:
         import json
@@ -5300,6 +5340,43 @@ class Agent:
         from rich.markdown import Markdown
         from rich.status import Status
         from rich.text import Text
+        from uuid import uuid4
+
+        # Dry run: initialize and debug (async)
+        self.initialize_agent()
+        log_debug("Dry run start (async)", center=True)
+        # Handle dry run before any API calls
+        if dry_run:
+            # Build messages without calling the LLM
+            session_id = session_id or self.session_id or str(uuid4())
+            user_id = user_id or self.user_id
+            run_messages = self.get_run_messages(
+                message=message,
+                session_id=session_id,
+                user_id=user_id,
+                audio=audio,
+                images=images,
+                videos=videos,
+                files=files,
+                messages=messages,
+                knowledge_filters=knowledge_filters,
+                **kwargs,
+            )
+            print("==== Dry Run (async) ====")
+            print("System Message:")
+            if run_messages.system_message:
+                print(run_messages.system_message.content)
+            else:
+                print("None")
+            print("User Message:")
+            if run_messages.user_message:
+                print(run_messages.user_message.content)
+            else:
+                print("None")
+            metrics = self.calculate_metrics(run_messages.messages)
+            print("Metrics:")
+            print(metrics)
+            return
 
         if markdown:
             self.markdown = True

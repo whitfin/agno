@@ -5961,7 +5961,7 @@ class Agent:
                 "name": self.model.__class__.__name__,
                 "id": self.model.id,
                 "provider": self.model.provider,
-                "response_format": self.model.response_format,
+                
             }
 
         payload = {

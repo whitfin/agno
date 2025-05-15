@@ -9,6 +9,7 @@ from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifac
 from agno.models.message import Citations, Message, MessageReferences
 from agno.reasoning.step import ReasoningStep
 from agno.utils.log import logger
+from agno.utils.log import logger
 
 
 class RunEvent(str, Enum):
@@ -146,20 +147,25 @@ class RunResponse:
             else:
                 _dict["response_audio"] = self.response_audio
 
+        if isinstance(self.content, BaseModel):
+            _dict["content"] = self.content.model_dump(exclude_none=True)
+
         if self.citations is not None:
             if isinstance(self.citations, Citations):
                 _dict["citations"] = self.citations.model_dump(exclude_none=True)
             else:
                 _dict["citations"] = self.citations
 
-        if self.content and isinstance(self.content, BaseModel):
-            _dict["content"] = self.content.model_dump(exclude_none=True)
-
         return _dict
 
     def to_json(self) -> str:
         import json
 
+        try:
+            _dict = self.to_dict()
+        except Exception:
+            logger.error("Failed to convert response to json", exc_info=True)
+            raise
         try:
             _dict = self.to_dict()
         except Exception:

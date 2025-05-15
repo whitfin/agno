@@ -192,8 +192,3 @@ if __name__ == "__main__":
     if load_kb:
         agent_knowledge.load(recreate=True)
     playground.serve(app="agno_assist:app", reload=True)
-
-
-
-
-   

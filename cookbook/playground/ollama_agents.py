@@ -88,7 +88,12 @@ youtube_agent = Agent(
     markdown=True,
 )
 
-playground = Playground(agents=[web_agent, finance_agent, youtube_agent], name="Ollama Agents", description="A playground for ollama agents", app_id="ollama-agents")
+playground = Playground(
+    agents=[web_agent, finance_agent, youtube_agent],
+    name="Ollama Agents",
+    description="A playground for ollama agents",
+    app_id="ollama-agents",
+)
 app = playground.get_app(use_async=False)
 
 

@@ -114,7 +114,10 @@ async def team_chat_response_streamer(
 
 
 def get_async_playground_router(
-    agents: Optional[List[Agent]] = None, workflows: Optional[List[Workflow]] = None, teams: Optional[List[Team]] = None, active_app_id: Optional[str] = None
+    agents: Optional[List[Agent]] = None,
+    workflows: Optional[List[Workflow]] = None,
+    teams: Optional[List[Team]] = None,
+    active_app_id: Optional[str] = None,
 ) -> APIRouter:
     playground_router = APIRouter(prefix="/playground", tags=["Playground"])
 

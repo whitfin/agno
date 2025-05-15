@@ -229,5 +229,4 @@ playground = Playground(
 app = playground.get_app()
 
 if __name__ == "__main__":
-     playground.serve(app="teams_demo:app", reload=True)
-
+    playground.serve(app="teams_demo:app", reload=True)

@@ -11,7 +11,12 @@ finance_agent = Agent(
     debug_mode=True,
 )
 
-playground = Playground(agents=[finance_agent], name="Gemini Agents", description="A playground for Gemini agents", app_id="gemini-agents")
+playground = Playground(
+    agents=[finance_agent],
+    name="Gemini Agents",
+    description="A playground for Gemini agents",
+    app_id="gemini-agents",
+)
 app = playground.get_app(use_async=False)
 
 if __name__ == "__main__":

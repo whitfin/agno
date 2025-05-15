@@ -621,11 +621,9 @@ class Agent:
         # 1.3 Create a run_id and RunResponse
         self.run_id = str(uuid4())
 
-
         # 1.4 Register the agent on the platform
         thread = threading.Thread(target=self._register_agent)
         thread.start()
-
 
         log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
 
@@ -642,7 +640,6 @@ class Agent:
             knowledge_filters=knowledge_filters,
         )
         run_response.model = self.model.id if self.model is not None else None
-
 
         # 2.2 Resolve context
         if self.context is not None and self.resolve_context:
@@ -1349,16 +1346,13 @@ class Agent:
         # 1.3 Create a run_id and RunResponse
         self.run_id = str(uuid4())
 
-
         # 1.4 Register the agent on the platform
 
         # Create a task to run the agent registration in the background
         # This won't block the execution flow
         asyncio.create_task(self._aregister_agent())
 
-
         log_debug(f"Async Agent Run Start: {run_response.run_id}", center=True, symbol="*")
-
 
         # 2.1 Prepare arguments for the model
         self.set_default_model()
@@ -1776,7 +1770,6 @@ class Agent:
 
         # Log Agent Run
         await self._alog_agent_run(user_id=user_id, session_id=session_id)
-
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -5961,7 +5954,6 @@ class Agent:
                 "name": self.model.__class__.__name__,
                 "id": self.model.id,
                 "provider": self.model.provider,
-                
             }
 
         payload = {
@@ -5969,13 +5961,19 @@ class Agent:
             "tools": tools,
             "memory": {
                 "name": self.memory.__class__.__name__,
-            } if self.memory is not None else None,
+            }
+            if self.memory is not None
+            else None,
             "storage": {
                 "name": self.storage.__class__.__name__,
-            } if self.storage is not None else None,
+            }
+            if self.storage is not None
+            else None,
             "knowledge": {
                 "name": self.knowledge.__class__.__name__,
-            } if self.knowledge is not None else None,
+            }
+            if self.knowledge is not None
+            else None,
             "model": model,
             "name": self.name,
             "description": self.description,

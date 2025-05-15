@@ -26,7 +26,12 @@ coding_agent = Agent(
     ),
 )
 
-playground = Playground(agents=[coding_agent], name="Coding Agent", description="A playground for coding agent", app_id="coding-agent")
+playground = Playground(
+    agents=[coding_agent],
+    name="Coding Agent",
+    description="A playground for coding agent",
+    app_id="coding-agent",
+)
 app = playground.get_app()
 
 if __name__ == "__main__":

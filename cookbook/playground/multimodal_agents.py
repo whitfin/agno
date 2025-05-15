@@ -176,7 +176,7 @@ audio_agent = Agent(
 )
 
 
-playground= Playground(
+playground = Playground(
     agents=[
         image_agent,
         ml_gif_agent,
@@ -190,7 +190,7 @@ playground= Playground(
     description="A playground for multimodal agents",
     app_id="multimodal-agents",
 )
-app=playground.get_app(use_async=False)  
+app = playground.get_app(use_async=False)
 
 if __name__ == "__main__":
-    playground.serve(app="multimodal_agents:app", reload=True) 
+    playground.serve(app="multimodal_agents:app", reload=True)

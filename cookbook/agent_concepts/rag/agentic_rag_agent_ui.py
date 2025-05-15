@@ -50,13 +50,12 @@ playground = Playground(
     agents=[
         rag_agent,
     ],
-    app_id="agentic-rag-agent-ui-app", 
+    app_id="agentic-rag-agent-ui-app",
     name="Agentic RAG Agent UI",
 )
 app = playground.get_app()
 
 if __name__ == "__main__":
-
     knowledge_base.load(upsert=True)
     playground.serve(
         app="agentic_rag_agent_ui:app",

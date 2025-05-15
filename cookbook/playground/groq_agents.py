@@ -91,9 +91,13 @@ youtube_agent = Agent(
     markdown=True,
 )
 
-playground = Playground(agents=[finance_agent, youtube_agent, web_agent], name="Groq Agents", description="A playground for Groq agents", app_id="groq-agents")
+playground = Playground(
+    agents=[finance_agent, youtube_agent, web_agent],
+    name="Groq Agents",
+    description="A playground for Groq agents",
+    app_id="groq-agents",
+)
 app = playground.get_app(use_async=False)
 
 if __name__ == "__main__":
-
-    playground.serve(app="groq_agents:app", reload=True) 
+    playground.serve(app="groq_agents:app", reload=True)

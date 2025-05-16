@@ -1,3 +1,30 @@
+"""
+
+This example shows how to use the Couchbase vector database.
+
+For a local docker setup, you can use the following command to start the couchbase server:
+
+```bash
+./cookbook/scripts/run_couchbase.sh
+```
+
+Then go to the couchbase web ui at http://localhost:8091 and create a cluster with the following settings:
+
+- Name: agno-cluster
+- Username: admin
+- Password: password
+
+You can select "Finish with defaults". 
+
+Next export the following environment variables:
+
+```bash
+export COUCHBASE_CONNECTION_STRING="couchbase://localhost"
+export COUCHBASE_USER="admin"
+export COUCHBASE_PASSWORD="password"
+```
+"""
+
 # install couchbase-sdk - `pip install couchbase`
 
 from agno.agent import Agent
@@ -9,6 +36,7 @@ from couchbase.auth import PasswordAuthenticator
 from couchbase.management.search import SearchIndex
 import os
 import time
+
 # Couchbase connection settings
 username = os.getenv("COUCHBASE_USER")  # Replace with your username
 password = os.getenv("COUCHBASE_PASSWORD")     # Replace with your password
@@ -113,7 +141,7 @@ knowledge_base = PDFUrlKnowledgeBase(
         couchbase_connection_string=connection_string,
         cluster_options=cluster_options,
         search_index=search_index,
-        embedder=OpenAIEmbedder(id="text-embedding-3-large", dimensions=3072, api_key=os.getenv("OPENAI_API_KEY")),
+        embedder=OpenAIEmbedder(id="text-embedding-3-large", dimensions=3072),
         wait_until_index_ready=60,
         overwrite=True
     ),
@@ -123,6 +151,7 @@ knowledge_base = PDFUrlKnowledgeBase(
 knowledge_base.load(recreate=True)
 
 time.sleep(20) # wait for the vector index to be sync with kv
+
 # Create and use the agent
 agent = Agent(knowledge=knowledge_base, show_tool_calls=True)
 agent.print_response("How to make Thai curry?", markdown=True)

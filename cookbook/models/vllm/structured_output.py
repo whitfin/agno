@@ -40,4 +40,3 @@ structured_output_agent = Agent(
 
 json_mode_agent.print_response("New York")
 structured_output_agent.print_response("New York") 
-

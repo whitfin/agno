@@ -15,4 +15,4 @@ agent = Agent(
 )
 
 agent.print_response("How many people live in Canada?")
-agent.print_response("What is their national anthem called?") 
+agent.print_response("What is their national anthem called?")

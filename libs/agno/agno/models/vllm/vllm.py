@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from os import getenv
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from agno.models.openai.like import OpenAILike
 
@@ -8,10 +8,13 @@ from agno.models.openai.like import OpenAILike
 @dataclass
 class Vllm(OpenAILike):
     """
-    vLLM server wrapper that speaks the OpenAI ChatCompletion protocol.
+    Class for interacting with the vLLM models via OpenAI-like interface.
 
-    Defaults point at a local `vllm serve --api-type openai` instance.
-    Set VLLM_BASE_URL / VLLM_API_KEY to override.
+    Attributes:
+        id (str): The ID of the language model.
+        name (str): The name of the API.
+        provider (str): The provider of the API.
+        base_url (str): The base URL for the vLLM API.
     """
 
     # Agno metadata
@@ -30,16 +33,8 @@ class Vllm(OpenAILike):
     supports_json_schema_outputs: bool = True
 
     def _get_client_params(self) -> Dict[str, Any]:
-        """
-        Class for interacting with the vLLM models via OpenAI-like interface.
-
-        Attributes:
-            id (str): The ID of the language model.
-            name (str): The name of the API.
-            provider (str): The provider of the API.
-            base_url (str): The base URL for the vLLM API.
-        """
-        base_params = {
+        """Get the client parameters for the vLLM API."""
+        base_params: Dict[str, Any] = {
             "api_key": self.api_key,
             "base_url": self.base_url,
             "timeout": self.timeout,

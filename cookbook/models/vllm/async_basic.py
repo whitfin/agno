@@ -22,4 +22,4 @@ agent = Agent(model=Vllm(id="microsoft/Phi-3-mini-4k-instruct"), markdown=True)
 # print(run.content)
 
 # Print the response in the terminal
-asyncio.run(agent.aprint_response("Share a 2 sentence horror story")) 
+asyncio.run(agent.aprint_response("Share a 2 sentence horror story"))

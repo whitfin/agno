@@ -14,4 +14,4 @@ agent = Agent(
 )
 
 # Stream the response to terminal
-asyncio.run(agent.aprint_response("What's happening in France?", stream=True)) 
+asyncio.run(agent.aprint_response("What's happening in France?", stream=True))

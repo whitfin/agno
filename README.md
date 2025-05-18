@@ -13,7 +13,7 @@
   <a href="https://github.com/agno-agi/agno/stargazers">🌟 Star Us</a>
 </div>
 
-## Introduction
+## What is Agno?
 
 [Agno](https://docs.agno.com) is a lightweight, high-performance library for Agent Engineering.
 

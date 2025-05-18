@@ -13,6 +13,8 @@
   <a href="https://github.com/agno-agi/agno/stargazers">🌟 Star Us</a>
 </div>
 
+## Introduction
+
 [Agno](https://docs.agno.com) is a lightweight, high-performance library for Agent Engineering.
 
 It helps you build the 5 levels of Agentic Systems:

@@ -91,10 +91,12 @@ class Workflow:
         debug_mode: bool = False,
         monitoring: bool = False,
         telemetry: bool = True,
+        app_id: Optional[str] = None,
     ):
         self.name = name or self.__class__.__name__
         self.workflow_id = workflow_id
         self.description = description or self.__class__.description
+        self.app_id = app_id
 
         self.user_id = user_id
 

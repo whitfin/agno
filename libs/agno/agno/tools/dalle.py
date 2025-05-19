@@ -91,12 +91,7 @@ class DalleTools(Toolkit):
                         generated_images.append(image_artifact)
 
             # Create a more descriptive response that includes details about the image
-            content = (
-                f"I have generated an image based on the prompt: '{prompt}'. "
-                f"The image shows exactly what was requested - {prompt}. "
-                f"{response_str}"
-                f"You can reference this image in our conversation to describe its details."
-            )
+            content = f"The image shows exactly what was requested - {prompt}. "
 
             return FunctionCallResult(content=content, images=generated_images if generated_images else None)
         except Exception as e:

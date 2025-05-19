@@ -745,5 +745,5 @@ class FunctionCall(BaseModel):
 
 
 class FunctionCallResult(BaseModel):
-    content: str
+    content: Any
     images: Optional[List[ImageArtifact]] = None

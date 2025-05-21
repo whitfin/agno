@@ -1,5 +1,4 @@
 
-[comment]:AI Generated readme
 
 # WhatsApp API Module Documentation
 

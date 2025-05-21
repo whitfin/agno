@@ -130,12 +130,12 @@ class AccuracyResult:
 class AccuracyEval:
     """Interface to evaluate the accuracy of an Agent, given a prompt and expected answer"""
 
-    # Agent to evaluate
-    agent: Agent
     # Input to evaluate
     input: Union[str, Callable]
     # Expected answer to the input
     expected_output: Union[str, Callable]
+    # Agent to evaluate
+    agent: Optional[Agent] = None
 
     # Evaluation name
     name: Optional[str] = None
@@ -174,7 +174,7 @@ class AccuracyEval:
             try:
                 from agno.models.openai import OpenAIChat
 
-                model = OpenAIChat(id="gpt-4o")
+                model = OpenAIChat(id="o4-mini")
             except (ModuleNotFoundError, ImportError) as e:
                 logger.exception(e)
                 raise EvalError(
@@ -188,11 +188,13 @@ class AccuracyEval:
                 additional_guidelines += self.additional_guidelines
             else:
                 additional_guidelines += "\n- ".join(self.additional_guidelines)
+            additional_guidelines += "\n"
 
         additional_context = ""
         if self.additional_context is not None and len(self.additional_context) > 0:
             additional_context = "\n## Additional Context\n"
             additional_context += self.additional_context
+            additional_context += "\n"
 
         return Agent(
             model=model,
@@ -225,7 +227,6 @@ You are an expert judge tasked with comparing the quality of an AI Agent’s out
    7-8: Mostly accurate and complete, with minor issues
    9-10: Highly accurate and complete, matching the expected answer and given guidelines closely.
 {additional_guidelines}{additional_context}
-
 Remember: You must only compare the agent_output to the expected_output. The expected_output is correct as it was provided by the user.
 """,
             response_model=AccuracyAgentResponse,
@@ -357,10 +358,10 @@ Remember: You must only compare the agent_output to the expected_output. The exp
         logger.debug(f"*********** Evaluation {self.eval_id} Finished ***********")
         return self.result
 
-    def run_with_given_answer(
+    def run_with_output(
         self,
         *,
-        answer: str,
+        output: str,
         print_summary: bool = True,
         print_results: bool = True,
     ) -> Optional[AccuracyResult]:
@@ -372,13 +373,29 @@ Remember: You must only compare the agent_output to the expected_output. The exp
         logger.debug(f"************ Evaluation Start: {self.eval_id} ************")
 
         evaluator_agent = self.get_evaluator_agent()
-        eval_prompt = self.get_eval_prompt()
-        eval_expected_answer = self.get_eval_expected_answer()
+        eval_input = self.get_eval_input()
+        eval_expected_output = self.get_eval_expected_output()
+
+        evaluation_input = dedent(f"""\
+            <agent_input>
+            {eval_input}
+            </agent_input>
+
+            <expected_output>
+            {eval_expected_output}
+            </expected_output>
+
+            <agent_output>
+            {output}
+            </agent_output>\
+            """)
+
         result = self.evaluate_answer(
-            answer=answer,
+            input=eval_input,
             evaluator_agent=evaluator_agent,
-            eval_prompt=eval_prompt,
-            eval_expected_answer=eval_expected_answer,
+            evaluation_input=evaluation_input,
+            evaluator_expected_output=eval_expected_output,
+            agent_output=output,
         )
 
         if result is not None:
@@ -387,7 +404,6 @@ Remember: You must only compare the agent_output to the expected_output. The exp
 
             # Print results if requested
             if self.print_results or print_results:
-                result.print_eval()
                 self.result.print_results()
             if self.print_summary or print_summary:
                 self.result.print_summary()

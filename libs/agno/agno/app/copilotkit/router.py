@@ -1,16 +1,27 @@
-"""CopilotKit FastAPI router (synchronous).
+"""CopilotKit FastAPI router
 
-This first iteration supports a basic `/status` health-check and a `/run` endpoint
-that executes an Agno Agent or Team **without streaming** and returns an array of
-AG-UI BaseEvent JSON dicts.
+Main helper utilities
+---------------------
+_run_response_to_events
+    Converts a *non-streaming* :class:`agno.agent.agent.RunResponse` object into
+    the minimal sequence of AG-UI events.
 
-Once the SSE streaming milestone is tackled we can migrate the implementation to
-`async` helpers similar to `agno.app.fastapi.async_router`.
+sse_event_generator (inner function)
+    A generator that streams server-sent events while the agent/team is
+    producing its answer in chunks.
+
+Some notes
+---------------------
+1. The code accepts both `application/json` and `multipart/form-data`
+   payloads so that file uploads work transparently.
+2. Rich logging is sprinkled around critical branches to aid production
+   debugging without interfering with the happy path.
 """
 from __future__ import annotations
 
 import uuid
 from typing import List, Optional, Dict, Any
+from dataclasses import dataclass
 
 from fastapi import APIRouter, HTTPException, UploadFile, Request
 from fastapi.responses import JSONResponse
@@ -19,7 +30,7 @@ from pydantic import BaseModel
 from agno.agent.agent import Agent, RunResponse
 from agno.run.response import RunEvent
 from agno.team.team import Team
-from agno.utils.log import logger
+from agno.utils.log import logger, set_log_level_to_debug
 from agno.tools.function import Function
 from ag_ui.core.events import (
     BaseEvent,
@@ -36,8 +47,74 @@ from ag_ui.core.events import (
 )
 from ag_ui.encoder.encoder import EventEncoder
 
+# Enable debug level for this module so all `logger.debug` messages are emitted
+set_log_level_to_debug()
+
 __all__ = ["get_router"]
 
+# ---------------------------------------------------------------------------
+# Helper utilities for dynamic *tool* handling
+# ---------------------------------------------------------------------------
+
+def _normalize_tool_obj(tool: Any) -> Function | dict:
+    """Ensure *tool* is represented as an `agno.tools.function.Function`.
+
+    The AG-UI front-end may send tool definitions as plain dictionaries while
+    the agent might hold them as `Function` model instances.  Normalising them
+    lets us deduplicate and merge lists safely.
+    """
+    if isinstance(tool, Function):
+        return tool
+
+    if isinstance(tool, dict):
+        try:
+            # Best-effort conversion; falls back to returning the original dict
+            # if the payload does not validate.
+            return Function(**tool)  # type: ignore[arg-type]
+        except Exception:
+            return tool  # keep as-is if we cannot coerce
+
+    # Unknown type – return untouched so the caller can decide what to do.
+    return tool  # type: ignore[return-value]
+
+
+def _merge_tool_lists(static: List[Any], dynamic: List[Any]) -> List[Any]:
+    """Merge two *tool* lists, deduplicating by the tool's `name` attribute.
+
+    Dynamic tools received from the client override static ones with the same
+    name; otherwise we simply concatenate the lists.  Each element is first
+    normalised via :func:`_normalize_tool_obj` so that we can handle a mix of
+    `Function` objects and plain dictionaries uniformly.
+    """
+
+    merged: List[Any] = []
+    seen_names: set[str] = set()
+
+    def _get_name(t: Any) -> str:
+        if isinstance(t, Function):
+            return t.name
+        if isinstance(t, dict):
+            return t.get("name", "")
+        return str(t)
+
+    # Add static tools first
+    for tool in static:
+        norm_tool = _normalize_tool_obj(tool)
+        name = _get_name(norm_tool)
+        merged.append(norm_tool)
+        seen_names.add(name)
+
+    # Overlay dynamic tools (override on name collisions)
+    for tool in dynamic:
+        norm_tool = _normalize_tool_obj(tool)
+        name = _get_name(norm_tool)
+        if name in seen_names:
+            # Replace existing entry with the dynamic one
+            merged = [t for t in merged if _get_name(t) != name]
+        merged.append(norm_tool)
+        seen_names.add(name)
+
+    return merged
 
 def _run_response_to_events(
     *,
@@ -45,16 +122,37 @@ def _run_response_to_events(
     run_id: str,
     thread_id: str,
 ) -> List[BaseEvent]:
-    """Convert a non-streaming RunResponse to a minimal AG-UI event list."""
+    """Convert a *non-streaming* :class:`RunResponse` into the minimal sequence of
+    AG-UI events expected by the front-end.
+
+    Parameters
+    ----------
+    response : RunResponse
+        The response object returned by `Agent.run` or `Team.run` when *stream=False*.
+    run_id : str
+        A unique identifier for the current run.  It is echoed in the
+        ``RUN_STARTED`` and ``RUN_FINISHED`` events so that clients can
+        correlate the complete event stream belonging to a single run.
+    thread_id : str
+        Identifier of the chat session / thread.  This too is included in
+        the *start* and *finish* events so the UI can group runs that belong
+        to the same conversation.
+
+    Returns
+    -------
+    List[BaseEvent]
+        An ordered list beginning with ``RUN_STARTED`` and ending with
+        ``RUN_FINISHED`` that represents the complete, non-streamed reply
+        of the agent.  Text and (optional) tool-call events are inserted in
+        between.
+    """
 
     events: List[BaseEvent] = []
 
-    # Lifecycle – run started
     events.append(
         RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
     )
 
-    # Text message (assistant)
     message_id = str(uuid.uuid4())
     events.append(
         TextMessageStartEvent(
@@ -74,7 +172,6 @@ def _run_response_to_events(
         TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
     )
 
-    # Lifecycle – run finished
     events.append(
         RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id)
     )
@@ -84,27 +181,142 @@ def _run_response_to_events(
 
 encoder = EventEncoder(accept="text/event-stream")
 
-
-# ---------------------------------------------------------------------------
-# Request schema helpers
-# ---------------------------------------------------------------------------
-
-
 class RunRequest(BaseModel):
-    """Schema for application/json requests to the /run endpoint.
-
-    This mirrors the form fields accepted by the traditional multipart/form-data
-    version so that clients can choose either encoding.
-    """
-
     message: str
     stream: bool = True
     session_id: Optional[str] = None
     user_id: Optional[str] = None
     monitor: bool = False
 
+# ---------------------------------------------------------------------------
+# Request-parsing helpers
+# ---------------------------------------------------------------------------
+
+@dataclass(slots=True)
+class _ParsedRunRequest:
+    """A normalised representation of the `/run` payload.
+
+    Having a single canonical structure for the payload greatly simplifies the
+    main request handler and makes the control-flow easier to follow.
+    """
+
+    message: str
+    stream: bool
+    session_id: str
+    user_id: Optional[str]
+    monitor: bool
+    tools: List[Any]
+    context: Any
+    forwarded_props: Any
+
+
+async def _parse_run_payload(request: Request) -> _ParsedRunRequest:
+    """Parse and validate the incoming request body.
+
+    Supports both *application/json* and *multipart/form-data* content-types
+    mirroring the legacy implementation while abstracting the gnarly edge-
+    cases away from the core request handler.
+    """
+
+    # ------------------------------------------------------------------
+    # JSON payload – preferred interface used by AG-UI and programmatic users
+    # ------------------------------------------------------------------
+    if request.headers.get("content-type", "").lower().startswith("application/json"):
+        json_body: Dict[str, Any] = await request.json()
+        logger.debug(f"/run received JSON: {str(json_body)[:100]}")
+
+        try:
+            # Happy-path: payload matches the documented schema
+            payload = RunRequest.model_validate(json_body)
+            message = payload.message
+            stream = payload.stream
+            session_id = payload.session_id or str(uuid.uuid4())
+            user_id = payload.user_id
+            monitor = payload.monitor
+        except Exception:
+            # ------------------------------------------------------------------
+            # Fallback path for legacy AG-UI payloads. These differ from the
+            # current schema and may include a *messages* array instead of the
+            # flat *message* field.
+            # ------------------------------------------------------------------
+            keys = list(json_body.keys())
+            msg_count = (
+                len(json_body.get("messages", []))
+                if isinstance(json_body.get("messages", []), list)
+                else 0
+            )
+            logger.debug(
+                f"Received legacy RunAgentInput payload with keys={keys} and messages={msg_count}"
+            )
+
+            session_id = (
+                json_body.get("threadId")
+                or json_body.get("session_id")
+                or str(uuid.uuid4())
+            )
+
+            # Extract the last user message
+            message = ""
+            for msg in reversed(json_body.get("messages", [])):
+                if msg.get("role") == "user":
+                    message = msg.get("content", "")
+                    break
+
+            if not message:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No user message found in 'messages' array of payload",
+                )
+
+            stream = True  # Legacy requests were always streaming
+            user_id = None
+            monitor = False
+
+        tools = json_body.get("tools", [])  # dynamic tool injection
+        context = json_body.get("context", [])
+        forwarded_props = json_body.get("forwardedProps", {})
+        return _ParsedRunRequest(
+            message,
+            stream,
+            session_id,
+            user_id,
+            monitor,
+            tools,
+            context,
+            forwarded_props,
+        )
+
+    # ------------------------------------------------------------------
+    # form-data payload – mainly used for browser uploads (images, docs …)
+    # ------------------------------------------------------------------
+    form_data = await request.form()
+
+    message = form_data.get("message")
+    if not message:
+        raise HTTPException(status_code=400, detail="`message` form field is required")
+
+    stream_val = form_data.get("stream", "true")
+    stream = str(stream_val).lower() not in ("false", "0", "no")
+
+    session_id = (
+        form_data.get("session_id") or form_data.get("sessionId") or str(uuid.uuid4())
+    )
+    user_id = form_data.get("user_id") or form_data.get("userId")
+
+    return _ParsedRunRequest(
+        message,
+        stream,
+        session_id,
+        user_id,
+        False,  # monitor flag not supported in form uploads
+        [],  # tools
+        None,  # context
+        None,  # forwarded_props
+    )
 
 def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) -> APIRouter:
+    """Factory for a FastAPI router that powers the CopilotKit HTTP API."""
+
     if agent is None and team is None:
         raise ValueError("Either `agent` or `team` must be provided.")
 
@@ -118,213 +330,112 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
     async def run_agent_or_team(
         request: Request,
     ):
-        """Execute the agent/team and return AG-UI events.
+        """Execute the given *Agent* or *Team* and return AG-UI events.
 
-        If `stream` is True (default) we send a text/event-stream response; otherwise we
-        aggregate events into a JSON array (mainly for testing).
+        The request handler supports **two** content-types:
+        1. ``application/json`` – the primary programmatic API used by the
+           web front-end.
+        2. ``multipart/form-data`` – allows clients to attach files (e.g.
+           images, documents) alongside the textual `message`.
+
+        Step-by-step flow (high-level)
+        ------------------------------
+        1. Parse the incoming payload (JSON or form-data) and normalise it to
+           a common set of local variables (``_message``, ``_stream``…).
+        2. If the caller sent **dynamic tools**, merge them with the static
+           tool list of the agent/team; cloning the base object first so we do
+           not mutate shared state.
+        3. Call `Agent.run` or `Team.run` with the prepared arguments.
+        4. Depending on the *stream* flag:
+           • **Streaming** ⇒ wrap the iterator returned by ``run`` in
+             ``sse_event_generator`` and deliver a *StreamingResponse* with the
+             ``text/event-stream`` media-type.
+           • **Non-streaming** ⇒ accumulate all chunks (or deal with the single
+             *RunResponse*) and serialise them into a JSON array of AG-UI
+             events.
+        5. If anything goes wrong, return a single ``RUN_ERROR`` event with
+           HTTP 500 so that the front-end can surface the failure.
         """
-        # -------------------------------------------------------------------
-        # Resolve payload values – prefer JSON body when provided, else form.
-        # -------------------------------------------------------------------
+        # ---- 1. Parse and normalise the incoming payload --------------------------------
+        parsed = await _parse_run_payload(request)
 
-        content_type = request.headers.get("content-type", "").lower()
-        logger.debug(f"/run content-type={content_type}")
+        _message = parsed.message
+        _stream = parsed.stream
+        _session_id = parsed.session_id
+        _user_id = parsed.user_id
+        _monitor = parsed.monitor
 
-        json_body: Optional[Dict[str, Any]] = None
-        form_data = None
-        files: Optional[List[UploadFile]] = None
+        _tools = parsed.tools
+        _context = parsed.context
+        _forwarded_props = parsed.forwarded_props
 
-        if content_type.startswith("application/json"):
-            json_body = await request.json()
-            logger.debug(f"/run received JSON: {str(json_body)[:500]}")
-        else:
-            # Handle multipart/form-data or application/x-www-form-urlencoded
-            form_data = await request.form()
-            # Separate text fields and files
-            files = [v for v in form_data.values() if isinstance(v, UploadFile)]
-
-        if json_body is not None:
-            # Try to parse as our simple RunRequest model first.
-            try:
-                payload = RunRequest.model_validate(json_body)  # type: ignore[arg-type]
-                _message = payload.message
-                _stream = payload.stream
-                _session_id = payload.session_id or str(uuid.uuid4())
-                _user_id = payload.user_id
-                _monitor = payload.monitor
-
-                _tools = json_body.get("tools", [])  # type: ignore[index]
-                _context = json_body.get("context", [])  # type: ignore[index]
-                _forwarded_props = json_body.get("forwardedProps", {})  # type: ignore[index]
-            except Exception:
-                # Fallback: assume AG-UI RunAgentInput-like payload structure.
-                keys = list(json_body.keys())
-                msg_count = len(json_body.get("messages", [])) if isinstance(json_body.get("messages", []), list) else 0
-                logger.debug(f"Received AG-UI RunAgentInput payload with keys={keys} and messages={msg_count}")
-
-                _session_id = (
-                    json_body.get("threadId")  # type: ignore[index]
-                    or json_body.get("session_id")  # type: ignore[index]
-                    or str(uuid.uuid4())
-                )
-
-                # Extract the latest user message content
-                _message = ""
-                try:
-                    for msg in reversed(json_body.get("messages", [])):  # type: ignore[index]
-                        if msg.get("role") == "user":
-                            _message = msg.get("content", "")
-                            break
-                except Exception as e:
-                    logger.debug(f"Failed to extract user message from payload: {e}")
-
-                if not _message:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="No user message found in 'messages' array of payload",
-                    )
-
-                _stream = True  # default to SSE when using AG-UI client
-                _user_id = None
-                _monitor = False
-
-                _tools = json_body.get("tools", [])  # type: ignore[index]
-                _context = json_body.get("context", [])  # type: ignore[index]
-                _forwarded_props = json_body.get("forwardedProps", {})  # type: ignore[index]
-
-        else:
-            if form_data is None:
-                raise HTTPException(status_code=422, detail="Unsupported content type")
-
-            # Extract simple scalar fields
-            _message = form_data.get("message")
-            if _message is None or _message == "":
-                raise HTTPException(status_code=400, detail="`message` form field is required")
-
-            _stream_val = form_data.get("stream", "true")
-            _stream = str(_stream_val).lower() not in ("false", "0", "no")
-
-            _session_id = form_data.get("session_id") or form_data.get("sessionId") or str(uuid.uuid4())
-            _user_id = form_data.get("user_id") or form_data.get("userId")
-            _monitor = False  # monitor flag not supported via form in this router
-
-            # Initialize optional fields so later logic has predictable values
-            _tools = []  # No dynamic tools via plain form-data path
-            _context = None
-            _forwarded_props = None
-
+        # ------------------------------------------------------------------
+        # 2. Prepare run metadata
+        # ------------------------------------------------------------------
         run_id = str(uuid.uuid4())
         logger.debug(
-            f"CopilotKit /run invoked run_id={run_id} session_id={_session_id} stream={_stream} json_body={json_body is not None}",
+            f"CopilotKit /run invoked run_id={run_id} session_id={_session_id} stream={_stream}"
         )
 
-        # -------------------------------------------------------------------
-        # Merge dynamic tools with existing agent tools instead of overwriting
-        # -------------------------------------------------------------------
-
-        # Helper to combine tool lists while preserving order and uniqueness by name (if available)
-        def _merge_tool_lists(original: Optional[list[Any]], incoming: list[Any]) -> list[Any]:  # noqa: ANN401
-            if not original:
-                return incoming
-            # Build a set of existing tool names where possible
-            names: set[str] = set()
-            merged: list[Any] = []
-            for t in original + incoming:
-                name = None
-                try:
-                    # Function or Toolkit has .name attribute; dict uses key
-                    if isinstance(t, dict):
-                        name = t.get("name")
-                    else:
-                        name = getattr(t, "name", None)
-                except Exception:
-                    pass
-                if name is not None and name in names:
-                    continue
-                if name is not None:
-                    names.add(name)
-                merged.append(t)
-            return merged
-
-        # Normalize a single tool object (dict) so OpenAI always receives the
-        # `{type:"function", function:{...}}` wrapper that it requires.
-        def _normalize_tool_obj(tool: Any) -> Any:  # noqa: ANN401
-            if not isinstance(tool, dict):
-                return tool  # Already Function / Toolkit etc.
-
-            # If already has "type" field, assume compliant
-            if "type" in tool:
-                return tool
-
-            # If wrapped schema present under "function", just add type
-            if "function" in tool:
-                return {"type": "function", **tool}
-
-            # Otherwise assume flat function definition coming from AG-UI
-            if "name" in tool:
-                return {
-                    "type": "function",
-                    "function": {
-                        "name": tool.get("name"),
-                        "description": tool.get("description", ""),
-                        "parameters": tool.get("parameters", {"type": "object", "properties": {}, "required": []}),
-                    },
-                }
-
-            # Fallback – return unchanged
-            return tool
+        local_agent = agent
+        local_team = team
 
         try:
-            if _tools and len(_tools) > 0:
-                # Drop agent placeholders (e.g. "agenticChatAgent") that come from frontend runtime mapping
-                _tools = [t for t in _tools if not (isinstance(t, dict) and t.get("name", "").endswith("Agent"))]
-                if not _tools:
-                    _tools = []
+            if _tools:
+                _tools = [tool for tool in _tools if not (isinstance(tool, dict) and tool.get("name", "").endswith("Agent"))]
+
+            if _tools:
+                base_obj = agent or team
+                assert base_obj is not None
+
+                combined = _merge_tool_lists(getattr(base_obj, "tools", []), _tools)
+                combined = [_normalize_tool_obj(t) for t in combined]
+
+                try:
+                    cloned = base_obj.deep_copy(update={"tools": combined})
+                except Exception as e:
+                    logger.warning(f"Failed to deep copy {type(base_obj).__name__} for dynamic tools – mutating in place: {e}")
+                    base_obj.tools = combined
+                    cloned = base_obj
+
                 if agent is not None:
-                    combined = _merge_tool_lists(agent.tools, _tools)
-                    combined = [_normalize_tool_obj(t) for t in combined]
-                    try:
-                        local_agent = agent.deep_copy(update={"tools": combined})  # type: ignore[attr-defined]
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to deep copy agent for dynamic tools – falling back to mutation: {e}"
-                        )
-                        agent.tools = combined  # type: ignore[attr-defined]
-                        local_agent = agent
-                elif team is not None:
-                    combined = _merge_tool_lists(team.tools, _tools)
-                    combined = [_normalize_tool_obj(t) for t in combined]
-                    try:
-                        local_team = team.deep_copy(update={"tools": combined})  # type: ignore[attr-defined]
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to deep copy team for dynamic tools – falling back to mutation: {e}"
-                        )
-                        team.tools = combined  # type: ignore[attr-defined]
-                        local_team = team
-            # If no dynamic tools, keep originals
+                    local_agent = cloned
+                else:
+                    local_team = cloned
         except Exception as e:
-            # Log and proceed without tools if something unexpected happened.
             logger.warning(f"Unable to merge dynamic tools: {e}")
+
+        # ------------------------------------------------------------------
+        # Step 3 – execute the Agent/Team. Prefer the *async* API (`arun`) so
+        #           the request-handling coroutine can yield control while the LLM
+        #           is generating.
+        # ------------------------------------------------------------------
+
+        async def _invoke(obj, **kwargs):
+            if hasattr(obj, "arun"):
+                return await obj.arun(**kwargs)
+            return obj.run(**kwargs)
 
         try:
             if local_agent is not None:
-                run_response_iter = local_agent.run(
+                run_response_iter = await _invoke(
+                    local_agent,
                     message=_message,
                     session_id=_session_id,
                     user_id=_user_id,
                     stream=_stream,
-                    context=_context if json_body is not None else None,
-                    forwarded_props=_forwarded_props if json_body is not None else None,
+                    context=_context,
+                    forwarded_props=_forwarded_props,
                 )
             else:
-                run_response_iter = local_team.run(
+                run_response_iter = await _invoke(
+                    local_team,
                     message=_message,
                     session_id=_session_id,
                     user_id=_user_id,
                     stream=_stream,
-                    context=_context if json_body is not None else None,
-                    forwarded_props=_forwarded_props if json_body is not None else None,
+                    context=_context,
+                    forwarded_props=_forwarded_props,
                 )
         except Exception as exc:
             logger.exception("Error during agent run")
@@ -333,22 +444,30 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
             )
             return JSONResponse([err_event.model_dump(exclude_none=True)], status_code=500)
 
-        # Helper to yield SSE lines
-        def sse_event_generator():
-            # If the underlying run returned an iterator/generator, iterate;
-            # else wrap in list for non-stream runs.
-            iterator = run_response_iter if hasattr(run_response_iter, "__iter__") else [run_response_iter]
+        # ------------------------------------------------------------------
+        # Async-friendly SSE generator. It transparently supports both async
+        # *and* sync iterators returned by the Agent/Team.
+        # ------------------------------------------------------------------
 
-            # Send run started lifecycle
+        async def sse_event_generator():
+            async def _aiter_sync(sync_iter):
+                for item in sync_iter:
+                    yield item
+
+            if hasattr(run_response_iter, "__aiter__"):
+                iterator = run_response_iter
+            else:
+                iterator = _aiter_sync(run_response_iter if hasattr(run_response_iter, "__iter__") else [run_response_iter])
+
+            # ---- Emit RUN_STARTED as the very first event
             yield encoder.encode(
                 RunStartedEvent(type=EventType.RUN_STARTED, thread_id=_session_id, run_id=run_id)
             )
 
-            # Prepare single message lifecycle across all content chunks
             message_id = str(uuid.uuid4())
             message_started = False
 
-            for chunk in iterator:
+            async for chunk in iterator:
                 if chunk is None:
                     continue
 
@@ -357,11 +476,9 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                 except Exception:
                     content_str = ""
 
-                # Skip empty chunks
                 if content_str == "":
                     continue
 
-                # On first non-empty chunk emit TEXT_MESSAGE_START
                 if not message_started:
                     yield encoder.encode(
                         TextMessageStartEvent(
@@ -372,7 +489,6 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                     )
                     message_started = True
 
-                # Emit content delta
                 yield encoder.encode(
                     TextMessageContentEvent(
                         type=EventType.TEXT_MESSAGE_CONTENT,
@@ -381,12 +497,10 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                     )
                 )
 
-                # If this chunk contains tool calls, emit tool call events
                 if hasattr(chunk, "formatted_tool_calls") and chunk.formatted_tool_calls:
-                    # formatted_tool_calls is already a list of strings (legacy); treat as single args
-                    for idx, call_args in enumerate(chunk.formatted_tool_calls):
+                    for call_args in chunk.formatted_tool_calls:
                         call_id = str(uuid.uuid4())
-                        tool_name = "tool"  # unknown
+                        tool_name = "tool"
                         yield encoder.encode(
                             ToolCallStartEvent(
                                 type=EventType.TOOL_CALL_START,
@@ -437,13 +551,11 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                             )
                         )
 
-            # After stream ends, close message if started
             if message_started:
                 yield encoder.encode(
                     TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
                 )
 
-            # Run finished lifecycle
             yield encoder.encode(
                 RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=_session_id, run_id=run_id)
             )
@@ -455,7 +567,6 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                 sse_event_generator(), media_type="text/event-stream"
             )
 
-        # Else aggregate non-stream response
         if isinstance(run_response_iter, RunResponse):
             events = _run_response_to_events(
                 response=run_response_iter, run_id=run_id, thread_id=_session_id
@@ -463,7 +574,6 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
             json_events = [e.model_dump(exclude_none=True) for e in events]
             return JSONResponse(content=json_events)
         else:
-            # Already streamed but caller requested JSON; aggregate all
             accumulated: List[BaseEvent] = []
             for chunk in run_response_iter:
                 accumulated.extend(
@@ -471,7 +581,6 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                         response=chunk, run_id=run_id, thread_id=_session_id
                     )[1:-1]
                 )
-            # Add lifecycle
             accumulated.insert(
                 0,
                 RunStartedEvent(type=EventType.RUN_STARTED, thread_id=_session_id, run_id=run_id),

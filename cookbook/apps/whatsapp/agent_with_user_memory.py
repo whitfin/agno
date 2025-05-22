@@ -1,8 +1,8 @@
 from textwrap import dedent
 
 from agno.agent import Agent
+from agno.app.serve import serve_app
 from agno.app.whatsapp.app import WhatsappAPI
-from agno.app.whatsapp.serve import serve_whatsapp_app
 from agno.memory.v2.db.sqlite import SqliteMemoryDb
 from agno.memory.v2.manager import MemoryManager
 from agno.memory.v2.memory import Memory
@@ -56,4 +56,4 @@ app = WhatsappAPI(
 ).get_app()
 
 if __name__ == "__main__":
-    serve_whatsapp_app("agent_with_user_memory:app", port=8000, reload=True)
+    serve_app("agent_with_user_memory:app", port=8000, reload=True)

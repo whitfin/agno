@@ -1,6 +1,6 @@
 from agno.agent import Agent
+from agno.app.serve import serve_app
 from agno.app.whatsapp.app import WhatsappAPI
-from agno.app.whatsapp.serve import serve_whatsapp_app
 from agno.models.openai import OpenAIChat
 
 basic_agent = Agent(
@@ -17,4 +17,4 @@ app = WhatsappAPI(
 ).get_app()
 
 if __name__ == "__main__":
-    serve_whatsapp_app("basic:app", port=8000, reload=True)
+    serve_app("basic:app", port=8000, reload=True)

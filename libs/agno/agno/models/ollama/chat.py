@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.models.response import ModelResponse
+from agno.media import Audio
 from agno.utils.log import log_debug, log_warning
 
 try:
@@ -130,6 +131,14 @@ class Ollama(Model):
         cleaned_dict = {k: v for k, v in model_dict.items() if v is not None}
         return cleaned_dict
 
+    def _format_audio_for_message(self, audio: Audio) -> Optional[bytes]:
+        # Case 1: Audio is a bytes object
+        if audio.content and isinstance(audio.content, bytes):
+            return audio.content
+    
+        print("None returning")
+        return None
+
     def _format_message(self, message: Message) -> Dict[str, Any]:
         """
         Format a message into the format expected by Ollama.
@@ -156,9 +165,16 @@ class Ollama(Model):
                         message_images.append(image.content)
                 if message_images:
                     _message["images"] = message_images
+            
+            if message.audio is not None:
+                message_audio = []
+                for audio_chunk in message.audio:
+                    print("AUDIO TYPE", type(audio_chunk))
+                   
+                    _message["audio"] = audio_chunk.content
 
-            if message.audio is not None and len(message.audio) > 0:
-                log_warning("Audio input is currently unsupported.")
+            # if message.audio is not None and len(message.audio) > 0:
+            #     log_warning("Audio input is currently unsupported.")
 
             if message.files is not None and len(message.files) > 0:
                 log_warning("File input is currently unsupported.")
@@ -166,6 +182,7 @@ class Ollama(Model):
             if message.videos is not None and len(message.videos) > 0:
                 log_warning("Video input is currently unsupported.")
 
+        
         return _message
 
     def _prepare_request_kwargs_for_invoke(

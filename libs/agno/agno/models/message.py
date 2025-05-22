@@ -168,7 +168,7 @@ class Message(BaseModel):
     # One of system, user, assistant, or tool.
     role: str
     # The contents of the message.
-    content: Optional[Union[List[Any], str]] = None
+    content: Optional[Union[List[Dict[str, Any]], str]] = None
     # An optional name for the participant.
     # Provides the model information to differentiate between participants of the same role.
     name: Optional[str] = None

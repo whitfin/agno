@@ -5628,7 +5628,7 @@ class Team:
 
                     # If the content is empty but we have tool calls
                     elif member_agent_run_response.event == RunEvent.tool_call_completed and member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0:
-                        yield ",".join([tool.result for tool in member_agent_run_response.tools and tool.result])  # type: ignore
+                        yield ",".join([tool.result for tool in member_agent_run_response.tools if tool.result])  # type: ignore
                 elif issubclass(type(member_agent_run_response.content), BaseModel):
                     try:
                         yield member_agent_run_response.content.model_dump_json(indent=2)  # type: ignore

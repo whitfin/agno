@@ -9,6 +9,7 @@ app = CopilotKitApp(agent=EchoAgent()).get_app()
 serve_copilotkit_app(app, port=8888)
 ```
 """
+
 from __future__ import annotations
 
 from typing import Union
@@ -27,4 +28,4 @@ def serve_copilotkit_app(
     **kwargs,
 ):
     """Run the given FastAPI app with sensible defaults for CopilotKit."""
-    serve_fastapi_app(app, host=host, port=port, reload=reload, **kwargs) 
+    serve_fastapi_app(app, host=host, port=port, reload=reload, **kwargs)

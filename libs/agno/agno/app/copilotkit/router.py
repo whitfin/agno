@@ -17,35 +17,36 @@ Some notes
 2. Rich logging is sprinkled around critical branches to aid production
    debugging without interfering with the happy path.
 """
+
 from __future__ import annotations
 
 import uuid
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, UploadFile, Request
+from ag_ui.core.events import (
+    BaseEvent,
+    EventType,
+    RunErrorEvent,
+    RunFinishedEvent,
+    RunStartedEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+    ToolCallArgsEvent,
+    ToolCallEndEvent,
+    ToolCallStartEvent,
+)
+from ag_ui.encoder.encoder import EventEncoder
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from agno.agent.agent import Agent, RunResponse
 from agno.run.response import RunEvent
 from agno.team.team import Team
-from agno.utils.log import logger, set_log_level_to_debug
 from agno.tools.function import Function
-from ag_ui.core.events import (
-    BaseEvent,
-    EventType,
-    RunStartedEvent,
-    RunFinishedEvent,
-    RunErrorEvent,
-    TextMessageStartEvent,
-    TextMessageContentEvent,
-    TextMessageEndEvent,
-    ToolCallStartEvent,
-    ToolCallArgsEvent,
-    ToolCallEndEvent,
-)
-from ag_ui.encoder.encoder import EventEncoder
+from agno.utils.log import logger, set_log_level_to_debug
 
 # Enable debug level for this module so all `logger.debug` messages are emitted
 set_log_level_to_debug()
@@ -55,6 +56,7 @@ __all__ = ["get_router"]
 # ---------------------------------------------------------------------------
 # Helper utilities for dynamic *tool* handling
 # ---------------------------------------------------------------------------
+
 
 def _normalize_tool_obj(tool: Any) -> Function | dict:
     """Ensure *tool* is represented as an `agno.tools.function.Function`.
@@ -116,6 +118,7 @@ def _merge_tool_lists(static: List[Any], dynamic: List[Any]) -> List[Any]:
 
     return merged
 
+
 def _run_response_to_events(
     *,
     response: RunResponse,
@@ -149,37 +152,26 @@ def _run_response_to_events(
 
     events: List[BaseEvent] = []
 
-    events.append(
-        RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id)
-    )
+    events.append(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
 
     message_id = str(uuid.uuid4())
-    events.append(
-        TextMessageStartEvent(
-            type=EventType.TEXT_MESSAGE_START, message_id=message_id, role="assistant"
-        )
-    )
+    events.append(TextMessageStartEvent(type=EventType.TEXT_MESSAGE_START, message_id=message_id, role="assistant"))
 
     content_str = response.get_content_as_string() if response.content else ""
     if content_str:
         events.append(
-            TextMessageContentEvent(
-                type=EventType.TEXT_MESSAGE_CONTENT, message_id=message_id, delta=content_str
-            )
+            TextMessageContentEvent(type=EventType.TEXT_MESSAGE_CONTENT, message_id=message_id, delta=content_str)
         )
 
-    events.append(
-        TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
-    )
+    events.append(TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id))
 
-    events.append(
-        RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id)
-    )
+    events.append(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id))
 
     return events
 
 
 encoder = EventEncoder(accept="text/event-stream")
+
 
 class RunRequest(BaseModel):
     message: str
@@ -188,9 +180,11 @@ class RunRequest(BaseModel):
     user_id: Optional[str] = None
     monitor: bool = False
 
+
 # ---------------------------------------------------------------------------
 # Request-parsing helpers
 # ---------------------------------------------------------------------------
+
 
 @dataclass(slots=True)
 class _ParsedRunRequest:
@@ -240,20 +234,10 @@ async def _parse_run_payload(request: Request) -> _ParsedRunRequest:
             # flat *message* field.
             # ------------------------------------------------------------------
             keys = list(json_body.keys())
-            msg_count = (
-                len(json_body.get("messages", []))
-                if isinstance(json_body.get("messages", []), list)
-                else 0
-            )
-            logger.debug(
-                f"Received legacy RunAgentInput payload with keys={keys} and messages={msg_count}"
-            )
+            msg_count = len(json_body.get("messages", [])) if isinstance(json_body.get("messages", []), list) else 0
+            logger.debug(f"Received legacy RunAgentInput payload with keys={keys} and messages={msg_count}")
 
-            session_id = (
-                json_body.get("threadId")
-                or json_body.get("session_id")
-                or str(uuid.uuid4())
-            )
+            session_id = json_body.get("threadId") or json_body.get("session_id") or str(uuid.uuid4())
 
             # Extract the last user message
             message = ""
@@ -298,9 +282,7 @@ async def _parse_run_payload(request: Request) -> _ParsedRunRequest:
     stream_val = form_data.get("stream", "true")
     stream = str(stream_val).lower() not in ("false", "0", "no")
 
-    session_id = (
-        form_data.get("session_id") or form_data.get("sessionId") or str(uuid.uuid4())
-    )
+    session_id = form_data.get("session_id") or form_data.get("sessionId") or str(uuid.uuid4())
     user_id = form_data.get("user_id") or form_data.get("userId")
 
     return _ParsedRunRequest(
@@ -313,6 +295,7 @@ async def _parse_run_payload(request: Request) -> _ParsedRunRequest:
         None,  # context
         None,  # forwarded_props
     )
+
 
 def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) -> APIRouter:
     """Factory for a FastAPI router that powers the CopilotKit HTTP API."""
@@ -373,16 +356,16 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
         # 2. Prepare run metadata
         # ------------------------------------------------------------------
         run_id = str(uuid.uuid4())
-        logger.debug(
-            f"CopilotKit /run invoked run_id={run_id} session_id={_session_id} stream={_stream}"
-        )
+        logger.debug(f"CopilotKit /run invoked run_id={run_id} session_id={_session_id} stream={_stream}")
 
         local_agent = agent
         local_team = team
 
         try:
             if _tools:
-                _tools = [tool for tool in _tools if not (isinstance(tool, dict) and tool.get("name", "").endswith("Agent"))]
+                _tools = [
+                    tool for tool in _tools if not (isinstance(tool, dict) and tool.get("name", "").endswith("Agent"))
+                ]
 
             if _tools:
                 base_obj = agent or team
@@ -394,7 +377,9 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                 try:
                     cloned = base_obj.deep_copy(update={"tools": combined})
                 except Exception as e:
-                    logger.warning(f"Failed to deep copy {type(base_obj).__name__} for dynamic tools – mutating in place: {e}")
+                    logger.warning(
+                        f"Failed to deep copy {type(base_obj).__name__} for dynamic tools – mutating in place: {e}"
+                    )
                     base_obj.tools = combined
                     cloned = base_obj
 
@@ -439,9 +424,7 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                 )
         except Exception as exc:
             logger.exception("Error during agent run")
-            err_event = RunErrorEvent(
-                type=EventType.RUN_ERROR, message=str(exc), code="runtime_error"
-            )
+            err_event = RunErrorEvent(type=EventType.RUN_ERROR, message=str(exc), code="runtime_error")
             return JSONResponse([err_event.model_dump(exclude_none=True)], status_code=500)
 
         # ------------------------------------------------------------------
@@ -457,12 +440,12 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
             if hasattr(run_response_iter, "__aiter__"):
                 iterator = run_response_iter
             else:
-                iterator = _aiter_sync(run_response_iter if hasattr(run_response_iter, "__iter__") else [run_response_iter])
+                iterator = _aiter_sync(
+                    run_response_iter if hasattr(run_response_iter, "__iter__") else [run_response_iter]
+                )
 
             # ---- Emit RUN_STARTED as the very first event
-            yield encoder.encode(
-                RunStartedEvent(type=EventType.RUN_STARTED, thread_id=_session_id, run_id=run_id)
-            )
+            yield encoder.encode(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=_session_id, run_id=run_id))
 
             message_id = str(uuid.uuid4())
             message_started = False
@@ -552,44 +535,28 @@ def get_router(*, agent: Optional[Agent] = None, team: Optional[Team] = None) ->
                         )
 
             if message_started:
-                yield encoder.encode(
-                    TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
-                )
+                yield encoder.encode(TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id))
 
-            yield encoder.encode(
-                RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=_session_id, run_id=run_id)
-            )
+            yield encoder.encode(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=_session_id, run_id=run_id))
 
         if _stream:
             from fastapi.responses import StreamingResponse
 
-            return StreamingResponse(
-                sse_event_generator(), media_type="text/event-stream"
-            )
+            return StreamingResponse(sse_event_generator(), media_type="text/event-stream")
 
         if isinstance(run_response_iter, RunResponse):
-            events = _run_response_to_events(
-                response=run_response_iter, run_id=run_id, thread_id=_session_id
-            )
+            events = _run_response_to_events(response=run_response_iter, run_id=run_id, thread_id=_session_id)
             json_events = [e.model_dump(exclude_none=True) for e in events]
             return JSONResponse(content=json_events)
         else:
             accumulated: List[BaseEvent] = []
             for chunk in run_response_iter:
-                accumulated.extend(
-                    _run_response_to_events(
-                        response=chunk, run_id=run_id, thread_id=_session_id
-                    )[1:-1]
-                )
+                accumulated.extend(_run_response_to_events(response=chunk, run_id=run_id, thread_id=_session_id)[1:-1])
             accumulated.insert(
                 0,
                 RunStartedEvent(type=EventType.RUN_STARTED, thread_id=_session_id, run_id=run_id),
             )
-            accumulated.append(
-                RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=_session_id, run_id=run_id)
-            )
-            return JSONResponse(
-                [ev.model_dump(exclude_none=True) for ev in accumulated]
-            )
+            accumulated.append(RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=_session_id, run_id=run_id))
+            return JSONResponse([ev.model_dump(exclude_none=True) for ev in accumulated])
 
-    return router 
+    return router

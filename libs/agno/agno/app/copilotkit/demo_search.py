@@ -1,6 +1,6 @@
 from agno.agent.agent import Agent
-from agno.models.openai.chat import OpenAIChat
 from agno.app.copilotkit.app import CopilotKitApp
+from agno.models.openai.chat import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 
 
@@ -25,4 +25,4 @@ class WebSearchAgent(Agent):
 
 
 # Expose the agent under the "/search" prefix so the Dojo frontend can POST /search/run
-app = CopilotKitApp(agent=WebSearchAgent()).get_app(use_async=False, prefix="/search") 
+app = CopilotKitApp(agent=WebSearchAgent()).get_app(use_async=False, prefix="/search")

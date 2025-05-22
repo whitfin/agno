@@ -3,14 +3,17 @@
 Run with:
     uvicorn agno.app.copilotkit.demo:app --reload
 """
-import logging, sys
+
+import logging
+import sys
 
 # Enable debug-level logging to see backend traces
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 from agno.agent.agent import Agent
-from agno.models.openai.chat import OpenAIChat
 from agno.app.copilotkit.app import CopilotKitApp
+from agno.models.openai.chat import OpenAIChat
+
 
 class GPTAgent(Agent):
     def __init__(self):
@@ -21,5 +24,6 @@ class GPTAgent(Agent):
             stream=True,
         )
 
+
 # Create FastAPI app instance
-app = CopilotKitApp(agent=GPTAgent()).get_app(use_async=False) 
+app = CopilotKitApp(agent=GPTAgent()).get_app(use_async=False)

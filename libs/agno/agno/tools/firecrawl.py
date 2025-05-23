@@ -48,8 +48,6 @@ class FirecrawlTools(Toolkit):
         api_url: Optional[str] = "https://api.firecrawl.dev",
         **kwargs,
     ):
-        super().__init__(name="firecrawl_tools", **kwargs)
-
         self.api_key: Optional[str] = api_key or getenv("FIRECRAWL_API_KEY")
         if not self.api_key:
             logger.error("FIRECRAWL_API_KEY not set. Please set the FIRECRAWL_API_KEY environment variable.")
@@ -58,6 +56,7 @@ class FirecrawlTools(Toolkit):
         self.limit: int = limit
         self.poll_interval: int = poll_interval
         self.app: FirecrawlApp = FirecrawlApp(api_key=self.api_key, api_url=api_url)
+        self.search_params = search_params
 
         # Start with scrape by default. But if crawl is set, then set scrape to False.
         if crawl:
@@ -66,15 +65,17 @@ class FirecrawlTools(Toolkit):
         elif not scrape:
             crawl = True
 
+        tools: List[Any] = []
         if scrape:
-            self.register(self.scrape_website)
+            tools.append(self.scrape_website)
         if crawl:
-            self.register(self.crawl_website)
+            tools.append(self.crawl_website)
         if mapping:
-            self.register(self.map_website)
+            tools.append(self.map_website)
         if search:
-            self.register(self.search)
-        self.search_params = search_params
+            tools.append(self.search)
+
+        super().__init__(name="firecrawl_tools", tools=tools, **kwargs)
 
     def scrape_website(self, url: str) -> str:
         """Use this function to scrape a website using Firecrawl.

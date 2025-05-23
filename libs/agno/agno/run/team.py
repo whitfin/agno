@@ -51,7 +51,7 @@ class TeamRunResponse:
             k: v
             for k, v in asdict(self).items()
             if v is not None
-            and k not in ["messages", "extra_data", "images", "videos", "audio", "response_audio", "citations"]
+            and k not in ["messages", "tools", "extra_data", "images", "videos", "audio", "response_audio", "citations"]
         }
         if self.messages is not None:
             _dict["messages"] = [m.to_dict() for m in self.messages]
@@ -82,6 +82,9 @@ class TeamRunResponse:
 
         if self.content and isinstance(self.content, BaseModel):
             _dict["content"] = self.content.model_dump(exclude_none=True)
+
+        if self.tools is not None:
+            _dict["tools"] = [tool.to_dict() for tool in self.tools]
 
         return _dict
 

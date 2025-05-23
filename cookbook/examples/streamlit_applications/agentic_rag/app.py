@@ -22,7 +22,6 @@ from utils import (
     rename_session_widget,
     session_selector_widget,
 )
-
 nest_asyncio.apply()
 st.set_page_config(
     page_title="Agentic RAG",

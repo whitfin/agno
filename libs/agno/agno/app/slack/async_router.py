@@ -46,8 +46,7 @@ def get_async_router(agent: Optional[Agent] = None, team: Optional[Team] = None)
                 user = None
                 message_text = event.get("text")
                 channel_id = event.get("channel", "")
-                if event.get("channel_type") == "im":
-                    user = event.get("user")
+                user = event.get("user")
                 if agent:
                     response = await agent.arun(message_text, user_id=user if user else None)
                 elif team:

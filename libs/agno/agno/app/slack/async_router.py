@@ -47,11 +47,16 @@ def get_async_router(agent: Optional[Agent] = None, team: Optional[Team] = None)
                 message_text = event.get("text")
                 channel_id = event.get("channel", "")
                 user = event.get("user")
+                if event.get("thread_ts"):
+                    ts=event.get("thread_ts")
+                else:
+                    ts=event.get("ts")
+                session=ts
                 if agent:
-                    response = await agent.arun(message_text, user_id=user if user else None)
+                    response = await agent.arun(message_text, user_id=user if user else None, session_id=session)
                 elif team:
-                    response = await team.arun(message_text, user_id=user if user else None)  # type: ignore
+                    response = await team.arun(message_text, user_id=user if user else None, session_id=session)  # type: ignore
 
-                SlackTools().send_message(channel=channel_id, text=response.content or "")
+                SlackTools().send_message_thread(channel=channel_id, text=response.content or "",ts=ts)
 
     return router

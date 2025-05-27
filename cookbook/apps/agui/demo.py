@@ -1,7 +1,7 @@
-"""Demo server entrypoint for CopilotKit backend.
+"""Demo server entrypoint for AG-UI backend.
 
 Run with:
-    uvicorn agno.app.copilotkit.demo:app --reload
+    uvicorn agno.app.ag_ui.demo:app --reload
 """
 
 import logging
@@ -11,7 +11,7 @@ import sys
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 from agno.agent.agent import Agent
-from agno.app.copilotkit.app import CopilotKitApp
+from agno.app.ag_ui.app import AGUIApp
 from agno.models.openai.chat import OpenAIChat
 
 
@@ -26,4 +26,4 @@ class GPTAgent(Agent):
 
 
 # Create FastAPI app instance
-app = CopilotKitApp(agent=GPTAgent()).get_app(use_async=False)
+app = AGUIApp(agent=GPTAgent()).get_app(use_async=False)

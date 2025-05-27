@@ -1,12 +1,12 @@
-"""Convenience helper to run CopilotKit backend via `uvicorn`.
+"""Convenience helper to run an **AG-UI** backend via `uvicorn`.
 
 Example:
 ```
-from agno.app.copilotkit.app import CopilotKitApp
+from agno.app.ag_ui.app import AGUIApp
 from agno.agent.builtins import EchoAgent
 
-app = CopilotKitApp(agent=EchoAgent()).get_app()
-serve_copilotkit_app(app, port=8888)
+app = AGUIApp(agent=EchoAgent()).get_app()
+serve_agui_app(app, port=8888)
 ```
 """
 
@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from agno.app.fastapi.serve import serve_fastapi_app
 
 
-def serve_copilotkit_app(
+def serve_agui_app(
     app: Union[str, FastAPI],
     *,
     host: str = "localhost",
@@ -27,5 +27,5 @@ def serve_copilotkit_app(
     reload: bool = False,
     **kwargs,
 ):
-    """Run the given FastAPI app with sensible defaults for CopilotKit."""
+    """Run the given FastAPI app with sensible defaults for AG-UI."""
     serve_fastapi_app(app, host=host, port=port, reload=reload, **kwargs)

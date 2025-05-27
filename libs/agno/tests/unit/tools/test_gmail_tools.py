@@ -502,7 +502,7 @@ def test_send_email_with_single_attachment(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="With Attachment",
                     body="Email with attachment",
-                    attachments="test.pdf"
+                    attachments="test.pdf",
                 )
 
     assert "msg123" in result
@@ -521,7 +521,7 @@ def test_send_email_with_multiple_attachments(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="Multiple Attachments",
                     body="Email with multiple attachments",
-                    attachments=["test1.pdf", "test2.pdf"]
+                    attachments=["test1.pdf", "test2.pdf"],
                 )
 
     assert "msg123" in result
@@ -540,7 +540,7 @@ def test_create_draft_with_attachment(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="Draft with Attachment",
                     body="Draft with attachment",
-                    attachments="document.txt"
+                    attachments="document.txt",
                 )
 
     assert "draft123" in result
@@ -561,7 +561,7 @@ def test_send_email_reply_with_attachment(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="Reply with Attachment",
                     body="Reply with attachment",
-                    attachments="image.jpg"
+                    attachments="image.jpg",
                 )
 
     assert "msg123" in result
@@ -573,10 +573,7 @@ def test_send_email_attachment_file_not_found(gmail_tools, mock_gmail_service):
     with patch("pathlib.Path.exists", return_value=False):
         with pytest.raises(ValueError, match="Attachment file not found"):
             gmail_tools.send_email(
-                to="recipient@test.com",
-                subject="Test",
-                body="Test body",
-                attachments="nonexistent.pdf"
+                to="recipient@test.com", subject="Test", body="Test body", attachments="nonexistent.pdf"
             )
 
 
@@ -585,10 +582,7 @@ def test_create_draft_attachment_file_not_found(gmail_tools, mock_gmail_service)
     with patch("pathlib.Path.exists", return_value=False):
         with pytest.raises(ValueError, match="Attachment file not found"):
             gmail_tools.create_draft_email(
-                to="recipient@test.com",
-                subject="Test",
-                body="Test body",
-                attachments="nonexistent.pdf"
+                to="recipient@test.com", subject="Test", body="Test body", attachments="nonexistent.pdf"
             )
 
 
@@ -602,22 +596,20 @@ def test_send_reply_attachment_file_not_found(gmail_tools, mock_gmail_service):
                 to="recipient@test.com",
                 subject="Test",
                 body="Test body",
-                attachments="nonexistent.pdf"
+                attachments="nonexistent.pdf",
             )
 
 
 def test_send_email_mixed_attachment_existence(gmail_tools, mock_gmail_service):
     """Test error handling when some attachments exist and others don't."""
+
     def mock_exists(path):
         return str(path).endswith("exists.pdf")
 
     with patch("pathlib.Path.exists", side_effect=mock_exists):
         with pytest.raises(ValueError, match="Attachment file not found"):
             gmail_tools.send_email(
-                to="recipient@test.com",
-                subject="Test",
-                body="Test body",
-                attachments=["exists.pdf", "missing.pdf"]
+                to="recipient@test.com", subject="Test", body="Test body", attachments=["exists.pdf", "missing.pdf"]
             )
 
 
@@ -634,7 +626,7 @@ def test_attachment_mime_type_guessing(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="Unknown File Type",
                     body="Email with unknown file type",
-                    attachments="unknown.xyz"
+                    attachments="unknown.xyz",
                 )
 
     assert "msg123" in result
@@ -654,7 +646,7 @@ def test_attachment_with_encoding(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="Encoded File",
                     body="Email with encoded file",
-                    attachments="file.txt.gz"
+                    attachments="file.txt.gz",
                 )
 
     assert "msg123" in result
@@ -667,10 +659,7 @@ def test_empty_attachments_list(gmail_tools, mock_gmail_service):
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
 
     result = gmail_tools.send_email(
-        to="recipient@test.com",
-        subject="No Attachments",
-        body="Email without attachments",
-        attachments=[]
+        to="recipient@test.com", subject="No Attachments", body="Email without attachments", attachments=[]
     )
 
     assert "msg123" in result
@@ -690,7 +679,7 @@ def test_attachment_filename_extraction(gmail_tools, mock_gmail_service):
                     to="recipient@test.com",
                     subject="Path Test",
                     body="Email with full path attachment",
-                    attachments="/full/path/to/document.pdf"
+                    attachments="/full/path/to/document.pdf",
                 )
 
     assert "msg123" in result

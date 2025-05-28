@@ -57,7 +57,13 @@ export ANTHROPIC_API_KEY=***
 export OPENAI_API_KEY=***
 ```
 
-### 5. Run Playground App
+### 5. Authenticate with Agno
+
+```shell
+ag setup
+```
+
+### 6. Run Playground App
 
 ```shell
 python cookbook/examples/multi_agent_reasoning/playground.py
@@ -65,5 +71,5 @@ python cookbook/examples/multi_agent_reasoning/playground.py
 
 - Open [app.agno.com/playground](https://app.agno.com/playground?endpoint=localhost%3A7777) to chat with your new multi-agent reasoning team.
 
-### 6. Message us on [discord](https://agno.link/discord) if you have any questions
+### 7. Message us on [discord](https://agno.link/discord) if you have any questions
 

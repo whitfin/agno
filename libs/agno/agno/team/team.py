@@ -1955,30 +1955,62 @@ class Team:
     def _make_memories_and_summaries(
         self, run_messages: RunMessages, session_id: str, user_id: Optional[str] = None
     ) -> None:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
         self.memory = cast(Memory, self.memory)
-        user_message_str = (
-            run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
-        )
-        if self.enable_user_memories and user_message_str is not None and user_message_str:
-            self.memory.create_user_memories(message=user_message_str, user_id=user_id)
+        
+        # Create a thread pool with a reasonable number of workers
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = []
+            user_message_str = (
+                run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
+            )
+            if self.enable_user_memories and user_message_str is not None and user_message_str:
+                futures.append(
+                    executor.submit(
+                        self.memory.create_user_memories, 
+                        message=user_message_str, 
+                        user_id=user_id
+                    )
+                )
 
-        # Update the session summary if needed
-        if self.enable_session_summaries:
-            self.memory.create_session_summary(session_id=session_id, user_id=user_id)
+            # Update the session summary if needed
+            if self.enable_session_summaries:
+                futures.append(
+                    executor.submit(
+                        self.memory.create_session_summary, 
+                        session_id=session_id, 
+                        user_id=user_id
+                    )
+                )
+            # Wait for all operations to complete and handle any errors
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    log_warning(f"Error in memory/summary operation: {str(e)}")
 
     async def _amake_memories_and_summaries(
         self, run_messages: RunMessages, session_id: str, user_id: Optional[str] = None
     ) -> None:
         self.memory = cast(Memory, self.memory)
+        tasks = []
+        
         user_message_str = (
             run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
         )
         if self.enable_user_memories and user_message_str is not None and user_message_str:
-            await self.memory.acreate_user_memories(message=user_message_str, user_id=user_id)
+            tasks.append(self.memory.acreate_user_memories(message=user_message_str, user_id=user_id))
 
         # Update the session summary if needed
         if self.enable_session_summaries:
-            await self.memory.acreate_session_summary(session_id=session_id, user_id=user_id)
+            tasks.append(self.memory.acreate_session_summary(session_id=session_id, user_id=user_id))
+
+        # Execute all tasks concurrently and handle any errors
+        if tasks:
+            try:
+                await asyncio.gather(*tasks)
+            except Exception as e:
+                log_warning(f"Error in memory/summary operation: {str(e)}")
 
     def _get_response_format(self) -> Optional[Union[Dict, Type[BaseModel]]]:
         self.model = cast(Model, self.model)

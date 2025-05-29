@@ -1504,9 +1504,8 @@ class Agent:
             retries: The number of retries to continue the run for.
             knowledge_filters: The knowledge filters to use for the run.
         """
-        self.reset_run_state()
-
         if session_id is not None:
+            self.reset_run_state()
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
             self.reset_session_state()
 
@@ -1931,9 +1930,8 @@ class Agent:
             retries: The number of retries to continue the run for.
             knowledge_filters: The knowledge filters to use for the run.
         """
-        self.reset_run_state()
-
         if session_id is not None:
+            self.reset_run_state()
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
             self.reset_session_state()
 
@@ -3294,7 +3292,6 @@ class Agent:
 
         self.memory = cast(Memory, self.memory)
 
-        # Create a thread pool with a reasonable number of workers
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
 
@@ -3335,7 +3332,7 @@ class Agent:
             if self.enable_session_summaries:
                 log_debug("Creating session summary.")
                 futures.append(
-                    executor.submit(self.memory.create_session_summary, session_id=session_id, user_id=user_id)
+                    executor.submit(self.memory.create_session_summary, session_id=session_id, user_id=user_id)  # type: ignore
                 )
 
             # Wait for all operations to complete and handle any errors
@@ -3387,7 +3384,7 @@ class Agent:
         # Create session summary
         if self.enable_session_summaries:
             log_debug("Creating session summary.")
-            tasks.append(self.memory.acreate_session_summary(session_id=session_id, user_id=user_id))
+            tasks.append(self.memory.acreate_session_summary(session_id=session_id, user_id=user_id))  # type: ignore
 
         # Execute all tasks concurrently and handle any errors
         if tasks:
@@ -5341,9 +5338,7 @@ class Agent:
         # -*- Delete session
         self.storage.delete_session(session_id=session_id)
 
-    def get_messages_for_session(
-        self, session_id: Optional[str] = None
-    ) -> List[Message]:
+    def get_messages_for_session(self, session_id: Optional[str] = None) -> List[Message]:
         """Get messages for a session"""
         _session_id = session_id or self.session_id
         if _session_id is None:

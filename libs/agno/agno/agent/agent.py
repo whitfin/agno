@@ -3294,7 +3294,6 @@ class Agent:
 
         self.memory = cast(Memory, self.memory)
 
-        # Create a thread pool with a reasonable number of workers
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
 

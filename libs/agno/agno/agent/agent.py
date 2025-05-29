@@ -565,13 +565,13 @@ class Agent:
         self.audio = None
         self.files = None
         self.agent_session = None
-    
+
     def reset_run_state(self) -> None:
         self.run_id = None
         self.run_input = None
         self.run_messages = None
         self.run_response = None
-        
+
     def initialize_agent(self) -> None:
         self.set_defaults()
         self.set_default_model()
@@ -850,11 +850,11 @@ class Agent:
         """Run the Agent and return the response."""
 
         self.reset_run_state()
-        
+
         if session_id is not None:
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
             self.reset_session_state()
-        
+
         # Initialize the Agent
         self.initialize_agent()
 
@@ -1252,11 +1252,11 @@ class Agent:
     ) -> Any:
         """Async Run the Agent and return the response."""
         self.reset_run_state()
-        
+
         if session_id is not None:
             # Reset session state if a session_id is provided
             self.reset_session_state()
-        
+
         # Initialize the Agent
         self.initialize_agent()
 
@@ -1505,7 +1505,7 @@ class Agent:
             knowledge_filters: The knowledge filters to use for the run.
         """
         self.reset_run_state()
-        
+
         if session_id is not None:
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
             self.reset_session_state()
@@ -1932,7 +1932,7 @@ class Agent:
             knowledge_filters: The knowledge filters to use for the run.
         """
         self.reset_run_state()
-        
+
         if session_id is not None:
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
             self.reset_session_state()
@@ -3292,7 +3292,6 @@ class Agent:
     ) -> None:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
-        session_messages: List[Message] = []
         self.memory = cast(Memory, self.memory)
 
         # Create a thread pool with a reasonable number of workers
@@ -3326,7 +3325,6 @@ class Agent:
                         continue
 
                 if len(parsed_messages) > 0:
-                    session_messages.extend(parsed_messages)
                     futures.append(
                         executor.submit(self.memory.create_user_memories, messages=parsed_messages, user_id=user_id)
                     )
@@ -3355,7 +3353,6 @@ class Agent:
         messages: Optional[List[Message]] = None,
     ) -> None:
         self.memory = cast(Memory, self.memory)
-        session_messages: List[Message] = []
         tasks = []
 
         # Create user memories from single message
@@ -3383,7 +3380,6 @@ class Agent:
                     continue
 
             if len(parsed_messages) > 0:
-                session_messages.extend(parsed_messages)
                 tasks.append(self.memory.acreate_user_memories(messages=parsed_messages, user_id=user_id))
             else:
                 log_warning("Unable to add messages to memory")
@@ -3941,7 +3937,7 @@ class Agent:
         session_id: str,
     ) -> Optional[AgentSession]:
         """Load the AgentSession from storage
-        
+
         Args:
             session_id: The session_id to load from storage.
 

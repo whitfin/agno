@@ -647,7 +647,7 @@ class Agent:
                 run_response=run_response, session_id=session_id, user_id=user_id, message=message
             )
 
-        # Update memory
+        # 4. Update Agent Memory
         self._update_memory(
             run_messages=run_messages,
             session_id=session_id,
@@ -655,26 +655,17 @@ class Agent:
             messages=messages,
         )
 
-        # Set session metrics
+        # 5. Calculate session metrics
         self._set_session_metrics(run_messages)
 
-        # Write to storage
-        self.write_to_storage(
-            user_id=user_id,
-            session_id=session_id,
-        )
+        # 6. Save session to storage
+        self.write_to_storage(user_id=user_id, session_id=session_id)
 
-        # Save run response to file
-        self.save_run_response_to_file(
-            message=message,
-            session_id=session_id,
-        )
+        # 7. Save output to file if save_response_to_file is set
+        self.save_run_response_to_file(message=message, session_id=session_id)
 
-        # Log agent run
-        self._log_agent_run(
-            user_id=user_id,
-            session_id=session_id,
-        )
+        # Log Agent Run
+        self._log_agent_run(user_id=user_id, session_id=session_id)
 
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)

@@ -37,6 +37,17 @@ def agent_chat_response_streamer(
         )
         for run_response_chunk in run_response:
             run_response_chunk = cast(RunResponse, run_response_chunk)
+
+            # Skip chunks that neither carry content nor tool-call updates to
+            # reduce superfluous SSE frames sent to the client.
+            has_tool_calls = bool(
+                (getattr(run_response_chunk, "formatted_tool_calls", None) and run_response_chunk.formatted_tool_calls)
+                or (getattr(run_response_chunk, "tool_calls", None) and run_response_chunk.tool_calls)
+            )
+
+            if (run_response_chunk.content is None or run_response_chunk.content == "") and not has_tool_calls:
+                continue
+
             yield run_response_chunk.to_json()
     except Exception as e:
         error_response = RunResponse(

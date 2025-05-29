@@ -2122,6 +2122,14 @@ class Agent:
             session_id=session_id, async_mode=async_mode, user_id=user_id, knowledge_filters=knowledge_filters
         )
 
+        # Debug: Log what tools we got
+        log_debug(f"Agent.determine_tools_for_model called with {len(agent_tools or [])} tools")
+        if agent_tools:
+            for tool in agent_tools:
+                tool_name = getattr(tool, 'name', 'unnamed')
+                tool_entrypoint = getattr(tool, 'entrypoint', None)
+                log_debug(f"  Tool '{tool_name}' entrypoint: {tool_entrypoint is not None}")
+
         if self._tools_for_model is None:
             self._tools_for_model = []
             self._functions_for_model = {}
@@ -2200,6 +2208,13 @@ class Agent:
                                 log_debug(f"Added tool {func.name}")
                         except Exception as e:
                             log_warning(f"Could not add tool {tool}: {e}")
+        
+        # Debug: Log final tools for model
+        log_debug(f"Final _tools_for_model count: {len(self._tools_for_model or [])}")
+        if self._tools_for_model:
+            for tool_dict in self._tools_for_model:
+                tool_name = tool_dict.get("function", {}).get("name", "unknown")
+                log_debug(f"  Tool for model: {tool_name}")
 
     def _model_should_return_structured_output(self):
         self.model = cast(Model, self.model)

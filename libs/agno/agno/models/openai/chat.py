@@ -11,7 +11,7 @@ from agno.media import AudioResponse
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.models.response import ModelResponse
-from agno.utils.log import log_error, log_warning
+from agno.utils.log import log_error, log_warning, log_debug
 from agno.utils.openai import _format_file_for_message, audio_to_message, images_to_message
 
 try:
@@ -149,15 +149,20 @@ class OpenAIChat(Model):
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """
-        Returns keyword arguments for API requests.
+        Returns keyword arguments for OpenAI API requests.
 
         Returns:
-            Dict[str, Any]: A dictionary of keyword arguments for API requests.
+            Dict[str, Any]: A dictionary of keyword arguments for OpenAI API requests.
         """
-        # Define base request parameters
+        # Debug: Log what we received
+        log_debug(f"OpenAIChat.get_request_kwargs called:")
+        log_debug(f"  tools: {len(tools or [])} tools provided")
+        log_debug(f"  tool_choice: {tool_choice}")
+        
         base_params = {
             "store": self.store,
             "reasoning_effort": self.reasoning_effort,
+            "metadata": self.metadata,
             "frequency_penalty": self.frequency_penalty,
             "logit_bias": self.logit_bias,
             "logprobs": self.logprobs,
@@ -175,7 +180,6 @@ class OpenAIChat(Model):
             "top_p": self.top_p,
             "extra_headers": self.extra_headers,
             "extra_query": self.extra_query,
-            "metadata": self.metadata,
         }
 
         # Filter out None values
@@ -184,13 +188,18 @@ class OpenAIChat(Model):
         # Add tools
         if tools is not None and len(tools) > 0:
             request_params["tools"] = tools
+            log_debug(f"  Added {len(tools)} tools to request_params")
 
             if tool_choice is not None:
                 request_params["tool_choice"] = tool_choice
+                log_debug(f"  Added tool_choice to request_params: {tool_choice}")
 
         # Add additional request params if provided
         if self.request_params:
             request_params.update(self.request_params)
+        
+        # Debug: Log final request params keys
+        log_debug(f"  Final request_params keys: {list(request_params.keys())}")
         return request_params
 
     def to_dict(self) -> Dict[str, Any]:
@@ -453,7 +462,6 @@ class OpenAIChat(Model):
                 model=self.id,
                 messages=[self._format_message(m) for m in messages],  # type: ignore
                 stream=True,
-                stream_options={"include_usage": True},
                 **self.get_request_kwargs(response_format=response_format, tools=tools, tool_choice=tool_choice),
             )  # type: ignore
         except RateLimitError as e:
@@ -516,7 +524,6 @@ class OpenAIChat(Model):
                 model=self.id,
                 messages=[self._format_message(m) for m in messages],  # type: ignore
                 stream=True,
-                stream_options={"include_usage": True},
                 **self.get_request_kwargs(response_format=response_format, tools=tools, tool_choice=tool_choice),
             )
             async for chunk in async_stream:

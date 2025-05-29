@@ -865,7 +865,9 @@ class Model(ABC):
         """Create a function call result message."""
         return Message(
             role=self.tool_message_role,
-            content=output if success else fc.error,
+            # OpenAI API requires non-null content for `tool` role messages.
+            # Use empty string when no output/error is present to avoid 400 errors.
+            content=(output if success else fc.error) or "",
             tool_call_id=fc.call_id,
             tool_name=fc.function.name,
             tool_args=fc.arguments,

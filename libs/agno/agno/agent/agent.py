@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
-import threading
 from collections import ChainMap, defaultdict, deque
 from dataclasses import asdict, dataclass
 from os import getenv
 from textwrap import dedent
+from threading import Thread
 from typing import (
     Any,
     AsyncIterator,
@@ -647,7 +647,7 @@ class Agent:
                 run_response=run_response, session_id=session_id, user_id=user_id, message=message
             )
 
-        # 4. Update Agent Memory
+        # Update memory
         self._update_memory(
             run_messages=run_messages,
             session_id=session_id,
@@ -655,17 +655,26 @@ class Agent:
             messages=messages,
         )
 
-        # 5. Calculate session metrics
+        # Set session metrics
         self._set_session_metrics(run_messages)
 
-        # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        # Write to storage
+        self.write_to_storage(
+            user_id=user_id,
+            session_id=session_id,
+        )
 
-        # 7. Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=message, session_id=session_id)
+        # Save run response to file
+        self.save_run_response_to_file(
+            message=message,
+            session_id=session_id,
+        )
 
-        # Log Agent Run
-        self._log_agent_run(user_id=user_id, session_id=session_id)
+        # Log agent run
+        self._log_agent_run(
+            user_id=user_id,
+            session_id=session_id,
+        )
 
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)
@@ -922,7 +931,7 @@ class Agent:
         run_id = str(uuid4())
 
         # Register Agent
-        thread = threading.Thread(target=self.register_agent)
+        thread = Thread(target=self.register_agent)
         thread.start()
 
         for attempt in range(num_attempts):
@@ -1121,7 +1130,7 @@ class Agent:
 
         Steps:
         1. Reason about the task if reasoning is enabled
-        2. Generate a response from the Model (includes running function calls)
+        2. Generate a response from the Model
         3. Add the run to memory
         4. Update Agent Memory
         5. Calculate session metrics
@@ -3244,17 +3253,30 @@ class Agent:
         user_id: Optional[str] = None,
         messages: Optional[List[Message]] = None,
     ) -> None:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         session_messages: List[Message] = []
         self.memory = cast(Memory, self.memory)
-        if self.enable_user_memories and run_messages.user_message is not None:
-            log_debug("Creating user memories.")
-            self.memory.create_user_memories(message=run_messages.user_message.get_content_string(), user_id=user_id)
 
-            # TODO: Possibly do both of these in one step
+        # Create a thread pool with a reasonable number of workers
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = []
+
+            # Create user memories from single message
+            if self.enable_user_memories and run_messages.user_message is not None:
+                log_debug("Creating user memories.")
+                futures.append(
+                    executor.submit(
+                        self.memory.create_user_memories,
+                        message=run_messages.user_message.get_content_string(),
+                        user_id=user_id,
+                    )
+                )
+
+            # Parse messages if provided
             if messages is not None and len(messages) > 0:
                 parsed_messages = []
                 for _im in messages:
-                    # Parse the message and convert to a Message object if possible
                     if isinstance(_im, Message):
                         parsed_messages.append(_im)
                     elif isinstance(_im, dict):
@@ -3267,17 +3289,26 @@ class Agent:
                         continue
 
                 if len(parsed_messages) > 0:
-                    if session_messages is None:
-                        session_messages = []
                     session_messages.extend(parsed_messages)
-                    self.memory.create_user_memories(messages=parsed_messages, user_id=user_id)
+                    futures.append(
+                        executor.submit(self.memory.create_user_memories, messages=parsed_messages, user_id=user_id)
+                    )
                 else:
                     log_warning("Unable to add messages to memory")
 
-        # Update the session summary if needed
-        if self.enable_session_summaries:
-            log_debug("Creating session summary.")
-            self.memory.create_session_summary(session_id=session_id, user_id=user_id)
+            # Create session summary
+            if self.enable_session_summaries:
+                log_debug("Creating session summary.")
+                futures.append(
+                    executor.submit(self.memory.create_session_summary, session_id=session_id, user_id=user_id)
+                )
+
+            # Wait for all operations to complete and handle any errors
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    log_warning(f"Error in memory/summary operation: {str(e)}")
 
     async def _amake_memories_and_summaries(
         self,
@@ -3288,40 +3319,49 @@ class Agent:
     ) -> None:
         self.memory = cast(Memory, self.memory)
         session_messages: List[Message] = []
+        tasks = []
+
+        # Create user memories from single message
         if self.enable_user_memories and run_messages.user_message is not None:
             log_debug("Creating user memories.")
-            await self.memory.acreate_user_memories(
-                message=run_messages.user_message.get_content_string(), user_id=user_id
+            tasks.append(
+                self.memory.acreate_user_memories(
+                    message=run_messages.user_message.get_content_string(), user_id=user_id
+                )
             )
 
-            # TODO: Possibly do both of these in one step
-            if messages is not None and len(messages) > 0:
-                parsed_messages = []
-                for _im in messages:
-                    # Parse the message and convert to a Message object if possible
-                    if isinstance(_im, Message):
-                        parsed_messages.append(_im)
-                    elif isinstance(_im, dict):
-                        try:
-                            parsed_messages.append(Message(**_im))
-                        except Exception as e:
-                            log_warning(f"Failed to validate message during memory update: {e}")
-                    else:
-                        log_warning(f"Unsupported message type: {type(_im)}")
-                        continue
-
-                if len(parsed_messages) > 0:
-                    if session_messages is None:
-                        session_messages = []
-                    session_messages.extend(parsed_messages)
-                    await self.memory.acreate_user_memories(messages=parsed_messages, user_id=user_id)
+        # Parse messages if provided
+        if messages is not None and len(messages) > 0:
+            parsed_messages = []
+            for _im in messages:
+                if isinstance(_im, Message):
+                    parsed_messages.append(_im)
+                elif isinstance(_im, dict):
+                    try:
+                        parsed_messages.append(Message(**_im))
+                    except Exception as e:
+                        log_warning(f"Failed to validate message during memory update: {e}")
                 else:
-                    log_warning("Unable to add messages to memory")
+                    log_warning(f"Unsupported message type: {type(_im)}")
+                    continue
 
-        # Update the session summary if needed
+            if len(parsed_messages) > 0:
+                session_messages.extend(parsed_messages)
+                tasks.append(self.memory.acreate_user_memories(messages=parsed_messages, user_id=user_id))
+            else:
+                log_warning("Unable to add messages to memory")
+
+        # Create session summary
         if self.enable_session_summaries:
             log_debug("Creating session summary.")
-            await self.memory.acreate_session_summary(session_id=session_id, user_id=user_id)
+            tasks.append(self.memory.acreate_session_summary(session_id=session_id, user_id=user_id))
+
+        # Execute all tasks concurrently and handle any errors
+        if tasks:
+            try:
+                await asyncio.gather(*tasks)
+            except Exception as e:
+                log_warning(f"Error in memory/summary operation: {str(e)}")
 
     def _raise_if_async_tools(self) -> None:
         """Raise an exception if any tools contain async functions"""

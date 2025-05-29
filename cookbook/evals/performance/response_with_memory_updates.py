@@ -2,13 +2,20 @@
 
 from agno.agent import Agent
 from agno.eval.performance import PerformanceEval
+from agno.memory.v2.db.sqlite import SqliteMemoryDb
+from agno.memory.v2.memory import Memory
 from agno.models.openai import OpenAIChat
+
+# Memory creation requires a db to be provided
+memory_db = SqliteMemoryDb(table_name="memory", db_file="tmp/memory.db")
+memory = Memory(db=memory_db)
 
 
 def run_agent():
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
         system_message="Be concise, reply with one sentence.",
+        memory=memory,
         enable_user_memories=True,
         enable_session_summaries=True,
     )
@@ -18,7 +25,7 @@ def run_agent():
 
 
 response_with_memory_updates_perf = PerformanceEval(
-    func=run_agent, num_iterations=1, warmup_runs=0
+    func=run_agent, num_iterations=5, warmup_runs=0
 )
 
 if __name__ == "__main__":

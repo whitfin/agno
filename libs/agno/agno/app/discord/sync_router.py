@@ -19,7 +19,7 @@ def get_sync_router(agent: Optional[Agent] = None, team: Optional[Team] = None) 
         data = payload.get("d")
 
         log_info(f"Received Discord event: {event_type}")
-
+        
         if not event_type or not data:
             raise HTTPException(status_code=400, detail="Invalid payload format")
 

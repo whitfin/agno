@@ -213,14 +213,14 @@ class TestMem0Toolkit:
         # Set up mocks for this specific test
         mock_memory = MagicMock()
         mock_memory.add.return_value = {"results": [{"id": "mem-add-123", "memory": "added memory", "event": "ADD"}]}
-        
+
         MockMemory.from_config.return_value = mock_memory
-        
+
         # Test with config-based toolkit set to infer=False
         monkeypatch.delenv("MEM0_API_KEY", raising=False)
         toolkit_config = Mem0Tools(config={}, user_id="test_user", infer=False)
         result_str = toolkit_config.add_memory(dummy_agent, content="Test message")
-        
+
         mock_memory.add.assert_called_once_with(
             [{"role": "user", "content": "Test message"}],
             user_id="test_user",

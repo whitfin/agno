@@ -18,9 +18,8 @@ puzzle_master = Agent(
     The puzzle must be:
     1. Completely solved with a unique, correct solution
     2. All clues satisfied and verified
-    3. All items/people uniquely assigned with no conflicts
-    4. Solution process clearly explained with logical reasoning
-    5. Final answer explicitly stated in a clear format\
+    3. Solution process clearly explained with logical reasoning
+    4. Final answer explicitly stated in a clear format\
     """),
     markdown=True,
 )

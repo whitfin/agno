@@ -43,7 +43,7 @@ reasoning_agent = Agent(
 )
 ```
 
-https://github.com/user-attachments/assets/bbb99955-9848-49a9-9732-3e19d77b2ff8
+https://github.com/user-attachments/assets/4ef27ba6-a781-4fb0-b49c-bfd838123c83
 
 ## Get Started
 

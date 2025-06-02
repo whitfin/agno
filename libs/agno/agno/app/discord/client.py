@@ -1,10 +1,5 @@
-import base64
 from os import getenv
 from typing import Optional
-
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from fastapi.responses import PlainTextResponse
-
 from agno.agent.agent import Agent
 from agno.media import Audio, File, Image, Video
 from agno.team.team import Team
@@ -20,6 +15,7 @@ except Exception:
 def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
     @client.event
     async def on_message(message):
+        print(message)
         if message.author == client.user:
             print("author==client")
         else:

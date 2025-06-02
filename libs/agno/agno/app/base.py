@@ -85,7 +85,7 @@ class BaseAPIApp(ABC):
     def get_async_router(self) -> APIRouter:
         raise NotImplementedError("get_async_router must be implemented")
 
-    def get_app(self, use_async: bool = True, prefix: str = "") -> FastAPI:
+    def get_app(self, use_async: bool = True, prefix: str = "", enable_agui: bool = False) -> FastAPI:
         if not self.api_app:
             self.api_app = FastAPI(
                 title=self.settings.title,
@@ -127,6 +127,14 @@ class BaseAPIApp(ABC):
             self.router.include_router(self.get_router())
 
         self.api_app.include_router(self.router)
+
+        # Add AG-UI router if enabled
+        if enable_agui:
+            from agno.app.agui.router import get_agui_router
+            agui_router = get_agui_router(agent=self.agent, team=self.team)
+            self.api_app.include_router(agui_router, prefix="/agui")
+            # Store reference for router access
+            self.api_app._agui_router = agui_router
 
         self.api_app.add_middleware(
             CORSMiddleware,

@@ -134,6 +134,9 @@ text = ["aiofiles"]
 csv = ["aiofiles"]
 markdown = ["unstructured", "markdown", "aiofiles"]
 
+# Dependencies for AG-UI integration
+agui = ["ag-ui"]
+
 # Dependencies for Embedders
 huggingface = [
     "huggingface-hub",
@@ -290,6 +293,7 @@ exclude = ["tests*"]
 
 [[tool.mypy.overrides]]
 module = [
+  "ag_ui.*",
   "agentql.*",
   "aiofiles.*",
   "altair.*",
@@ -410,3 +414,14 @@ module = [
   "zep_cloud.*"
 ]
 ignore_missing_imports = true
+
+[tool.poetry.extras]
+cookbook = ["nest-asyncio", "ipython"]
+playground = ["streamlit", "pypdf", "validators", "beautifulsoup4", "lancedb", "tantivy", "sqlalchemy", "pgvector", "psycopg", "youtube-transcript-api", "twilio", "wikipedia-api", "arxiv", "scikit-learn", "numpy", "lxml", "boto3", "schedule", "yfinance"]
+agent-ui = ["streamlit", "pandas", "duckduckgo-search", "openbb", "streamlit-pills", "phidata-llms"]
+reasoner = ["pydantic"]
+dev = ["sphinx", "pyproject-parser", "setuptools", "build", "twine", "ruff", "mypy", "types-croniter", "pytest", "pytest-asyncio", "sphinx-autobuild", "sphinx-copybutton", "myst-parser", "gitpython", "types-setuptools", "types-pyyaml", "types-toml", "types-pillow", "types-tqdm", "watchdog", "types-redis", "types-jsonschema", "pytest-cov", "types-tabulate"]
+cli = ["typer", "rich", "gitpython", "pyyaml", "tomli", "tomli-w", "importlib-resources", "questionary", "httpx", "docker", "pydantic-core"]
+ws = ["websockets", "httpx", "pydantic-core"]
+run-pip-lock = ["tomli"]
+mem0 = ["mem0", "qdrant-client"]

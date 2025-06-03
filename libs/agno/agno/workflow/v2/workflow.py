@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
@@ -141,7 +139,6 @@ class Workflow:
             show_task_details: Whether to show individual task outputs
             console: Rich console instance (optional)
         """
-        from rich.console import Group
         from rich.live import Live
         from rich.markdown import Markdown
         from rich.status import Status

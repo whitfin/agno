@@ -5,4 +5,3 @@ class TriggerType(str, Enum):
     MANUAL = "manual"
     AGENTIC = "agentic"
     SCHEDULED = "scheduled"
-    WEBHOOK = "webhook"

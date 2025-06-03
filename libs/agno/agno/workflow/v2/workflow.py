@@ -329,7 +329,7 @@ class Workflow:
                         for t in p.tasks
                     ],
                 }
-                for p in p.pipelines
+                for p in self.pipelines
             ],
             "session_id": self.session_id,
         }

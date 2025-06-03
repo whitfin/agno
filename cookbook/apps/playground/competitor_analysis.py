@@ -1,8 +1,4 @@
-"""🔍 Competitor Analysis Agent - Your AI-Powered Market Intelligence System!
-
-This example demonstrates how to build a sophisticated competitor analysis agent that combines powerful search and scraping capabilities with advanced reasoning tools to provide
-comprehensive competitive intelligence. The agent performs deep analysis of competitors including
-market positioning, product offerings, and strategic insights.
+"""🔍 Competitor Analysis Agent!
 
 Key capabilities:
 - Company discovery using Firecrawl search
@@ -26,15 +22,18 @@ from textwrap import dedent
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
+from agno.playground import Playground
+from agno.storage.sqlite import SqliteStorage
 from agno.tools.firecrawl import FirecrawlTools
 from agno.tools.reasoning import ReasoningTools
 
 competitor_analysis_agent = Agent(
     model=OpenAIChat(id="gpt-4.1"),
+    name="Competitor Analysis Agent",
     tools=[
         FirecrawlTools(
             search=True,
-            crawl=True,
+            scrape=True,
             mapping=True,
             formats=["markdown", "links", "html"],
             search_params={
@@ -42,42 +41,33 @@ competitor_analysis_agent = Agent(
             },
             limit=5,
         ),
-        ReasoningTools(
-            add_instructions=True,
-        ),
+        ReasoningTools(add_instructions=True),
     ],
-    instructions=[
-        "1. Initial Research & Discovery:",
-        "   - Use search tool to find information about the target company",
-        "   - Search for '[company name] competitors', 'companies like [company name]'",
-        "   - Search for industry reports and market analysis",
-        "   - Use the think tool to plan your research approach",
-        "2. Competitor Identification:",
-        "   - Search for each identified competitor using Firecrawl",
-        "   - Find their official websites and key information sources",
-        "   - Map out the competitive landscape",
-        "3. Website Analysis:",
-        "   - Scrape competitor websites using Firecrawl",
-        "   - Map their site structure to understand their offerings",
-        "   - Extract product information, pricing, and value propositions",
-        "   - Look for case studies and customer testimonials",
-        "4. Deep Competitive Analysis:",
-        "   - Use the analyze tool after gathering information on each competitor",
-        "   - Compare features, pricing, and market positioning",
-        "   - Identify patterns and competitive dynamics",
-        "   - Think through the implications of your findings",
-        "5. Strategic Synthesis:",
-        "   - Conduct SWOT analysis for each major competitor",
-        "   - Use reasoning to identify competitive advantages",
-        "   - Analyze market trends and opportunities",
-        "   - Develop strategic recommendations",
-        "- Always use the think tool before starting major research phases",
-        "- Use the analyze tool to process findings and draw insights",
-        "- Search for multiple perspectives on each competitor",
-        "- Verify information by checking multiple sources",
-        "- Be thorough but focused in your analysis",
-        "- Provide evidence-based recommendations",
-    ],
+    description="You run competitor analysis for a company.",
+    instructions=dedent("""\
+        1. Initial Research & Discovery:
+           - Use search tool to find information about the target company
+           - Search for 'companies like [company name]'. Do only 1 search.
+           - Search for industry reports and market analysis. Do only 1 search.
+           - Use the think tool to plan your research approach.
+        2. Competitor Identification:
+           - Search for 3 identified competitor using Firecrawl.
+           - Scrape competitor websites using Firecrawl.
+           - Extract product information, pricing, and value propositions.
+        3. Map out the competitive landscape.
+           - Use the analyze tool after gathering information on each competitor
+           - Compare features, pricing, and market positioning
+           - Identify patterns and competitive dynamics
+        4. Conduct SWOT analysis for each major competitor
+           - Use reasoning to identify competitive advantages
+           - Analyze market trends and opportunities
+           - Develop strategic recommendations
+
+        - Always use the think tool before starting major research phases
+        - Use the analyze tool to process findings and draw insights
+        - Be thorough but focused in your analysis
+        - Provide evidence-based recommendations
+    """),
     expected_output=dedent("""\
     # Competitive Analysis Report: {Target Company}
 
@@ -189,16 +179,21 @@ competitor_analysis_agent = Agent(
     {Summary of competitive position and strategic imperatives}
     """),
     markdown=True,
-    show_tool_calls=True,
     add_datetime_to_instructions=True,
-    stream_intermediate_steps=True,
+    storage=SqliteStorage(
+        table_name="competitor_analysis",
+        db_file="tmp/competitor_analysis.db",
+    ),
 )
 
-competitor_analysis_agent.print_response(
-    """\
-    Analyze the competitive landscape for Stripe in the payments industry.
-    Focus on their products, pricing models, and market positioning.\
-    """,
-    stream=True,
-    show_full_reasoning=True,
+
+playground = Playground(
+    agents=[competitor_analysis_agent],
+    name="Competitor Analysis",
+    description="Agents for competitor analysis",
+    app_id="competitor-analysis",
 )
+app = playground.get_app(use_async=False)
+
+if __name__ == "__main__":
+    playground.serve(app="competitor_analysis:app", reload=True)

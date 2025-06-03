@@ -42,12 +42,13 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
                 response = await agent.arun(message_text, user_id=message.author.name,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(content=message_video)] if message_video else None,
-                    audio=[Audio(url=message_audio)] if message_audio else None,)
+                    audio=[Audio(url=message_audio)] if message_audio else None)
             elif team:
                 response = await team.arun(message_text, user_id=message.author.name,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(url=message_video)] if message_video else None,
                     audio=[Audio(url=message_audio)] if message_audio else None,)
-            await message.channel.send(response.content)
+            thread = await message.create_thread(name="thread")
+            await thread.send(response.content)
     return client.run(DISCORD_TOKEN)
     

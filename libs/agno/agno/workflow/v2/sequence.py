@@ -4,10 +4,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 from uuid import uuid4
 
-from agno.run.response import RunEvent, RunResponse
+from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.utils.log import logger
-
-from .task import Task
+from agno.workflow.v2.task import Task
 
 
 @dataclass
@@ -26,7 +25,7 @@ class Sequence:
         if self.sequence_id is None:
             self.sequence_id = str(uuid4())
 
-    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Iterator[RunResponse]:
+    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Iterator[WorkflowRunResponse]:
         """Execute all tasks in the sequence sequentially (synchronous)"""
         logger.info(f"Starting sequence: {self.name}")
 
@@ -39,10 +38,32 @@ class Sequence:
         task_outputs = {}
         current_inputs = inputs.copy()
 
-        yield RunResponse(content=f"Sequence {self.name} started", event=RunEvent.workflow_started)
+        # Workflow started event
+        yield WorkflowRunResponse(
+            content=f"Sequence {self.name} started",
+            event=WorkflowRunEvent.workflow_started,
+            workflow_name=context.get("workflow_name") if context else None,
+            pipeline_name=self.name,
+            workflow_id=context.get("workflow_id") if context else None,
+            run_id=context.get("run_id") if context else None,
+            workflw_session_id=context.get("workflw_session_id") if context else None,
+        )
 
         for i, task in enumerate(self.tasks):
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
+
+            # Task started event
+            yield WorkflowRunResponse(
+                content=f"Starting task: {task.name}",
+                event=WorkflowRunEvent.task_started,
+                workflow_name=context.get("workflow_name") if context else None,
+                pipeline_name=self.name,
+                task_name=task.name,
+                task_index=i,
+                workflow_id=context.get("workflow_id") if context else None,
+                run_id=context.get("run_id") if context else None,
+                workflw_session_id=context.get("workflw_session_id") if context else None,
+            )
 
             # Merge previous task outputs with current inputs
             # This allows each task to access outputs from previous tasks
@@ -69,23 +90,38 @@ class Sequence:
                 # Store with "result" key as alternative
                 task_outputs["result"] = task_response.content
 
-            # Yield intermediate response
-            yield RunResponse(
+            # Task completed event
+            yield WorkflowRunResponse(
                 content=task_response.content,
-                event=RunEvent.run_response,
+                event=WorkflowRunEvent.task_completed,
+                workflow_name=context.get("workflow_name") if context else None,
+                pipeline_name=self.name,
+                task_name=task.name,
+                task_index=i,
+                workflow_id=context.get("workflow_id") if context else None,
+                run_id=context.get("run_id") if context else None,
+                workflw_session_id=context.get("workflw_session_id") if context else None,
                 extra_data={
-                    "task_name": task.name,
-                    "task_index": i,
-                    "sequence_name": self.name,
-                    # Show available outputs
                     "task_outputs": list(task_outputs.keys()),
+                    "task_response": task_response.to_dict()
+                    if hasattr(task_response, "to_dict")
+                    else str(task_response),
                 },
             )
 
-        # Sequence completed
+        # Workflow completed event
         final_output = {"sequence_name": self.name, "task_outputs": task_outputs, "status": "completed"}
 
-        yield RunResponse(content=str(final_output), event=RunEvent.workflow_completed, extra_data=final_output)
+        yield WorkflowRunResponse(
+            content=f"Sequence {self.name} completed successfully",
+            event=WorkflowRunEvent.workflow_completed,
+            workflow_name=context.get("workflow_name") if context else None,
+            pipeline_name=self.name,
+            workflow_id=context.get("workflow_id") if context else None,
+            run_id=context.get("run_id") if context else None,
+            workflw_session_id=context.get("workflw_session_id") if context else None,
+            extra_data=final_output,
+        )
 
         logger.info(f"Sequence {self.name} completed")
 

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional
 from uuid import uuid4
 
-from agno.run.response import RunEvent, RunResponse
+from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.storage.base import Storage
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.sequence import Sequence
@@ -32,7 +32,7 @@ class Workflow:
     max_concurrent_pipelines: int = 1
 
     # Session management
-    session_id: Optional[str] = None
+    workflw_session_id: Optional[str] = None
     user_id: Optional[str] = None
 
     # Runtime state
@@ -61,10 +61,10 @@ class Workflow:
         if self.workflow_id is None:
             self.workflow_id = str(uuid4())
 
-        if self.session_id is None:
-            self.session_id = str(uuid4())
+        if self.workflw_session_id is None:
+            self.workflw_session_id = str(uuid4())
 
-    def execute_pipeline(self, pipeline_name: str, inputs: Dict[str, Any]) -> Iterator[RunResponse]:
+    def execute_pipeline(self, pipeline_name: str, inputs: Dict[str, Any]) -> Iterator[WorkflowRunResponse]:
         """Execute a specific pipeline by name synchronously"""
         pipeline = self.get_pipeline(pipeline_name)
         if not pipeline:
@@ -81,7 +81,7 @@ class Workflow:
             "workflow_id": self.workflow_id,
             "workflow_name": self.name,
             "run_id": self.run_id,
-            "session_id": self.session_id,
+            "workflw_session_id": self.workflw_session_id,
             "user_id": self.user_id,
             "execution_start": execution_start,
         }
@@ -89,25 +89,23 @@ class Workflow:
         try:
             # Execute the pipeline synchronously
             for response in pipeline.execute(inputs, context):
-                # Add workflow metadata to response
-                response.workflow_id = self.workflow_id
-                response.session_id = self.session_id
-                response.run_id = self.run_id
-
+                # Add workflow metadata to response (already set in sequence)
                 yield response
 
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
 
-            yield RunResponse(
+            yield WorkflowRunResponse(
                 content=f"Workflow execution failed: {e}",
-                event=RunEvent.run_error,
+                event=WorkflowRunEvent.workflow_error,
                 workflow_id=self.workflow_id,
-                session_id=self.session_id,
+                workflow_name=self.name,
+                pipeline_name=pipeline_name,
+                workflw_session_id=self.workflw_session_id,
                 run_id=self.run_id,
             )
 
-    def run(self, query: str = None, **kwargs) -> Iterator[RunResponse]:
+    def run(self, query: str = None, **kwargs) -> Iterator[WorkflowRunResponse]:
         """Execute the workflow synchronously"""
         # Determine pipeline based on trigger type
         if self.trigger == TriggerType.MANUAL:
@@ -177,12 +175,7 @@ class Workflow:
             console.print(f"[yellow]Trigger type '{self.trigger.value}' not yet supported in print_response[/yellow]")
             return
 
-        # Simple inputs - just use query directly
-        inputs = {"query": query}
-
-        panels = []
-
-        # Show workflow info
+        # Show workflow info once at the beginning
         workflow_info = f"""
             **Workflow:** {self.name}
             **Pipeline:** {pipeline.name}
@@ -198,33 +191,34 @@ class Workflow:
         )
         console.print(workflow_panel)
 
+        # Start timer before execution
+        response_timer = Timer()
+        response_timer.start()
+
         # Execute and show results
-        streaming_content = ""
         task_responses = []
 
         with Live(console=console) as live_log:
             status = Status("Starting workflow...", spinner="dots")
-            live_log.update(Group(*panels, status))
-
-            response_timer = Timer()
-            response_timer.start()
+            live_log.update(status)
 
             try:
                 for response in self.run(query=query):
-                    if response.event == RunEvent.workflow_started:
-                        status.update("Pipeline started...")
+                    if response.event == WorkflowRunEvent.workflow_started:
+                        status.update("Workflow started...")
 
-                    elif response.event == RunEvent.run_response:
-                        # Extract task info from extra_data
-                        task_name = (
-                            response.extra_data.get("task_name", "Unknown") if response.extra_data else "Unknown"
-                        )
-                        task_index = response.extra_data.get("task_index", 0) if response.extra_data else 0
+                    elif response.event == WorkflowRunEvent.task_started:
+                        task_name = response.task_name or "Unknown"
+                        task_index = response.task_index or 0
+                        status.update(f"Starting task {task_index + 1}: {task_name}...")
 
-                        status.update(f"Executing task {task_index + 1}: {task_name}...")
+                    elif response.event == WorkflowRunEvent.task_completed:
+                        task_name = response.task_name or "Unknown"
+                        task_index = response.task_index or 0
+
+                        status.update(f"Completed task {task_index + 1}: {task_name}")
 
                         if response.content:
-                            streaming_content += response.content
                             task_responses.append(
                                 {
                                     "task_name": task_name,
@@ -234,25 +228,25 @@ class Workflow:
                                 }
                             )
 
-                        # Show task details if enabled - display full content
+                        # Print the task panel immediately after completion
                         if show_task_details and response.content:
                             task_panel = create_panel(
                                 content=Markdown(response.content) if markdown else response.content,
                                 title=f"Task {task_index + 1}: {task_name}",
                                 border_style="green",
                             )
-                            panels.append(task_panel)
+                            console.print(task_panel)
 
-                    elif response.event == RunEvent.workflow_completed:
+                    elif response.event == WorkflowRunEvent.workflow_completed:
                         status.update("Workflow completed!")
 
                         # Show final summary
                         if response.extra_data:
                             final_output = response.extra_data
                             summary_content = f"""
-                                **Status:** {final_output.get("status", "Unknown")}
-                                **Tasks Completed:** {len(task_responses)}
-                                **Total Outputs:** {len(final_output.get("task_outputs", {}))}
+    **Status:** {final_output.get("status", "Unknown")}
+    **Tasks Completed:** {len(task_responses)}
+    **Total Outputs:** {len(final_output.get("task_outputs", {}))}
                             """.strip()
 
                             summary_panel = create_panel(
@@ -260,34 +254,29 @@ class Workflow:
                                 title="Execution Summary",
                                 border_style="blue",
                             )
-                            panels.append(summary_panel)
+                            console.print(summary_panel)
 
-                    elif response.event == RunEvent.run_error:
+                    elif response.event == WorkflowRunEvent.workflow_error:
                         status.update("Workflow failed!")
                         error_panel = create_panel(content=response.content, title="Error", border_style="red")
-                        panels.append(error_panel)
+                        console.print(error_panel)
 
-                    # Update live display
-                    if show_time:
-                        time_info = Text(f"({response_timer.elapsed:.1f}s)", style="dim")
-                        live_log.update(Group(*panels, time_info))
-                    else:
-                        live_log.update(Group(*panels))
+                    # Update live display with just status (no time in live display)
+                    live_log.update(status)
 
                 response_timer.stop()
 
-                # Final update with completion time
+                # Final completion message with time - only show this once at the end
                 if show_time:
                     completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
-                    live_log.update(Group(*panels, completion_text))
+                    console.print(completion_text)
 
             except Exception as e:
                 response_timer.stop()
                 error_panel = create_panel(
                     content=f"Workflow execution failed: {str(e)}", title="Execution Error", border_style="red"
                 )
-                panels.append(error_panel)
-                live_log.update(Group(*panels))
+                console.print(error_panel)
 
     def add_pipeline(self, pipeline: Sequence) -> None:
         """Add a pipeline to the workflow"""
@@ -331,5 +320,5 @@ class Workflow:
                 }
                 for p in self.pipelines
             ],
-            "session_id": self.session_id,
+            "workflw_session_id": self.workflw_session_id,
         }

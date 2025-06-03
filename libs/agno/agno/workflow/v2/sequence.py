@@ -61,6 +61,13 @@ class Sequence:
                 workflow_id=context.get("workflow_id") if context else None,
                 run_id=context.get("run_id") if context else None,
                 workflw_session_id=context.get("workflw_session_id") if context else None,
+                extra_data={
+                    "task_id": task.task_id,
+                    "task_description": task.description,
+                    "executor_type": type(task.executor).__name__,
+                    "executor_name": getattr(task.executor, "name", None),
+                    "task_inputs": current_inputs.copy(),
+                },
             )
 
             # Merge previous task outputs with current inputs
@@ -75,20 +82,12 @@ class Sequence:
             if task_response.content:
                 # Store with task name as key
                 task_outputs[task.name] = task_response.content
-
-                # Store with task name + "_output" suffix
                 task_outputs[f"{task.name}_output"] = task_response.content
-
-                # Store with task index for positional access
                 task_outputs[f"task_{i}_output"] = task_response.content
-
-                # Store with generic "output" key for single-task sequences
                 task_outputs["output"] = task_response.content
-
-                # Store with "result" key as alternative
                 task_outputs["result"] = task_response.content
 
-            # Task completed event
+            # Task completed event with full task data
             yield WorkflowRunResponse(
                 content=task_response.content,
                 event=WorkflowRunEvent.task_completed,
@@ -99,16 +98,55 @@ class Sequence:
                 workflow_id=context.get("workflow_id") if context else None,
                 run_id=context.get("run_id") if context else None,
                 workflw_session_id=context.get("workflw_session_id") if context else None,
+                images=getattr(task_response, "images", None),
+                videos=getattr(task_response, "videos", None),
+                audio=getattr(task_response, "audio", None),
+                response_audio=getattr(task_response, "response_audio", None),
+                messages=getattr(task_response, "messages", None),
+                metrics=getattr(task_response, "metrics", None),
                 extra_data={
+                    "task_id": task.task_id,
+                    "task_description": task.description,
+                    "executor_type": type(task.executor).__name__,
+                    "executor_name": getattr(task.executor, "name", None),
+                    "task_inputs": task_inputs,
                     "task_outputs": list(task_outputs.keys()),
-                    "task_response": task_response.to_dict()
-                    if hasattr(task_response, "to_dict")
-                    else str(task_response),
+                    "execution_time": getattr(task_response, "execution_time", None),
+                    "run_response": {
+                        "run_id": getattr(task_response, "run_id", None),
+                        "session_id": getattr(task_response, "session_id", None),
+                        "event": getattr(task_response, "event", None),
+                        "content_type": getattr(task_response, "content_type", "str"),
+                        "created_at": getattr(task_response, "created_at", None),
+                        "updated_at": getattr(task_response, "updated_at", None),
+                    },
+                    "task_metadata": {
+                        "retry_count": task.retry_count,
+                        "max_retries": task.max_retries,
+                        "skip_on_failure": task.skip_on_failure,
+                    },
                 },
             )
 
-        # Workflow completed event
-        final_output = {"sequence_name": self.name, "task_outputs": task_outputs, "status": "completed"}
+        # Workflow completed event with comprehensive summary
+        final_output = {
+            "sequence_name": self.name,
+            "sequence_id": self.sequence_id,
+            "task_outputs": task_outputs,
+            "status": "completed",
+            "total_tasks": len(self.tasks),
+            "task_summary": [
+                {
+                    "task_name": task.name,
+                    "task_id": task.task_id,
+                    "description": task.description,
+                    "executor_type": type(task.executor).__name__,
+                    "executor_name": getattr(task.executor, "name", None),
+                    "output_keys": [key for key in task_outputs.keys() if task.name in key],
+                }
+                for task in self.tasks
+            ],
+        }
 
         yield WorkflowRunResponse(
             content=f"Sequence {self.name} completed successfully",

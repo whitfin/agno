@@ -43,6 +43,12 @@ class WorkflowRunResponse:
     run_id: Optional[str] = None
     workflw_session_id: Optional[str] = None
 
+    # Media content fields - ADD THESE MISSING FIELDS
+    images: Optional[List[ImageArtifact]] = None
+    videos: Optional[List[VideoArtifact]] = None
+    audio: Optional[List[AudioArtifact]] = None
+    response_audio: Optional[AudioResponse] = None
+
     # Task execution details
     task_responses: List[Union["WorkflowRunResponse", RunResponse]] = field(default_factory=list)
 

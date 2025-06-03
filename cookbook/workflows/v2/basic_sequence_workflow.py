@@ -66,7 +66,9 @@ content_creation_sequence = Sequence(
 )
 
 research_sequence = Sequence(
-    name="research_sequence", description="Deep research workflow using teams", tasks=[research_task, plan_content_task]
+    name="research_sequence",
+    description="Deep research workflow using teams",
+    tasks=[research_task, plan_content_task],
 )
 
 # Define workflow
@@ -76,8 +78,9 @@ class ContentCreationWorkflow(Workflow):
     name = "Content Creation Workflow"
     description = "Automated content creation from blog posts to social media"
     trigger = TriggerType.MANUAL
-    storage = SqliteStorage(table_name="content_workflows",
-                            db_file="tmp/workflow_data.db")
+    storage = SqliteStorage(
+        table_name="content_workflows", db_file="tmp/workflow_data.db"
+    )
     sequences = [research_sequence]
 
 
@@ -87,6 +90,10 @@ if __name__ == "__main__":
     print("=== Research Sequence (Rich Display) ===")
     try:
         workflow.print_response(
-            query="AI trends in 2024", markdown=True, show_time=True, show_task_details=True)
+            query="AI trends in 2024",
+            markdown=True,
+            show_time=True,
+            show_task_details=True,
+        )
     except Exception as e:
         print(f"Research sequence failed: {e}")

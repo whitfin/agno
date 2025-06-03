@@ -60,19 +60,22 @@ class Pipeline:
                 # Execute the task
                 task_response = await task.execute(task_inputs, pipeline_context)
 
-                # Store task output with multiple naming conventions for flexibility
+                # Store task output
                 if task_response.content:
-                    # Store with task name as key (for expected_input matching)
-                    if task.name == "analyze_blog":
-                        task_outputs["blog_analysis"] = task_response.content
-                    elif task.name == "research_content":
-                        # Map research output to blog_analysis
-                        task_outputs["blog_analysis"] = task_response.content
-                        task_outputs["research_report"] = task_response.content
+                    # Store with task name as key
+                    task_outputs[task.name] = task_response.content
 
-                    # Also store with generic keys
+                    # Store with task name + "_output" suffix
                     task_outputs[f"{task.name}_output"] = task_response.content
+
+                    # Store with task index for positional access
                     task_outputs[f"task_{i}_output"] = task_response.content
+
+                    # Store with generic "output" key for single-task pipelines
+                    task_outputs["output"] = task_response.content
+
+                    # Store with "result" key as alternative
+                    task_outputs["result"] = task_response.content
 
                 # Yield intermediate response
                 yield RunResponse(

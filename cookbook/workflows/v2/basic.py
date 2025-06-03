@@ -90,22 +90,6 @@ class ContentCreationWorkflow(Workflow):
 # Usage
 if __name__ == "__main__":
     workflow = ContentCreationWorkflow()
-
-    print("=== Content Creation Pipeline (Rich Display) ===")
-    try:
-        workflow.print_response(
-            pipeline_name="content_creation",
-            blog_url="https://docs.agno.com/introduction/agents",
-            platform="twitter",
-            markdown=True,
-            show_time=True,
-            show_task_details=True
-        )
-    except Exception as e:
-        print(f"Content creation pipeline failed: {e}")
-
-    print("\n" + "="*60 + "\n")
-
     print("=== Research Pipeline (Rich Display) ===")
     try:
         workflow.print_response(
@@ -116,18 +100,5 @@ if __name__ == "__main__":
             show_time=True,
             show_task_details=True
         )
-    except Exception as e:
-        print(f"Research pipeline failed: {e}")
-
-    print("\n" + "="*60 + "\n")
-
-    print("=== Research Pipeline (Using pprint_workflow_response) ===")
-    try:
-        result = workflow.run(
-            pipeline_name="research_pipeline",
-            topic="AI trends in 2024",
-            platform="twitter"
-        )
-        pprint_run_response(result, markdown=True, show_time=True)
     except Exception as e:
         print(f"Research pipeline failed: {e}")

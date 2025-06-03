@@ -13,12 +13,9 @@ from agno.utils.log import logger
 @dataclass
 class Task:
     """A single unit of work in a workflow pipeline"""
-
-    # Required fields (no defaults) - must come first
     name: str
     executor: Union[Agent, Team]
-
-    # Optional fields (with defaults) - must come after required fields
+    
     task_id: Optional[str] = None
     description: Optional[str] = None
     expected_input: Optional[Dict[str, Type]] = None
@@ -29,8 +26,6 @@ class Task:
     max_retries: int = 3
     timeout_seconds: Optional[int] = None
 
-    # Conditional execution
-    condition: Optional[str] = None  # Python expression to evaluate
     skip_on_failure: bool = False
 
     # Input validation mode
@@ -51,15 +46,6 @@ class Task:
             if not validation_result and self.strict_input_validation:
                 raise ValueError(
                     f"Input validation failed for task {self.name}")
-
-        # Check condition if defined
-        if self.condition and not self._evaluate_condition(inputs, context or {}):
-            logger.info(
-                f"Task {self.name} skipped due to condition: {self.condition}")
-            return RunResponse(
-                content=f"Task {self.name} skipped",
-                event="task_skipped"
-            )
 
         # Execute with retries
         for attempt in range(self.max_retries + 1):
@@ -120,17 +106,6 @@ class Task:
                         f"Input '{key}' type mismatch for task {self.name}, but continuing...")
 
         return all_valid
-
-    def _evaluate_condition(self, inputs: Dict[str, Any], context: Dict[str, Any]) -> bool:
-        """Evaluate the condition expression"""
-        try:
-            # Create a safe evaluation context
-            eval_context = {**inputs, **context, '__builtins__': {}}
-            return bool(eval(self.condition, eval_context))
-        except Exception as e:
-            logger.warning(
-                f"Failed to evaluate condition '{self.condition}': {e}")
-            return True  # Default to executing the task
 
     def _format_inputs_for_agent(self, inputs: Dict[str, Any]) -> str:
         """Format inputs as a message for an agent"""

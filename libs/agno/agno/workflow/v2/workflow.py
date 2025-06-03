@@ -37,7 +37,6 @@ class Workflow:
 
     # Runtime state
     run_id: Optional[str] = None
-    execution_history: List[Dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         # Handle inheritance - get name from class attribute if not provided
@@ -97,12 +96,8 @@ class Workflow:
 
                 yield response
 
-            # Record successful execution
-            self._record_execution(pipeline_name, inputs, "completed", execution_start)
-
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
-            self._record_execution(pipeline_name, inputs, "failed", execution_start, str(e))
 
             yield RunResponse(
                 content=f"Workflow execution failed: {e}",
@@ -189,11 +184,11 @@ class Workflow:
 
         # Show workflow info
         workflow_info = f"""
-**Workflow:** {self.name}
-**Pipeline:** {pipeline.name}
-**Description:** {pipeline.description or "No description"}
-**Tasks:** {len(pipeline.tasks)} tasks
-**Query:** {query}
+            **Workflow:** {self.name}
+            **Pipeline:** {pipeline.name}
+            **Description:** {pipeline.description or "No description"}
+            **Tasks:** {len(pipeline.tasks)} tasks
+            **Query:** {query}
         """.strip()
 
         workflow_panel = create_panel(
@@ -201,7 +196,7 @@ class Workflow:
             title="Workflow Information",
             border_style="cyan",
         )
-        panels.append(workflow_panel)
+        console.print(workflow_panel)
 
         # Execute and show results
         streaming_content = ""
@@ -215,7 +210,7 @@ class Workflow:
             response_timer.start()
 
             try:
-                for response in self.run(pipeline_name=pipeline.name, **inputs):
+                for response in self.run(query=query):
                     if response.event == RunEvent.workflow_started:
                         status.update("Pipeline started...")
 
@@ -239,13 +234,10 @@ class Workflow:
                                 }
                             )
 
-                        # Show task details if enabled
+                        # Show task details if enabled - display full content
                         if show_task_details and response.content:
-                            task_content = (
-                                response.content[:500] + "..." if len(response.content) > 500 else response.content
-                            )
                             task_panel = create_panel(
-                                content=Markdown(task_content) if markdown else task_content,
+                                content=Markdown(response.content) if markdown else response.content,
                                 title=f"Task {task_index + 1}: {task_name}",
                                 border_style="green",
                             )
@@ -258,9 +250,9 @@ class Workflow:
                         if response.extra_data:
                             final_output = response.extra_data
                             summary_content = f"""
-**Status:** {final_output.get("status", "Unknown")}
-**Tasks Completed:** {len(task_responses)}
-**Total Outputs:** {len(final_output.get("task_outputs", {}))}
+                                **Status:** {final_output.get("status", "Unknown")}
+                                **Tasks Completed:** {len(task_responses)}
+                                **Total Outputs:** {len(final_output.get("task_outputs", {}))}
                             """.strip()
 
                             summary_panel = create_panel(
@@ -320,49 +312,6 @@ class Workflow:
         """List all pipeline names"""
         return [pipeline.name for pipeline in self.pipelines]
 
-    def _record_execution(
-        self, pipeline_name: str, inputs: Dict[str, Any], status: str, start_time: datetime, error: str = None
-    ) -> None:
-        """Record execution in history"""
-        execution_record = {
-            "run_id": self.run_id,
-            "pipeline_name": pipeline_name,
-            "inputs": inputs,
-            "status": status,
-            "start_time": start_time.isoformat(),
-            "end_time": datetime.now().isoformat(),
-            "error": error,
-        }
-
-        self.execution_history.append(execution_record)
-
-        # Save to storage if available
-        if self.storage:
-            try:
-                # Use the correct storage method based on storage type
-                if hasattr(self.storage, "upsert"):
-                    # For session-based storage
-                    from agno.storage.session.workflow import WorkflowSession
-
-                    session = WorkflowSession(
-                        session_id=self.session_id,
-                        workflow_id=self.workflow_id,
-                        user_id=self.user_id,
-                        workflow_data={"name": self.name, "description": self.description},
-                        session_data={"execution_record": execution_record},
-                    )
-                    self.storage.upsert(session)
-                elif hasattr(self.storage, "write"):
-                    self.storage.write(self.session_id, execution_record)
-                else:
-                    logger.warning(f"Storage {type(self.storage)} doesn't support write operations")
-            except Exception as e:
-                logger.warning(f"Failed to save execution record: {e}")
-
-    def get_execution_history(self) -> List[Dict[str, Any]]:
-        """Get execution history"""
-        return self.execution_history.copy()
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert workflow to dictionary representation"""
         return {
@@ -380,8 +329,7 @@ class Workflow:
                         for t in p.tasks
                     ],
                 }
-                for p in self.pipelines
+                for p in p.pipelines
             ],
             "session_id": self.session_id,
-            "execution_history": self.execution_history,
         }

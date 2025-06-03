@@ -12,7 +12,7 @@ from agno.utils.log import logger
 
 @dataclass
 class Task:
-    """A single unit of work in a workflow pipeline"""
+    """A single unit of work in a workflow sequence"""
 
     name: str
     executor: Union[Agent, Team]

@@ -98,17 +98,26 @@ class Workflow:
         # Update agents and teams with workflow session info
         self.update_agents_and_teams_session_info()
 
+        # Collect complete workflow run instead of individual events
+        workflow_run_responses = []
+
         try:
             # Execute the sequence synchronously
             for response in sequence.execute(inputs, context):
-                # Store each response in the workflow session
-                if self.workflow_session:
-                    self.workflow_session.add_run(response)
-
-                # Save to storage after each response
-                self.write_to_storage()
-
+                # Collect all responses
+                workflow_run_responses.append(response)
                 yield response
+
+            # Store only the complete workflow run (not individual events)
+            if self.workflow_session and workflow_run_responses:
+                # Store only the final completed workflow response
+                # The workflow_completed event
+                final_response = workflow_run_responses[-1]
+                if final_response.event == WorkflowRunEvent.workflow_completed:
+                    self.workflow_session.add_run(final_response)
+
+            # Save to storage after complete execution
+            self.write_to_storage()
 
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
@@ -215,7 +224,6 @@ class Workflow:
                 ],
             },
             session_data={},
-            extra_data={},
         )
 
     def load_workflow_session(self, session: WorkflowSessionV2):
@@ -335,7 +343,9 @@ class Workflow:
                 sequence_name = sequence.name
         else:
             # For other trigger types, we'll implement sequence selection logic later
-            console.print(f"[yellow]Trigger type '{self.trigger.trigger_type.value}' not yet supported in print_response[/yellow]")
+            console.print(
+                f"[yellow]Trigger type '{self.trigger.trigger_type.value}' not yet supported in print_response[/yellow]"
+            )
             return
 
         # Show workflow info once at the beginning
@@ -408,9 +418,9 @@ class Workflow:
                         if response.extra_data:
                             final_output = response.extra_data
                             summary_content = f"""
-    **Status:** {final_output.get("status", "Unknown")}
-    **Tasks Completed:** {len(task_responses)}
-    **Total Outputs:** {len(final_output.get("task_outputs", {}))}
+                                **Status:** {final_output.get("status", "Unknown")}
+                                **Tasks Completed:** {len(task_responses)}
+                                **Total Outputs:** {len(final_output.get("task_outputs", {}))}
                             """.strip()
 
                             summary_panel = create_panel(

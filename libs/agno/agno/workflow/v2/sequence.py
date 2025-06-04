@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
 from agno.run.response import RunResponse
@@ -38,6 +38,8 @@ class Sequence:
         task_outputs = {}
         current_inputs = inputs.copy()
 
+        collected_task_responses: List[Union[RunResponse, TeamRunResponse]] = []
+
         # Workflow started event
         yield WorkflowRunResponse(
             content=f"Sequence {self.name} started",
@@ -57,17 +59,15 @@ class Sequence:
             task_context["task_index"] = i
 
             # Merge previous task outputs with current inputs
-            # This allows each task to access outputs from previous tasks
             task_inputs = current_inputs.copy()
             task_inputs.update(task_outputs)
 
-            # Execute the task synchronously (now returns a generator)
+            # Execute the task synchronously
             task_response = None
             for event in task.execute(task_inputs, task_context):
                 if isinstance(event, WorkflowRunResponse):
                     # Forward workflow events (like task_started)
                     yield event
-                # Fixed: use tuple for multiple types
                 elif isinstance(event, (RunResponse, TeamRunResponse)):
                     # This is the final task response
                     task_response = event
@@ -76,9 +76,11 @@ class Sequence:
             if task_response is None:
                 raise RuntimeError(f"Task {task.name} did not return a response")
 
+            # Collect the actual task response
+            collected_task_responses.append(task_response)
+
             # Store task output
             if task_response.content:
-                # Store with task name as key
                 task_outputs[task.name] = task_response.content
                 task_outputs[f"{task.name}_output"] = task_response.content
                 task_outputs[f"task_{i}_output"] = task_response.content
@@ -102,35 +104,14 @@ class Sequence:
                 response_audio=getattr(task_response, "response_audio", None),
                 messages=getattr(task_response, "messages", None),
                 metrics=getattr(task_response, "metrics", None),
-                extra_data={
-                    "task_id": task.task_id,
-                    "task_description": task.description,
-                    "executor_type": task.executor_type,
-                    "executor_name": task.executor_name,
-                    "task_inputs": task_inputs,
-                    "task_outputs": list(task_outputs.keys()),
-                    "execution_time": getattr(task_response, "execution_time", None),
-                    "run_response": {
-                        "run_id": getattr(task_response, "run_id", None),
-                        "session_id": getattr(task_response, "session_id", None),
-                        "event": getattr(task_response, "event", None),
-                        "content_type": getattr(task_response, "content_type", "str"),
-                        "created_at": getattr(task_response, "created_at", None),
-                        "updated_at": getattr(task_response, "updated_at", None),
-                    },
-                    "task_metadata": {
-                        "retry_count": task.retry_count,
-                        "max_retries": task.max_retries,
-                        "skip_on_failure": task.skip_on_failure,
-                    },
-                },
+                # Include the actual task response
+                task_responses=[task_response],
             )
 
-        # Workflow completed event with comprehensive summary
+        # Workflow completed event with all task responses
         final_output = {
             "sequence_name": self.name,
             "sequence_id": self.sequence_id,
-            "task_outputs": task_outputs,
             "status": "completed",
             "total_tasks": len(self.tasks),
             "task_summary": [
@@ -140,7 +121,6 @@ class Sequence:
                     "description": task.description,
                     "executor_type": task.executor_type,
                     "executor_name": task.executor_name,
-                    "output_keys": [key for key in task_outputs.keys() if task.name in key],
                 }
                 for task in self.tasks
             ],
@@ -154,10 +134,10 @@ class Sequence:
             workflow_id=context.get("workflow_id") if context else None,
             run_id=context.get("run_id") if context else None,
             workflw_session_id=context.get("workflw_session_id") if context else None,
+            # Include all collected task responses
+            task_responses=collected_task_responses,
             extra_data=final_output,
         )
-
-        logger.info(f"Sequence {self.name} completed")
 
     def add_task(self, task: Task) -> None:
         """Add a task to the sequence"""

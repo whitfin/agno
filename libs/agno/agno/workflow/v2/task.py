@@ -103,13 +103,6 @@ class Task:
             workflow_id=context.get("workflow_id") if context else None,
             run_id=context.get("run_id") if context else None,
             workflw_session_id=context.get("workflw_session_id") if context else None,
-            extra_data={
-                "task_id": self.task_id,
-                "task_description": self.description,
-                "executor_type": self.executor_type,
-                "executor_name": self.executor_name,
-                "task_inputs": inputs.copy(),
-            },
         )
 
         # Validate inputs if expected_input is defined

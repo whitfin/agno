@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
 from agno.models.message import Message
 from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 
 
 class WorkflowRunEvent(str, Enum):
@@ -43,14 +44,14 @@ class WorkflowRunResponse:
     run_id: Optional[str] = None
     workflw_session_id: Optional[str] = None
 
-    # Media content fields - ADD THESE MISSING FIELDS
+    # Media content fields
     images: Optional[List[ImageArtifact]] = None
     videos: Optional[List[VideoArtifact]] = None
     audio: Optional[List[AudioArtifact]] = None
     response_audio: Optional[AudioResponse] = None
 
-    # Task execution details
-    task_responses: List[Union["WorkflowRunResponse", RunResponse]] = field(default_factory=list)
+    # Store actual task execution results
+    task_responses: List[Union[RunResponse, TeamRunResponse]] = field(default_factory=list)
 
     extra_data: Optional[Dict[str, Any]] = None
     created_at: int = field(default_factory=lambda: int(time()))
@@ -154,23 +155,3 @@ class WorkflowRunResponse:
             return self.content.model_dump_json(exclude_none=True, **kwargs)
         else:
             return json.dumps(self.content, **kwargs)
-
-    def add_task_response(self, task_response: Union["WorkflowRunResponse", RunResponse]) -> None:
-        """Add a task response to the workflow response"""
-        self.task_responses.append(task_response)
-
-        # Aggregate media from task responses
-        if hasattr(task_response, "images") and task_response.images is not None:
-            if self.images is None:
-                self.images = []
-            self.images.extend(task_response.images)
-
-        if hasattr(task_response, "videos") and task_response.videos is not None:
-            if self.videos is None:
-                self.videos = []
-            self.videos.extend(task_response.videos)
-
-        if hasattr(task_response, "audio") and task_response.audio is not None:
-            if self.audio is None:
-                self.audio = []
-            self.audio.extend(task_response.audio)

@@ -31,57 +31,48 @@ research_team = Team(
 )
 
 # Define tasks with consistent query-based input
+# Define tasks with flexible, automatic input/output handling
 analyze_blog_task = Task(
     name="analyze_blog",
     executor=blog_analyzer,
     description="Analyze the provided topic and extract key insights",
-    expected_input={"query": str},
-    expected_output="Blog analysis with key points and themes",
-    strict_input_validation=False,
+    # No expected_input needed - automatically handles any input
 )
 
 plan_content_task = Task(
     name="plan_content",
     executor=content_planner,
-    description="Create social media content plan based on the research topic",
-    expected_input={"query": str},
-    expected_output="Structured content plan with posts and timing",
-    strict_input_validation=False,
+    description="Create social media content plan based on the research topic and previous analysis",
+    # Automatically receives outputs from previous tasks
 )
 
 research_task = Task(
     name="research_content",
     executor=research_team,
     description="Deep research and analysis of content",
-    expected_input={"query": str},
-    expected_output="Comprehensive research report",
-    strict_input_validation=False,
+    # Handles any input format automatically
 )
 
 # Define sequences
 content_creation_sequence = Sequence(
     name="content_creation",
     description="End-to-end content creation from blog to social media",
-    tasks=[analyze_blog_task, plan_content_task],
+    tasks=[analyze_blog_task],
 )
 
 research_sequence = Sequence(
-    name="research_sequence",
-    description="Deep research workflow using teams",
-    tasks=[research_task, plan_content_task],
+    name="research_sequence", description="Deep research workflow using teams", tasks=[research_task, plan_content_task]
 )
 
+
 # Define workflow
-
-
 class ContentCreationWorkflow(Workflow):
     name = "Content Creation Workflow"
     description = "Automated content creation from blog posts to social media"
     trigger = TriggerType.MANUAL
-    storage = SqliteStorage(
-        table_name="content_workflows", db_file="tmp/workflow_data.db"
-    )
-    sequences = [research_sequence]
+    storage = SqliteStorage(table_name="content_workflows_v2",
+                            db_file="tmp/workflow_data_v2.db")
+    sequences = [research_sequence, content_creation_sequence]
 
 
 # Usage
@@ -91,6 +82,7 @@ if __name__ == "__main__":
     try:
         workflow.print_response(
             query="AI trends in 2024",
+            sequence_name="research_sequence",
             markdown=True,
             show_time=True,
             show_task_details=True,

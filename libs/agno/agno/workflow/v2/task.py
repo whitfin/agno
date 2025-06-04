@@ -1,9 +1,11 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Type, Union, Iterator
 from uuid import uuid4
 
 from agno.agent import Agent
 from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
+from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.team import Team
 from agno.utils.log import logger
 
@@ -84,9 +86,29 @@ class Task:
             self._active_executor = self.execution_function
             self._executor_type = "function"
 
-    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> RunResponse:
-        """Execute the task with given inputs synchronously"""
+    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Iterator[Union[WorkflowRunResponse, RunResponse, TeamRunResponse]]:
+        """Execute the task with given inputs synchronously, yielding events"""
         logger.info(f"Executing task: {self.name}")
+        
+        # Yield task started event
+        yield WorkflowRunResponse(
+            content=f"Starting task: {self.name}",
+            event=WorkflowRunEvent.task_started,
+            workflow_name=context.get("workflow_name") if context else None,
+            sequence_name=context.get("sequence_name") if context else None,
+            task_name=self.name,
+            task_index=context.get("task_index") if context else None,
+            workflow_id=context.get("workflow_id") if context else None,
+            run_id=context.get("run_id") if context else None,
+            workflw_session_id=context.get("workflw_session_id") if context else None,
+            extra_data={
+                "task_id": self.task_id,
+                "task_description": self.description,
+                "executor_type": self.executor_type,
+                "executor_name": self.executor_name,
+                "task_inputs": inputs.copy(),
+            },
+        )
 
         # Validate inputs if expected_input is defined
         if self.expected_input:
@@ -114,7 +136,8 @@ class Task:
                     raise ValueError(f"Unsupported executor type: {self._executor_type}")
 
                 logger.info(f"Task {self.name} completed successfully")
-                return response
+                yield response
+                return
 
             except Exception as e:
                 self.retry_count = attempt + 1
@@ -123,7 +146,8 @@ class Task:
                 if attempt == self.max_retries:
                     if self.skip_on_failure:
                         logger.info(f"Task {self.name} failed but continuing due to skip_on_failure=True")
-                        return RunResponse(content=f"Task {self.name} failed but skipped", event="task_failed_skipped")
+                        yield RunResponse(content=f"Task {self.name} failed but skipped", event="task_failed_skipped")
+                        return
                     else:
                         raise e
 

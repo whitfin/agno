@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, List, Optional
 from uuid import uuid4
 
+from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.utils.log import logger
 from agno.workflow.v2.task import Task
@@ -49,34 +51,30 @@ class Sequence:
 
         for i, task in enumerate(self.tasks):
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
-
-            # Task started event
-            yield WorkflowRunResponse(
-                content=f"Starting task: {task.name}",
-                event=WorkflowRunEvent.task_started,
-                workflow_name=context.get("workflow_name") if context else None,
-                sequence_name=self.name,
-                task_name=task.name,
-                task_index=i,
-                workflow_id=context.get("workflow_id") if context else None,
-                run_id=context.get("run_id") if context else None,
-                workflw_session_id=context.get("workflw_session_id") if context else None,
-                extra_data={
-                    "task_id": task.task_id,
-                    "task_description": task.description,
-                    "executor_type": task.executor_type,
-                    "executor_name": task.executor_name,
-                    "task_inputs": current_inputs.copy(),
-                },
-            )
+            
+            # Add task_index to context for the task
+            task_context = sequence_context.copy()
+            task_context["task_index"] = i
 
             # Merge previous task outputs with current inputs
             # This allows each task to access outputs from previous tasks
             task_inputs = current_inputs.copy()
             task_inputs.update(task_outputs)
 
-            # Execute the task synchronously
-            task_response = task.execute(task_inputs, sequence_context)
+            # Execute the task synchronously (now returns a generator)
+            task_response = None
+            for event in task.execute(task_inputs, task_context):
+                if isinstance(event, WorkflowRunResponse):
+                    # Forward workflow events (like task_started)
+                    yield event
+                # Fixed: use tuple for multiple types
+                elif isinstance(event, (RunResponse, TeamRunResponse)):
+                    # This is the final task response
+                    task_response = event
+                    break
+
+            if task_response is None:
+                raise RuntimeError(f"Task {task.name} did not return a response")
 
             # Store task output
             if task_response.content:

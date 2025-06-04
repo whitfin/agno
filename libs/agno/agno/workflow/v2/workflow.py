@@ -418,9 +418,9 @@ class Workflow:
                         if response.extra_data:
                             final_output = response.extra_data
                             summary_content = f"""
+                                **Sequence:** {sequence_name}
                                 **Status:** {final_output.get("status", "Unknown")}
                                 **Tasks Completed:** {len(task_responses)}
-                                **Total Outputs:** {len(final_output.get("task_outputs", {}))}
                             """.strip()
 
                             summary_panel = create_panel(

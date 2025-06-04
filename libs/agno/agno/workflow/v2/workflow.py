@@ -145,21 +145,28 @@ class Workflow:
                         if hasattr(member, "workflow_id"):
                             member.workflow_id = self.workflow_id
 
-    def run(self, query: str = None, **kwargs) -> Iterator[WorkflowRunResponse]:
+    def run(self, query: str = None, sequence_name: Optional[str] = None, **kwargs) -> Iterator[WorkflowRunResponse]:
         """Execute the workflow synchronously"""
         # Load or create session
         self.load_session()
 
-        # Determine sequence based on trigger type
+        # Determine sequence based on trigger type and parameters
         if self.trigger == TriggerType.MANUAL:
             if not self.sequences:
                 raise ValueError("No sequences available in this workflow")
-            elif len(self.sequences) > 1:
-                raise ValueError(
-                    f"Manual trigger workflows should have exactly one sequence, found {len(self.sequences)}"
-                )
 
-            sequence_name = self.sequences[0].name
+            # If sequence_name is provided, use that specific sequence
+            if sequence_name:
+                target_sequence = self.get_sequence(sequence_name)
+                if not target_sequence:
+                    available_sequences = [seq.name for seq in self.sequences]
+                    raise ValueError(
+                        f"Sequence '{sequence_name}' not found. Available sequences: {available_sequences}"
+                    )
+                selected_sequence_name = sequence_name
+            else:
+                # Default to first sequence if no sequence_name specified
+                selected_sequence_name = self.sequences[0].name
         else:
             raise ValueError(f"Sequences selection for trigger type '{self.trigger.value}' not yet implemented")
 
@@ -167,8 +174,8 @@ class Workflow:
         if query is not None:
             inputs = {"query": query}
 
-        # Execute sequence synchronously
-        for response in self.execute_sequence(sequence_name, inputs):
+        # Execute the selected sequence synchronously
+        for response in self.execute_sequence(selected_sequence_name, inputs):
             yield response
 
     def get_workflow_session(self) -> WorkflowSessionV2:
@@ -273,6 +280,7 @@ class Workflow:
     def print_response(
         self,
         query: str,
+        sequence_name: Optional[str] = None,
         markdown: bool = True,
         show_time: bool = True,
         show_task_details: bool = True,
@@ -282,6 +290,7 @@ class Workflow:
 
         Args:
             query: The main query/input for the workflow
+            sequence_name: Name of the sequence to execute (defaults to first sequence)
             markdown: Whether to render content as markdown
             show_time: Whether to show execution time
             show_task_details: Whether to show individual task outputs
@@ -303,14 +312,20 @@ class Workflow:
             if not self.sequences:
                 console.print("[red]No sequences available in this workflow[/red]")
                 return
-            elif len(self.sequences) > 1:
-                console.print(
-                    f"[red]Manual trigger workflows should have exactly one sequence, found {len(self.sequences)}[/red]"
-                )
-                return
 
-            # Use the single sequence for manual trigger
-            sequence = self.sequences[0]
+            # Determine which sequence to use
+            if sequence_name:
+                sequence = self.get_sequence(sequence_name)
+                if not sequence:
+                    available_sequences = [seq.name for seq in self.sequences]
+                    console.print(
+                        f"[red]Sequence '{sequence_name}' not found. Available sequences: {available_sequences}[/red]"
+                    )
+                    return
+            else:
+                # Default to first sequence
+                sequence = self.sequences[0]
+                sequence_name = sequence.name
         else:
             # For other trigger types, we'll implement sequence selection logic later
             console.print(f"[yellow]Trigger type '{self.trigger.value}' not yet supported in print_response[/yellow]")
@@ -322,6 +337,7 @@ class Workflow:
             **Sequence:** {sequence.name}
             **Description:** {sequence.description or "No description"}
             **Tasks:** {len(sequence.tasks)} tasks
+            **Available Sequences:** {", ".join([seq.name for seq in self.sequences])}
             **Query:** {query}
         """.strip()
 
@@ -344,7 +360,7 @@ class Workflow:
             live_log.update(status)
 
             try:
-                for response in self.run(query=query):
+                for response in self.run(query=query, sequence_name=sequence_name):
                     if response.event == WorkflowRunEvent.workflow_started:
                         status.update("Workflow started...")
 

@@ -32,10 +32,12 @@ docs_agent = Agent(
     search_knowledge=True,
     tools=[ReasoningTools(add_instructions=True)],
     instructions=[
+        "You are an user support agent for Agno"
         "Include sources in your response.",
         "Always search your knowledge before answering the question.",
     ],
     markdown=True,
+    debug_mode=True
 )
 
 if __name__ == "__main__":

@@ -38,17 +38,46 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
                 elif(media_type.startswith("audio/")):
                     message_audio=media_url                
             log_info(f"processing message:{message_text} \n with media: {media_url}")
+            if isinstance(message.channel, discord.Thread):
+                thread = message.channel
+            else:
+                thread = await message.create_thread(name="thread")
             if agent:
-                response = await agent.arun(message_text, user_id=message.author.name,
+                response = await agent.arun(message_text, user_id=message.author.name,session_id=thread.id,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(content=message_video)] if message_video else None,
                     audio=[Audio(url=message_audio)] if message_audio else None)
             elif team:
-                response = await team.arun(message_text, user_id=message.author.name,
+                response = await team.arun(message_text, user_id=message.author.name,session_id=thread.id,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(url=message_video)] if message_video else None,
                     audio=[Audio(url=message_audio)] if message_audio else None,)
-            thread = await message.create_thread(name="thread")
-            await thread.send(response.content)
+            if response.reasoning_content:
+                await _send_discord_messages(thread=thread,message= f"Reasoning: \n{response.reasoning_content}", italics=True)
+            await _send_discord_messages(thread=thread,message=response.content)
+        
+
+    async def _send_discord_messages(thread: discord.channel , message: str, italics: bool = False):
+        if len(message) < 1500:
+            if italics:
+                # Handle multi-line messages by making each line italic
+                formatted_message = "\n".join([f"_{line}_" for line in message.split("\n")])
+                await thread.send(formatted_message)
+            else:
+                await thread.send(message)
+            return
+
+
+        message_batches = [message[i : i + 1500] for i in range(0, len(message), 1500)]
+
+        # Add a prefix with the batch number
+        for i, batch in enumerate(message_batches, 1):
+            batch_message = f"[{i}/{len(message_batches)}] {batch}"
+            if italics:
+                # Handle multi-line messages by making each line italic
+                formatted_batch = "\n".join([f"_{line}_" for line in batch_message.split("\n")])
+                await thread.send(formatted_batch)
+            else:
+                await thread.send(batch_message)
     return client.run(DISCORD_TOKEN)
     

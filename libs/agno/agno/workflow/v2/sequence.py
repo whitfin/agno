@@ -64,8 +64,8 @@ class Sequence:
                 extra_data={
                     "task_id": task.task_id,
                     "task_description": task.description,
-                    "executor_type": task.executor_type, 
-                    "executor_name": task.executor_name, 
+                    "executor_type": task.executor_type,
+                    "executor_name": task.executor_name,
                     "task_inputs": current_inputs.copy(),
                 },
             )
@@ -108,7 +108,7 @@ class Sequence:
                     "task_id": task.task_id,
                     "task_description": task.description,
                     "executor_type": task.executor_type,
-                    "executor_name": task.executor_name,  
+                    "executor_name": task.executor_name,
                     "task_inputs": task_inputs,
                     "task_outputs": list(task_outputs.keys()),
                     "execution_time": getattr(task_response, "execution_time", None),
@@ -140,8 +140,8 @@ class Sequence:
                     "task_name": task.name,
                     "task_id": task.task_id,
                     "description": task.description,
-                    "executor_type": task.executor_type, 
-                    "executor_name": task.executor_name, 
+                    "executor_type": task.executor_type,
+                    "executor_name": task.executor_name,
                     "output_keys": [key for key in task_outputs.keys() if task.name in key],
                 }
                 for task in self.tasks

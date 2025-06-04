@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.run.response import RunResponse
@@ -56,7 +57,7 @@ def custom_blog_analysis_function(inputs: Dict[str, Any]) -> RunResponse:
         4. SEO considerations
         
         Additional context from previous tasks:
-        {inputs.get('context', 'No previous context')}
+        {inputs.get("context", "No previous context")}
     """
 
     # Call the agent with enhanced input
@@ -88,7 +89,7 @@ def custom_blog_analysis_function(inputs: Dict[str, Any]) -> RunResponse:
     except Exception as e:
         return RunResponse(
             content=f"Custom blog analysis failed: {str(e)}",
-            event="custom_analysis_error"
+            event="custom_analysis_error",
         )
 
 
@@ -105,8 +106,7 @@ def custom_team_research_function(inputs: Dict[str, Any]) -> RunResponse:
     previous_analysis = inputs.get("custom_analysis", "")
     if not previous_analysis:
         # Fallback keys
-        previous_analysis = inputs.get(
-            "output", "") or inputs.get("content", "")
+        previous_analysis = inputs.get("output", "") or inputs.get("content", "")
 
     # Create enhanced team prompt
     team_prompt = f"""
@@ -152,8 +152,7 @@ def custom_team_research_function(inputs: Dict[str, Any]) -> RunResponse:
 
     except Exception as e:
         return RunResponse(
-            content=f"Custom team research failed: {str(e)}",
-            event="custom_team_error"
+            content=f"Custom team research failed: {str(e)}", event="custom_team_error"
         )
 
 
@@ -170,8 +169,7 @@ def custom_content_planning_function(inputs: Dict[str, Any]) -> RunResponse:
     previous_research = inputs.get("custom_research", "")
     if not previous_research:
         # Fallback keys
-        previous_research = inputs.get(
-            "output", "") or inputs.get("content", "")
+        previous_research = inputs.get("output", "") or inputs.get("content", "")
 
     # Create intelligent planning prompt
     planning_prompt = f"""
@@ -219,7 +217,7 @@ def custom_content_planning_function(inputs: Dict[str, Any]) -> RunResponse:
     except Exception as e:
         return RunResponse(
             content=f"Custom content planning failed: {str(e)}",
-            event="custom_planning_error"
+            event="custom_planning_error",
         )
 
 
@@ -268,8 +266,9 @@ class ContentCreationWorkflow(Workflow):
     name = "Content Creation Workflow"
     description = "Automated content creation with custom execution options"
     trigger = TriggerType.MANUAL
-    storage = SqliteStorage(table_name="content_workflows_v2",
-                            db_file="tmp/workflow_data_v2.db")
+    storage = SqliteStorage(
+        table_name="content_workflows_v2", db_file="tmp/workflow_data_v2.db"
+    )
     sequences = [custom_sequence, mixed_sequence]
 
 
@@ -288,7 +287,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Custom sequence failed: {e}")
 
-    print("\n" + "="*60 + "\n")
+    print("\n" + "=" * 60 + "\n")
 
     # print("=== Mixed Sequence (Combination Approach) ===")
     # try:

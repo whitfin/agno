@@ -201,7 +201,7 @@ class Workflow:
                             {
                                 "name": task.name,
                                 "description": task.description,
-                                "executor_type": task.executor_type, 
+                                "executor_type": task.executor_type,
                             }
                             for task in seq.tasks
                         ],

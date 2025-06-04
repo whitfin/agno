@@ -60,7 +60,9 @@ content_creation_sequence = Sequence(
 )
 
 research_sequence = Sequence(
-    name="research_sequence", description="Deep research workflow using teams", tasks=[research_task, plan_content_task]
+    name="research_sequence",
+    description="Deep research workflow using teams",
+    tasks=[research_task, plan_content_task],
 )
 
 
@@ -69,8 +71,9 @@ class ContentCreationWorkflow(Workflow):
     name = "Content Creation Workflow"
     description = "Automated content creation from blog posts to social media"
     trigger = TriggerType.MANUAL
-    storage = SqliteStorage(table_name="content_workflows_v2",
-                            db_file="tmp/workflow_data_v2.db")
+    storage = SqliteStorage(
+        table_name="content_workflows_v2", db_file="tmp/workflow_data_v2.db"
+    )
     sequences = [research_sequence, content_creation_sequence]
 
 

@@ -267,7 +267,7 @@ class ContentCreationWorkflow(Workflow):
     description = "Automated content creation with custom execution options"
     trigger = ManualTrigger()
     storage = SqliteStorage(
-        table_name="content_workflows_v2", db_file="tmp/workflow_data_v2.db"
+        table_name="content_workflows_v2", db_file="tmp/workflow_data_v2.db", mode="workflow_v2"
     )
     sequences = [custom_sequence, mixed_sequence]
 

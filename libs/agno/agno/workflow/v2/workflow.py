@@ -27,7 +27,7 @@ class Workflow:
     storage: Optional[Storage] = None
 
     # Session management
-    workflw_session_id: Optional[str] = None
+    workflow_session_id: Optional[str] = None
     user_id: Optional[str] = None
 
     # Runtime state
@@ -59,8 +59,8 @@ class Workflow:
         if self.workflow_id is None:
             self.workflow_id = str(uuid4())
 
-        if self.workflw_session_id is None:
-            self.workflw_session_id = str(uuid4())
+        if self.workflow_session_id is None:
+            self.workflow_session_id = str(uuid4())
 
         # Set storage mode to workflow_v2
         self.set_storage_mode()
@@ -87,7 +87,7 @@ class Workflow:
             "workflow_id": self.workflow_id,
             "workflow_name": self.name,
             "run_id": self.run_id,
-            "workflw_session_id": self.workflw_session_id,
+            "workflow_session_id": self.workflow_session_id,
             "user_id": self.user_id,
             "execution_start": execution_start,
         }
@@ -116,7 +116,7 @@ class Workflow:
                 workflow_id=self.workflow_id,
                 workflow_name=self.name,
                 sequence_name=sequence_name,
-                workflw_session_id=self.workflw_session_id,
+                workflow_session_id=self.workflow_session_id,
                 run_id=self.run_id,
             )
 
@@ -135,7 +135,7 @@ class Workflow:
                 active_executor = task._active_executor
 
                 if hasattr(active_executor, "workflow_session_id"):
-                    active_executor.workflow_session_id = self.workflw_session_id
+                    active_executor.workflow_session_id = self.workflow_session_id
                 if hasattr(active_executor, "workflow_id"):
                     active_executor.workflow_id = self.workflow_id
 
@@ -143,7 +143,7 @@ class Workflow:
                 if hasattr(active_executor, "members"):
                     for member in active_executor.members:
                         if hasattr(member, "workflow_session_id"):
-                            member.workflow_session_id = self.workflw_session_id
+                            member.workflow_session_id = self.workflow_session_id
                         if hasattr(member, "workflow_id"):
                             member.workflow_id = self.workflow_id
 
@@ -183,7 +183,7 @@ class Workflow:
     def get_workflow_session(self) -> WorkflowSessionV2:
         """Get a WorkflowSessionV2 object for storage"""
         return WorkflowSessionV2(
-            session_id=self.workflw_session_id,
+            session_id=self.workflow_session_id,
             user_id=self.user_id,
             workflow_id=self.workflow_id,
             workflow_name=self.name,
@@ -219,8 +219,8 @@ class Workflow:
             self.workflow_id = session.workflow_id
         if self.user_id is None and session.user_id is not None:
             self.user_id = session.user_id
-        if self.workflw_session_id is None and session.session_id is not None:
-            self.workflw_session_id = session.session_id
+        if self.workflow_session_id is None and session.session_id is not None:
+            self.workflow_session_id = session.session_id
         if self.name is None and session.workflow_name is not None:
             self.name = session.workflow_name
 
@@ -229,8 +229,8 @@ class Workflow:
 
     def read_from_storage(self) -> Optional[WorkflowSessionV2]:
         """Load the WorkflowSessionV2 from storage"""
-        if self.storage is not None and self.workflw_session_id is not None:
-            session = self.storage.read(session_id=self.workflw_session_id)
+        if self.storage is not None and self.workflow_session_id is not None:
+            session = self.storage.read(session_id=self.workflow_session_id)
             if session and isinstance(session, WorkflowSessionV2):
                 self.load_workflow_session(session)
                 return session
@@ -249,19 +249,19 @@ class Workflow:
     def load_session(self, force: bool = False) -> Optional[str]:
         """Load an existing session from storage or create a new one"""
         if self.workflow_session is not None and not force:
-            if self.workflw_session_id is not None and self.workflow_session.session_id == self.workflw_session_id:
+            if self.workflow_session_id is not None and self.workflow_session.session_id == self.workflow_session_id:
                 return self.workflow_session.session_id
 
         if self.storage is not None:
             # Try to load existing session
-            log_debug(f"Reading WorkflowSessionV2: {self.workflw_session_id}")
+            log_debug(f"Reading WorkflowSessionV2: {self.workflow_session_id}")
             existing_session = self.read_from_storage()
 
             # Create new session if it doesn't exist
             if existing_session is None:
                 log_debug("Creating new WorkflowSessionV2")
                 self.workflow_session = WorkflowSessionV2(
-                    session_id=self.workflw_session_id,
+                    session_id=self.workflow_session_id,
                     user_id=self.user_id,
                     workflow_id=self.workflow_id,
                     workflow_name=self.name,
@@ -271,12 +271,12 @@ class Workflow:
                     raise Exception("Failed to create new WorkflowSessionV2 in storage")
                 log_debug(f"Created WorkflowSessionV2: {saved_session.session_id}")
 
-        return self.workflw_session_id
+        return self.workflow_session_id
 
     def new_session(self) -> None:
         """Create a new workflow session"""
         self.workflow_session = None
-        self.workflw_session_id = str(uuid4())
+        self.workflow_session_id = str(uuid4())
         self.load_session(force=True)
 
     def print_response(
@@ -483,5 +483,5 @@ class Workflow:
                 }
                 for p in self.sequences
             ],
-            "workflw_session_id": self.workflw_session_id,
+            "workflow_session_id": self.workflow_session_id,
         }

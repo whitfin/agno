@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Optional, Type, Union
 from uuid import uuid4
 
 from agno.agent import Agent
@@ -13,7 +13,10 @@ class Task:
     """A single unit of work in a workflow sequence"""
 
     name: str
-    executor: Union[Agent, Team]
+    # Executor options - only one should be provided
+    agent: Optional[Agent] = None
+    team: Optional[Team] = None
+    execution_function: Optional[Callable[[Dict[str, Any]], Any]] = None
 
     task_id: Optional[str] = None
     description: Optional[str] = None
@@ -35,6 +38,52 @@ class Task:
         if self.task_id is None:
             self.task_id = str(uuid4())
 
+        # Validate executor configuration
+        self._validate_executor_config()
+
+        # Set the active executor
+        self._set_active_executor()
+
+    def _validate_executor_config(self):
+        """Validate that only one executor type is provided"""
+        executor_count = sum(
+            [
+                self.agent is not None,
+                self.team is not None,
+                self.execution_function is not None,
+            ]
+        )
+
+        if executor_count == 0:
+            raise ValueError(f"Task '{self.name}' must have one executor: agent=, team=, or execution_function=")
+
+        if executor_count > 1:
+            provided_executors = []
+            if self.agent is not None:
+                provided_executors.append("agent")
+            if self.team is not None:
+                provided_executors.append("team")
+            if self.execution_function is not None:
+                provided_executors.append("execution_function")
+
+            raise ValueError(
+                f"Task '{self.name}' can only have one executor type. "
+                f"Provided: {', '.join(provided_executors)}. "
+                f"Please use only one of: agent=, team=, or execution_function="
+            )
+
+    def _set_active_executor(self):
+        """Set the active executor based on what was provided"""
+        if self.agent is not None:
+            self._active_executor = self.agent
+            self._executor_type = "agent"
+        elif self.team is not None:
+            self._active_executor = self.team
+            self._executor_type = "team"
+        elif self.execution_function is not None:
+            self._active_executor = self.execution_function
+            self._executor_type = "function"
+
     def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> RunResponse:
         """Execute the task with given inputs synchronously"""
         logger.info(f"Executing task: {self.name}")
@@ -48,16 +97,21 @@ class Task:
         # Execute with retries
         for attempt in range(self.max_retries + 1):
             try:
-                if isinstance(self.executor, Agent):
+                if self._executor_type == "agent":
                     # Format inputs for agent
                     message = self._format_inputs_for_agent(inputs)
-                    response = self.executor.run(message)
-                elif isinstance(self.executor, Team):
+                    response = self._active_executor.run(message)
+                elif self._executor_type == "team":
                     # Format inputs for team
                     message = self._format_inputs_for_team(inputs)
-                    response = self.executor.run(message)
+                    response = self._active_executor.run(message)
+                elif self._executor_type == "function":
+                    # Execute function directly with inputs
+                    result = self._active_executor(inputs)
+                    # Convert function result to RunResponse
+                    response = self._convert_function_result_to_response(result)
                 else:
-                    raise ValueError(f"Unsupported executor type: {type(self.executor)}")
+                    raise ValueError(f"Unsupported executor type: {self._executor_type}")
 
                 logger.info(f"Task {self.name} completed successfully")
                 return response
@@ -72,6 +126,20 @@ class Task:
                         return RunResponse(content=f"Task {self.name} failed but skipped", event="task_failed_skipped")
                     else:
                         raise e
+
+    def _convert_function_result_to_response(self, result: Any) -> RunResponse:
+        """Convert function execution result to RunResponse"""
+        if isinstance(result, RunResponse):
+            return result
+        elif isinstance(result, str):
+            return RunResponse(content=result)
+        elif isinstance(result, dict):
+            # If it's a dict, try to extract content
+            content = result.get("content", str(result))
+            return RunResponse(content=content)
+        else:
+            # Convert any other type to string
+            return RunResponse(content=str(result))
 
     def _validate_inputs(self, inputs: Dict[str, Any]) -> bool:
         """Validate that required inputs are present and of correct type"""
@@ -119,3 +187,18 @@ class Task:
     def _format_inputs_for_team(self, inputs: Dict[str, Any]) -> str:
         """Format inputs as a message for a team"""
         return self._format_inputs_for_agent(inputs)  # Same formatting for now
+
+    @property
+    def executor_name(self) -> str:
+        """Get the name of the current executor"""
+        if hasattr(self._active_executor, "name"):
+            return self._active_executor.name
+        elif self._executor_type == "function":
+            return getattr(self._active_executor, "__name__", "anonymous_function")
+        else:
+            return f"{self._executor_type}_executor"
+
+    @property
+    def executor_type(self) -> str:
+        """Get the type of the current executor"""
+        return self._executor_type

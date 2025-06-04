@@ -132,14 +132,16 @@ class Workflow:
         # Update all agents in sequences
         for sequence in self.sequences:
             for task in sequence.tasks:
-                if hasattr(task.executor, "workflow_session_id"):
-                    task.executor.workflow_session_id = self.workflw_session_id
-                if hasattr(task.executor, "workflow_id"):
-                    task.executor.workflow_id = self.workflow_id
+                active_executor = task._active_executor
+
+                if hasattr(active_executor, "workflow_session_id"):
+                    active_executor.workflow_session_id = self.workflw_session_id
+                if hasattr(active_executor, "workflow_id"):
+                    active_executor.workflow_id = self.workflow_id
 
                 # If it's a team, update all members
-                if hasattr(task.executor, "members"):
-                    for member in task.executor.members:
+                if hasattr(active_executor, "members"):
+                    for member in active_executor.members:
                         if hasattr(member, "workflow_session_id"):
                             member.workflow_session_id = self.workflw_session_id
                         if hasattr(member, "workflow_id"):
@@ -199,7 +201,7 @@ class Workflow:
                             {
                                 "name": task.name,
                                 "description": task.description,
-                                "executor_type": type(task.executor).__name__,
+                                "executor_type": task.executor_type, 
                             }
                             for task in seq.tasks
                         ],
@@ -471,7 +473,11 @@ class Workflow:
                     "name": p.name,
                     "description": p.description,
                     "tasks": [
-                        {"name": t.name, "description": t.description, "executor_type": type(t.executor).__name__}
+                        {
+                            "name": t.name,
+                            "description": t.description,
+                            "executor_type": t.executor_type,
+                        }  # Use new property
                         for t in p.tasks
                     ],
                 }

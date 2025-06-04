@@ -8,7 +8,7 @@ from agno.storage.base import Storage
 from agno.storage.session.workflow import WorkflowSessionV2
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.sequence import Sequence
-from agno.workflow.v2.trigger import TriggerType
+from agno.workflow.v2.trigger import ManualTrigger, Trigger, TriggerType
 
 
 @dataclass
@@ -22,7 +22,7 @@ class Workflow:
     version: str = "2.0"
 
     # Workflow configuration
-    trigger: TriggerType = TriggerType.MANUAL
+    trigger: Trigger = field(default_factory=ManualTrigger)
     sequences: List[Sequence] = field(default_factory=list)
     storage: Optional[Storage] = None
 
@@ -45,8 +45,11 @@ class Workflow:
         if hasattr(self.__class__, "description") and self.description is None:
             self.description = getattr(self.__class__, "description", None)
 
+        # Handle trigger from class attribute
         if hasattr(self.__class__, "trigger"):
-            self.trigger = getattr(self.__class__, "trigger", TriggerType.MANUAL)
+            class_trigger = getattr(self.__class__, "trigger")
+            if isinstance(class_trigger, Trigger):
+                self.trigger = class_trigger
 
         if hasattr(self.__class__, "storage") and self.storage is None:
             self.storage = getattr(self.__class__, "storage", None)
@@ -153,7 +156,7 @@ class Workflow:
         self.load_session()
 
         # Determine sequence based on trigger type and parameters
-        if self.trigger == TriggerType.MANUAL:
+        if self.trigger.trigger_type == TriggerType.MANUAL:
             if not self.sequences:
                 raise ValueError("No sequences available in this workflow")
 
@@ -170,7 +173,9 @@ class Workflow:
                 # Default to first sequence if no sequence_name specified
                 selected_sequence_name = self.sequences[0].name
         else:
-            raise ValueError(f"Sequences selection for trigger type '{self.trigger.value}' not yet implemented")
+            raise ValueError(
+                f"Sequence selection for trigger type '{self.trigger.trigger_type.value}' not yet implemented"
+            )
 
         # Simple inputs - just use query directly
         if query is not None:
@@ -192,7 +197,7 @@ class Workflow:
                 "name": self.name,
                 "description": self.description,
                 "version": self.version,
-                "trigger": self.trigger.value,
+                "trigger": self.trigger.trigger_type.value,
                 "sequences": [
                     {
                         "name": seq.name,
@@ -310,7 +315,7 @@ class Workflow:
             from agno.cli.console import console
 
         # Validate sequence configuration based on trigger type
-        if self.trigger == TriggerType.MANUAL:
+        if self.trigger.trigger_type == TriggerType.MANUAL:
             if not self.sequences:
                 console.print("[red]No sequences available in this workflow[/red]")
                 return
@@ -330,7 +335,7 @@ class Workflow:
                 sequence_name = sequence.name
         else:
             # For other trigger types, we'll implement sequence selection logic later
-            console.print(f"[yellow]Trigger type '{self.trigger.value}' not yet supported in print_response[/yellow]")
+            console.print(f"[yellow]Trigger type '{self.trigger.trigger_type.value}' not yet supported in print_response[/yellow]")
             return
 
         # Show workflow info once at the beginning
@@ -467,7 +472,7 @@ class Workflow:
             "workflow_id": self.workflow_id,
             "description": self.description,
             "version": self.version,
-            "trigger": self.trigger.value,
+            "trigger": {"trigger_type": self.trigger.trigger_type.value, "config": self.trigger.__dict__},
             "sequences": [
                 {
                     "name": p.name,
@@ -477,7 +482,7 @@ class Workflow:
                             "name": t.name,
                             "description": t.description,
                             "executor_type": t.executor_type,
-                        }  # Use new property
+                        }
                         for t in p.tasks
                     ],
                 }

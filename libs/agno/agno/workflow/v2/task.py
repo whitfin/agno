@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Type, Union, Iterator
+from typing import Any, Callable, Dict, Iterator, Optional, Type, Union
 from uuid import uuid4
 
 from agno.agent import Agent
@@ -86,10 +86,12 @@ class Task:
             self._active_executor = self.execution_function
             self._executor_type = "function"
 
-    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Iterator[Union[WorkflowRunResponse, RunResponse, TeamRunResponse]]:
+    def execute(
+        self, inputs: Dict[str, Any], context: Dict[str, Any] = None
+    ) -> Iterator[Union[WorkflowRunResponse, RunResponse, TeamRunResponse]]:
         """Execute the task with given inputs synchronously, yielding events"""
         logger.info(f"Executing task: {self.name}")
-        
+
         # Yield task started event
         yield WorkflowRunResponse(
             content=f"Starting task: {self.name}",

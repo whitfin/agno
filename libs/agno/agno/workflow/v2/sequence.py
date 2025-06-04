@@ -51,7 +51,7 @@ class Sequence:
 
         for i, task in enumerate(self.tasks):
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
-            
+
             # Add task_index to context for the task
             task_context = sequence_context.copy()
             task_context["task_index"] = i

@@ -3,7 +3,7 @@
 import base64
 from datetime import datetime
 from typing import Any, Dict
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import pytest
 from google.oauth2.credentials import Credentials
@@ -494,6 +494,9 @@ def test_send_email_with_single_attachment(gmail_tools, mock_gmail_service):
     """Test sending email with a single attachment."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data=b"fake file content")):
@@ -513,6 +516,9 @@ def test_send_email_with_multiple_attachments(gmail_tools, mock_gmail_service):
     """Test sending email with multiple attachments."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data=b"fake file content")):
@@ -532,6 +538,9 @@ def test_create_draft_with_attachment(gmail_tools, mock_gmail_service):
     """Test creating draft email with attachment."""
     mock_draft_response = {"id": "draft123", "message": {"id": "msg123"}}
     mock_gmail_service.users().drafts().create().execute.return_value = mock_draft_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data=b"fake file content")):
@@ -551,6 +560,9 @@ def test_send_email_reply_with_attachment(gmail_tools, mock_gmail_service):
     """Test sending email reply with attachment."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data=b"fake file content")):
@@ -603,10 +615,15 @@ def test_send_reply_attachment_file_not_found(gmail_tools, mock_gmail_service):
 def test_send_email_mixed_attachment_existence(gmail_tools, mock_gmail_service):
     """Test error handling when some attachments exist and others don't."""
 
-    def mock_exists(path):
-        return str(path).endswith("exists.pdf")
+    # Create a mock Path class
+    class MockPath:
+        def __init__(self, path):
+            self.path = str(path)
+        
+        def exists(self):
+            return self.path.endswith("exists.pdf")
 
-    with patch("pathlib.Path.exists", side_effect=mock_exists):
+    with patch("agno.tools.gmail.Path", MockPath):
         with pytest.raises(ValueError, match="Attachment file not found"):
             gmail_tools.send_email(
                 to="recipient@test.com", subject="Test", body="Test body", attachments=["exists.pdf", "missing.pdf"]
@@ -617,6 +634,9 @@ def test_attachment_mime_type_guessing(gmail_tools, mock_gmail_service):
     """Test MIME type guessing for different file types."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     # Test with unknown MIME type (should default to application/octet-stream)
     with patch("pathlib.Path.exists", return_value=True):
@@ -637,6 +657,9 @@ def test_attachment_with_encoding(gmail_tools, mock_gmail_service):
     """Test attachment handling when MIME type has encoding."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     # Test with encoding present (should default to application/octet-stream)
     with patch("pathlib.Path.exists", return_value=True):
@@ -657,6 +680,9 @@ def test_empty_attachments_list(gmail_tools, mock_gmail_service):
     """Test sending email with empty attachments list."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     result = gmail_tools.send_email(
         to="recipient@test.com", subject="No Attachments", body="Email without attachments", attachments=[]
@@ -670,6 +696,9 @@ def test_attachment_filename_extraction(gmail_tools, mock_gmail_service):
     """Test that attachment filenames are properly extracted from paths."""
     mock_send_response = {"id": "msg123", "labelIds": ["SENT"]}
     mock_gmail_service.users().messages().send().execute.return_value = mock_send_response
+    
+    # Reset mock to clear any setup calls
+    mock_gmail_service.reset_mock()
 
     with patch("pathlib.Path.exists", return_value=True):
         with patch("builtins.open", mock_open(read_data=b"fake file content")):

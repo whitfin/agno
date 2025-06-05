@@ -26,14 +26,15 @@ How to Get These Credentials:
      * Client ID (GOOGLE_CLIENT_ID)
      * Client Secret (GOOGLE_CLIENT_SECRET)
    - The Project ID (GOOGLE_PROJECT_ID) is visible in the project dropdown at the top of the page
-
+5. Add auth redirect URI:
+   - Go to https://console.cloud.google.com/auth/clients and add the redirect URI as http://127.0.0.1/
 5. Set up environment variables:
    Create a .envrc file in your project root with:
    ```
    export GOOGLE_CLIENT_ID=your_client_id_here
    export GOOGLE_CLIENT_SECRET=your_client_secret_here
    export GOOGLE_PROJECT_ID=your_project_id_here
-   export GOOGLE_REDIRECT_URI=http://localhost  # Default value
+   export GOOGLE_REDIRECT_URI=http://127.0.0.1/  # Default value
    ```
 
 Note: The first time you run the application, it will open a browser window for OAuth authentication.
@@ -594,6 +595,7 @@ class GmailTools(Toolkit):
         body = body.replace("\\n", "\n")
 
         # Create multipart message if attachments exist, otherwise simple text message
+        message: Union[MIMEMultipart, MIMEText]
         if attachments:
             message = MIMEMultipart()
 

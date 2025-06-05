@@ -95,8 +95,6 @@ class Task:
 
     task_id: Optional[str] = None
     description: Optional[str] = None
-    expected_input: Optional[Dict[str, Type]] = None
-    expected_output: Optional[str] = None
 
     # Task configuration
     retry_count: int = 0

@@ -3723,14 +3723,14 @@ class Agent:
 
         self.team_session_id = cast(str, self.team_session_id)
         self.workflow_session_id = cast(str, self.workflow_session_id)
-        
+
         self.agent_id = cast(str, self.agent_id)
         return AgentSession(
             session_id=session_id,
             agent_id=self.agent_id,
             user_id=user_id,
             team_session_id=self.team_session_id,
-            workflow_session_id = self.workflow_session_id,
+            workflow_session_id=self.workflow_session_id,
             memory=memory_dict,
             agent_data=self.get_agent_data(),
             session_data=self.get_session_data(),
@@ -6359,7 +6359,7 @@ class Agent:
                     session_id=agent_session.session_id,
                     agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
                     team_session_id=agent_session.team_session_id,
-                    workflow_session_id= agent_session.workflow_session_id,
+                    workflow_session_id=agent_session.workflow_session_id,
                 ),
                 monitor=self.monitoring,
             )

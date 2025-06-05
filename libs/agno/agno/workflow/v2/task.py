@@ -1,13 +1,86 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterator, Optional, Type, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Type, Union
 from uuid import uuid4
 
 from agno.agent import Agent
+from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.team import Team
 from agno.utils.log import logger
+
+
+@dataclass
+class TaskInput:
+    """Input data for a task execution"""
+
+    query: Optional[str] = None
+    message: Optional[str] = None
+
+    # Context and state
+    context: Optional[Dict[str, Any]] = None
+    workflow_session_state: Optional[Dict[str, Any]] = None
+
+    # Previous task outputs (for chaining)
+    previous_outputs: Optional[Dict[str, Any]] = None
+
+    # Media inputs
+    images: Optional[List[ImageArtifact]] = None
+    videos: Optional[List[VideoArtifact]] = None
+    audio: Optional[List[AudioArtifact]] = None
+
+    def get_primary_input(self) -> str:
+        """Get the primary text input (query or message)"""
+        return self.query or self.message or ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            "query": self.query,
+            "message": self.message,
+            "context": self.context,
+            "workflow_session_state": self.workflow_session_state,
+            "previous_outputs": self.previous_outputs,
+            "images": [img.to_dict() for img in self.images] if self.images else None,
+            "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
+            "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
+            "extra_data": self.extra_data,
+        }
+
+
+@dataclass
+class TaskOutput:
+    """Output data from a task execution"""
+
+    # Primary output
+    content: Optional[str] = None
+
+    # Execution response
+    response: Optional[Union[RunResponse, TeamRunResponse]] = None
+
+    # Media outputs
+    images: Optional[List[ImageArtifact]] = None
+    videos: Optional[List[VideoArtifact]] = None
+    audio: Optional[List[AudioArtifact]] = None
+
+    # Structured data
+    data: Optional[Dict[str, Any]] = None
+
+    # Execution metadata
+    metadata: Optional[Dict[str, Any]] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            "content": self.content,
+            "response": self.response.to_dict() if self.response else None,
+            "images": [img.to_dict() for img in self.images] if self.images else None,
+            "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
+            "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
+            "data": self.data,
+            "metadata": self.metadata,
+        }
 
 
 @dataclass
@@ -87,9 +160,9 @@ class Task:
             self._executor_type = "function"
 
     def execute(
-        self, inputs: Dict[str, Any], context: Dict[str, Any] = None
-    ) -> Iterator[Union[WorkflowRunResponse, RunResponse, TeamRunResponse]]:
-        """Execute the task with given inputs synchronously, yielding events"""
+        self, task_input: TaskInput, context: Dict[str, Any] = None
+    ) -> Iterator[Union[WorkflowRunResponse, TaskOutput]]:
+        """Execute the task with TaskInput, yielding events and final TaskOutput"""
         logger.info(f"Executing task: {self.name}")
 
         # Yield task started event
@@ -102,36 +175,22 @@ class Task:
             task_index=context.get("task_index") if context else None,
             workflow_id=context.get("workflow_id") if context else None,
             run_id=context.get("run_id") if context else None,
-            workflw_session_id=context.get("workflw_session_id") if context else None,
+            session_id=context.get("session_id") if context else None,
         )
 
-        # Validate inputs if expected_input is defined
-        if self.expected_input:
-            validation_result = self._validate_inputs(inputs)
-            if not validation_result and self.strict_input_validation:
-                raise ValueError(f"Input validation failed for task {self.name}")
+        # Initialize executor with context and workflow session state
+        self._initialize_executor_context(task_input, context)
 
         # Execute with retries
         for attempt in range(self.max_retries + 1):
             try:
-                if self._executor_type == "agent":
-                    # Format inputs for agent
-                    message = self._format_inputs_for_agent(inputs)
-                    response = self._active_executor.run(message)
-                elif self._executor_type == "team":
-                    # Format inputs for team
-                    message = self._format_inputs_for_team(inputs)
-                    response = self._active_executor.run(message)
-                elif self._executor_type == "function":
-                    # Execute function directly with inputs
-                    result = self._active_executor(inputs)
-                    # Convert function result to RunResponse
-                    response = self._convert_function_result_to_response(result)
-                else:
-                    raise ValueError(f"Unsupported executor type: {self._executor_type}")
+                response = self._execute_task(task_input)
+
+                # Create TaskOutput from response
+                task_output = self._create_task_output(response, task_input)
 
                 logger.info(f"Task {self.name} completed successfully")
-                yield response
+                yield task_output
                 return
 
             except Exception as e:
@@ -141,10 +200,117 @@ class Task:
                 if attempt == self.max_retries:
                     if self.skip_on_failure:
                         logger.info(f"Task {self.name} failed but continuing due to skip_on_failure=True")
-                        yield RunResponse(content=f"Task {self.name} failed but skipped", event="task_failed_skipped")
+                        # Create empty TaskOutput for skipped task
+                        task_output = TaskOutput(
+                            content=f"Task {self.name} failed but skipped", metadata={"skipped": True, "error": str(e)}
+                        )
+                        yield task_output
                         return
                     else:
                         raise e
+
+    def _initialize_executor_context(self, task_input: TaskInput, context: Dict[str, Any] = None):
+        """Initialize the executor with context and workflow session state"""
+        if self._executor_type in ["agent", "team"]:
+            executor = self._active_executor
+
+            # Set workflow context
+            if context:
+                if hasattr(executor, "workflow_id"):
+                    executor.workflow_id = context.get("workflow_id")
+                if hasattr(executor, "workflow_session_id"):
+                    executor.workflow_session_id = context.get("session_id")
+
+            # Set workflow session state
+            if task_input.workflow_session_state and hasattr(executor, "session_state"):
+                if executor.session_state is None:
+                    executor.session_state = {}
+                executor.session_state.update(task_input.workflow_session_state)
+
+            # Set context
+            if task_input.context and hasattr(executor, "context"):
+                if executor.context is None:
+                    executor.context = {}
+                executor.context.update(task_input.context)
+
+    def _execute_task(self, task_input: TaskInput) -> Union[RunResponse, TeamRunResponse, TaskOutput]:
+        """Execute the task based on executor type"""
+        if self._executor_type == "function":
+            # Execute function directly with TaskInput
+            result = self._active_executor(task_input)
+
+            # If function returns TaskOutput, use it directly
+            if isinstance(result, TaskOutput):
+                return result
+
+            # Otherwise, wrap in TaskOutput
+            return TaskOutput(content=str(result))
+
+        # For agents and teams, prepare message with context
+        message = task_input.get_primary_input()
+
+        # Add context information to message if available
+        if task_input.previous_outputs:
+            message = self._format_message_with_previous_outputs(message, task_input.previous_outputs)
+
+        # Execute agent or team with media
+        if self._executor_type == "agent":
+            return self._active_executor.run(
+                message=message,
+                images=task_input.images,
+                videos=task_input.videos,
+                audio=task_input.audio,
+            )
+        elif self._executor_type == "team":
+            return self._active_executor.run(
+                message=message,
+                images=task_input.images,
+                videos=task_input.videos,
+                audio=task_input.audio,
+            )
+        else:
+            raise ValueError(f"Unsupported executor type: {self._executor_type}")
+
+    def _format_message_with_previous_outputs(self, message: str, previous_outputs: Dict[str, Any]) -> str:
+        """Format message with previous task outputs for context"""
+        context_parts = [message]
+
+        if previous_outputs:
+            context_parts.append("\n--- Previous Task Outputs ---")
+            for key, value in previous_outputs.items():
+                context_parts.append(f"{key}: {value}")
+            context_parts.append("--- End Previous Outputs ---\n")
+
+        return "\n".join(context_parts)
+
+    def _create_task_output(
+        self, response: Union[RunResponse, TeamRunResponse, TaskOutput], task_input: TaskInput
+    ) -> TaskOutput:
+        """Create TaskOutput from execution response"""
+        if isinstance(response, TaskOutput):
+            return response
+
+        # Extract media from response
+        images = getattr(response, "images", None)
+        videos = getattr(response, "videos", None)
+        audio = getattr(response, "audio", None)
+
+        # Create metadata
+        metadata = {
+            "task_name": self.name,
+            "task_id": self.task_id,
+            "executor_type": self._executor_type,
+            "executor_name": self.executor_name,
+        }
+
+        return TaskOutput(
+            content=response.content,
+            response=response,
+            images=images,
+            videos=videos,
+            audio=audio,
+            metadata=metadata,
+        )
 
     def _convert_function_result_to_response(self, result: Any) -> RunResponse:
         """Convert function execution result to RunResponse"""
@@ -159,53 +325,6 @@ class Task:
         else:
             # Convert any other type to string
             return RunResponse(content=str(result))
-
-    def _validate_inputs(self, inputs: Dict[str, Any]) -> bool:
-        """Validate that required inputs are present and of correct type"""
-        all_valid = True
-
-        for key, expected_type in self.expected_input.items():
-            if key not in inputs:
-                if self.strict_input_validation:
-                    logger.error(f"Required input '{key}' missing for task {self.name}")
-                    all_valid = False
-                else:
-                    logger.warning(f"Expected input '{key}' missing for task {self.name}, but continuing...")
-                continue
-
-            if not isinstance(inputs[key], expected_type):
-                if self.strict_input_validation:
-                    logger.error(
-                        f"Input '{key}' should be of type {expected_type.__name__}, got {type(inputs[key]).__name__}"
-                    )
-                    all_valid = False
-                else:
-                    logger.warning(f"Input '{key}' type mismatch for task {self.name}, but continuing...")
-
-        return all_valid
-
-    def _format_inputs_for_agent(self, inputs: Dict[str, Any]) -> str:
-        """Format inputs as a message for an agent"""
-        if len(inputs) == 1 and "message" in inputs:
-            return inputs["message"]
-
-        # Create a structured message from inputs
-        message_parts = []
-        if self.description:
-            message_parts.append(f"Task: {self.description}")
-
-        message_parts.append("Inputs:")
-        for key, value in inputs.items():
-            message_parts.append(f"- {key}: {value}")
-
-        if self.expected_output:
-            message_parts.append(f"\nExpected output: {self.expected_output}")
-
-        return "\n".join(message_parts)
-
-    def _format_inputs_for_team(self, inputs: Dict[str, Any]) -> str:
-        """Format inputs as a message for a team"""
-        return self._format_inputs_for_agent(inputs)  # Same formatting for now
 
     @property
     def executor_name(self) -> str:

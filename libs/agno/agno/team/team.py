@@ -94,7 +94,7 @@ class Team:
     workflow_id: Optional[str] = None
     # Set when this team is part of a workflow.
     workflow_session_id: Optional[str] = None
-    
+
     role: Optional[str] = None
 
     # --- User settings ---

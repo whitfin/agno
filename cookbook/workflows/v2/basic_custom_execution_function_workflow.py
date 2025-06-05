@@ -1,13 +1,10 @@
-from typing import Any, Dict
-
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
-from agno.run.response import RunResponse
 from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.googlesearch import GoogleSearchTools
 from agno.workflow.v2.sequence import Sequence
-from agno.workflow.v2.task import Task
+from agno.workflow.v2.task import Task, TaskInput, TaskOutput
 from agno.workflow.v2.trigger import ManualTrigger
 from agno.workflow.v2.workflow import Workflow
 
@@ -33,14 +30,14 @@ research_team = Team(
     instructions="Analyze content and create comprehensive social media strategy",
 )
 
-# Custom execution functions that wrap agent/team calls with additional logic
+# Updated custom execution functions that work with TaskInput
 
 
-def custom_blog_analysis_function(inputs: Dict[str, Any]) -> RunResponse:
+def custom_blog_analysis_function(task_input: TaskInput) -> TaskOutput:
     """
     Custom function that does preprocessing, calls an agent, and does postprocessing
     """
-    query = inputs.get("query", "No query provided")
+    query = task_input.get_primary_input()
 
     # Custom preprocessing
     print(f"🔍 Starting custom blog analysis for: {query}")
@@ -57,7 +54,7 @@ def custom_blog_analysis_function(inputs: Dict[str, Any]) -> RunResponse:
         4. SEO considerations
         
         Additional context from previous tasks:
-        {inputs.get("context", "No previous context")}
+        {task_input.previous_outputs if task_input.previous_outputs else "No previous context"}
     """
 
     # Call the agent with enhanced input
@@ -79,34 +76,44 @@ def custom_blog_analysis_function(inputs: Dict[str, Any]) -> RunResponse:
             - Confidence level: High
         """.strip()
 
-        # Return enhanced response
-        return RunResponse(
+        # Return TaskOutput with enhanced response
+        return TaskOutput(
             content=enhanced_content,
-            messages=response.messages,
-            metrics=response.metrics,
+            response=response,
+            data={"analysis_type": "custom", "confidence": "high"},
+            metadata={
+                "function_name": "custom_blog_analysis_function",
+                "preprocessing": True,
+                "postprocessing": True,
+            }
         )
 
     except Exception as e:
-        return RunResponse(
+        return TaskOutput(
             content=f"Custom blog analysis failed: {str(e)}",
-            event="custom_analysis_error",
+            metadata={"error": True,
+                      "function_name": "custom_blog_analysis_function"}
         )
 
 
-def custom_team_research_function(inputs: Dict[str, Any]) -> RunResponse:
+def custom_team_research_function(task_input: TaskInput) -> TaskOutput:
     """
     Custom function that coordinates team execution with custom logic
     """
-    query = inputs.get("query", "No query provided")
+    query = task_input.get_primary_input()
 
     print(f"🔬 Starting custom team research for: {query}")
-    print(f"Available inputs: {list(inputs.keys())}")
+    print(f"Previous outputs available: {bool(task_input.previous_outputs)}")
 
-    # Get the output from the previous task (custom_analysis)
-    previous_analysis = inputs.get("custom_analysis", "")
-    if not previous_analysis:
-        # Fallback keys
-        previous_analysis = inputs.get("output", "") or inputs.get("content", "")
+    # Get the output from the previous task
+    previous_analysis = ""
+    if task_input.previous_outputs:
+        # Try different keys to get previous content
+        previous_analysis = (
+            task_input.previous_outputs.get("custom_analysis", "") or
+            task_input.previous_outputs.get("output", "") or
+            task_input.previous_outputs.get("result", "")
+        )
 
     # Create enhanced team prompt
     team_prompt = f"""
@@ -144,32 +151,44 @@ def custom_team_research_function(inputs: Dict[str, Any]) -> RunResponse:
             - Ready for strategic planning phase
         """.strip()
 
-        return RunResponse(
+        return TaskOutput(
             content=enhanced_content,
-            messages=response.messages,
-            metrics=response.metrics,
+            response=response,
+            data={"research_type": "team_coordination",
+                  "integration": bool(previous_analysis)},
+            metadata={
+                "function_name": "custom_team_research_function",
+                "team_coordination": True,
+                "previous_context": bool(previous_analysis),
+            }
         )
 
     except Exception as e:
-        return RunResponse(
-            content=f"Custom team research failed: {str(e)}", event="custom_team_error"
+        return TaskOutput(
+            content=f"Custom team research failed: {str(e)}",
+            metadata={"error": True,
+                      "function_name": "custom_team_research_function"}
         )
 
 
-def custom_content_planning_function(inputs: Dict[str, Any]) -> RunResponse:
+def custom_content_planning_function(task_input: TaskInput) -> TaskOutput:
     """
     Custom function that does intelligent content planning with context awareness
     """
-    query = inputs.get("query", "No query provided")
+    query = task_input.get_primary_input()
 
     print(f"📝 Starting custom content planning for: {query}")
-    print(f"Available inputs: {list(inputs.keys())}")
+    print(f"Previous outputs available: {bool(task_input.previous_outputs)}")
 
-    # Get the output from the previous task (custom_research)
-    previous_research = inputs.get("custom_research", "")
-    if not previous_research:
-        # Fallback keys
-        previous_research = inputs.get("output", "") or inputs.get("content", "")
+    # Get the output from the previous task
+    previous_research = ""
+    if task_input.previous_outputs:
+        # Try different keys to get previous content
+        previous_research = (
+            task_input.previous_outputs.get("custom_research", "") or
+            task_input.previous_outputs.get("output", "") or
+            task_input.previous_outputs.get("result", "")
+        )
 
     # Create intelligent planning prompt
     planning_prompt = f"""
@@ -208,16 +227,23 @@ def custom_content_planning_function(inputs: Dict[str, Any]) -> RunResponse:
             - Execution Ready: Detailed action items included
         """.strip()
 
-        return RunResponse(
+        return TaskOutput(
             content=enhanced_content,
-            messages=response.messages,
-            metrics=response.metrics,
+            response=response,
+            data={"planning_type": "strategic",
+                  "research_integration": bool(previous_research)},
+            metadata={
+                "function_name": "custom_content_planning_function",
+                "strategic_planning": True,
+                "research_based": bool(previous_research),
+            }
         )
 
     except Exception as e:
-        return RunResponse(
+        return TaskOutput(
             content=f"Custom content planning failed: {str(e)}",
-            event="custom_planning_error",
+            metadata={"error": True,
+                      "function_name": "custom_content_planning_function"}
         )
 
 
@@ -226,12 +252,6 @@ custom_analysis_task = Task(
     name="custom_analysis",
     execution_function=custom_blog_analysis_function,  # Custom function with agent
     description="Custom blog analysis with preprocessing and postprocessing",
-)
-
-research_task = Task(
-    name="research_content",
-    team=research_team,  # Direct team execution
-    description="Deep research and analysis of content",
 )
 
 custom_research_task = Task(
@@ -253,12 +273,6 @@ custom_sequence = Sequence(
     tasks=[custom_analysis_task, custom_research_task, custom_planning_task],
 )
 
-mixed_sequence = Sequence(
-    name="mixed_sequence",
-    description="Mixed workflow combining direct and custom execution",
-    tasks=[custom_analysis_task, research_task, custom_planning_task],
-)
-
 # Define workflow
 
 
@@ -267,9 +281,11 @@ class ContentCreationWorkflow(Workflow):
     description = "Automated content creation with custom execution options"
     trigger = ManualTrigger()
     storage = SqliteStorage(
-        table_name="content_workflows_v2", db_file="tmp/workflow_data_v2.db", mode="workflow_v2"
+        table_name="workflow_v2",
+        db_file="tmp/workflow_v2.db",
+        mode="workflow_v2",
     )
-    sequences = [custom_sequence, mixed_sequence]
+    sequences = [custom_sequence]
 
 
 # Usage examples
@@ -288,15 +304,3 @@ if __name__ == "__main__":
         print(f"Custom sequence failed: {e}")
 
     print("\n" + "=" * 60 + "\n")
-
-    # print("=== Mixed Sequence (Combination Approach) ===")
-    # try:
-    #     workflow.print_response(
-    #         query="AI trends in 2024",
-    #         sequence_name="mixed_sequence",
-    #         markdown=True,
-    #         show_time=True,
-    #         show_task_details=True,
-    #     )
-    # except Exception as e:
-    #     print(f"Mixed sequence failed: {e}")

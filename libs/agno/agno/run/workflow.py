@@ -42,7 +42,7 @@ class WorkflowRunResponse:
     task_index: Optional[int] = None
 
     run_id: Optional[str] = None
-    workflw_session_id: Optional[str] = None
+    session_id: Optional[str] = None
 
     # Media content fields
     images: Optional[List[ImageArtifact]] = None

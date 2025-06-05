@@ -70,7 +70,7 @@ class ContentCreationWorkflow(Workflow):
     description = "Automated content creation from blog posts to social media"
     trigger = ManualTrigger()
     storage = SqliteStorage(
-        table_name="workflows_v2", db_file="tmp/workflows_v2.db", mode="workflow_v2"
+        table_name="workflow_v2", db_file="tmp/workflow_v2.db", mode="workflow_v2"
     )
     sequences = [research_sequence, content_creation_sequence]
 

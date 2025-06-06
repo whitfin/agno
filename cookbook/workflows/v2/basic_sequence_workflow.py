@@ -35,21 +35,18 @@ analyze_blog_task = Task(
     name="analyze_blog",
     agent=blog_analyzer,
     description="Analyze the provided topic and extract key insights",
-    # No expected_input needed - automatically handles any input
 )
 
 plan_content_task = Task(
     name="plan_content",
     agent=content_planner,
     description="Create social media content plan based on the research topic and previous analysis",
-    # Automatically receives outputs from previous tasks
 )
 
 research_task = Task(
     name="research_content",
     team=research_team,
     description="Deep research and analysis of content",
-    # Handles any input format automatically
 )
 
 # Define sequences

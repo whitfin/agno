@@ -31,8 +31,6 @@ research_team = Team(
 )
 
 # Updated custom execution functions that work with TaskInput
-
-
 def custom_blog_analysis_function(task_input: TaskInput) -> TaskOutput:
     """
     Custom function that does preprocessing, calls an agent, and does postprocessing

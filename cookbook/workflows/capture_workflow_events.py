@@ -64,17 +64,6 @@ research_sequence = Sequence(
 )
 
 
-# Define workflow
-class ContentCreationWorkflow(Workflow):
-    name = "Content Creation Workflow"
-    description = "Automated content creation from blog posts to social media"
-    trigger = ManualTrigger()
-    storage = SqliteStorage(
-        table_name="workflow_v2", db_file="tmp/workflow_v2.db", mode="workflow_v2"
-    )
-    sequences = [research_sequence, content_creation_sequence]
-
-
 def truncate_content(content: str, max_length: int = 50) -> str:
     """Truncate content to specified length with ellipsis"""
     if not content:
@@ -147,9 +136,17 @@ def print_workflow_events(workflow: Workflow, query: str, sequence_name: str = N
 
 
 if __name__ == "__main__":
-    workflow = ContentCreationWorkflow()
+    content_creation_workflow = Workflow(
+        name="Content Creation Workflow",
+        description="Automated content creation from blog posts to social media",
+        trigger=ManualTrigger(),
+        storage=SqliteStorage(
+            table_name="workflow_v2", db_file="tmp/workflow_v2.db", mode="workflow_v2"
+        ),
+        sequences=[research_sequence, content_creation_sequence]
+    )
 
     print("=== Simple Event Tracking ===")
     print_workflow_events(
-        workflow=workflow, query="AI trends in 2024", sequence_name="research_sequence"
+        workflow=content_creation_workflow, query="AI trends in 2024", sequence_name="research_sequence"
     )

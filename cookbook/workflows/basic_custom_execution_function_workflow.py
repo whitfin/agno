@@ -271,27 +271,22 @@ custom_sequence = Sequence(
     tasks=[custom_analysis_task, custom_research_task, custom_planning_task],
 )
 
-# Define workflow
-
-
-class ContentCreationWorkflow(Workflow):
-    name = "Content Creation Workflow"
-    description = "Automated content creation with custom execution options"
-    trigger = ManualTrigger()
-    storage = SqliteStorage(
-        table_name="workflow_v2",
-        db_file="tmp/workflow_v2.db",
-        mode="workflow_v2",
-    )
-    sequences = [custom_sequence]
-
-
-# Usage examples
+# Define and use examples
 if __name__ == "__main__":
-    workflow = ContentCreationWorkflow()
+    content_creation_workflow = Workflow(
+        name="Content Creation Workflow",
+        description="Automated content creation with custom execution options",
+        trigger=ManualTrigger(),
+        storage=SqliteStorage(
+            table_name="workflow_v2",
+            db_file="tmp/workflow_v2.db",
+            mode="workflow_v2",
+        ),
+        sequences=[custom_sequence]
+    )
     print("=== Custom Sequence (Custom Execution Functions) ===")
     try:
-        workflow.print_response(
+        content_creation_workflow.print_response(
             query="AI trends in 2024",
             sequence_name="custom_sequence",
             markdown=True,

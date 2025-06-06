@@ -5,7 +5,10 @@ from agno.media import Audio, File, Image, Video
 from agno.team.team import Team
 from agno.utils.log import log_info
 import requests
-import discord
+try:
+    import discord
+except(ImportError,ModuleNotFoundError):
+    print("`discord.py` not installed. Please install using `pip install discord.py`")
 
 intents = discord.Intents.all()
 client = discord.Client(intents=intents)

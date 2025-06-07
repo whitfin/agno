@@ -279,7 +279,7 @@ class Task:
         """Create TaskOutput from execution response"""
         if isinstance(response, TaskOutput):
             return response
-        
+
         # Create metadata
         metadata = {
             "task_name": self.name,

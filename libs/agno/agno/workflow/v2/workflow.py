@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Sequence as TypingSequence
 from uuid import uuid4
 
+from agno.media import Audio, Image, Video
 from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.storage.base import Storage
 from agno.storage.session.workflow import WorkflowSessionV2
@@ -160,8 +161,23 @@ class Workflow:
                         if hasattr(member, "workflow_id"):
                             member.workflow_id = self.workflow_id
 
-    def run(self, query: str = None, sequence_name: Optional[str] = None, **kwargs) -> Iterator[WorkflowRunResponse]:
+    def run(
+        self,
+        query: str = None,
+        sequence_name: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        audio: Optional[TypingSequence[Audio]] = None,
+        images: Optional[TypingSequence[Image]] = None,
+        videos: Optional[TypingSequence[Video]] = None,
+    ) -> Iterator[WorkflowRunResponse]:
         """Execute the workflow synchronously"""
+        # Set user_id and session_id if provided
+        if user_id is not None:
+            self.user_id = user_id
+        if session_id is not None:
+            self.session_id = session_id
+
         # Load or create session
         self.load_session()
 
@@ -187,10 +203,22 @@ class Workflow:
                 f"Sequence selection for trigger type '{self.trigger.trigger_type.value}' not yet implemented"
             )
 
-        # Simple inputs - just use query directly
-        if query is not None:
-            inputs = {"query": query}
+        # Prepare inputs with media support
+        inputs = {}
 
+        # Primary input (query)
+        primary_input = query
+        if primary_input is not None:
+            inputs["query"] = primary_input
+
+        # Add media inputs
+        if audio is not None:
+            inputs["audio"] = list(audio)
+        if images is not None:
+            inputs["images"] = list(images)
+        if videos is not None:
+            inputs["videos"] = list(videos)
+            
         # Execute the selected sequence synchronously
         for response in self.execute_sequence(selected_sequence_name, inputs):
             yield response
@@ -296,6 +324,11 @@ class Workflow:
     def print_response(
         self,
         query: str,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        audio: Optional[TypingSequence[Audio]] = None,
+        images: Optional[TypingSequence[Image]] = None,
+        videos: Optional[TypingSequence[Video]] = None,
         sequence_name: Optional[str] = None,
         markdown: bool = True,
         show_time: bool = True,
@@ -322,6 +355,12 @@ class Workflow:
 
         if console is None:
             from agno.cli.console import console
+
+        # Use query or message as primary input
+        primary_input = query
+        if primary_input is None:
+            console.print("[red]Either 'query' or 'message' must be provided[/red]")
+            return
 
         # Validate sequence configuration based on trigger type
         if self.trigger.trigger_type == TriggerType.MANUAL:
@@ -350,14 +389,26 @@ class Workflow:
             return
 
         # Show workflow info once at the beginning
+        media_info = []
+        if audio:
+            media_info.append(f"Audio files: {len(audio)}")
+        if images:
+            media_info.append(f"Images: {len(images)}")
+        if videos:
+            media_info.append(f"Videos: {len(videos)}")
+
+        media_str = f" | {' | '.join(media_info)}" if media_info else ""
+
         workflow_info = f"""
             **Workflow:** {self.name}
             **Sequence:** {sequence.name}
             **Description:** {sequence.description or "No description"}
             **Tasks:** {len(sequence.tasks)} tasks
             **Available Sequences:** {", ".join([seq.name for seq in self.sequences])}
-            **Query:** {query}
-        """.strip()
+            **Query:** {primary_input}{media_str}
+            **User ID:** {user_id or self.user_id or "Not set"}
+            **Session ID:** {session_id or self.session_id}
+            """.strip()
 
         workflow_panel = create_panel(
             content=Markdown(workflow_info) if markdown else workflow_info,
@@ -378,7 +429,15 @@ class Workflow:
             live_log.update(status)
 
             try:
-                for response in self.run(query=query, sequence_name=sequence_name):
+                for response in self.run(
+                    query=query,
+                    sequence_name=sequence_name,
+                    user_id=user_id,
+                    session_id=session_id,
+                    audio=audio,
+                    images=images,
+                    videos=videos,
+                ):
                     if response.event == WorkflowRunEvent.workflow_started:
                         status.update("Workflow started...")
 

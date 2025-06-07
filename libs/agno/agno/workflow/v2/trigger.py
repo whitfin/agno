@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
+
 class TriggerType(str, Enum):
     """Types of workflow triggers"""
 

@@ -18,8 +18,7 @@ class TaskInput:
     query: Optional[str] = None
     message: Optional[str] = None
 
-    # Context and state
-    context: Optional[Dict[str, Any]] = None
+    # state
     workflow_session_state: Optional[Dict[str, Any]] = None
 
     # Previous task outputs (for chaining)
@@ -39,7 +38,6 @@ class TaskInput:
         return {
             "query": self.query,
             "message": self.message,
-            "context": self.context,
             "workflow_session_state": self.workflow_session_state,
             "previous_outputs": self.previous_outputs,
             "images": [img.to_dict() for img in self.images] if self.images else None,
@@ -224,12 +222,6 @@ class Task:
                 if executor.session_state is None:
                     executor.session_state = {}
                 executor.session_state.update(task_input.workflow_session_state)
-
-            # Set context
-            if task_input.context and hasattr(executor, "context"):
-                if executor.context is None:
-                    executor.context = {}
-                executor.context.update(task_input.context)
 
     def _execute_task(self, task_input: TaskInput) -> Union[RunResponse, TeamRunResponse, TaskOutput]:
         """Execute the task based on executor type"""

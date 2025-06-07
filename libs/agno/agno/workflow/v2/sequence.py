@@ -138,9 +138,6 @@ class Sequence:
         # Get primary query/message
         query = initial_inputs.get("query") or initial_inputs.get("message")
 
-        # Extract workflow session state from context
-        workflow_session_state = context.get("workflow_session_state") if context else None
-
         # Extract media from initial inputs
         images = initial_inputs.get("images")
         videos = initial_inputs.get("videos")
@@ -148,8 +145,7 @@ class Sequence:
 
         return TaskInput(
             query=query,
-            context=context,
-            workflow_session_state=workflow_session_state,
+            workflow_session_state=context,
             previous_outputs=previous_outputs.copy() if previous_outputs else None,
             images=images,
             videos=videos,

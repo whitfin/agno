@@ -74,7 +74,7 @@ if __name__ == "__main__":
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        sequences=[research_sequence, content_creation_sequence]
+        sequences=[research_sequence, content_creation_sequence],
     )
     print("=== Research Sequence (Rich Display) ===")
     try:

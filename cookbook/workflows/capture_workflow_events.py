@@ -143,10 +143,12 @@ if __name__ == "__main__":
         storage=SqliteStorage(
             table_name="workflow_v2", db_file="tmp/workflow_v2.db", mode="workflow_v2"
         ),
-        sequences=[research_sequence, content_creation_sequence]
+        sequences=[research_sequence, content_creation_sequence],
     )
 
     print("=== Simple Event Tracking ===")
     print_workflow_events(
-        workflow=content_creation_workflow, query="AI trends in 2024", sequence_name="research_sequence"
+        workflow=content_creation_workflow,
+        query="AI trends in 2024",
+        sequence_name="research_sequence",
     )

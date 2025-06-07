@@ -30,6 +30,7 @@ research_team = Team(
     instructions="Analyze content and create comprehensive social media strategy",
 )
 
+
 # Updated custom execution functions that work with TaskInput
 def custom_blog_analysis_function(task_input: TaskInput) -> TaskOutput:
     """
@@ -83,14 +84,13 @@ def custom_blog_analysis_function(task_input: TaskInput) -> TaskOutput:
                 "function_name": "custom_blog_analysis_function",
                 "preprocessing": True,
                 "postprocessing": True,
-            }
+            },
         )
 
     except Exception as e:
         return TaskOutput(
             content=f"Custom blog analysis failed: {str(e)}",
-            metadata={"error": True,
-                      "function_name": "custom_blog_analysis_function"}
+            metadata={"error": True, "function_name": "custom_blog_analysis_function"},
         )
 
 
@@ -108,9 +108,9 @@ def custom_team_research_function(task_input: TaskInput) -> TaskOutput:
     if task_input.previous_outputs:
         # Try different keys to get previous content
         previous_analysis = (
-            task_input.previous_outputs.get("custom_analysis", "") or
-            task_input.previous_outputs.get("output", "") or
-            task_input.previous_outputs.get("result", "")
+            task_input.previous_outputs.get("custom_analysis", "")
+            or task_input.previous_outputs.get("output", "")
+            or task_input.previous_outputs.get("result", "")
         )
 
     # Create enhanced team prompt
@@ -152,20 +152,21 @@ def custom_team_research_function(task_input: TaskInput) -> TaskOutput:
         return TaskOutput(
             content=enhanced_content,
             response=response,
-            data={"research_type": "team_coordination",
-                  "integration": bool(previous_analysis)},
+            data={
+                "research_type": "team_coordination",
+                "integration": bool(previous_analysis),
+            },
             metadata={
                 "function_name": "custom_team_research_function",
                 "team_coordination": True,
                 "previous_context": bool(previous_analysis),
-            }
+            },
         )
 
     except Exception as e:
         return TaskOutput(
             content=f"Custom team research failed: {str(e)}",
-            metadata={"error": True,
-                      "function_name": "custom_team_research_function"}
+            metadata={"error": True, "function_name": "custom_team_research_function"},
         )
 
 
@@ -183,9 +184,9 @@ def custom_content_planning_function(task_input: TaskInput) -> TaskOutput:
     if task_input.previous_outputs:
         # Try different keys to get previous content
         previous_research = (
-            task_input.previous_outputs.get("custom_research", "") or
-            task_input.previous_outputs.get("output", "") or
-            task_input.previous_outputs.get("result", "")
+            task_input.previous_outputs.get("custom_research", "")
+            or task_input.previous_outputs.get("output", "")
+            or task_input.previous_outputs.get("result", "")
         )
 
     # Create intelligent planning prompt
@@ -228,20 +229,24 @@ def custom_content_planning_function(task_input: TaskInput) -> TaskOutput:
         return TaskOutput(
             content=enhanced_content,
             response=response,
-            data={"planning_type": "strategic",
-                  "research_integration": bool(previous_research)},
+            data={
+                "planning_type": "strategic",
+                "research_integration": bool(previous_research),
+            },
             metadata={
                 "function_name": "custom_content_planning_function",
                 "strategic_planning": True,
                 "research_based": bool(previous_research),
-            }
+            },
         )
 
     except Exception as e:
         return TaskOutput(
             content=f"Custom content planning failed: {str(e)}",
-            metadata={"error": True,
-                      "function_name": "custom_content_planning_function"}
+            metadata={
+                "error": True,
+                "function_name": "custom_content_planning_function",
+            },
         )
 
 
@@ -282,7 +287,7 @@ if __name__ == "__main__":
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        sequences=[custom_sequence]
+        sequences=[custom_sequence],
     )
     print("=== Custom Sequence (Custom Execution Functions) ===")
     try:

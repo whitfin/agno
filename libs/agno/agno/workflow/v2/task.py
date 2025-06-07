@@ -287,12 +287,7 @@ class Task:
         """Create TaskOutput from execution response"""
         if isinstance(response, TaskOutput):
             return response
-
-        # Extract media from response
-        images = getattr(response, "images", None)
-        videos = getattr(response, "videos", None)
-        audio = getattr(response, "audio", None)
-
+        
         # Create metadata
         metadata = {
             "task_name": self.name,
@@ -300,6 +295,11 @@ class Task:
             "executor_type": self._executor_type,
             "executor_name": self.executor_name,
         }
+
+        # Extract media from response
+        images = getattr(response, "images", None)
+        videos = getattr(response, "videos", None)
+        audio = getattr(response, "audio", None)
 
         return TaskOutput(
             content=response.content,

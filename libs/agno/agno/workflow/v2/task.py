@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterator, List, Optional, Type, Union
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
 from agno.agent import Agent
@@ -205,6 +205,56 @@ class Task:
                     else:
                         raise e
 
+    async def aexecute(
+        self, task_input: TaskInput, context: Dict[str, Any] = None
+    ) -> AsyncIterator[Union[WorkflowRunResponse, TaskOutput]]:
+        """Execute the task with TaskInput asynchronously, yielding events and final TaskOutput"""
+        logger.info(f"Executing async task: {self.name}")
+
+        # Yield task started event
+        yield WorkflowRunResponse(
+            content=f"Starting task: {self.name}",
+            event=WorkflowRunEvent.task_started,
+            workflow_name=context.get("workflow_name") if context else None,
+            sequence_name=context.get("sequence_name") if context else None,
+            task_name=self.name,
+            task_index=context.get("task_index") if context else None,
+            workflow_id=context.get("workflow_id") if context else None,
+            run_id=context.get("run_id") if context else None,
+            session_id=context.get("session_id") if context else None,
+        )
+
+        # Initialize executor with context and workflow session state
+        self._initialize_executor_context(task_input, context)
+
+        # Execute with retries
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = await self._aexecute_task(task_input)
+
+                # Create TaskOutput from response
+                task_output = self._create_task_output(response, task_input)
+
+                logger.info(f"Async task {self.name} completed successfully")
+                yield task_output
+                return
+
+            except Exception as e:
+                self.retry_count = attempt + 1
+                logger.warning(f"Async task {self.name} failed (attempt {attempt + 1}): {e}")
+
+                if attempt == self.max_retries:
+                    if self.skip_on_failure:
+                        logger.info(f"Async task {self.name} failed but continuing due to skip_on_failure=True")
+                        # Create empty TaskOutput for skipped task
+                        task_output = TaskOutput(
+                            content=f"Task {self.name} failed but skipped", metadata={"skipped": True, "error": str(e)}
+                        )
+                        yield task_output
+                        return
+                    else:
+                        raise e
+
     def _initialize_executor_context(self, task_input: TaskInput, context: Dict[str, Any] = None):
         """Initialize the executor with context and workflow session state"""
         if self._executor_type in ["agent", "team"]:
@@ -257,6 +307,46 @@ class Task:
                 images=task_input.images,
                 videos=task_input.videos,
                 audio=task_input.audio,
+            )
+        else:
+            raise ValueError(f"Unsupported executor type: {self._executor_type}")
+
+    async def _aexecute_task(self, task_input: TaskInput) -> Union[RunResponse, TeamRunResponse, TaskOutput]:
+        """Execute the task based on executor type asynchronously"""
+        if self._executor_type == "function":
+            # Execute function directly with TaskInput
+            result = await self._active_executor(task_input)
+
+            # If function returns TaskOutput, use it directly
+            if isinstance(result, TaskOutput):
+                return result
+
+            # Otherwise, wrap in TaskOutput
+            return TaskOutput(content=str(result))
+
+        # For agents and teams, prepare message with context
+        message = task_input.get_primary_input()
+
+        # Add context information to message if available
+        if task_input.previous_outputs:
+            message = self._format_message_with_previous_outputs(message, task_input.previous_outputs)
+
+        # Execute agent or team with media asynchronously
+        if self._executor_type == "agent":
+            return await self._active_executor.arun(
+                message=message,
+                images=task_input.images,
+                videos=task_input.videos,
+                audio=task_input.audio,
+                files=getattr(task_input, "files", None),
+            )
+        elif self._executor_type == "team":
+            return await self._active_executor.arun(
+                message=message,
+                images=task_input.images,
+                videos=task_input.videos,
+                audio=task_input.audio,
+                files=getattr(task_input, "files", None),
             )
         else:
             raise ValueError(f"Unsupported executor type: {self._executor_type}")

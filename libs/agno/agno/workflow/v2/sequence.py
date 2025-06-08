@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
 from agno.run.response import RunResponse
@@ -72,6 +72,114 @@ class Sequence:
 
             if task_output is None:
                 raise RuntimeError(f"Task {task.name} did not return a TaskOutput")
+
+            # Collect the actual task response for storage
+            if task_output.response:
+                collected_task_responses.append(task_output.response)
+
+            # Update previous_outputs for next task
+            self._update_previous_outputs(previous_outputs, task, task_output, i)
+
+            # Task completed event
+            yield WorkflowRunResponse(
+                content=task_output.content,
+                event=WorkflowRunEvent.task_completed,
+                workflow_name=context.get("workflow_name") if context else None,
+                sequence_name=self.name,
+                task_name=task.name,
+                task_index=i,
+                workflow_id=context.get("workflow_id") if context else None,
+                run_id=context.get("run_id") if context else None,
+                session_id=context.get("session_id") if context else None,
+                images=task_output.images,
+                videos=task_output.videos,
+                audio=task_output.audio,
+                messages=getattr(task_output.response, "messages", None) if task_output.response else None,
+                metrics=getattr(task_output.response, "metrics", None) if task_output.response else None,
+                # Include the actual task response
+                task_responses=[task_output.response] if task_output.response else [],
+            )
+
+        # Workflow completed event with all task responses
+        final_output = {
+            "sequence_name": self.name,
+            "sequence_id": self.sequence_id,
+            "status": "completed",
+            "total_tasks": len(self.tasks),
+            "task_summary": [
+                {
+                    "task_name": task.name,
+                    "task_id": task.task_id,
+                    "description": task.description,
+                    "executor_type": task.executor_type,
+                    "executor_name": task.executor_name,
+                }
+                for task in self.tasks
+            ],
+        }
+
+        yield WorkflowRunResponse(
+            content=f"Sequence {self.name} completed successfully",
+            event=WorkflowRunEvent.workflow_completed,
+            workflow_name=context.get("workflow_name") if context else None,
+            sequence_name=self.name,
+            workflow_id=context.get("workflow_id") if context else None,
+            run_id=context.get("run_id") if context else None,
+            session_id=context.get("session_id") if context else None,
+            # Include all collected task responses
+            task_responses=collected_task_responses,
+            extra_data=final_output,
+        )
+
+    async def aexecute(
+        self, inputs: Dict[str, Any], context: Dict[str, Any] = None
+    ) -> AsyncIterator[WorkflowRunResponse]:
+        """Execute all tasks in the sequence sequentially using TaskInput/TaskOutput asynchronously"""
+        logger.info(f"Starting async sequence: {self.name}")
+
+        # Initialize sequence context
+        sequence_context = context or {}
+        sequence_context["sequence_name"] = self.name
+        sequence_context["sequence_id"] = self.sequence_id
+
+        # Track outputs from each task for chaining
+        previous_outputs = {}
+        collected_task_responses: List[Union[RunResponse, TeamRunResponse]] = []
+
+        # Workflow started event
+        yield WorkflowRunResponse(
+            content=f"Sequence {self.name} started",
+            event=WorkflowRunEvent.workflow_started,
+            workflow_name=context.get("workflow_name") if context else None,
+            sequence_name=self.name,
+            workflow_id=context.get("workflow_id") if context else None,
+            run_id=context.get("run_id") if context else None,
+            session_id=context.get("session_id") if context else None,
+        )
+
+        for i, task in enumerate(self.tasks):
+            logger.info(f"Executing async task {i + 1}/{len(self.tasks)}: {task.name}")
+
+            # Add task_index to context for the task
+            task_context = sequence_context.copy()
+            task_context["task_index"] = i
+
+            # Create TaskInput for this task
+            task_input = self._create_task_input(inputs, previous_outputs, context)
+
+            # Execute the task asynchronously
+            task_output = None
+            async for event in task.aexecute(task_input, task_context):
+                if isinstance(event, WorkflowRunResponse):
+                    # Forward workflow events (like task_started)
+                    yield event
+                elif isinstance(event, TaskOutput):
+                    # This is the final task output
+                    task_output = event
+                    break
+
+            if task_output is None:
+                raise RuntimeError(f"Async task {task.name} did not return a TaskOutput")
 
             # Collect the actual task response for storage
             if task_output.response:

@@ -13,8 +13,8 @@ from agno.storage.session.workflow import WorkflowSessionV2
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.sequence import Sequence
 from agno.workflow.v2.trigger import ManualTrigger, Trigger, TriggerType
-from agno.workflow_queue.base import Queue
-from agno.workflow_queue.json import JsonQueue
+from agno.workflow.v2.queue.base import Queue
+from agno.workflow.v2.queue.json import JsonQueue
 
 
 @dataclass

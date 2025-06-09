@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from agno.utils.log import logger
-from agno.workflow_queue.base import Queue, QueueItem
+from agno.workflow.v2.queue.base import Queue, QueueItem
 
 
 class JsonQueue(Queue):

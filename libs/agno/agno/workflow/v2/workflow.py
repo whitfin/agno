@@ -1,11 +1,10 @@
+import json
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 from typing import Sequence as TypingSequence
 from uuid import uuid4
-import json
-import os
-from pathlib import Path
 
 from agno.media import Audio, Image, Video
 from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
@@ -14,95 +13,9 @@ from agno.storage.session.workflow import WorkflowSessionV2
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.sequence import Sequence
 from agno.workflow.v2.trigger import ManualTrigger, Trigger, TriggerType
+from agno.workflow_queue.base import Queue
+from agno.workflow_queue.json import JsonQueue
 
-
-def _get_queue_file() -> Path:
-    """Get the queue file path"""
-    queue_dir = Path("tmp/.agno")
-    queue_dir.mkdir(parents=True, exist_ok=True)
-    return queue_dir / "workflow_queue.json"
-
-
-def _submit_to_queue(workflow_id: str, query: str, sequence_name: str, user_id: str = None, session_id: str = None) -> str:
-    """Submit a workflow run to the queue"""
-    run_id = str(uuid4())
-    queue_file = _get_queue_file()
-
-    # Load existing queue
-    queue_data = []
-    if queue_file.exists():
-        try:
-            with open(queue_file, 'r') as f:
-                queue_data = json.load(f)
-        except (json.JSONDecodeError, FileNotFoundError):
-            queue_data = []
-
-    # Add new run
-    queue_item = {
-        "run_id": run_id,
-        "workflow_id": workflow_id,
-        "query": query,
-        "sequence_name": sequence_name,
-        "user_id": user_id,
-        "session_id": session_id,
-        "status": "queued",
-        "created_at": datetime.now().isoformat(),
-    }
-
-    queue_data.append(queue_item)
-
-    # Save queue
-    with open(queue_file, 'w') as f:
-        json.dump(queue_data, f, indent=2)
-
-    logger.info(f"Submitted workflow run {run_id} to queue")
-    return run_id
-
-
-def _check_queue_for_run(workflow_id: str) -> Optional[Dict[str, Any]]:
-    """Check if there's a queued run for this workflow"""
-    queue_file = _get_queue_file()
-
-    if not queue_file.exists():
-        return None
-
-    try:
-        with open(queue_file, 'r') as f:
-            queue_data = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return None
-
-    # Find the first queued run for this workflow
-    for item in queue_data:
-        if item.get("workflow_id") == workflow_id and item.get("status") == "queued":
-            return item
-
-    return None
-
-
-def _update_queue_status(run_id: str, status: str):
-    """Update the status of a queued run"""
-    queue_file = _get_queue_file()
-
-    if not queue_file.exists():
-        return
-
-    try:
-        with open(queue_file, 'r') as f:
-            queue_data = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError):
-        return
-
-    # Update the status
-    for item in queue_data:
-        if item.get("run_id") == run_id:
-            item["status"] = status
-            item["updated_at"] = datetime.now().isoformat()
-            break
-
-    # Save updated queue
-    with open(queue_file, 'w') as f:
-        json.dump(queue_data, f, indent=2)
 
 @dataclass
 class Workflow:
@@ -118,6 +31,10 @@ class Workflow:
     trigger: Trigger = field(default_factory=ManualTrigger)
     sequences: List[Sequence] = field(default_factory=list)
     storage: Optional[Storage] = None
+
+    # Queue configuration
+    queue: Optional[Queue] = None
+    enable_queue: bool = False
 
     # Session management
     session_id: Optional[str] = None
@@ -155,6 +72,10 @@ class Workflow:
 
         if self.workflow_id is None:
             self.workflow_id = str(uuid4())
+
+        # Initialize queue if enabled
+        if self.enable_queue and self.queue is None:
+            self.queue = JsonQueue()
 
         if self.session_id is None:
             self.session_id = str(uuid4())
@@ -336,19 +257,20 @@ class Workflow:
         if session_id is not None:
             self.session_id = session_id
 
-        # Check queue for pending runs
-        queued_run = _check_queue_for_run(self.workflow_id)
-        if queued_run:
-            logger.info(
-                f"Found queued run {queued_run['run_id']} for workflow {self.workflow_id}")
-            # Update status to running
-            _update_queue_status(queued_run['run_id'], 'running')
+        # Check queue for pending runs (if queue is enabled)
+        queued_item = None
+        if self.queue:
+            queued_item = self.queue.get_next_queued(self.workflow_id)
+            if queued_item:
+                logger.info(f"Found queued run {queued_item.run_id} for workflow {self.workflow_id}")
+                # Update status to running
+                self.queue.update_status(queued_item.run_id, "running")
 
-            # Use queued parameters
-            query = queued_run.get('query', query)
-            sequence_name = queued_run.get('sequence_name', sequence_name)
-            user_id = queued_run.get('user_id', user_id)
-            session_id = queued_run.get('session_id', session_id)
+                # Use queued parameters
+                query = queued_item.query
+                sequence_name = queued_item.sequence_name
+                user_id = queued_item.user_id or user_id
+                session_id = queued_item.session_id or session_id
 
         # Load or create session
         self.load_session()
@@ -397,13 +319,13 @@ class Workflow:
                 yield response
 
             # Mark as completed if it was from queue
-            if queued_run:
-                _update_queue_status(queued_run['run_id'], 'completed')
+            if queued_item and self.queue:
+                self.queue.update_status(queued_item.run_id, "completed")
 
         except Exception as e:
             # Mark as failed if it was from queue
-            if queued_run:
-                _update_queue_status(queued_run['run_id'], 'failed')
+            if queued_item and self.queue:
+                self.queue.update_status(queued_item.run_id, "failed")
             raise
 
     async def arun(
@@ -593,7 +515,7 @@ class Workflow:
             show_time: Whether to show execution time
             show_task_details: Whether to show individual task outputs
             console: Rich console instance (optional)
-            use_queue: Whether to submit to queue instead of executing immediately
+            use_queue: Whether to submit to queue (but still execute immediately)
         """
         from rich.live import Live
         from rich.markdown import Markdown
@@ -609,15 +531,13 @@ class Workflow:
         # Use query or message as primary input
         primary_input = query
         if primary_input is None:
-            console.print(
-                "[red]Either 'query' or 'message' must be provided[/red]")
+            console.print("[red]Either 'query' or 'message' must be provided[/red]")
             return
 
         # Validate sequence configuration based on trigger type
         if self.trigger.trigger_type == TriggerType.MANUAL:
             if not self.sequences:
-                console.print(
-                    "[red]No sequences available in this workflow[/red]")
+                console.print("[red]No sequences available in this workflow[/red]")
                 return
 
             # Determine which sequence to use
@@ -640,17 +560,21 @@ class Workflow:
             )
             return
 
-        # If use_queue is True, submit to queue and return
+        # If use_queue is True, submit to queue first, then continue to execute
         if use_queue:
-            run_id = _submit_to_queue(
+            # Initialize queue if not already done
+            if not self.queue:
+                self.queue = JsonQueue()
+
+            run_id = self.queue.submit(
                 workflow_id=self.workflow_id,
                 query=query,
                 sequence_name=sequence_name,
                 user_id=user_id,
-                session_id=session_id
+                session_id=session_id,
             )
-            console.print(
-                f"[green]Workflow submitted to queue with run_id: {run_id}[/green]")
+            console.print(f"[green]Workflow submitted to queue with run_id: {run_id}[/green]")
+            console.print(f"[blue]Executing immediately...[/blue]")
 
         # Show workflow info once at the beginning
         media_info = []
@@ -708,15 +632,13 @@ class Workflow:
                     elif response.event == WorkflowRunEvent.task_started:
                         task_name = response.task_name or "Unknown"
                         task_index = response.task_index or 0
-                        status.update(
-                            f"Starting task {task_index + 1}: {task_name}...")
+                        status.update(f"Starting task {task_index + 1}: {task_name}...")
 
                     elif response.event == WorkflowRunEvent.task_completed:
                         task_name = response.task_name or "Unknown"
                         task_index = response.task_index or 0
 
-                        status.update(
-                            f"Completed task {task_index + 1}: {task_name}")
+                        status.update(f"Completed task {task_index + 1}: {task_name}")
 
                         if response.content:
                             task_responses.append(
@@ -731,8 +653,7 @@ class Workflow:
                         # Print the task panel immediately after completion
                         if show_task_details and response.content:
                             task_panel = create_panel(
-                                content=Markdown(
-                                    response.content) if markdown else response.content,
+                                content=Markdown(response.content) if markdown else response.content,
                                 title=f"Task {task_index + 1}: {task_name}",
                                 border_style="green",
                             )
@@ -751,8 +672,7 @@ class Workflow:
                             """.strip()
 
                             summary_panel = create_panel(
-                                content=Markdown(
-                                    summary_content) if markdown else summary_content,
+                                content=Markdown(summary_content) if markdown else summary_content,
                                 title="Execution Summary",
                                 border_style="blue",
                             )
@@ -760,8 +680,7 @@ class Workflow:
 
                     elif response.event == WorkflowRunEvent.workflow_error:
                         status.update("Workflow failed!")
-                        error_panel = create_panel(
-                            content=response.content, title="Error", border_style="red")
+                        error_panel = create_panel(content=response.content, title="Error", border_style="red")
                         console.print(error_panel)
 
                     # Update live display with just status
@@ -771,8 +690,7 @@ class Workflow:
 
                 # Final completion message with time
                 if show_time:
-                    completion_text = Text(
-                        f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
+                    completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
                     console.print(completion_text)
 
             except Exception as e:

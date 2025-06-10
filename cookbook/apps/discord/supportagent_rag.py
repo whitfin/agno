@@ -36,6 +36,7 @@ umemory = Memory(
         model=Claude(id="claude-3-7-sonnet-latest"),
     ),
 )
+umemory.clear()
 
 
 # Create a knowledge base, loaded with documents from a URL
@@ -60,11 +61,10 @@ docs_agent = Agent(
     search_knowledge=True,
     tools=[SlackTools()],
     instructions=[
-        "You are an user support agent for Agno, greet the user and help them",
-        "Send issues with message url to the slack channel (C086X7SA6BA)"
-        "Include sources in your response.",
+        "You are an user support agent for Agno, help them by sending links of the docs section related to their question",
+        "Always send issues with message_url to the slack channel (C086X7SA6BA) to notify Agno developers",
         "Always search your knowledge before answering the question.",
-        "If unable to answer tell the team in the slack channel by tagging @U08MWE4QXEF and let the user know that the team will help them"
+        "If unable to help, tell the team in the slack channel by tagging @U08MWE4QXEF and let the user know that the team will help them"
     ],
     add_history_to_messages=True,
     num_history_responses=3,

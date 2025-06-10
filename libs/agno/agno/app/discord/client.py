@@ -42,7 +42,7 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
                     message_video=video                
                 elif(media_type.startswith("audio/")):
                     message_audio=media_url                
-            log_info(f"processing message:{message_text} \n with media: {media_url} \n url:{media_url}")
+            log_info(f"processing message:{message_text} \n with media: {media_url} \n url:{message_url}")
             if isinstance(message.channel, discord.Thread):
                 thread = message.channel
             else:
@@ -50,12 +50,13 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
             await thread.typing()
             #prompt=f"message from user:\n{message_text} \n message_url:{message_url}"
             if agent:
+                agent.additional_context=(f"message username:\n{message_user} \n message_url:{message_url}")
                 response = await agent.arun(message_text, user_id=message_user,session_id=thread.id,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(content=message_video)] if message_video else None,
                     audio=[Audio(url=message_audio)] if message_audio else None)
             elif team:
-                response = await team.arun(media_url, user_id=message_user,session_id=thread.id,
+                response = await team.arun(message_text, user_id=message_user,session_id=thread.id,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(url=message_video)] if message_video else None,
                     audio=[Audio(url=message_audio)] if message_audio else None,)

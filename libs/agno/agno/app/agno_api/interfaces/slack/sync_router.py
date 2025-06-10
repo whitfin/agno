@@ -3,7 +3,7 @@ from typing import Optional, cast
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from agno.agent.agent import Agent
-from agno.app.slack.security import verify_slack_signature
+from agno.app.agno_api.interfaces.slack.security import verify_slack_signature
 from agno.team.team import Team
 from agno.tools.slack import SlackTools
 from agno.utils.log import log_info

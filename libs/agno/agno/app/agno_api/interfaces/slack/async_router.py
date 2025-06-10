@@ -3,14 +3,13 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 
 from agno.agent.agent import Agent
-from agno.app.slack.security import verify_slack_signature
+from agno.app.agno_api.interfaces.slack.security import verify_slack_signature
 from agno.team.team import Team
 from agno.tools.slack import SlackTools
 from agno.utils.log import log_info
 
 
-def get_async_router(agent: Optional[Agent] = None, team: Optional[Team] = None) -> APIRouter:
-    router = APIRouter()
+def attach_async_routes(router: APIRouter, agent: Optional[Agent] = None, team: Optional[Team] = None) -> APIRouter:
 
     @router.post("/slack/events")
     async def slack_events(request: Request, background_tasks: BackgroundTasks):

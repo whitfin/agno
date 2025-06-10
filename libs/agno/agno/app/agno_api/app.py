@@ -1,5 +1,5 @@
 from os import getenv
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -12,12 +12,12 @@ from starlette.requests import Request
 
 from agno.agent.agent import Agent
 from agno.api.playground import PlaygroundEndpointCreate
+from agno.app.agno_api.base import BaseInterface
 from agno.app.agno_api.router import get_base_async_router, get_base_sync_router
-from agno.app.interfaces import Interface
 from agno.app.utils import generate_id
 from agno.cli.console import console
 from agno.cli.settings import agno_cli_settings
-from agno.playground.settings import PlaygroundSettings
+from agno.app.agno_api.settings import AgnoAPISettings
 from agno.team.team import Team
 from agno.utils.log import log_debug, logger
 from agno.workflow.workflow import Workflow
@@ -32,8 +32,9 @@ class AgnoAPI:
         agents: Optional[List[Agent]] = None,
         teams: Optional[List[Team]] = None,
         workflows: Optional[List[Workflow]] = None,
-        interfaces: Optional[List[Interface]] = None,
-        settings: Optional[PlaygroundSettings] = None,
+        interfaces: Optional[List[BaseInterface]] = None,
+        managers: Optional[List[BaseInterface]] = None,
+        settings: Optional[AgnoAPISettings] = None,
         api_app: Optional[FastAPI] = None,
         monitoring: bool = True,
     ):
@@ -44,10 +45,11 @@ class AgnoAPI:
         self.workflows: Optional[List[Workflow]] = workflows
         self.teams: Optional[List[Team]] = teams
 
-        self.settings: PlaygroundSettings = settings or PlaygroundSettings()
+        self.settings: AgnoAPISettings = settings or AgnoAPISettings()
         self.api_app: Optional[FastAPI] = api_app
 
         self.interfaces = interfaces or []
+        self.managers = managers or []
         
         self.endpoints_created: Optional[PlaygroundEndpointCreate] = None
 
@@ -56,7 +58,8 @@ class AgnoAPI:
         self.monitoring = monitoring
         self.description = description
         
-        self.interfaces_loaded: List[str] = []
+        self.interfaces_loaded: List[Tuple[str, str]] = []
+        self.managers_loaded: List[Tuple[str, str]] = []
         
         self.set_app_id()
         
@@ -150,6 +153,10 @@ class AgnoAPI:
                 
             self.interfaces_loaded.append((interface.type, interface.router.prefix))
 
+        for manager in self.managers:
+            self.api_app.include_router(manager.get_router(use_async=use_async))
+            self.managers_loaded.append((manager.type, manager.router.prefix))
+
         self.api_app.add_middleware(
             CORSMiddleware,
             allow_origins=self.settings.cors_origin_list,
@@ -220,6 +227,26 @@ class AgnoAPI:
                     box=box.HEAVY,
                     padding=(2, 2),
                 ))
+        
+        managers_panel_text = ""
+        for manager_type, manager_prefix in self.managers_loaded:
+            
+            if manager_type == "knowledge":
+                managers_panel_text += "Knowledge Manager\n"
+            if manager_type == "evals":
+                managers_panel_text += "Evals Manager\n"
+            if manager_type == "sessions":
+                managers_panel_text += "Sessions Manager\n"
+        
+        if managers_panel_text:
+            panels.append(Panel(
+                managers_panel_text,
+                title="Configured Managers",
+                expand=False,
+                border_style="bright_cyan",
+                box=box.HEAVY,
+                padding=(2, 2),
+            ))
 
         # Print the panel
         for panel in panels:

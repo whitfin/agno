@@ -1,24 +1,22 @@
 from __future__ import annotations
-
 from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import field_validator, Field
 from pydantic_settings import BaseSettings
 
 
-class PlaygroundSettings(BaseSettings):
-    """Playground API settings that can be set using environment variables.
+class AgnoAPISettings(BaseSettings):
+    """App settings for API-based apps that can be set using environment variables.
 
     Reference: https://pydantic-docs.helpmanual.io/usage/settings/
     """
 
     env: str = "dev"
-    title: str = "agno-playground"
+    title: str = "agno-app"
 
     # Set to False to disable docs server at /docs and /redoc
     docs_enabled: bool = True
 
-    secret_key: Optional[str] = None
 
     # Cors origin list to allow requests from.
     # This list is set using the set_cors_origin_list validator

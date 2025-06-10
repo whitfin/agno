@@ -6,7 +6,7 @@ from fastapi import UploadFile
 from pydantic import BaseModel
 
 from agno.agent import Agent
-from agno.app.playground.operator import format_tools
+from agno.app.agno_api.interfaces.playground.operator import format_tools
 from agno.memory import Memory
 from agno.team import Team
 

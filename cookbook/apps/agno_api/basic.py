@@ -4,7 +4,9 @@ from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.models.openai import OpenAIChat
 from agno.app.agno_api import AgnoAPI
 from agno.storage.sqlite import SqliteStorage
-from agno.app.interfaces import Playground, WhatsappAPI, SlackAPI
+from agno.app.agno_api.interfaces.playground import Playground
+from agno.app.agno_api.interfaces.whatsapp import Whatsapp
+from agno.app.agno_api.interfaces.slack import Slack
 
 agent_storage_file: str = "tmp/agents.db"
 
@@ -38,8 +40,8 @@ agno_client = AgnoAPI(
     ],
     interfaces=[
         Playground(),
-        WhatsappAPI(agent=basic_agent),
-        SlackAPI(agent=basic_agent)
+        Whatsapp(agent=basic_agent),
+        Slack(agent=basic_agent)
     ]
 )
 app = agno_client.get_app()

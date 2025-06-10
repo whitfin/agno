@@ -4,11 +4,12 @@ from fastapi.routing import APIRouter
 from agno.agent import Agent
 from agno.team import Team
 from agno.workflow import Workflow
-from agno.app.interfaces.playground.async_router import attach_async_routes
-from agno.app.interfaces.playground.sync_router import attach_sync_routes
+from agno.app.agno_api.interfaces.playground.async_router import attach_async_routes
+from agno.app.agno_api.interfaces.playground.sync_router import attach_sync_routes
+from agno.app.agno_api.base import BaseInterface
 
 
-class Playground:
+class Playground(BaseInterface):
     
     type = "playground"
 

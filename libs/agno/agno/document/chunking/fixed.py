@@ -7,7 +7,7 @@ from agno.document.chunking.strategy import ChunkingStrategy
 class FixedSizeChunking(ChunkingStrategy):
     """Chunking strategy that splits text into fixed-size chunks with optional overlap"""
 
-    def __init__(self, chunk_size: int = 5000, overlap: int = 0):
+    def __init__(self, chunk_size: int = 100, overlap: int = 0):
         # overlap must be less than chunk size
         if overlap >= chunk_size:
             raise ValueError(f"Invalid parameters: overlap ({overlap}) must be less than chunk size ({chunk_size}).")
@@ -17,6 +17,7 @@ class FixedSizeChunking(ChunkingStrategy):
 
     def chunk(self, document: Document) -> List[Document]:
         """Split document into fixed-size chunks with optional overlap"""
+        print(f"Chunking document: {document.name}, chunk size: {self.chunk_size}, overlap: {self.overlap}")
         content = self.clean_text(document.content)
         content_length = len(content)
         chunked_documents: List[Document] = []

@@ -155,6 +155,8 @@ class PgVector(VectorDb):
             Column("created_at", DateTime(timezone=True), server_default=func.now()),
             Column("updated_at", DateTime(timezone=True), onupdate=func.now()),
             Column("content_hash", String),
+            Column("source_document_id", String),
+
             extend_existing=True,
         )
 
@@ -162,6 +164,7 @@ class PgVector(VectorDb):
         Index(f"idx_{self.table_name}_id", table.c.id)
         Index(f"idx_{self.table_name}_name", table.c.name)
         Index(f"idx_{self.table_name}_content_hash", table.c.content_hash)
+        Index(f"idx_{self.table_name}_source_document_id", table.c.source_document_id)
 
         return table
 
@@ -329,6 +332,7 @@ class PgVector(VectorDb):
                                     "embedding": doc.embedding,
                                     "usage": doc.usage,
                                     "content_hash": content_hash,
+                                    "source_document_id": doc.id,
                                 }
                                 batch_records.append(record)
                             except Exception as e:
@@ -401,6 +405,7 @@ class PgVector(VectorDb):
                                     "embedding": doc.embedding,
                                     "usage": doc.usage,
                                     "content_hash": content_hash,
+                                    "source_document_id": doc.id,
                                 }
                                 batch_records.append(record)
                             except Exception as e:
@@ -418,6 +423,7 @@ class PgVector(VectorDb):
                                 "embedding": insert_stmt.excluded.embedding,
                                 "usage": insert_stmt.excluded.usage,
                                 "content_hash": insert_stmt.excluded.content_hash,
+                                "source_document_id": insert_stmt.excluded.source_document_id,
                             },
                         )
                         sess.execute(upsert_stmt)

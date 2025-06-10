@@ -134,6 +134,7 @@ class AgentKnowledge(BaseModel):
 
                 if documents_to_load:
                     for doc in documents_to_load:
+                        log_info(f"Document: {doc.content}")
                         self.vector_db.insert(documents=[doc], filters=doc.meta_data)
 
             num_documents += len(documents_to_load)

@@ -33,6 +33,7 @@ class PDFKnowledgeBase(AgentKnowledge):
                         if config:
                             for doc in documents:
                                 log_info(f"Adding metadata {config} to document: {doc.name}")
+                                log_info(f"Document: {doc.content}")
                                 doc.meta_data.update(config)  # type: ignore
                         yield documents
         else:

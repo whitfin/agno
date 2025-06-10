@@ -5,7 +5,7 @@ from typing import Sequence as TypingSequence
 from uuid import uuid4
 
 from agno.media import Audio, Image, Video
-from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
+from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.storage.base import Storage
 from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
 from agno.utils.log import log_debug, logger

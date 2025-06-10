@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
+from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.utils.log import logger
 from agno.workflow.v2.task import Task, TaskInput, TaskOutput
 
@@ -36,7 +36,7 @@ class Sequence:
 
         # Track outputs from each task for chaining
         previous_outputs = {}
-        collected_task_responses: List[Union[RunResponse, TeamRunResponse]] = []
+        collected_task_outputs: List[TaskOutput] = []
 
         # Workflow started event
         yield WorkflowRunResponse(
@@ -73,9 +73,8 @@ class Sequence:
             if task_output is None:
                 raise RuntimeError(f"Task {task.name} did not return a TaskOutput")
 
-            # Collect the actual task response for storage
-            if task_output.response:
-                collected_task_responses.append(task_output.response)
+            # Collect the TaskOutput for storage
+            collected_task_outputs.append(task_output)
 
             # Update previous_outputs for next task
             self._update_previous_outputs(previous_outputs, task, task_output, i)
@@ -96,11 +95,9 @@ class Sequence:
                 audio=task_output.audio,
                 messages=getattr(task_output.response, "messages", None) if task_output.response else None,
                 metrics=getattr(task_output.response, "metrics", None) if task_output.response else None,
-                # Include the actual task response
-                task_responses=[task_output.response] if task_output.response else [],
+                task_responses=[task_output],
             )
 
-        # Workflow completed event with all task responses
         final_output = {
             "sequence_name": self.name,
             "sequence_id": self.sequence_id,
@@ -126,8 +123,7 @@ class Sequence:
             workflow_id=context.get("workflow_id") if context else None,
             run_id=context.get("run_id") if context else None,
             session_id=context.get("session_id") if context else None,
-            # Include all collected task responses
-            task_responses=collected_task_responses,
+            task_responses=collected_task_outputs,
             extra_data=final_output,
         )
 
@@ -144,7 +140,8 @@ class Sequence:
 
         # Track outputs from each task for chaining
         previous_outputs = {}
-        collected_task_responses: List[Union[RunResponse, TeamRunResponse]] = []
+        # Changed from collected_task_responses
+        collected_task_outputs: List[TaskOutput] = []
 
         # Workflow started event
         yield WorkflowRunResponse(
@@ -181,9 +178,8 @@ class Sequence:
             if task_output is None:
                 raise RuntimeError(f"Async task {task.name} did not return a TaskOutput")
 
-            # Collect the actual task response for storage
-            if task_output.response:
-                collected_task_responses.append(task_output.response)
+            # Collect the TaskOutput for storage (same as sync version)
+            collected_task_outputs.append(task_output)
 
             # Update previous_outputs for next task
             self._update_previous_outputs(previous_outputs, task, task_output, i)
@@ -204,11 +200,11 @@ class Sequence:
                 audio=task_output.audio,
                 messages=getattr(task_output.response, "messages", None) if task_output.response else None,
                 metrics=getattr(task_output.response, "metrics", None) if task_output.response else None,
-                # Include the actual task response
-                task_responses=[task_output.response] if task_output.response else [],
+                # Store TaskOutput objects (same as sync version)
+                task_responses=[task_output],
             )
 
-        # Workflow completed event with all task responses
+        # Workflow completed event with all task outputs
         final_output = {
             "sequence_name": self.name,
             "sequence_id": self.sequence_id,
@@ -234,8 +230,7 @@ class Sequence:
             workflow_id=context.get("workflow_id") if context else None,
             run_id=context.get("run_id") if context else None,
             session_id=context.get("session_id") if context else None,
-            # Include all collected task responses
-            task_responses=collected_task_responses,
+            task_responses=collected_task_outputs,
             extra_data=final_output,
         )
 

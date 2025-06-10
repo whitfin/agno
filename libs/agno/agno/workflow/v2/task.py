@@ -6,7 +6,7 @@ from agno.agent import Agent
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
+from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.team import Team
 from agno.utils.log import logger
 
@@ -79,6 +79,45 @@ class TaskOutput:
             "data": self.data,
             "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TaskOutput":
+        """Create TaskOutput from dictionary"""
+        from agno.run.response import RunResponse
+        from agno.run.team import TeamRunResponse
+
+        # Reconstruct response if present
+        response_data = data.get("response")
+        response = None
+        if response_data:
+            # Determine if it's RunResponse or TeamRunResponse based on structure
+            if "team_id" in response_data or "team_name" in response_data:
+                response = TeamRunResponse.from_dict(response_data)
+            else:
+                response = RunResponse.from_dict(response_data)
+
+        # Reconstruct media artifacts
+        images = data.get("images")
+        if images:
+            images = [ImageArtifact.model_validate(img) for img in images]
+
+        videos = data.get("videos")
+        if videos:
+            videos = [VideoArtifact.model_validate(vid) for vid in videos]
+
+        audio = data.get("audio")
+        if audio:
+            audio = [AudioArtifact.model_validate(aud) for aud in audio]
+
+        return cls(
+            content=data.get("content"),
+            response=response,
+            images=images,
+            videos=videos,
+            audio=audio,
+            data=data.get("data"),
+            metadata=data.get("metadata"),
+        )
 
 
 @dataclass

@@ -539,13 +539,16 @@ class SqliteStorage(Storage):
                         ),
                     )
                 elif self.mode == "workflow_v2":
+                    # Convert session to dict to ensure proper serialization
+                    session_dict = session.to_dict()
+
                     # Create an insert statement for WorkflowSessionV2
                     stmt = sqlite.insert(self.table).values(
                         session_id=session.session_id,
                         workflow_id=session.workflow_id,  # type: ignore
                         workflow_name=session.workflow_name,  # type: ignore
                         user_id=session.user_id,
-                        runs=session.runs,  # type: ignore
+                        runs=session_dict.get("runs"),
                         workflow_data=session.workflow_data,  # type: ignore
                         session_data=session.session_data,
                         extra_data=session.extra_data,
@@ -558,7 +561,7 @@ class SqliteStorage(Storage):
                             workflow_id=session.workflow_id,  # type: ignore
                             workflow_name=session.workflow_name,  # type: ignore
                             user_id=session.user_id,
-                            runs=session.runs,  # type: ignore
+                            runs=session_dict.get("runs"),
                             workflow_data=session.workflow_data,  # type: ignore
                             session_data=session.session_data,
                             extra_data=session.extra_data,

@@ -1,14 +1,15 @@
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from time import time
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
 from agno.models.message import Message
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
+
+if TYPE_CHECKING:
+    from agno.workflow.v2.task import TaskOutput
 
 
 class WorkflowRunEvent(str, Enum):
@@ -50,8 +51,8 @@ class WorkflowRunResponse:
     audio: Optional[List[AudioArtifact]] = None
     response_audio: Optional[AudioResponse] = None
 
-    # Store actual task execution results
-    task_responses: List[Union[RunResponse, TeamRunResponse]] = field(default_factory=list)
+    # Store actual task execution results as TaskOutput objects
+    task_responses: List["TaskOutput"] = field(default_factory=list)
 
     extra_data: Optional[Dict[str, Any]] = None
     created_at: int = field(default_factory=lambda: int(time()))
@@ -92,7 +93,8 @@ class WorkflowRunResponse:
             _dict["response_audio"] = self.response_audio.to_dict()
 
         if self.task_responses:
-            _dict["task_responses"] = [response.to_dict() for response in self.task_responses]
+            _dict["task_responses"] = [task_output.to_dict()
+                                       for task_output in self.task_responses]
 
         if self.content and isinstance(self.content, BaseModel):
             _dict["content"] = self.content.model_dump(exclude_none=True)
@@ -107,31 +109,38 @@ class WorkflowRunResponse:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "WorkflowRunResponse":
+        # Import here to avoid circular import
+        from agno.workflow.v2.task import TaskOutput
+
         messages = data.pop("messages", None)
-        messages = [Message.model_validate(message) for message in messages] if messages else None
+        messages = [Message.model_validate(
+            message) for message in messages] if messages else None
 
         task_responses = data.pop("task_responses", None)
-        parsed_task_responses: List[Union["WorkflowRunResponse", RunResponse]] = []
+        parsed_task_responses: List["TaskOutput"] = []
         if task_responses is not None:
-            for response in task_responses:
-                if "workflow_id" in response:
-                    parsed_task_responses.append(cls.from_dict(response))
-                else:
-                    parsed_task_responses.append(RunResponse.from_dict(response))
+            for task_output_dict in task_responses:
+                # Reconstruct TaskOutput from dict
+                parsed_task_responses.append(
+                    TaskOutput.from_dict(task_output_dict))
 
         extra_data = data.pop("extra_data", None)
 
         images = data.pop("images", None)
-        images = [ImageArtifact.model_validate(image) for image in images] if images else None
+        images = [ImageArtifact.model_validate(
+            image) for image in images] if images else None
 
         videos = data.pop("videos", None)
-        videos = [VideoArtifact.model_validate(video) for video in videos] if videos else None
+        videos = [VideoArtifact.model_validate(
+            video) for video in videos] if videos else None
 
         audio = data.pop("audio", None)
-        audio = [AudioArtifact.model_validate(audio) for audio in audio] if audio else None
+        audio = [AudioArtifact.model_validate(
+            audio) for audio in audio] if audio else None
 
         response_audio = data.pop("response_audio", None)
-        response_audio = AudioResponse.model_validate(response_audio) if response_audio else None
+        response_audio = AudioResponse.model_validate(
+            response_audio) if response_audio else None
 
         return cls(
             messages=messages,

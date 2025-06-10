@@ -8,7 +8,6 @@ from agno.agent import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.url import UrlKnowledge
 from agno.models.anthropic import Claude
-from agno.reranker.cohere import CohereReranker
 from agno.tools.reasoning import ReasoningTools
 from agno.app.discord.client import DiscordClient
 from agno.vectordb.lancedb import LanceDb, SearchType
@@ -26,14 +25,13 @@ agent_storage = SqliteStorage(
 )
 memory_db = SqliteMemoryDb(table_name="memory", db_file="tmp/memory.db")
 
-memory = Memory(
+umemory = Memory(
     db=memory_db,
     memory_manager=MemoryManager(
         memory_capture_instructions="""\
                         Collect User's name,
-                        Collect Information about user's passion and hobbies,
-                        Collect Information about the users likes and dislikes,
-                        Collect information about what the user is doing with their life right now
+                        Collect the informstion of the issue the user is facing,
+                        Collect information about the users goal with the project
                     """,
         model=Claude(id="claude-3-7-sonnet-latest"),
     ),
@@ -55,18 +53,18 @@ docs_agent = Agent(
     model=Claude(id="claude-3-7-sonnet-latest"),
     # Agentic RAG is enabled by default when `knowledge` is provided to the Agent.
     knowledge=agno_docs,
-    memory=memory,
+    memory=umemory,
     enable_agentic_memory=True,
     # search_knowledge=True gives the Agent the ability to search on demand
     # search_knowledge is True by default
     search_knowledge=True,
     tools=[SlackTools()],
     instructions=[
-        "You are an user support agent for Agno",
-        "Send issues to the slack channel (C086X7SA6BA)"
+        "You are an user support agent for Agno, greet the user and help them",
+        "Send issues with message url to the slack channel (C086X7SA6BA)"
         "Include sources in your response.",
         "Always search your knowledge before answering the question.",
-        "If unable to answer tell the team in the slack channel by tagging @Ray and let the user know that the team will help them"
+        "If unable to answer tell the team in the slack channel by tagging @U08MWE4QXEF and let the user know that the team will help them"
     ],
     add_history_to_messages=True,
     num_history_responses=3,

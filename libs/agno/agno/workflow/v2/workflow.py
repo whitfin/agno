@@ -7,7 +7,7 @@ from uuid import uuid4
 from agno.media import Audio, Image, Video
 from agno.run.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.storage.base import Storage
-from agno.storage.session.workflow import WorkflowSessionV2
+from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.sequence import Sequence
 from agno.workflow.v2.trigger import ManualTrigger, Trigger, TriggerType

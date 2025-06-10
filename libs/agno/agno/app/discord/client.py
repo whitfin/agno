@@ -26,6 +26,7 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
             message_image = None
             message_video = None
             message_audio = None
+            message_file=None
             media_url=None
             message_text=message.content
             message_url=message.jump_url
@@ -40,6 +41,10 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
                     req = requests.get(media_url)
                     video=req.content
                     message_video=video                
+                elif(media_type.startswith("application/")):
+                    req = requests.get(media_url)
+                    document=req.content
+                    message_file=document         
                 elif(media_type.startswith("audio/")):
                     message_audio=media_url                
             log_info(f"processing message:{message_text} \n with media: {media_url} \n url:{message_url}")
@@ -59,7 +64,8 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
                 response = await team.arun(message_text, user_id=message_user,session_id=thread.id,
                     images=[Image(url=message_image)] if message_image else None,
                     videos=[Video(url=message_video)] if message_video else None,
-                    audio=[Audio(url=message_audio)] if message_audio else None,)
+                    audio=[Audio(url=message_audio)] if message_audio else None,
+                    files=[File(url=message_audio)] if message_file else None,)
             if response.reasoning_content:
                 await _send_discord_messages(thread=thread,message= f"Reasoning: \n{response.reasoning_content}", italics=True)
             await _send_discord_messages(thread=thread,message=response.content)

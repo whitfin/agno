@@ -9,7 +9,7 @@ from agno.document.reader.docx_reader import DocxReader
 from agno.document.reader.pdf_reader import PDFReader
 from agno.document.reader.text_reader import TextReader
 from agno.document.reader.website_reader import WebsiteReader
-from agno.memory.v2 import Memory, UserMemory
+from agno.memory import Memory, UserMemory
 from agno.team import Team
 from agno.utils.log import logger
 from uagi import UAgIConfig, create_uagi

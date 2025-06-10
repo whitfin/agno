@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from agno.memory.row import MemoryRow
+from agno.memory.db.schema import MemoryRow
 
 
 class MemoryDb(ABC):
@@ -26,7 +26,7 @@ class MemoryDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_memory(self, id: str) -> None:
+    def delete_memory(self, memory_id: str) -> None:
         raise NotImplementedError
 
     @abstractmethod

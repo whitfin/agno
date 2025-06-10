@@ -5,9 +5,9 @@ To enable this, set `enable_session_summaries=True` in the Agent config.
 """
 
 from agno.agent.agent import Agent
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory
-from agno.memory.v2.summarizer import SessionSummarizer
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory
+from agno.memory.summarizer import SessionSummarizer
 from agno.models.anthropic.claude import Claude
 from rich.pretty import pprint
 

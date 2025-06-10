@@ -5,7 +5,7 @@ from typing import Optional
 
 from agno.agent import Agent
 from agno.knowledge import AgentKnowledge
-from agno.memory.v2 import Memory
+from agno.memory import Memory
 from agno.models.base import Model
 from agno.tools.calculator import CalculatorTools
 from agno.tools.duckdb import DuckDbTools

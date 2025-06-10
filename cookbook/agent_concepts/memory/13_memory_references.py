@@ -4,8 +4,8 @@ add references to the user memories to the Agent.
 """
 
 from agno.agent.agent import Agent
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory, UserMemory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory, UserMemory
 from agno.models.google.gemini import Gemini
 
 memory_db = SqliteMemoryDb(table_name="memory", db_file="tmp/memory.db")

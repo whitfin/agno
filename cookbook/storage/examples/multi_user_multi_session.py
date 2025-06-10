@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.memory.v2 import Memory
+from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 
 agent = Agent(

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from pymongo import MongoClient
@@ -9,8 +9,8 @@ try:
 except ImportError:
     raise ImportError("`pymongo` not installed. Please install it with `pip install pymongo`")
 
-from agno.memory.db.base import MemoryDb
-from agno.memory.row import MemoryRow
+from agno.memory.db import MemoryDb
+from agno.memory.db.schema import MemoryRow
 from agno.utils.log import log_debug, logger
 
 
@@ -42,6 +42,13 @@ class MongoMemoryDb(MemoryDb):
         self.db_name: str = db_name
         self.db: Database = self._client[self.db_name]
         self.collection: Collection = self.db[self.collection_name]
+
+    def __dict__(self) -> Dict[str, Any]:
+        return {
+            "name": "MongoMemoryDb",
+            "collection_name": self.collection_name,
+            "db_name": self.db_name,
+        }
 
     def create(self) -> None:
         """Create indexes for the collection"""
@@ -142,7 +149,7 @@ class MongoMemoryDb(MemoryDb):
             logger.error(f"Error upserting memory: {e}")
             raise
 
-    def delete_memory(self, id: str) -> None:
+    def delete_memory(self, memory_id: str) -> None:
         """Delete a memory from the collection
         Args:
             id: ID of the memory to delete
@@ -150,11 +157,11 @@ class MongoMemoryDb(MemoryDb):
             None
         """
         try:
-            result = self.collection.delete_one({"id": id})
+            result = self.collection.delete_one({"id": memory_id})
             if result.deleted_count == 0:
-                log_debug(f"No memory found with id: {id}")
+                log_debug(f"No memory found with id: {memory_id}")
             else:
-                log_debug(f"Successfully deleted memory with id: {id}")
+                log_debug(f"Successfully deleted memory with id: {memory_id}")
         except PyMongoError as e:
             logger.error(f"Error deleting memory: {e}")
             raise

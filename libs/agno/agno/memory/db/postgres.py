@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from sqlalchemy.dialects import postgresql
@@ -12,11 +12,11 @@ except ImportError:
     raise ImportError("`sqlalchemy` not installed.  Please install using `pip install sqlalchemy 'psycopg[binary]'`")
 
 from agno.memory.db.base import MemoryDb
-from agno.memory.row import MemoryRow
-from agno.utils.log import log_debug, logger
+from agno.memory.db.schema import MemoryRow
+from agno.utils.log import log_debug, log_info, logger
 
 
-class PgMemoryDb(MemoryDb):
+class PostgresMemoryDb(MemoryDb):
     def __init__(
         self,
         table_name: str,
@@ -53,12 +53,19 @@ class PgMemoryDb(MemoryDb):
         self.Session: scoped_session = scoped_session(sessionmaker(bind=self.db_engine))
         self.table: Table = self.get_table()
 
+    def __dict__(self) -> Dict[str, Any]:
+        return {
+            "name": "PostgresMemoryDb",
+            "table_name": self.table_name,
+            "schema": self.schema,
+        }
+
     def get_table(self) -> Table:
         return Table(
             self.table_name,
             self.metadata,
             Column("id", String, primary_key=True),
-            Column("user_id", String),
+            Column("user_id", String, index=True),
             Column("memory", postgresql.JSONB, server_default=text("'{}'::jsonb")),
             Column("created_at", DateTime(timezone=True), server_default=text("now()")),
             Column("updated_at", DateTime(timezone=True), onupdate=text("now()")),
@@ -145,9 +152,9 @@ class PgMemoryDb(MemoryDb):
                 return self.upsert_memory(memory, create_and_retry=False)
             return None
 
-    def delete_memory(self, id: str) -> None:
+    def delete_memory(self, memory_id: str) -> None:
         with self.Session() as sess, sess.begin():
-            stmt = delete(self.table).where(self.table.c.id == id)
+            stmt = delete(self.table).where(self.table.c.id == memory_id)
             sess.execute(stmt)
 
     def drop_table(self) -> None:
@@ -164,10 +171,13 @@ class PgMemoryDb(MemoryDb):
             return False
 
     def clear(self) -> bool:
-        with self.Session() as sess, sess.begin():
-            stmt = delete(self.table)
-            sess.execute(stmt)
-            return True
+        if self.table_exists():
+            with self.Session() as sess, sess.begin():
+                stmt = delete(self.table)
+                log_info(f"Clearing table: {self.table.name}")
+                sess.execute(stmt)
+                return True
+        return False
 
     def __deepcopy__(self, memo):
         """
@@ -177,7 +187,7 @@ class PgMemoryDb(MemoryDb):
             memo (dict): A dictionary of objects already copied during the current copying pass.
 
         Returns:
-            PgMemoryDb: A deep-copied instance of PgMemoryDb.
+            PostgresMemoryDb: A deep-copied instance of PgMemoryDb.
         """
         from copy import deepcopy
 
@@ -187,7 +197,8 @@ class PgMemoryDb(MemoryDb):
         memo[id(self)] = copied_obj
 
         # Deep copy attributes
-        for k, v in self.__dict__.items():
+
+        for k, v in self.__dict__().items():
             if k in {"metadata", "table"}:
                 continue
             # Reuse db_engine and Session without copying

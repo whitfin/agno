@@ -7,8 +7,8 @@ Steps:
 """
 
 from agno.agent import Agent
-from agno.memory.v2.db.postgres import PostgresMemoryDb
-from agno.memory.v2.memory import Memory
+from agno.memory.db.postgres import PostgresMemoryDb
+from agno.memory.memory import Memory
 from agno.models.mistral.mistral import MistralChat
 from agno.storage.postgres import PostgresStorage
 from agno.tools.duckduckgo import DuckDuckGoTools

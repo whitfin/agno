@@ -7,8 +7,8 @@ We also set custom system prompts for the memory manager and summarizer. You can
 """
 
 from agno.agent.agent import Agent
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory, MemoryManager, SessionSummarizer
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory, MemoryManager, SessionSummarizer
 from agno.models.anthropic.claude import Claude
 from agno.models.google.gemini import Gemini
 from agno.models.openrouter.openrouter import OpenRouter

@@ -1,12 +1,12 @@
 from textwrap import dedent
 
 from agno.agent import Agent
-from agno.memory.v2 import Memory
-from agno.memory.v2.db.postgres import PostgresMemoryDb
+from agno.memory import Memory
+from agno.memory.db.postgres import PostgresMemoryDb
 from agno.models.anthropic import Claude
 from agno.models.google.gemini import Gemini
 from agno.models.openai import OpenAIChat
-from agno.playground import Playground, serve_playground_app
+from agno.playground import Playground
 from agno.storage.postgres import PostgresStorage
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools

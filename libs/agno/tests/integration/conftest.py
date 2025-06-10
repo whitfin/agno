@@ -4,8 +4,8 @@ import uuid
 
 import pytest
 
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory
 from agno.storage.sqlite import SqliteStorage
 
 

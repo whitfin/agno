@@ -3,10 +3,10 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from agno.memory.v2 import MemoryManager, SessionSummarizer
-from agno.memory.v2.db.schema import MemoryRow
-from agno.memory.v2.memory import Memory
-from agno.memory.v2.schema import SessionSummary, UserMemory
+from agno.memory import MemoryManager, SessionSummarizer
+from agno.memory.db import MemoryRow
+from agno.memory.memory import Memory
+from agno.memory.schema import SessionSummary, UserMemory
 from agno.models.message import Message
 from agno.models.openai.chat import OpenAIChat
 from agno.run.response import RunResponse

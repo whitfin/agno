@@ -2,8 +2,8 @@ from textwrap import dedent
 
 from agno.agent import Agent
 from agno.app.fastapi.app import FastAPIApp
-from agno.memory.v2 import Memory
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
+from agno.memory import Memory
+from agno.memory.db import SqliteMemoryDb
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
 from agno.team.team import Team

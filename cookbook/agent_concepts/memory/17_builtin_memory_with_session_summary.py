@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.memory.v2 import Memory, SessionSummarizer
+from agno.memory import Memory, SessionSummarizer
 from agno.models.openai import OpenAIChat
 from rich.pretty import pprint
 

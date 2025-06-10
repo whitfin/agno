@@ -9,8 +9,8 @@ Steps:
 import asyncio
 
 from agno.agent import Agent
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory
 from agno.models.anthropic.claude import Claude
 from agno.models.google.gemini import Gemini
 from agno.models.mistral.mistral import MistralChat

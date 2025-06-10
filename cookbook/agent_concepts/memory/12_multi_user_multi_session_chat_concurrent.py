@@ -11,8 +11,8 @@ User 3 has 1 session.
 import asyncio
 
 from agno.agent.agent import Agent
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory
 from agno.models.anthropic.claude import Claude
 from agno.models.google.gemini import Gemini
 from agno.storage.sqlite import SqliteStorage

@@ -35,8 +35,7 @@ from agno.app.playground.schemas import (
 from agno.app.playground.utils import process_audio, process_document, process_image, process_video
 from agno.media import Audio, Image, Video
 from agno.media import File as FileMedia
-from agno.memory.agent import AgentMemory
-from agno.memory.v2 import Memory
+from agno.memory import Memory
 from agno.run.response import RunResponseErrorEvent, RunResponseEvent
 from agno.run.team import RunResponseErrorEvent as TeamRunResponseErrorEvent
 from agno.run.team import TeamRunResponseEvent
@@ -170,9 +169,7 @@ def get_sync_playground_router(
 
             if agent.memory:
                 memory_dict: Optional[Dict[str, Any]] = {}
-                if isinstance(agent.memory, AgentMemory) and agent.memory.db:
-                    memory_dict = {"name": agent.memory.db.__class__.__name__}
-                elif isinstance(agent.memory, Memory) and agent.memory.db:
+                if isinstance(agent.memory, Memory) and agent.memory.db:
                     memory_dict = {"name": "Memory"}
                     if agent.memory.model is not None:
                         memory_dict["model"] = AgentModel(

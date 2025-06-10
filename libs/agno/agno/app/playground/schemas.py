@@ -7,9 +7,7 @@ from pydantic import BaseModel
 
 from agno.agent import Agent
 from agno.app.playground.operator import format_tools
-from agno.memory.agent import AgentMemory
-from agno.memory.team import TeamMemory
-from agno.memory.v2 import Memory
+from agno.memory import Memory
 from agno.team import Team
 
 
@@ -35,9 +33,7 @@ class AgentGetResponse(BaseModel):
     def from_agent(self, agent: Agent, async_mode: bool = False) -> "AgentGetResponse":
         if agent.memory:
             memory_dict: Optional[Dict[str, Any]] = {}
-            if isinstance(agent.memory, AgentMemory) and agent.memory.db:
-                memory_dict = {"name": agent.memory.db.__class__.__name__}
-            elif isinstance(agent.memory, Memory) and agent.memory.db:
+            if isinstance(agent.memory, Memory) and agent.memory.db:
                 memory_dict = {"name": "Memory"}
                 if agent.memory.model is not None:
                     memory_dict["model"] = AgentModel(
@@ -167,8 +163,6 @@ class TeamGetResponse(BaseModel):
                 )
             if team.memory.db is not None:
                 memory_dict["db"] = team.memory.db.__dict__()  # type: ignore
-        elif isinstance(team.memory, TeamMemory):
-            memory_dict = {"name": team.memory.db.__class__.__name__}
         else:
             memory_dict = None
 

@@ -3,14 +3,8 @@ from pydantic import BaseModel, Field
 
 from agno.agent import Agent, RunResponse  # noqa
 from agno.exceptions import ModelProviderError
-from agno.memory import AgentMemory
-from agno.memory.classifier import MemoryClassifier
-from agno.memory.db.sqlite import SqliteMemoryDb
-from agno.memory.manager import MemoryManager
-from agno.memory.summarizer import MemorySummarizer
 from agno.models.huggingface import HuggingFace
 from agno.storage.sqlite import SqliteStorage
-from agno.tools.duckduckgo import DuckDuckGoTools
 
 
 def _assert_metrics(response: RunResponse):
@@ -183,32 +177,3 @@ def test_history():
     agent.run("Hello 4")
     assert len(agent.run_response.messages) == 8
 
-
-def test_persistent_memory():
-    agent = Agent(
-        model=HuggingFace(id="Qwen/Qwen2.5-Coder-32B-Instruct"),
-        tools=[DuckDuckGoTools(cache_results=True)],
-        markdown=True,
-        telemetry=False,
-        monitoring=False,
-        instructions=[
-            "You can search the internet with DuckDuckGo.",
-        ],
-        storage=SqliteStorage(table_name="chat_agent", db_file="tmp/agent_storage.db"),
-        add_datetime_to_instructions=True,
-        add_history_to_messages=True,
-        num_history_responses=15,
-        memory=AgentMemory(
-            db=SqliteMemoryDb(db_file="tmp/agent_memory.db"),
-            create_user_memories=True,
-            create_session_summary=True,
-            update_user_memories_after_run=True,
-            update_session_summary_after_run=True,
-            classifier=MemoryClassifier(model=HuggingFace(id="Qwen/Qwen2.5-Coder-32B-Instruct")),
-            summarizer=MemorySummarizer(model=HuggingFace(id="Qwen/Qwen2.5-Coder-32B-Instruct")),
-            manager=MemoryManager(model=HuggingFace(id="Qwen/Qwen2.5-Coder-32B-Instruct")),
-        ),
-    )
-
-    response = agent.run("What is current news in France?")
-    assert response.content is not None

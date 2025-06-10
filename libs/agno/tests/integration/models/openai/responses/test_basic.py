@@ -5,14 +5,8 @@ from pydantic import BaseModel, Field
 
 from agno.agent import Agent, RunResponse  # noqa
 from agno.exceptions import ModelProviderError
-from agno.memory import AgentMemory
-from agno.memory.classifier import MemoryClassifier
-from agno.memory.db.sqlite import SqliteMemoryDb
-from agno.memory.manager import MemoryManager
-from agno.memory.summarizer import MemorySummarizer
 from agno.models.openai import OpenAIResponses
 from agno.storage.agent.sqlite import SqliteAgentStorage
-from agno.tools.duckduckgo import DuckDuckGoTools
 
 
 def _assert_metrics(response: RunResponse):
@@ -199,36 +193,3 @@ def test_history():
     agent.run("Hello 4")
     assert len(agent.run_response.messages) == 8
 
-
-def test_persistent_memory():
-    """Test persistent memory with the Responses API."""
-    agent = Agent(
-        model=OpenAIResponses(id="gpt-4o-mini"),
-        tools=[DuckDuckGoTools(cache_results=True)],
-        markdown=True,
-        telemetry=False,
-        monitoring=False,
-        instructions=[
-            "You can search the internet with DuckDuckGo.",
-        ],
-        storage=SqliteAgentStorage(table_name="responses_agent", db_file="tmp/agent_storage.db"),
-        # Adds the current date and time to the instructions
-        add_datetime_to_instructions=True,
-        # Adds the history of the conversation to the messages
-        add_history_to_messages=True,
-        # Number of history responses to add to the messages
-        num_history_responses=15,
-        memory=AgentMemory(
-            db=SqliteMemoryDb(db_file="tmp/responses_agent_memory.db"),
-            create_user_memories=True,
-            create_session_summary=True,
-            update_user_memories_after_run=True,
-            update_session_summary_after_run=True,
-            classifier=MemoryClassifier(model=OpenAIResponses(id="gpt-4o-mini")),
-            summarizer=MemorySummarizer(model=OpenAIResponses(id="gpt-4o-mini")),
-            manager=MemoryManager(model=OpenAIResponses(id="gpt-4o-mini")),
-        ),
-    )
-
-    response = agent.run("What is current news in France?")
-    assert response.content is not None

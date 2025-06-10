@@ -6,8 +6,8 @@ How to search for user memories using different retrieval methods
 - semantic: Retrieves memories using semantic search
 """
 
-from agno.memory.v2 import Memory, UserMemory
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
+from agno.memory import Memory, UserMemory
+from agno.memory.db import SqliteMemoryDb
 from agno.models.google.gemini import Gemini
 from rich.pretty import pprint
 

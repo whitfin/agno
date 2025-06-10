@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory, UserMemory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory, UserMemory
 from agno.models.message import Message
 from agno.models.openai import OpenAIChat
 from agno.run.response import RunResponse

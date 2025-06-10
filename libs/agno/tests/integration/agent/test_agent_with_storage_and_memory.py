@@ -1,7 +1,6 @@
 import pytest
 
 from agno.agent.agent import Agent
-from agno.memory.agent import AgentMemory
 from agno.models.message import Message
 from agno.models.openai.chat import OpenAIChat
 
@@ -87,32 +86,6 @@ def test_agent_runs_in_memory(chat_agent):
 
     # Check that the run is also stored in the agent session
     assert len(chat_agent.agent_session.memory["runs"]) == 1
-
-
-def test_agent_runs_in_memory_legacy(chat_agent):
-    chat_agent.memory = AgentMemory()
-    session_id = "test_session"
-    response = chat_agent.run(
-        "What can you do?",
-        messages=[
-            Message(role="user", content="Hello, how are you?"),
-            Message(role="assistant", content="I'm good, thank you!"),
-        ],
-        session_id=session_id,
-    )
-    assert response is not None
-    assert response.content is not None
-    assert response.run_id is not None
-
-    assert len(chat_agent.memory.runs) == 1
-    stored_agent_run = chat_agent.memory.runs[0]
-    assert stored_agent_run.response.run_id == response.run_id
-    assert len(stored_agent_run.response.messages) == 4
-    assert len(stored_agent_run.messages) == 2
-
-    # Check that the run is also stored in the agent session
-    assert len(chat_agent.agent_session.memory["runs"]) == 1
-
 
 @pytest.mark.asyncio
 async def test_multi_user_multi_session_chat(memory_agent, agent_storage, memory):

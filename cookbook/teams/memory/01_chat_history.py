@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.memory.v2.memory import Memory
+from agno.memory.memory import Memory
 from agno.models.anthropic.claude import Claude
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools

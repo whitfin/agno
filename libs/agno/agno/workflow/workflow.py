@@ -5,15 +5,14 @@ import inspect
 from dataclasses import dataclass, field, fields
 from os import getenv
 from types import GeneratorType
-from typing import Any, AsyncGenerator, AsyncIterator, Callable, Dict, List, Optional, Union, cast, get_args
+from typing import Any, AsyncGenerator, AsyncIterator, Callable, Dict, List, Optional, cast, get_args
 from uuid import uuid4
 
 from pydantic import BaseModel
 
 from agno.agent import Agent
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
-from agno.memory.v2.memory import Memory
-from agno.memory.workflow import WorkflowMemory, WorkflowRun
+from agno.memory.memory import Memory
 from agno.run.response import RunResponse, RunResponseEvent
 from agno.run.team import TeamRunResponseEvent
 from agno.run.workflow import WorkflowRunResponseEvent
@@ -50,7 +49,7 @@ class Workflow:
     session_state: Dict[str, Any] = field(default_factory=dict)
 
     # --- Workflow Memory ---
-    memory: Optional[Union[WorkflowMemory, Memory]] = None
+    memory: Optional[Memory] = None
 
     # --- Workflow Storage ---
     storage: Optional[Storage] = None
@@ -87,7 +86,7 @@ class Workflow:
         session_id: Optional[str] = None,
         session_name: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
-        memory: Optional[Union[WorkflowMemory, Memory]] = None,
+        memory: Optional[Memory] = None,
         storage: Optional[Storage] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         debug_mode: bool = False,
@@ -197,10 +196,7 @@ class Workflow:
 
             def result_generator():
                 self.run_response = cast(RunResponse, self.run_response)
-                if isinstance(self.memory, WorkflowMemory):
-                    self.memory = cast(WorkflowMemory, self.memory)
-                elif isinstance(self.memory, Memory):
-                    self.memory = cast(Memory, self.memory)
+                self.memory = cast(Memory, self.memory)
 
                 for item in result:
                     if (
@@ -221,10 +217,7 @@ class Workflow:
                     yield item
 
                 # Add the run to the memory
-                if isinstance(self.memory, WorkflowMemory):
-                    self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
-                elif isinstance(self.memory, Memory):
-                    self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
+                self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
                 # Write this run to the database
                 self.write_to_storage()
                 log_debug(f"Workflow Run End: {self.run_id}", center=True)
@@ -242,10 +235,7 @@ class Workflow:
                 self.run_response.content = result.content
 
             # Add the run to the memory
-            if isinstance(self.memory, WorkflowMemory):
-                self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
-            elif isinstance(self.memory, Memory):
-                self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
+            self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
             # Write this run to the database
             self.write_to_storage()
             log_debug(f"Workflow Run End: {self.run_id}", center=True)
@@ -253,8 +243,6 @@ class Workflow:
         else:
             logger.warning(f"Workflow.run() should only return RunResponse objects, got: {type(result)}")
             return None
-
-    # Add to workflow.py after the run_workflow method
 
     async def arun_workflow(self, **kwargs: Any):
         """Run the Workflow asynchronously"""
@@ -308,10 +296,7 @@ class Workflow:
 
             async def result_generator():
                 self.run_response = cast(RunResponse, self.run_response)
-                if isinstance(self.memory, WorkflowMemory):
-                    self.memory = cast(WorkflowMemory, self.memory)
-                elif isinstance(self.memory, Memory):
-                    self.memory = cast(Memory, self.memory)
+                self.memory = cast(Memory, self.memory)
 
                 async for item in result:
                     if (
@@ -332,10 +317,7 @@ class Workflow:
                     yield item
 
                 # Add the run to the memory
-                if isinstance(self.memory, WorkflowMemory):
-                    self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
-                elif isinstance(self.memory, Memory):
-                    self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
+                self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
                 # Write this run to the database
                 self.write_to_storage()
                 log_debug(f"Workflow Run End: {self.run_id}", center=True)
@@ -353,10 +335,7 @@ class Workflow:
                 self.run_response.content = result.content
 
             # Add the run to the memory
-            if isinstance(self.memory, WorkflowMemory):
-                self.memory.add_run(WorkflowRun(input=self.run_input, response=self.run_response))
-            elif isinstance(self.memory, Memory):
-                self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
+            self.memory.add_run(session_id=self.session_id, run=self.run_response)  # type: ignore
             # Write this run to the database
             self.write_to_storage()
             log_debug(f"Workflow Run End: {self.run_id}", center=True)
@@ -504,25 +483,14 @@ class Workflow:
 
     def get_workflow_session(self) -> WorkflowSession:
         """Get a WorkflowSession object, which can be saved to the database"""
-        self.memory = cast(WorkflowMemory, self.memory)
         self.session_id = cast(str, self.session_id)
         self.workflow_id = cast(str, self.workflow_id)
         if self.memory is not None:
-            if isinstance(self.memory, WorkflowMemory):
-                self.memory = cast(WorkflowMemory, self.memory)
-                memory_dict = self.memory.to_dict()
-                # We only persist the runs for the current session ID (not all runs in memory)
-                memory_dict["runs"] = [
-                    agent_run.model_dump()
-                    for agent_run in self.memory.runs
-                    if agent_run.response is not None and agent_run.response.session_id == self.session_id
-                ]
-            else:
-                self.memory = cast(Memory, self.memory)
-                # We fake the structure on storage, to maintain the interface with the legacy implementation
-                run_responses = self.memory.runs[self.session_id]  # type: ignore
-                memory_dict = self.memory.to_dict()
-                memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
+            self.memory = cast(Memory, self.memory)
+            # We fake the structure on storage, to maintain the interface with the legacy implementation
+            run_responses = self.memory.runs[self.session_id]  # type: ignore
+            memory_dict = self.memory.to_dict()
+            memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
         else:
             memory_dict = None
         return WorkflowSession(
@@ -606,25 +574,15 @@ class Workflow:
             if self.memory is None:
                 self.memory = Memory()
 
-            if isinstance(self.memory, Memory):
-                try:
-                    if self.memory.runs is None:
-                        self.memory.runs = {}
-                    self.memory.runs[session.session_id] = []
-                    for run in session.memory["runs"]:
-                        run_session_id = run["session_id"]
-                        self.memory.runs[run_session_id].append(RunResponse.from_dict(run))
-                except Exception as e:
-                    log_warning(f"Failed to load runs from memory: {e}")
-            else:
-                try:
-                    if "runs" in session.memory:
-                        try:
-                            self.memory.runs = [WorkflowRun(**m) for m in session.memory["runs"]]
-                        except Exception as e:
-                            logger.warning(f"Failed to load runs from memory: {e}")
-                except Exception as e:
-                    logger.warning(f"Failed to load WorkflowMemory: {e}")
+            try:
+                if self.memory.runs is None:
+                    self.memory.runs = {}
+                self.memory.runs[session.session_id] = []
+                for run in session.memory["runs"]:
+                    run_session_id = run["session_id"]
+                    self.memory.runs[run_session_id].append(RunResponse.from_dict(run))
+            except Exception as e:
+                log_warning(f"Failed to load runs from memory: {e}")
 
         log_debug(f"-*- WorkflowSession loaded: {session.session_id}")
 

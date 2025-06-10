@@ -1,8 +1,8 @@
 from uuid import uuid4
 
 from agno.agent.agent import Agent
-from agno.memory.v2 import Memory
-from agno.memory.v2.db.postgres import PostgresMemoryDb
+from agno.memory import Memory
+from agno.memory.db.postgres import PostgresMemoryDb
 from agno.models.mistral.mistral import MistralChat
 from agno.models.openai.chat import OpenAIChat
 from agno.storage.postgres import PostgresStorage

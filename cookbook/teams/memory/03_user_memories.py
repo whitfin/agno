@@ -7,8 +7,8 @@ Steps:
 """
 
 from agno.agent import Agent
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.memory import Memory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.memory import Memory
 from agno.models.google.gemini import Gemini
 from agno.models.openai import OpenAIChat
 from agno.models.perplexity.perplexity import Perplexity

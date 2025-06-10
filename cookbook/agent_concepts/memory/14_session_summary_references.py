@@ -8,8 +8,8 @@ Note: Session summaries are stored in the storage table along with the session, 
 """
 
 from agno.agent.agent import Agent
-from agno.memory.v2.db.postgres import PostgresMemoryDb
-from agno.memory.v2.memory import Memory
+from agno.memory.db.postgres import PostgresMemoryDb
+from agno.memory.memory import Memory
 from agno.models.google.gemini import Gemini
 from agno.storage.postgres import PostgresStorage
 

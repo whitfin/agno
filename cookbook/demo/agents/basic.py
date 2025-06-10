@@ -2,8 +2,8 @@ from datetime import datetime
 from textwrap import dedent
 
 from agno.agent import Agent
-from agno.memory.v2 import Memory
-from agno.memory.v2.db.postgres import PostgresMemoryDb
+from agno.memory import Memory
+from agno.memory.db.postgres import PostgresMemoryDb
 from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage

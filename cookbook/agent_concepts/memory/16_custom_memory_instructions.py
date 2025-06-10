@@ -4,9 +4,9 @@ Create user memories with an Agent by providing a either text or a list of messa
 
 from textwrap import dedent
 
-from agno.memory.v2 import Memory
-from agno.memory.v2.db.sqlite import SqliteMemoryDb
-from agno.memory.v2.manager import MemoryManager
+from agno.memory import Memory
+from agno.memory.db import SqliteMemoryDb
+from agno.memory.manager import MemoryManager
 from agno.models.google import Gemini
 from rich.pretty import pprint
 

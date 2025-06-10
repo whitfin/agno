@@ -8,7 +8,7 @@ from agno.agent import Agent
 from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge import AgentKnowledge
 from agno.memory import Memory
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.models.anthropic import Claude
 from agno.models.google import Gemini
 from agno.models.groq import Groq

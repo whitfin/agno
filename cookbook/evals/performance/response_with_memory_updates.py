@@ -2,7 +2,7 @@
 
 from agno.agent import Agent
 from agno.eval.performance import PerformanceEval
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.memory import Memory
 from agno.models.openai import OpenAIChat
 

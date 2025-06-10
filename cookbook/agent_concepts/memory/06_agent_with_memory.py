@@ -9,7 +9,7 @@ To enable this, set `enable_user_memories=True` in the Agent config.
 from uuid import uuid4
 
 from agno.agent.agent import Agent
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage

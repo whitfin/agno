@@ -6,7 +6,7 @@ from typing import List
 
 from agno.agent import Agent
 from agno.memory import Memory
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.models.openai import OpenAIChat
 from agno.playground import Playground
 from agno.storage.sqlite import SqliteStorage

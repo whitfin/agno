@@ -7,7 +7,7 @@ To enable this, set `enable_agentic_memory=True` in the Agent config.
 """
 
 from agno.agent.agent import Agent
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.memory import Memory
 from agno.models.openai import OpenAIChat
 from rich.pretty import pprint

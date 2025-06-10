@@ -1,5 +1,5 @@
 from agno.agent.agent import Agent
-from agno.memory.db import RedisMemoryDb
+from agno.memory.db.redis import RedisMemoryDb
 from agno.memory.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.storage.redis import RedisStorage

@@ -3,7 +3,7 @@ Create user memories with an Agent by providing a either text or a list of messa
 """
 
 from agno.memory import Memory
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.manager import MemoryManager
 from agno.models.anthropic.claude import Claude
 from agno.models.google import Gemini

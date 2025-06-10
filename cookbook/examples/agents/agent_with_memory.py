@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.memory import Memory
 from agno.models.anthropic import Claude
 from agno.models.openai import OpenAIChat

@@ -1,6 +1,6 @@
 from typing import Any, List, Optional, Union, cast
 
-from agno.agent.agent import Agent, AgentRun, Function, Toolkit
+from agno.agent.agent import Agent, Function, Toolkit
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.storage.session.agent import AgentSession
@@ -54,25 +54,16 @@ def get_session_title(session: Union[AgentSession, TeamSession]) -> str:
 
         for _run in runs:
             try:
-                if "response" in _run:
-                    run_parsed = AgentRun.model_validate(_run)
-                    if run_parsed.message is not None and run_parsed.message.role == "user":
-                        content = run_parsed.message.get_content_string()
-                        if content:
-                            return content
-                        else:
-                            return "No title"
+                if "agent_id" in _run:
+                    run_response_parsed = RunResponse.from_dict(_run)
                 else:
-                    if "agent_id" in _run:
-                        run_response_parsed = RunResponse.from_dict(_run)
-                    else:
-                        run_response_parsed = TeamRunResponse.from_dict(_run)  # type: ignore
-                    if run_response_parsed.messages is not None and len(run_response_parsed.messages) > 0:
-                        for msg in run_response_parsed.messages:
-                            if msg.role == "user":
-                                content = msg.get_content_string()
-                                if content:
-                                    return content
+                    run_response_parsed = TeamRunResponse.from_dict(_run)  # type: ignore
+                if run_response_parsed.messages is not None and len(run_response_parsed.messages) > 0:
+                    for msg in run_response_parsed.messages:
+                        if msg.role == "user":
+                            content = msg.get_content_string()
+                            if content:
+                                return content
 
             except Exception as e:
                 import traceback
@@ -152,25 +143,17 @@ def get_session_title_from_team_session(team_session: TeamSession) -> str:
 
         for _run in runs:
             try:
-                if "response" in _run:
-                    run_parsed = AgentRun.model_validate(_run)
-                    if run_parsed.message is not None and run_parsed.message.role == "user":
-                        content = run_parsed.message.get_content_string()
-                        if content:
-                            return content
-                        else:
-                            return "No title"
+
+                if "agent_id" in _run:
+                    run_response_parsed = RunResponse.from_dict(_run)
                 else:
-                    if "agent_id" in _run:
-                        run_response_parsed = RunResponse.from_dict(_run)
-                    else:
-                        run_response_parsed = TeamRunResponse.from_dict(_run)  # type: ignore
-                    if run_response_parsed.messages is not None and len(run_response_parsed.messages) > 0:
-                        for msg in run_response_parsed.messages:
-                            if msg.role == "user":
-                                content = msg.get_content_string()
-                                if content:
-                                    return content
+                    run_response_parsed = TeamRunResponse.from_dict(_run)  # type: ignore
+                if run_response_parsed.messages is not None and len(run_response_parsed.messages) > 0:
+                    for msg in run_response_parsed.messages:
+                        if msg.role == "user":
+                            content = msg.get_content_string()
+                            if content:
+                                return content
 
             except Exception as e:
                 logger.error(f"Error parsing chat: {e}")

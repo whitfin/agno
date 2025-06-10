@@ -15,8 +15,7 @@ from agno.utils.whatsapp import get_media, send_image_message, typing_indicator,
 from .security import validate_webhook_signature
 
 
-def get_sync_router(agent: Optional[Agent] = None, team: Optional[Team] = None) -> APIRouter:
-    router = APIRouter()
+def attach_sync_routes(router: APIRouter, agent: Optional[Agent] = None, team: Optional[Team] = None) -> APIRouter:
 
     if agent is None and team is None:
         raise ValueError("Either agent or team must be provided.")

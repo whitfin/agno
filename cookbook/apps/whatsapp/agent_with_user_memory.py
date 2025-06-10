@@ -2,7 +2,7 @@ from textwrap import dedent
 
 from agno.agent import Agent
 from agno.app.whatsapp.app import WhatsappAPI
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.manager import MemoryManager
 from agno.memory.memory import Memory
 from agno.models.google import Gemini

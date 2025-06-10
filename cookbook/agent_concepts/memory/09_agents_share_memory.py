@@ -3,7 +3,7 @@ In this example, we have two agents that share the same memory.
 """
 
 from agno.agent.agent import Agent
-from agno.memory.db import SqliteMemoryDb
+from agno.memory.db.sqlite import SqliteMemoryDb
 from agno.memory.memory import Memory
 from agno.models.google.gemini import Gemini
 from agno.tools.duckduckgo import DuckDuckGoTools

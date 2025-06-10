@@ -2,9 +2,16 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
 
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
-from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
+from agno.run.v2.workflow import (
+    TaskCompletedEvent,
+    TaskErrorEvent,
+    TaskStartedEvent,
+    WorkflowCompletedEvent,
+    WorkflowRunEvent,
+    WorkflowRunResponse,
+    WorkflowRunResponseEvent,
+    WorkflowStartedEvent,
+)
 from agno.utils.log import logger
 from agno.workflow.v2.task import Task, TaskInput, TaskOutput
 
@@ -25,7 +32,7 @@ class Sequence:
         if self.sequence_id is None:
             self.sequence_id = str(uuid4())
 
-    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Iterator[WorkflowRunResponse]:
+    def execute(self, inputs: Dict[str, Any], context: Dict[str, Any] = None) -> Iterator[WorkflowRunResponseEvent]:
         """Execute all tasks in the sequence sequentially using TaskInput/TaskOutput"""
         logger.info(f"Starting sequence: {self.name}")
 
@@ -39,30 +46,31 @@ class Sequence:
         collected_task_outputs: List[TaskOutput] = []
 
         # Workflow started event
-        yield WorkflowRunResponse(
+        yield WorkflowStartedEvent(
+            run_id=context.get("run_id", ""),
             content=f"Sequence {self.name} started",
-            event=WorkflowRunEvent.workflow_started,
             workflow_name=context.get("workflow_name") if context else None,
             sequence_name=self.name,
             workflow_id=context.get("workflow_id") if context else None,
-            run_id=context.get("run_id") if context else None,
             session_id=context.get("session_id") if context else None,
         )
 
         for i, task in enumerate(self.tasks):
-            logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
+            logger.info(
+                f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
 
             # Add task_index to context for the task
             task_context = sequence_context.copy()
             task_context["task_index"] = i
 
             # Create TaskInput for this task
-            task_input = self._create_task_input(inputs, previous_outputs, context)
+            task_input = self._create_task_input(
+                inputs, previous_outputs, context)
 
             # Execute the task
             task_output = None
             for event in task.execute(task_input, task_context):
-                if isinstance(event, WorkflowRunResponse):
+                if isinstance(event, (WorkflowRunResponse, TaskStartedEvent, TaskCompletedEvent, TaskErrorEvent)):
                     # Forward workflow events (like task_started)
                     yield event
                 elif isinstance(event, TaskOutput):
@@ -71,30 +79,34 @@ class Sequence:
                     break
 
             if task_output is None:
-                raise RuntimeError(f"Task {task.name} did not return a TaskOutput")
+                raise RuntimeError(
+                    f"Task {task.name} did not return a TaskOutput")
 
             # Collect the TaskOutput for storage
             collected_task_outputs.append(task_output)
 
             # Update previous_outputs for next task
-            self._update_previous_outputs(previous_outputs, task, task_output, i)
+            self._update_previous_outputs(
+                previous_outputs, task, task_output, i)
 
             # Task completed event
-            yield WorkflowRunResponse(
+            yield TaskCompletedEvent(
+                run_id=context.get("run_id", ""),
                 content=task_output.content,
-                event=WorkflowRunEvent.task_completed,
-                workflow_name=context.get("workflow_name") if context else None,
+                workflow_name=context.get(
+                    "workflow_name") if context else None,
                 sequence_name=self.name,
                 task_name=task.name,
                 task_index=i,
                 workflow_id=context.get("workflow_id") if context else None,
-                run_id=context.get("run_id") if context else None,
                 session_id=context.get("session_id") if context else None,
                 images=task_output.images,
                 videos=task_output.videos,
                 audio=task_output.audio,
-                messages=getattr(task_output.response, "messages", None) if task_output.response else None,
-                metrics=getattr(task_output.response, "metrics", None) if task_output.response else None,
+                messages=getattr(task_output.response, "messages",
+                                 None) if task_output.response else None,
+                metrics=getattr(task_output.response, "metrics",
+                                None) if task_output.response else None,
                 task_responses=[task_output],
             )
 
@@ -115,13 +127,12 @@ class Sequence:
             ],
         }
 
-        yield WorkflowRunResponse(
+        yield WorkflowCompletedEvent(
+            run_id=context.get("run_id", ""),
             content=f"Sequence {self.name} completed successfully",
-            event=WorkflowRunEvent.workflow_completed,
             workflow_name=context.get("workflow_name") if context else None,
             sequence_name=self.name,
             workflow_id=context.get("workflow_id") if context else None,
-            run_id=context.get("run_id") if context else None,
             session_id=context.get("session_id") if context else None,
             task_responses=collected_task_outputs,
             extra_data=final_output,
@@ -155,14 +166,16 @@ class Sequence:
         )
 
         for i, task in enumerate(self.tasks):
-            logger.info(f"Executing async task {i + 1}/{len(self.tasks)}: {task.name}")
+            logger.info(
+                f"Executing async task {i + 1}/{len(self.tasks)}: {task.name}")
 
             # Add task_index to context for the task
             task_context = sequence_context.copy()
             task_context["task_index"] = i
 
             # Create TaskInput for this task
-            task_input = self._create_task_input(inputs, previous_outputs, context)
+            task_input = self._create_task_input(
+                inputs, previous_outputs, context)
 
             # Execute the task asynchronously
             task_output = None
@@ -176,19 +189,22 @@ class Sequence:
                     break
 
             if task_output is None:
-                raise RuntimeError(f"Async task {task.name} did not return a TaskOutput")
+                raise RuntimeError(
+                    f"Async task {task.name} did not return a TaskOutput")
 
             # Collect the TaskOutput for storage (same as sync version)
             collected_task_outputs.append(task_output)
 
             # Update previous_outputs for next task
-            self._update_previous_outputs(previous_outputs, task, task_output, i)
+            self._update_previous_outputs(
+                previous_outputs, task, task_output, i)
 
             # Task completed event
             yield WorkflowRunResponse(
                 content=task_output.content,
                 event=WorkflowRunEvent.task_completed,
-                workflow_name=context.get("workflow_name") if context else None,
+                workflow_name=context.get(
+                    "workflow_name") if context else None,
                 sequence_name=self.name,
                 task_name=task.name,
                 task_index=i,
@@ -198,8 +214,10 @@ class Sequence:
                 images=task_output.images,
                 videos=task_output.videos,
                 audio=task_output.audio,
-                messages=getattr(task_output.response, "messages", None) if task_output.response else None,
-                metrics=getattr(task_output.response, "metrics", None) if task_output.response else None,
+                messages=getattr(task_output.response, "messages",
+                                 None) if task_output.response else None,
+                metrics=getattr(task_output.response, "metrics",
+                                None) if task_output.response else None,
                 # Store TaskOutput objects (same as sync version)
                 task_responses=[task_output],
             )

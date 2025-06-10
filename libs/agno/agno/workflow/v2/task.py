@@ -9,6 +9,11 @@ from agno.run.team import TeamRunResponse
 from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
 from agno.team import Team
 from agno.utils.log import logger
+from agno.run.v2.workflow import (
+    WorkflowRunEvent,
+    WorkflowRunResponse,
+    TaskStartedEvent,
+)
 
 
 @dataclass
@@ -201,15 +206,14 @@ class Task:
         logger.info(f"Executing task: {self.name}")
 
         # Yield task started event
-        yield WorkflowRunResponse(
+        yield TaskStartedEvent(
+            run_id=context.get("run_id", ""),
             content=f"Starting task: {self.name}",
-            event=WorkflowRunEvent.task_started,
             workflow_name=context.get("workflow_name") if context else None,
             sequence_name=context.get("sequence_name") if context else None,
             task_name=self.name,
             task_index=context.get("task_index") if context else None,
             workflow_id=context.get("workflow_id") if context else None,
-            run_id=context.get("run_id") if context else None,
             session_id=context.get("session_id") if context else None,
         )
 

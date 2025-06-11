@@ -1,6 +1,8 @@
-from typing import Any, Optional
+import time
+from typing import Any, List, Optional
 
 from agno.storage_v2.base import DBManager
+from agno.storage_v2.session.agent import AgentSession
 from agno.utils.log import log_debug, log_info, log_warning, logger
 
 try:
@@ -10,12 +12,12 @@ try:
     from sqlalchemy.orm import scoped_session, sessionmaker
     from sqlalchemy.schema import Column, MetaData, Table
     from sqlalchemy.sql.expression import select, text
-    from sqlalchemy.types import JSON, BigInteger, DateTime, String, Text
+    from sqlalchemy.types import JSON, BigInteger, String
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
 
-class PostgresDB(DBManager):
+class PostgresDb(DBManager):
     def __init__(
         self,
         db_engine: Optional[Engine] = None,
@@ -77,49 +79,49 @@ class PostgresDB(DBManager):
         # Setup tables
         self.agent_sessions_table: Optional[Table] = (
             self.get_or_create_table(
-                table_name=self.agent_sessions_table_name, table_type="agent_sessions", schema=self.db_schema
+                table_name=self.agent_sessions_table_name, table_type="agent_sessions", db_schema=self.db_schema
             )
             if self.agent_sessions_table_name is not None
             else None
         )
         self.team_sessions_table: Optional[Table] = (
             self.get_or_create_table(
-                table_name=self.team_sessions_table_name, table_type="team_sessions", schema=self.db_schema
+                table_name=self.team_sessions_table_name, table_type="team_sessions", db_schema=self.db_schema
             )
             if self.team_sessions_table_name is not None
             else None
         )
         self.workflow_sessions_table: Optional[Table] = (
             self.get_or_create_table(
-                table_name=self.workflow_sessions_table_name, table_type="workflow_sessions", schema=self.db_schema
+                table_name=self.workflow_sessions_table_name, table_type="workflow_sessions", db_schema=self.db_schema
             )
             if self.workflow_sessions_table_name is not None
             else None
         )
         self.memory_table: Optional[Table] = (
-            self.get_or_create_table(table_name=self.memory_table_name, table_type="memory", schema=self.db_schema)
+            self.get_or_create_table(table_name=self.memory_table_name, table_type="memory", db_schema=self.db_schema)
             if self.memory_table_name is not None
             else None
         )
         self.learnings_table: Optional[Table] = (
             self.get_or_create_table(
-                table_name=self.learnings_table_name, table_type="learnings", schema=self.db_schema
+                table_name=self.learnings_table_name, table_type="learnings", db_schema=self.db_schema
             )
             if self.learnings_table_name is not None
             else None
         )
         self.eval_runs_table: Optional[Table] = (
             self.get_or_create_table(
-                table_name=self.eval_runs_table_name, table_type="eval_runs", schema=self.db_schema
+                table_name=self.eval_runs_table_name, table_type="eval_runs", db_schema=self.db_schema
             )
             if self.eval_runs_table_name is not None
             else None
         )
 
-        log_debug("Created PostgresDB")
+        log_debug("Created PostgresDb")
 
     # TODO: the schemas should live together with the app layer classes
-    def _get_table_schema_definition(self, table_name: str) -> dict[str, Any]:
+    def _get_table_schema_definition(self, table_type: str) -> dict[str, Any]:
         """
         Get the expected schema definition for a given table name.
 
@@ -129,7 +131,7 @@ class PostgresDB(DBManager):
         schemas = {
             # Agent sessions table schema
             "agent_sessions": {
-                "session_id": {"type": String, "nullable": False},
+                "session_id": {"type": String, "primary_key": True, "nullable": False},
                 "agent_id": {"type": String, "nullable": False},
                 "user_id": {"type": String, "nullable": True},
                 "team_session_id": {"type": String, "nullable": True},
@@ -143,21 +145,48 @@ class PostgresDB(DBManager):
                 "runs": {"type": JSON, "nullable": True},
                 "summary": {"type": JSON, "nullable": True},
             },
-            "team_sessions": {},
-            "workflow_sessions": {},
+            "team_sessions": {
+                "session_id": {"type": String, "primary_key": True, "nullable": False},
+                "team_id": {"type": String, "nullable": False},
+                "user_id": {"type": String, "nullable": True},
+                "team_session_id": {"type": String, "nullable": True},
+                "memory": {"type": JSON, "nullable": True},
+                "team_data": {"type": JSON, "nullable": True},
+                "session_data": {"type": JSON, "nullable": True},
+                "extra_data": {"type": JSON, "nullable": True},
+                "created_at": {"type": BigInteger, "nullable": False},
+                "updated_at": {"type": BigInteger, "nullable": True},
+                "chat_history": {"type": JSON, "nullable": True},
+                "runs": {"type": JSON, "nullable": True},
+                "summary": {"type": JSON, "nullable": True},
+            },
+            "workflow_sessions": {
+                "session_id": {"type": String, "primary_key": True, "nullable": False},
+                "workflow_id": {"type": String, "nullable": False},
+                "user_id": {"type": String, "nullable": True},
+                "memory": {"type": JSON, "nullable": True},
+                "workflow_data": {"type": JSON, "nullable": True},
+                "session_data": {"type": JSON, "nullable": True},
+                "extra_data": {"type": JSON, "nullable": True},
+                "created_at": {"type": BigInteger, "nullable": False},
+                "updated_at": {"type": BigInteger, "nullable": True},
+                "chat_history": {"type": JSON, "nullable": True},
+                "runs": {"type": JSON, "nullable": True},
+                "summary": {"type": JSON, "nullable": True},
+            },
             "memory": {},
             "learnings": {},
             "eval_runs": {},
         }
 
         for schema_key, schema_def in schemas.items():
-            if schema_key in table_name.lower() or table_name.lower().endswith(schema_key):
+            if schema_key in table_type.lower() or table_type.lower().endswith(schema_key):
                 return schema_def
 
-        raise ValueError(f"Unknown table type for table name: {table_name}")
+        raise ValueError(f"Unknown table type: {table_type}")
 
     # TODO: do we need to carry these Table objects?
-    def get_or_create_table(self, table_name: str, table_type: str, schema: str) -> Table:
+    def get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Table:
         """
         Check if the table exists and is valid, else create it.
 
@@ -165,23 +194,23 @@ class PostgresDB(DBManager):
             Table: SQLAlchemy Table object representing the schema.
         """
 
-        if not self.table_exists(table_name=table_name, schema=schema):
-            return self.create_table(table_name=table_name, table_type=table_type, schema=schema)
+        if not self.table_exists(table_name=table_name, db_schema=db_schema):
+            return self.create_table(table_name=table_name, table_type=table_type, db_schema=db_schema)
 
-        if not self.is_valid_table(table_name=table_name, table_type=table_type, schema=schema):
-            raise ValueError(f"Table {schema}.{table_name} has an invalid schema")
+        if not self.is_valid_table(table_name=table_name, table_type=table_type, db_schema=db_schema):
+            raise ValueError(f"Table {db_schema}.{table_name} has an invalid schema")
 
         try:
-            table = Table(table_name, self.metadata, schema=schema)
-            log_debug(f"Loaded existing table {schema}.{table_name}")
+            table = Table(table_name, self.metadata, schema=db_schema, autoload_with=self.db_engine)
+            log_debug(f"Loaded existing table {db_schema}.{table_name}")
             return table
 
         except Exception as e:
-            logger.error(f"Error loading existing table {schema}.{table_name}: {e}")
+            logger.error(f"Error loading existing table {db_schema}.{table_name}: {e}")
             raise
 
     # TODO: should also check column types, indexes
-    def is_valid_table(self, table_name: str, table_type: str, schema: str) -> bool:
+    def is_valid_table(self, table_name: str, table_type: str, db_schema: str) -> bool:
         """
         Check if the existing table has the expected column names.
 
@@ -198,22 +227,22 @@ class PostgresDB(DBManager):
 
             # Get existing columns
             inspector = inspect(self.db_engine)
-            existing_columns_info = inspector.get_columns(table_name, schema=schema)
+            existing_columns_info = inspector.get_columns(table_name, schema=db_schema)
             existing_columns = set(col["name"] for col in existing_columns_info)
 
             # Check if all expected columns exist
             missing_columns = expected_columns - existing_columns
             if missing_columns:
-                log_warning(f"Missing columns {missing_columns} in table {schema}.{table_name}")
+                log_warning(f"Missing columns {missing_columns} in table {db_schema}.{table_name}")
                 return False
 
-            log_debug(f"Table {schema}.{table_name} has all expected columns")
+            log_debug(f"Table {db_schema}.{table_name} has all expected columns")
             return True
         except Exception as e:
-            logger.error(f"Error validating table schema for {schema}.{table_name}: {e}")
+            logger.error(f"Error validating table schema for {db_schema}.{table_name}: {e}")
             return False
 
-    def table_exists(self, table_name: str, schema: str) -> bool:
+    def table_exists(self, table_name: str, db_schema: str) -> bool:
         """
         Check if the given table exists in the given schema.
 
@@ -225,9 +254,9 @@ class PostgresDB(DBManager):
                 exists_query = text(
                     "SELECT 1 FROM information_schema.tables WHERE table_schema = :schema AND table_name = :table"
                 )
-                exists = sess.execute(exists_query, {"schema": schema, "table": table_name}).scalar() is not None
+                exists = sess.execute(exists_query, {"schema": db_schema, "table": table_name}).scalar() is not None
                 if not exists:
-                    log_debug(f"Table {schema}.{table_name} {'exists' if exists else 'does not exist'}")
+                    log_debug(f"Table {db_schema}.{table_name} {'exists' if exists else 'does not exist'}")
 
                 return exists
 
@@ -235,22 +264,22 @@ class PostgresDB(DBManager):
             logger.error(f"Error checking if table exists: {e}")
             return False
 
-    def _create_schema(self, schema: str) -> None:
+    def _create_schema(self, db_schema: str) -> None:
         """Create the database schema if it doesn't exist."""
         try:
             with self.Session() as sess, sess.begin():
-                log_debug(f"Creating schema if not exists: {schema}")
-                sess.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema};"))
+                log_debug(f"Creating schema if not exists: {db_schema}")
+                sess.execute(text(f"CREATE SCHEMA IF NOT EXISTS {db_schema};"))
         except Exception as e:
-            logger.warning(f"Could not create schema {schema}: {e}")
+            logger.warning(f"Could not create schema {db_schema}: {e}")
 
-    def create_table(self, table_name: str, table_type: str, schema: str) -> Table:
+    def create_table(self, table_name: str, table_type: str, db_schema: str) -> Table:
         """
         Create a table with the appropriate schema based on the table name.
 
         Args:
             table_name (str): Name of the table to create
-            schema (str): Database schema name
+            db_schema (str): Database schema name
 
         Returns:
             Table: SQLAlchemy Table object
@@ -273,8 +302,8 @@ class PostgresDB(DBManager):
                 columns.append(Column(*column_args, **column_kwargs))
 
             # Create the table object
-            table_metadata = MetaData(schema=schema)
-            table = Table(table_name, table_metadata, *columns, schema=schema)
+            table_metadata = MetaData(schema=db_schema)
+            table = Table(table_name, table_metadata, *columns, schema=db_schema)
 
             # Add indexes to the table definition
             for idx_col in indexes:
@@ -284,14 +313,14 @@ class PostgresDB(DBManager):
                 table.append_constraint(Index(idx_name, idx_col))
 
             # TODO: do we want this?
-            self._create_schema(schema)
+            self._create_schema(db_schema=db_schema)
 
             # Create table
             table_without_indexes = Table(
                 table_name,
-                MetaData(schema=schema),
+                MetaData(schema=db_schema),
                 *[c.copy() for c in table.columns],
-                schema=schema,
+                schema=db_schema,
             )
             table_without_indexes.create(self.db_engine, checkfirst=True)
 
@@ -307,20 +336,184 @@ class PostgresDB(DBManager):
                             "SELECT 1 FROM pg_indexes WHERE schemaname = :schema AND indexname = :index_name"
                         )
                         exists = (
-                            sess.execute(exists_query, {"schema": schema, "index_name": idx_name}).scalar() is not None
+                            sess.execute(exists_query, {"schema": db_schema, "index_name": idx_name}).scalar()
+                            is not None
                         )
 
                     if not exists:
                         idx.create(self.db_engine)
                     else:
-                        log_debug(f"Index {idx_name} already exists in {schema}.{table_name}, skipping creation")
+                        log_debug(f"Index {idx_name} already exists in {db_schema}.{table_name}, skipping creation")
 
                 except Exception as e:
                     logger.warning(f"Error creating index {idx.name}: {e}")
 
-            log_info(f"Successfully created table {schema}.{table_name}")
+            log_info(f"Successfully created table {db_schema}.{table_name}")
             return table
 
         except Exception as e:
-            logger.error(f"Could not create table {schema}.{table_name}: {e}")
+            logger.error(f"Could not create table {db_schema}.{table_name}: {e}")
             raise
+
+    def read_session(self, table: Table, session_id: str, user_id: Optional[str] = None) -> Optional[AgentSession]:
+        """
+        Read a Session from the database.
+
+        Args:
+            table (Table): Table to read from.
+            session_id (str): ID of the session to read.
+            user_id (Optional[str]): User ID to filter by. Defaults to None.
+
+        Returns:
+            Optional[Session]: Session object if found, None otherwise.
+        """
+        try:
+            with self.Session() as sess:
+                stmt = select(table).where(table.c.session_id == session_id)
+                if user_id:
+                    stmt = stmt.where(table.c.user_id == user_id)
+                result = sess.execute(stmt).fetchone()
+                return AgentSession.from_dict(result._mapping) if result is not None else None
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+        return None
+
+    def get_all_session_ids(
+        self, table: Table, user_id: Optional[str] = None, entity_id: Optional[str] = None
+    ) -> List[str]:
+        """
+        Get all session IDs. Can filter by user_id and entity_id.
+
+        Args:
+            table (Table): Table to read from.
+            user_id (Optional[str]): The ID of the user to filter by.
+            entity_id (Optional[str]): The ID of the agent / workflow to filter by.
+
+        Returns:
+            List[str]: List of session IDs matching the criteria.
+        """
+        try:
+            with self.Session() as sess, sess.begin():
+                stmt = select(table.c.session_id)
+
+                if user_id is not None:
+                    stmt = stmt.where(table.c.user_id == user_id)
+                if entity_id is not None:
+                    stmt = stmt.where(table.c.agent_id == entity_id)
+                stmt = stmt.order_by(table.c.created_at.desc())
+
+                rows = sess.execute(stmt).fetchall()
+                return [row[0] for row in rows] if rows is not None else []
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
+    def get_all_sessions(
+        self,
+        table: Table,
+        user_id: Optional[str] = None,
+        entity_id: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> List[AgentSession]:
+        """
+        Get all sessions in the given table. Can filter by user_id and entity_id.
+
+        Args:
+            table (Table): Table to read from.
+            user_id (Optional[str]): The ID of the user to filter by.
+            entity_id (Optional[str]): The ID of the agent / workflow to filter by.
+            limit (Optional[int]): The maximum number of sessions to return. Defaults to None.
+
+        Returns:
+            List[Session]: List of Session objects matching the criteria.
+        """
+        try:
+            with self.Session() as sess, sess.begin():
+                stmt = select(table)
+
+                if user_id is not None:
+                    stmt = stmt.where(table.c.user_id == user_id)
+                if entity_id is not None:
+                    stmt = stmt.where(table.c.agent_id == entity_id)
+                if limit is not None:
+                    stmt = stmt.limit(limit)
+                stmt = stmt.order_by(table.c.created_at.desc())
+
+                rows = sess.execute(stmt).fetchall()
+                if rows is not None:
+                    return [AgentSession.from_dict(row._mapping) for row in rows]  # type: ignore
+                else:
+                    return []
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
+    def upsert_agent_session(self, session: AgentSession, table: Table) -> Optional[AgentSession]:
+        """
+        Insert or update an AgentSession in the database.
+
+        Args:
+            session (Session): The session data to upsert.
+            table (Table): Table to upsert into.
+            create_and_retry (bool): Retry upsert if table does not exist.
+
+        Returns:
+            Optional[AgentSession]: The upserted AgentSession, or None if operation failed.
+        """
+
+        try:
+            with self.Session() as sess, sess.begin():
+                stmt = postgresql.insert(table).values(
+                    session_id=session.session_id,
+                    agent_id=session.agent_id,  # type: ignore
+                    team_session_id=session.team_session_id,  # type: ignore
+                    user_id=session.user_id,
+                    memory=session.memory,
+                    agent_data=session.agent_data,  # type: ignore
+                    session_data=session.session_data,
+                    extra_data=session.extra_data,
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["session_id"],
+                    set_=dict(
+                        agent_id=session.agent_id,  # type: ignore
+                        team_session_id=session.team_session_id,  # type: ignore
+                        user_id=session.user_id,
+                        memory=session.memory,
+                        agent_data=session.agent_data,  # type: ignore
+                        session_data=session.session_data,
+                        extra_data=session.extra_data,
+                        updated_at=int(time.time()),
+                    ),
+                )
+
+                sess.execute(stmt)
+
+                return self.read_session(session_id=session.session_id, table=table)
+        except Exception as e:
+            log_warning(f"Exception upserting into table: {e}")
+            return None
+
+    def delete_session(self, table: Table, session_id: str) -> None:
+        """
+        Delete a Session from the database.
+
+        Args:
+            table (Table): Table to delete from.
+            session_id (str): ID of the session to delete
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
+        try:
+            with self.Session() as sess, sess.begin():
+                delete_stmt = table.delete().where(table.c.session_id == session_id)
+                result = sess.execute(delete_stmt)
+                if result.rowcount == 0:
+                    log_debug(f"No session found with session_id: {session_id} in table {table.name}")
+                else:
+                    log_debug(f"Successfully deleted session with session_id: {session_id} in table {table.name}")
+        except Exception as e:
+            logger.error(f"Error deleting session: {e}")

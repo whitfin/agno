@@ -1,5 +1,7 @@
-from abc import ABC
-from typing import Optional
+from abc import ABC, abstractmethod
+from typing import List, Optional
+
+from agno.storage_v2.session import Session
 
 
 class DBManager(ABC):
@@ -31,43 +33,30 @@ class DBManager(ABC):
 
     # --- READ ---
 
-    # @abstractmethod
-    # def read(self, session_id: str, user_id: Optional[str] = None) -> Optional[Session]:
-    #     raise NotImplementedError
+    @abstractmethod
+    def read_session(self, session_id: str) -> Optional[Session]:
+        raise NotImplementedError
 
-    # @abstractmethod
-    # def get_all_session_ids(self, user_id: Optional[str] = None, agent_id: Optional[str] = None) -> List[str]:
-    #     raise NotImplementedError
+    @abstractmethod
+    def get_all_session_ids(self, agent_id: Optional[str] = None) -> List[str]:
+        raise NotImplementedError
 
-    # @abstractmethod
-    # def get_all_sessions(self, user_id: Optional[str] = None, entity_id: Optional[str] = None) -> List[Session]:
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def get_recent_sessions(
-    #     self,
-    #     user_id: Optional[str] = None,
-    #     entity_id: Optional[str] = None,
-    #     limit: Optional[int] = 2,
-    # ) -> List[Session]:
-    #     raise NotImplementedError
+    @abstractmethod
+    def get_all_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
+        raise NotImplementedError
 
     # --- WRITE ---
 
-    # @abstractmethod
-    # def create(self) -> None:
-    #     raise NotImplementedError
+    @abstractmethod
+    def create_table(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_session(self, session_id: Optional[str] = None):
+        raise NotImplementedError
 
     # @abstractmethod
     # def upsert(self, session: Session) -> Optional[Session]:
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def delete_session(self, session_id: Optional[str] = None):
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def drop(self) -> None:
     #     raise NotImplementedError
 
     # --- UTILITIES ---

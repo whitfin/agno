@@ -31,6 +31,13 @@ class TeamSession:
     # The unix timestamp when this session was last updated
     updated_at: Optional[int] = None
 
+    # List of all messages in the session
+    chat_history: Optional[list[Dict[str, Any]]] = None
+    # List of all runs in the session
+    runs: Optional[list[Dict[str, Any]]] = None
+    # Summary of the session
+    summary: Optional[Dict[str, Any]] = None
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
@@ -57,4 +64,7 @@ class TeamSession:
             extra_data=data.get("extra_data"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
+            chat_history=data.get("chat_history"),
+            runs=data.get("runs"),
+            summary=data.get("summary"),
         )

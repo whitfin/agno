@@ -51,7 +51,7 @@ def DiscordClient(agent: Optional[Agent] = None, team: Optional[Team] = None):
             if isinstance(message.channel, discord.Thread):
                 thread = message.channel
             else:
-                thread = await message.create_thread(name="thread")
+                thread = await message.create_thread(name=f"{message_user}'s thread")
             await thread.typing()
             #prompt=f"message from user:\n{message_text} \n message_url:{message_url}"
             if agent:

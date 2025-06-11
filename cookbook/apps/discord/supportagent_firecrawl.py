@@ -18,89 +18,57 @@ docs_agent = Agent(
         "Always search https://docs.agno.com/introduction before answering the question. Don't use any other source to answer and ALWAYS send the link to the source",
         "If unable to help, tell the team in the slack channel (C086X7SA6BA) by tagging <@U08MWE4QXEF> and let the user know that the team will help them",
         dedent("""\
-                    Always send issues with message_url to the slack channel (C086X7SA6BA) to notify Agno developers after categorizing it into one of the following 
-                    :bricks: CORE PRODUCT CATEGORIES
-                    1. Agents
-                    - Agent orchestration (single, team, loop)
-                    - Agent deployment (self-hosted, UI, cloud)
-                    - Response models (structured outputs)
-                    - Context window & session handling
-                    - Retry, fallbacks, stop conditions
-                    2. Tools & Toolkits
-                    - Built-in tools (DuckDuckGo, Firecrawl, YFinance, etc.)
-                    - Custom tools (user-built / API-based)
-                    - MCPTools (launching, integration, async issues)
-                    - Tool serialization (tool-call output parsing)
-                    - Tool errors & fallbacks
-                    3. Knowledge Base / Retrieval (RAG)
-                    - Vector DB integration (Qdrant, LanceDB, Chroma)
-                    - Custom embedder usage (SentenceTransformer, Gemini)
-                    - File ingestion (PDF, CSV, Markdown, S3, local, MinIO)
-                    - Search quality & performance
-                    - Hybrid vs dense search
-                    4. Memory
-                    - Session memory (short-term, per-agent)
-                    - Long-term memory (SQLite, Postgres)
-                    - User-specific memory (user_id-based)
-                    - Agentic memory (auto-learned context)
-                    - Memory isolation issues (multi-agent/threaded use)
-                    5. Storage / Database
-                    - PostgresStorage vs PostgresAgentStorage
-                    - Async DB support
-                    - SQLite quirks in multithreading
-                    - Custom DB integration (Mongo, MySQL)
-                    - File-backed storage
-                    6. LLMs
-                    - OpenAI, Anthropic, Groq, Gemini, Ollama
-                    - Rate limits, auth, headers
-                    - Structured output (Pydantic validation)
-                    - Switching LLMs mid-agent/workflow
-                    - Debugging LLM failures (400s, token overflow, etc.)
-                    7. Eval & HITL
-                    - Eval framework usage
-                    - Human-in-the-loop workflows
-                    - Sync/async feedback loops
-                    - Eval result formatting
-                    - Prompt evaluations
-                    :jigsaw: INFRASTRUCTURE & PLATFORM
-                    8. Playground / UI
-                    - Agent UI (multi-agent, user switching)
-                    - Async behavior in playground
-                    - Embedded playground usage
-                    - UI errors or latency
-                    9. Workspace
-                    - Workspace commands (ag ws)
-                    - Team agents in Workspace
-                    - Local LLM integration (Ollama, Docker)
-                    - File structure and CLI usage
-                    - Swagger APIs
-                    10. Integration
-                    - Slack, Discord, GitHub integration
-                    - Langfuse, OpenTelemetry
-                    - Async workflows (FastAPI, Celery, etc.)
-                    - Auth layers (token, user_id)
-                    - VS Code extensions / SDKs
-                    11. Documentation & SDK
-                    - Missing or outdated docs
-                    - Example gaps (multi-agent, team, memory)
-                    - SDK usage errors
-                    - Installation/config issues
-                    - Version mismatches
-                    :gear: SUPPORT INFRASTRUCTURE
-                    12. Bugs
-                    - Regression bugs (e.g., post-upgrade breakages)
-                    - Serialization failures
-                    - Context bleed in threads
-                    - Memory mismatch
-                    13. Feature Requests
-                    - Markdown support, multimodal, context config
-                    - Better observability/logging
-                    - New integrations
-                    14. Feedback & UX
-                    - Clarity of instructions / error messages
-                    - DevX suggestions
-                    - Missing “expected” behaviors
-                    - Workflow bottlenecks
+                Always send issues with message_url to the slack channel (C086X7SA6BA) to notify Agno developers after categorizing it into one of the following categories:
+
+                Task type:
+                - Bug
+                - Feature Request
+                - Question
+                - Improvement
+                - Followup
+
+                Product Area:
+                - Docs
+                - Agents
+                - Agent orchestration
+                - Agent deployment
+                - Response models
+                - fallbacks
+                - stop conditions
+                - Context window
+                - session handling
+                - Tools & Toolkits
+                - Integrated tools
+                - Custom tools (user-built/API)
+                - MCPTools
+                - Tool serialization/errors
+                - Knowledge Base / Retrieval (RAG)
+                - Vector DB integration
+                - Custom embedders
+                - File ingestion
+                - Search quality & hybrid search
+                - Memory
+                - Session
+                - User-specific or agentic memory
+                - Memory isolation issues
+                - Storage / Database
+                - VectorDBs
+                - Async DB support
+                - File-backed/custom DB
+                - LLMs
+                - Model usage
+                - Structured outputs
+                - Rate limits/auth/debugging failures
+                - Eval & HITL
+                - Eval framework
+                - Human-in-the-loop
+                - Prompt evals and formatting
+                - Workspace
+                - Teams
+                - Workflows
+                - Integrations
+                - AWS
+               If category not listed create custom category
                If unable to help, tell the team in the slack channel (C086X7SA6BA) by tagging <@U08MWE4QXEF> and let the user know that the team will help them"""),
         
     ],

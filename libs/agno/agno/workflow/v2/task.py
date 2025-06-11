@@ -6,14 +6,13 @@ from agno.agent import Agent
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
-from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
-from agno.team import Team
-from agno.utils.log import logger
 from agno.run.v2.workflow import (
+    TaskStartedEvent,
     WorkflowRunEvent,
     WorkflowRunResponse,
-    TaskStartedEvent,
 )
+from agno.team import Team
+from agno.utils.log import logger
 
 
 @dataclass

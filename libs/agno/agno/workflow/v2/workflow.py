@@ -5,19 +5,17 @@ from typing import Sequence as TypingSequence
 from uuid import uuid4
 
 from agno.media import Audio, Image, Video
-from agno.run.v2.workflow import WorkflowRunEvent, WorkflowRunResponse
+from agno.run.v2.workflow import (
+    WorkflowCompletedEvent,
+    WorkflowErrorEvent,
+    WorkflowRunEvent,
+    WorkflowRunResponse,
+)
 from agno.storage.base import Storage
 from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.sequence import Sequence
 from agno.workflow.v2.trigger import ManualTrigger, Trigger, TriggerType
-from agno.run.v2.workflow import (
-    WorkflowRunEvent,
-    WorkflowRunResponse,
-    WorkflowCompletedEvent,
-    WorkflowErrorEvent,
-)
-
 
 
 @dataclass
@@ -28,7 +26,6 @@ class Workflow:
     name: Optional[str] = None
     workflow_id: Optional[str] = None
     description: Optional[str] = None
-    version: str = "2.0"
 
     # Workflow configuration
     trigger: Trigger = field(default_factory=ManualTrigger)

@@ -1,8 +1,14 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from agno.app.agno_api.managers.storage.schemas import RunSchema, SessionDetailSchema, SessionSchema
+from agno.app.agno_api.managers.storage.schemas import (
+    AgentSessionDetailSchema,
+    RunSchema,
+    SessionSchema,
+    TeamSessionDetailSchema,
+    WorkflowSessionDetailSchema,
+)
 from agno.storage.base import SessionType
 from agno.storage.base import Storage as StorageBase
 
@@ -17,23 +23,25 @@ def attach_async_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
 
         return [SessionSchema.from_session(session) for session in sessions]
 
-    @router.get("/sessions/{session_id}", response_model=SessionDetailSchema, status_code=200)
+    @router.get(
+        "/sessions/{session_id}",
+        response_model=Union[AgentSessionDetailSchema, TeamSessionDetailSchema, WorkflowSessionDetailSchema],
+        status_code=200,
+    )
     async def get_session_by_id(
         session_id: str = Path(...),
-        session_type: Optional[SessionType] = Query(None, description="Session type filter", alias="type"),
-    ) -> SessionDetailSchema:
+        session_type: SessionType = Query(default=SessionType.AGENT, description="Session type filter", alias="type"),
+    ) -> Union[AgentSessionDetailSchema, TeamSessionDetailSchema, WorkflowSessionDetailSchema]:
         session = storage.read_session(session_id=session_id, session_type=session_type)
         if not session:
-            raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
+            raise HTTPException(status_code=404, detail=f"Session with id '{session_id}' not found")
 
         if session_type == SessionType.AGENT:
-            return SessionDetailSchema.from_agent_session(session)
+            return AgentSessionDetailSchema.from_session(session)  # type: ignore
         elif session_type == SessionType.TEAM:
-            return SessionDetailSchema.from_team_session(session)
+            return TeamSessionDetailSchema.from_session(session)  # type: ignore
         elif session_type == SessionType.WORKFLOW:
-            return SessionDetailSchema.from_workflow_session(session)
-
-        return SessionDetailSchema.from_session(session)
+            return WorkflowSessionDetailSchema.from_session(session)  # type: ignore
 
     @router.get("/sessions/{session_id}/runs", response_model=List[RunSchema], status_code=200)
     async def get_session_runs(

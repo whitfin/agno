@@ -28,4 +28,4 @@ agno_client = AgnoAPI(
 app = agno_client.get_app()
 
 if __name__ == "__main__":
-    agno_client.serve(app="with_knowledge:app", reload=True)
+    agno_client.serve(app="with_storage:app", reload=True)

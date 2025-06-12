@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from agno.storage.session import AgentSession, Session
+from agno.storage.session import AgentSession, Session, TeamSession, WorkflowSession
 
 
 class SessionSchema(BaseModel):
@@ -22,7 +22,7 @@ class SessionSchema(BaseModel):
         )
 
 
-class SessionDetailSchema(BaseModel):
+class AgentSessionDetailSchema(BaseModel):
     user_id: Optional[str]
     agent_session_id: str
     workspace_id: Optional[str]
@@ -36,7 +36,7 @@ class SessionDetailSchema(BaseModel):
     updated_at: Optional[datetime]
 
     @classmethod
-    def from_agent_session(cls, session: AgentSession) -> "SessionDetailSchema":
+    def from_session(cls, session: AgentSession) -> "AgentSessionDetailSchema":
         # TODO: check empty fields
         return cls(
             user_id=session.user_id,
@@ -51,6 +51,18 @@ class SessionDetailSchema(BaseModel):
             created_at=datetime.fromtimestamp(session.created_at) if session.created_at else None,
             updated_at=datetime.fromtimestamp(session.updated_at) if session.updated_at else None,
         )
+
+
+class TeamSessionDetailSchema(BaseModel):
+    @classmethod
+    def from_session(cls, session: TeamSession) -> "TeamSessionDetailSchema":
+        return cls()
+
+
+class WorkflowSessionDetailSchema(BaseModel):
+    @classmethod
+    def from_session(cls, session: WorkflowSession) -> "WorkflowSessionDetailSchema":
+        return cls()
 
 
 class RunSchema(BaseModel):

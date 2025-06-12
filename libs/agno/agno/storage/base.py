@@ -8,11 +8,11 @@ class Storage(ABC):
     def __init__(
         self,
         agent_sessions_table: Optional[str] = None,
-        team_sessions_table_name: Optional[str] = None,
-        workflow_sessions_table_name: Optional[str] = None,
-        memory_table_name: Optional[str] = None,
-        learnings_table_name: Optional[str] = None,
-        eval_runs_table_name: Optional[str] = None,
+        team_sessions_table: Optional[str] = None,
+        workflow_sessions_table: Optional[str] = None,
+        user_memories_table: Optional[str] = None,
+        learnings_table: Optional[str] = None,
+        evals_table: Optional[str] = None,
     ):
         if (
             not agent_sessions_table_name

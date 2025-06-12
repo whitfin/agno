@@ -1,7 +1,8 @@
 import time
 from typing import Any, List, Optional
 
-from agno.storage.base import Storage
+from agno.storage.base import SessionType, Storage
+from agno.storage.session import AgentSession
 from agno.utils.log import log_debug, log_info, log_warning, logger
 
 try:
@@ -354,7 +355,21 @@ class PostgresDb(Storage):
             logger.error(f"Could not create table {db_schema}.{table_name}: {e}")
             raise
 
-    def read_session(self, table: Table, session_id: str, user_id: Optional[str] = None) -> Optional[AgentSession]:
+    def get_table_for_session_type(self, session_type: Optional[SessionType] = None) -> Optional[Table]:
+        """Map the given session type into the appropriate table"""
+        if session_type is None:
+            return None
+
+        if session_type == SessionType.AGENT:
+            return self.agent_sessions_table
+        elif session_type == SessionType.TEAM:
+            return self.team_sessions_table
+        elif session_type == SessionType.WORKFLOW:
+            return self.workflow_sessions_table
+
+    def read_session(
+        self, session_id: str, user_id: Optional[str] = None, session_type: Optional[SessionType] = None
+    ) -> Optional[AgentSession]:
         """
         Read a Session from the database.
 
@@ -362,11 +377,16 @@ class PostgresDb(Storage):
             table (Table): Table to read from.
             session_id (str): ID of the session to read.
             user_id (Optional[str]): User ID to filter by. Defaults to None.
+            session_type (Optional[SessionType]): Type of session to read. Defaults to None.
 
         Returns:
             Optional[Session]: Session object if found, None otherwise.
         """
         try:
+            table = self.get_table_for_session_type(session_type)
+            if table is None:
+                raise ValueError(f"Table not found for session type: {session_type}")
+
             with self.Session() as sess:
                 stmt = select(table).where(table.c.session_id == session_id)
                 if user_id:
@@ -411,7 +431,7 @@ class PostgresDb(Storage):
 
     def get_all_sessions(
         self,
-        table: Table,
+        session_type: Optional[SessionType] = None,
         user_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         limit: Optional[int] = None,
@@ -429,6 +449,11 @@ class PostgresDb(Storage):
             List[Session]: List of Session objects matching the criteria.
         """
         try:
+            # TODO: choose table given session_type
+            table = self.agent_sessions_table
+            if table is None:
+                raise ValueError("No table found")
+
             with self.Session() as sess, sess.begin():
                 stmt = select(table)
 

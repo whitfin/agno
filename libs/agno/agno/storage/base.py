@@ -1,7 +1,14 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import List, Optional
 
 from agno.storage.session import Session
+
+
+class SessionType(str, Enum):
+    AGENT = "agent"
+    TEAM = "team"
+    WORKFLOW = "workflow"
 
 
 class Storage(ABC):
@@ -34,7 +41,7 @@ class Storage(ABC):
     # --- READ ---
 
     @abstractmethod
-    def read_session(self, session_id: str) -> Optional[Session]:
+    def read_session(self, session_id: str, session_type: Optional[SessionType] = None) -> Optional[Session]:
         raise NotImplementedError
 
     @abstractmethod
@@ -42,7 +49,11 @@ class Storage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_all_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
+    def get_all_sessions(
+        self,
+        session_type: Optional[SessionType] = None,
+        entity_id: Optional[str] = None,
+    ) -> List[Session]:
         raise NotImplementedError
 
     # --- WRITE ---

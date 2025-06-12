@@ -606,7 +606,7 @@ class Agent:
     def initialize_agent(self) -> None:
         self.set_defaults()
         self.set_default_model()
-        self.set_storage_mode()
+        # self.set_storage_mode()
         self.set_debug()
         self.set_agent_id()
 
@@ -2193,7 +2193,6 @@ class Agent:
         # 1. Handle the updated tools
         await self._ahandle_tool_call_updates(run_response=run_response, run_messages=run_messages)
 
-
         # 2. Generate a response from the Model (includes running function calls)
         model_response: ModelResponse = await self.model.aresponse(
             messages=run_messages.messages,
@@ -2726,9 +2725,7 @@ class Agent:
         if self.session_metrics is None:
             self.session_metrics = self.calculate_metrics(run_messages.messages)  # Calculate metrics for the run
         else:
-            self.session_metrics += self.calculate_metrics(
-                run_messages.messages
-            )  # Calculate metrics for the session
+            self.session_metrics += self.calculate_metrics(run_messages.messages)  # Calculate metrics for the session
 
     def _update_memory(
         self,
@@ -3709,8 +3706,7 @@ class Agent:
                     else:
                         self.memory.memories = {
                             user_id: {
-                                memory_id: UserMemoryV2.from_dict(memory)
-                                for memory_id, memory in user_memories.items()
+                                memory_id: UserMemoryV2.from_dict(memory) for memory_id, memory in user_memories.items()
                             }
                             for user_id, user_memories in session.memory["memories"].items()
                         }

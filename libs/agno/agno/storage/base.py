@@ -7,7 +7,7 @@ from agno.storage.session import Session
 class Storage(ABC):
     def __init__(
         self,
-        agent_sessions_table_name: Optional[str] = None,
+        agent_sessions_table: Optional[str] = None,
         team_sessions_table_name: Optional[str] = None,
         workflow_sessions_table_name: Optional[str] = None,
         memory_table_name: Optional[str] = None,

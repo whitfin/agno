@@ -392,7 +392,6 @@ class Workflow:
             workflow_data={
                 "name": self.name,
                 "description": self.description,
-                "version": self.version,
                 "trigger": self.trigger.trigger_type.value,
                 "sequences": [
                     {
@@ -901,7 +900,6 @@ class Workflow:
             "name": self.name,
             "workflow_id": self.workflow_id,
             "description": self.description,
-            "version": self.version,
             "trigger": {"trigger_type": self.trigger.trigger_type.value, "config": self.trigger.__dict__},
             "sequences": [
                 {

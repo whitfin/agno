@@ -34,7 +34,7 @@ class Storage(ABC):
     # --- READ ---
 
     @abstractmethod
-    def read_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Optional[Session]:
         raise NotImplementedError
 
     @abstractmethod

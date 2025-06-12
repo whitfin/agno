@@ -42,7 +42,7 @@ class Storage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_all_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
+    def get_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
         raise NotImplementedError
 
     # --- WRITE ---

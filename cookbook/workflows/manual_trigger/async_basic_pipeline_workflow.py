@@ -68,8 +68,6 @@ async def main():
         await content_creation_workflow.aprint_response(
             query="AI trends in 2024",
             markdown=True,
-            show_time=True,
-            show_task_details=True,
         )
     except Exception as e:
         print(f"Research sequence failed: {e}")

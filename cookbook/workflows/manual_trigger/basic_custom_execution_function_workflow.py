@@ -3,7 +3,6 @@ from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.googlesearch import GoogleSearchTools
-from agno.workflow.v2.sequence import Sequence
 from agno.workflow.v2.task import Task, TaskInput, TaskOutput
 from agno.workflow.v2.workflow import Workflow
 
@@ -89,7 +88,8 @@ def custom_blog_analysis_function(task_input: TaskInput) -> TaskOutput:
     except Exception as e:
         return TaskOutput(
             content=f"Custom blog analysis failed: {str(e)}",
-            metadata={"error": True, "function_name": "custom_blog_analysis_function"},
+            metadata={"error": True,
+                      "function_name": "custom_blog_analysis_function"},
         )
 
 
@@ -165,7 +165,8 @@ def custom_team_research_function(task_input: TaskInput) -> TaskOutput:
     except Exception as e:
         return TaskOutput(
             content=f"Custom team research failed: {str(e)}",
-            metadata={"error": True, "function_name": "custom_team_research_function"},
+            metadata={"error": True,
+                      "function_name": "custom_team_research_function"},
         )
 
 
@@ -268,13 +269,6 @@ custom_planning_task = Task(
     description="Custom content planning with context integration",
 )
 
-# Define sequences showcasing different approaches
-custom_sequence = Sequence(
-    name="custom_sequence",
-    description="Custom workflow using execution functions",
-    tasks=[custom_analysis_task, custom_research_task, custom_planning_task],
-)
-
 # Define and use examples
 if __name__ == "__main__":
     content_creation_workflow = Workflow(
@@ -285,16 +279,13 @@ if __name__ == "__main__":
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        sequences=[custom_sequence],
+        tasks=[custom_analysis_task, custom_research_task, custom_planning_task],
     )
     print("=== Custom Sequence (Custom Execution Functions) ===")
     try:
         content_creation_workflow.print_response(
             query="AI trends in 2024",
-            sequence_name="custom_sequence",
             markdown=True,
-            show_time=True,
-            show_task_details=True,
         )
     except Exception as e:
         print(f"Custom sequence failed: {e}")

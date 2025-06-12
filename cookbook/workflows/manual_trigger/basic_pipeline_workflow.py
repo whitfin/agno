@@ -64,8 +64,6 @@ if __name__ == "__main__":
         content_creation_workflow.print_response(
             query="AI trends in 2024",
             markdown=True,
-            show_time=True,
-            show_task_details=True,
         )
     except Exception as e:
         print(f"Research sequence failed: {e}")

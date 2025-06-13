@@ -1,1 +1,1 @@
-from agno.storage.mongodb import MongoDbStorage as MongoDbAgentStorage  # noqa: F401
+from agno.db.mongodb import MongoDbStorage as MongoDbAgentStorage  # noqa: F401

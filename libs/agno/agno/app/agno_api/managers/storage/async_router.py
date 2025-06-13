@@ -9,8 +9,8 @@ from agno.app.agno_api.managers.storage.schemas import (
     TeamSessionDetailSchema,
     WorkflowSessionDetailSchema,
 )
-from agno.storage.base import SessionType
-from agno.storage.base import Storage as StorageBase
+from agno.db.base import SessionType
+from agno.db.base import Storage as StorageBase
 
 
 def attach_async_routes(router: APIRouter, storage: StorageBase) -> APIRouter:

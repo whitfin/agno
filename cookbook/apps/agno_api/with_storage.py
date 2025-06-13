@@ -2,8 +2,8 @@ from agno.agent import Agent
 from agno.app.agno_api import AgnoAPI
 from agno.app.agno_api.interfaces.playground import Playground
 from agno.app.agno_api.managers.storage.storage import Storage
+from agno.db.postgres import PostgresDb
 from agno.models.openai import OpenAIChat
-from agno.storage.postgres import PostgresDb
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
 

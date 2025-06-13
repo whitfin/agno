@@ -1,4 +1,4 @@
-from agno.storage_v2.postgres import PostgresDb
+from agno.db_v2.postgres import PostgresDb
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
 

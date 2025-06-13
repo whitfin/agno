@@ -1,1 +1,1 @@
-from agno.storage.singlestore import SingleStoreStorage as SingleStoreAgentStorage  # noqa: F401
+from agno.db.singlestore import SingleStoreStorage as SingleStoreAgentStorage  # noqa: F401

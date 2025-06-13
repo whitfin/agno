@@ -3,7 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from agno.storage.session import AgentSession, Session, TeamSession, WorkflowSession
+from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
 
 
 class SessionSchema(BaseModel):

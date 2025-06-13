@@ -5,7 +5,7 @@ from fastapi.routing import APIRouter
 from agno.app.agno_api.base import BaseInterface
 from agno.app.agno_api.managers.storage.async_router import attach_async_routes
 from agno.app.agno_api.managers.storage.sync_router import attach_sync_routes
-from agno.storage.base import Storage as StorageBase
+from agno.db.base import Storage as StorageBase
 
 logger = logging.getLogger(__name__)
 

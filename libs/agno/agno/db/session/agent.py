@@ -5,7 +5,7 @@ from typing import Any, Dict, Mapping, Optional
 
 from agno.models.message import Message
 from agno.run.response import RunResponse
-from agno.utils.log import log_warning
+from agno.utils.log import log_debug, log_warning
 
 
 @dataclass
@@ -75,3 +75,18 @@ class AgentSession:
             runs=data.get("runs"),
             summary=data.get("summary"),
         )
+
+    def add_run(self, run):
+        """Adds a RunResponse to the runs list."""
+
+        messages = run.messages
+        for m in messages:
+            if m.metrics is not None:
+                m.metrics.timer = None
+
+        if not self.runs:
+            self.runs = []
+
+        self.runs.append(run.to_dict())
+
+        log_debug("Added RunResponse to Agent Session")

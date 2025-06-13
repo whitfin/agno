@@ -27,7 +27,6 @@ class PostgresDb(BaseDb):
         team_session_table: Optional[str] = None,
         workflow_session_table: Optional[str] = None,
         user_memory_table: Optional[str] = None,
-        learning_table: Optional[str] = None,
         eval_table: Optional[str] = None,
     ):
         """
@@ -46,7 +45,6 @@ class PostgresDb(BaseDb):
             team_session_table (Optional[str]): Name of the table to store Team sessions.
             workflow_session_table (Optional[str]): Name of the table to store Workflow sessions.
             user_memory_table (Optional[str]): Name of the table to store user memories.
-            learning_table (Optional[str]): Name of the table to store learning data.
             eval_table (Optional[str]): Name of the table to store evaluation runs data.
 
         Raises:
@@ -58,9 +56,10 @@ class PostgresDb(BaseDb):
             team_session_table=team_session_table,
             workflow_session_table=workflow_session_table,
             user_memory_table=user_memory_table,
-            learning_table=learning_table,
             eval_table=eval_table,
         )
+
+        self.agent_session_table: Optional[Table] = None
 
         _engine: Optional[Engine] = db_engine
         if _engine is None and db_url is not None:
@@ -70,7 +69,7 @@ class PostgresDb(BaseDb):
 
         self.db_url: Optional[str] = db_url
         self.db_engine: Engine = _engine
-        self.db_schema: str = db_schema if db_schema is not None else "public"
+        self.db_schema: str = db_schema if db_schema is not None else "ai"
 
         # Initialize metadata for table management
         self.metadata = MetaData()
@@ -157,6 +156,8 @@ class PostgresDb(BaseDb):
         try:
             table_schema = get_table_schema_definition(table_type)
 
+            log_debug(f"Creating table {db_schema}.{table_name} with schema: {table_schema}")
+
             columns, indexes = [], []
             for col_name, col_config in table_schema.items():
                 column_args = [col_name, col_config["type"]()]
@@ -240,8 +241,8 @@ class PostgresDb(BaseDb):
 
         if session_type == SessionType.AGENT:
             if self.agent_session_table is None:
-                if self.agent_session_table_name is None:
-                    raise ValueError("Agent session table was not provided on initialization")
+                # if self.agent_session_table_name is None:
+                #     raise ValueError("Agent session table was not provided on initialization")
                 self.agent_session_table = self.get_or_create_table(
                     table_name=self.agent_session_table_name, table_type="agent_sessions", db_schema=self.db_schema
                 )
@@ -413,7 +414,7 @@ class PostgresDb(BaseDb):
             log_debug(f"Exception reading from table: {e}")
             return []
 
-    def upsert_agent_session(self, session: AgentSession, table: Table) -> Optional[AgentSession]:
+    def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
         """
         Insert or update an AgentSession in the database.
 
@@ -427,25 +428,30 @@ class PostgresDb(BaseDb):
         """
 
         try:
+            table = self.get_table_for_session_type(session_type=SessionType.AGENT)
+            if table is None:
+                raise ValueError("No table found")
+
             with self.Session() as sess, sess.begin():
                 stmt = postgresql.insert(table).values(
                     session_id=session.session_id,
-                    agent_id=session.agent_id,  # type: ignore
-                    team_session_id=session.team_session_id,  # type: ignore
+                    agent_id=session.agent_id,
+                    team_session_id=session.team_session_id,
                     user_id=session.user_id,
-                    memory=session.memory,
-                    agent_data=session.agent_data,  # type: ignore
+                    runs=session.runs,
+                    agent_data=session.agent_data,
                     session_data=session.session_data,
                     extra_data=session.extra_data,
+                    created_at=session.created_at,
                 )
+                # TODO: Review the conflict params
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["session_id"],
                     set_=dict(
-                        agent_id=session.agent_id,  # type: ignore
-                        team_session_id=session.team_session_id,  # type: ignore
+                        agent_id=session.agent_id,
+                        team_session_id=session.team_session_id,
                         user_id=session.user_id,
-                        memory=session.memory,
-                        agent_data=session.agent_data,  # type: ignore
+                        agent_data=session.agent_data,
                         session_data=session.session_data,
                         extra_data=session.extra_data,
                         updated_at=int(time.time()),
@@ -454,7 +460,7 @@ class PostgresDb(BaseDb):
 
                 sess.execute(stmt)
 
-                return self.get_session(session_id=session.session_id, table=table)
+            return self.get_session(session_id=session.session_id, table=table)
         except Exception as e:
             log_warning(f"Exception upserting into table: {e}")
             return None

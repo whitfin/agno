@@ -146,4 +146,4 @@ async def test_team_arun_with_stop_agent_run(team, mock_model):
 
     await team.arun("Hello")
 
-    assert mock_model.aresponse.call_count == 1 
+    assert mock_model.aresponse.call_count == 1

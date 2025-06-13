@@ -10,6 +10,8 @@ media_agent = Agent(
     add_datetime_to_instructions=True,
     markdown=True,
 )
-
+discord_agent = DiscordClient(media_agent)
 if __name__ == "__main__":
-    DiscordClient(media_agent)
+    discord_agent.run()
+    
+

@@ -48,6 +48,6 @@ personal_agent = Agent(
                         """),
     debug_mode=True,
 )
-
+discord_agent = DiscordClient(personal_agent)
 if __name__ == "__main__":
-    DiscordClient(personal_agent)
+    discord_agent.run()

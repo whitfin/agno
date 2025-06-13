@@ -10,5 +10,6 @@ basic_agent = Agent(
     add_datetime_to_instructions=True,
 )
 
+discord_agent = DiscordClient(basic_agent)
 if __name__ == "__main__":
-    DiscordClient(basic_agent)
+    discord_agent.run()

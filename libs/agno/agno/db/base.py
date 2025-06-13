@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Optional
 
-from agno.storage.session import Session
+from agno.db.session import Session
 
 
 class SessionType(str, Enum):
@@ -11,32 +11,32 @@ class SessionType(str, Enum):
     WORKFLOW = "workflow"
 
 
-class Storage(ABC):
+class BaseDb(ABC):
     def __init__(
         self,
-        agent_sessions_table: Optional[str] = None,
-        team_sessions_table: Optional[str] = None,
-        workflow_sessions_table: Optional[str] = None,
-        user_memories_table: Optional[str] = None,
-        learnings_table: Optional[str] = None,
-        evals_table: Optional[str] = None,
+        agent_session_table: Optional[str] = None,
+        team_session_table: Optional[str] = None,
+        workflow_session_table: Optional[str] = None,
+        user_memory_table: Optional[str] = None,
+        learning_table: Optional[str] = None,
+        eval_table: Optional[str] = None,
     ):
         if (
-            not agent_sessions_table
-            and not team_sessions_table
-            and not workflow_sessions_table
-            and not user_memories_table
-            and not learnings_table
-            and not evals_table
+            not agent_session_table
+            and not team_session_table
+            and not workflow_session_table
+            and not user_memory_table
+            and not learning_table
+            and not eval_table
         ):
             raise ValueError("At least one of the tables must be provided")
 
-        self.agent_sessions_table = agent_sessions_table
-        self.team_sessions_table = team_sessions_table
-        self.workflow_sessions_table = workflow_sessions_table
-        self.user_memories_table = user_memories_table
-        self.learnings_table = learnings_table
-        self.evals_table = evals_table
+        self.agent_session_table_name = agent_session_table
+        self.team_session_table_name = team_session_table
+        self.workflow_session_table_name = workflow_session_table
+        self.user_memory_table_name = user_memory_table
+        self.learning_table_name = learning_table
+        self.eval_table_name = eval_table
 
     # --- READ ---
 
@@ -45,11 +45,15 @@ class Storage(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_all_session_ids(self, agent_id: Optional[str] = None) -> List[str]:
+    def get_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
+    def get_recent_sessions(self, entity_id: Optional[str] = None) -> List[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_all_session_ids(self, agent_id: Optional[str] = None) -> List[str]:
         raise NotImplementedError
 
     # --- WRITE ---

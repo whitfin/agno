@@ -2,12 +2,12 @@ from agno.agent import Agent
 from agno.app.agno_api import AgnoAPI
 from agno.app.agno_api.interfaces.playground import Playground
 from agno.app.agno_api.managers.storage.storage import Storage
-from agno.db.postgres import PostgresDb
+from agno.db.postgres.postgres import PostgresDb
 from agno.models.openai import OpenAIChat
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
 
-storage = PostgresDb(db_url=db_url, agent_sessions_table_name="agent_sessions")
+storage = PostgresDb(db_url=db_url, agent_session_table="agent_sessions")
 
 basic_agent = Agent(
     name="Basic Agent",

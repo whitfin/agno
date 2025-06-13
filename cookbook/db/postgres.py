@@ -1,8 +1,8 @@
-from agno.db_v2.postgres import PostgresDb
+from agno.db.postgres.postgres import PostgresDb
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
 
-db = PostgresDb(db_url=db_url, agent_sessions_table_name="agent_sessions")
+db = PostgresDb(db_url=db_url, agent_session_table="agent_sessions")
 
 breakpoint()
 # agent = Agent()

@@ -1,5 +1,3 @@
-import asyncio
-
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
@@ -50,9 +48,7 @@ research_task = Task(
 )
 
 # Create and use workflow
-
-
-async def main():
+if __name__ == "__main__":
     content_creation_workflow = Workflow(
         name="Content Creation Workflow",
         description="Automated content creation from blog posts to social media",
@@ -63,15 +59,13 @@ async def main():
         ),
         tasks=[research_task, plan_content_task],
     )
-    print("=== Research Pipeline (Rich Display) ===")
+    print("=== Research Sequence (Rich Display) ===")
     try:
-        await content_creation_workflow.aprint_response(
+        content_creation_workflow.print_response(
             query="AI trends in 2024",
             markdown=True,
+            stream=True,
+            stream_intermediate_steps=True,
         )
     except Exception as e:
         print(f"Research sequence failed: {e}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

@@ -1,7 +1,14 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import List, Optional
 
 from agno.storage.session import Session
+
+
+class SessionType(str, Enum):
+    AGENT = "agent"
+    TEAM = "team"
+    WORKFLOW = "workflow"
 
 
 class Storage(ABC):
@@ -15,21 +22,21 @@ class Storage(ABC):
         evals_table: Optional[str] = None,
     ):
         if (
-            not agent_sessions_table_name
-            and not team_sessions_table_name
-            and not workflow_sessions_table_name
-            and not memory_table_name
-            and not learnings_table_name
-            and not eval_runs_table_name
+            not agent_sessions_table
+            and not team_sessions_table
+            and not workflow_sessions_table
+            and not user_memories_table
+            and not learnings_table
+            and not evals_table
         ):
             raise ValueError("At least one of the tables must be provided")
 
-        self.agent_sessions_table_name = agent_sessions_table_name
-        self.team_sessions_table_name = team_sessions_table_name
-        self.workflow_sessions_table_name = workflow_sessions_table_name
-        self.memory_table_name = memory_table_name
-        self.learnings_table_name = learnings_table_name
-        self.eval_runs_table_name = eval_runs_table_name
+        self.agent_sessions_table = agent_sessions_table
+        self.team_sessions_table = team_sessions_table
+        self.workflow_sessions_table = workflow_sessions_table
+        self.user_memories_table = user_memories_table
+        self.learnings_table = learnings_table
+        self.evals_table = evals_table
 
     # --- READ ---
 

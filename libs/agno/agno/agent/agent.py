@@ -994,7 +994,7 @@ class Agent:
         run_id = str(uuid4())
 
         # Create a new run_response for this attempt
-        run_response = RunResponse(run_id=run_id, session_id=session_id, agent_id=self.agent_id)
+        run_response = RunResponse(run_id=run_id, session_id=session_id, agent_id=self.agent_id, agent_name=self.name)
 
         run_response.model = self.model.id if self.model is not None else None
         run_response.model_provider = self.model.provider if self.model is not None else None
@@ -1411,7 +1411,7 @@ class Agent:
         run_id = str(uuid4())
 
         # Create a new run_response for this attempt
-        run_response = RunResponse(run_id=run_id, session_id=session_id, agent_id=self.agent_id)
+        run_response = RunResponse(run_id=run_id, session_id=session_id, agent_id=self.agent_id, agent_name=self.name)
 
         run_response.model = self.model.id if self.model is not None else None
         run_response.model_provider = self.model.provider if self.model is not None else None
@@ -3313,7 +3313,9 @@ class Agent:
             run_id=self.run_id,
             status=run_state,
             session_id=session_id,
+            team_session_id=self.team_session_id,
             agent_id=self.agent_id,
+            agent_name=self.name,
             content=content,
             thinking=thinking_combined if thinking_combined else None,
             reasoning_content=reasoning_content,
@@ -4693,7 +4695,10 @@ class Agent:
                 )
             elif isinstance(self.memory, Memory):
                 history = self.memory.get_messages_from_last_n_runs(
-                    session_id=session_id, last_n=self.num_history_runs, skip_role=self.system_message_role
+                    session_id=session_id,
+                    last_n=self.num_history_runs,
+                    skip_role=self.system_message_role,
+                    agent_id=self.agent_id,
                 )
 
             if len(history) > 0:
@@ -4823,7 +4828,10 @@ class Agent:
                 )
             elif isinstance(self.memory, Memory):
                 history = self.memory.get_messages_from_last_n_runs(
-                    session_id=session_id, last_n=self.num_history_runs, skip_role=self.system_message_role
+                    session_id=session_id,
+                    last_n=self.num_history_runs,
+                    skip_role=self.system_message_role,
+                    agent_id=self.agent_id,
                 )
             if len(history) > 0:
                 # Create a deep copy of the history messages to avoid modifying the original messages
@@ -5518,7 +5526,7 @@ class Agent:
         if isinstance(self.memory, AgentMemory):
             return self.memory.messages
         elif isinstance(self.memory, Memory):
-            return self.memory.get_messages_from_last_n_runs(session_id=_session_id)
+            return self.memory.get_messages_from_last_n_runs(session_id=_session_id, agent_id=self.agent_id)
         else:
             return []
 

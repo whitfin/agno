@@ -6,7 +6,9 @@ from agno.app.agno_api.managers.db.schemas import (
     AgentSessionDetailSchema,
     RunSchema,
     SessionSchema,
+    TeamRunSchema,
     TeamSessionDetailSchema,
+    WorkflowRunSchema,
     WorkflowSessionDetailSchema,
 )
 from agno.db.base import BaseDb, SessionType
@@ -40,11 +42,13 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         elif session_type == SessionType.WORKFLOW:
             return WorkflowSessionDetailSchema.from_session(session)  # type: ignore
 
-    @router.get("/sessions/{session_id}/runs", response_model=List[RunSchema], status_code=200)
+    @router.get(
+        "/sessions/{session_id}/runs", response_model=Union[List[RunSchema], List[TeamRunSchema]], status_code=200
+    )
     async def get_session_runs(
         session_id: str = Path(..., description="Session ID", alias="session_id"),
         session_type: SessionType = Query(default=SessionType.AGENT, description="Session type filter", alias="type"),
-    ) -> List[RunSchema]:
+    ) -> Union[List[RunSchema], List[TeamRunSchema]]:
         session = db.get_session(session_id=session_id, session_type=session_type)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
@@ -53,6 +57,11 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         if not runs:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} has no runs")
 
-        return [RunSchema.from_run_response(run) for run in runs]  # type: ignore
+        if session_type == SessionType.AGENT:
+            return [RunSchema.from_run_response(run) for run in runs]  # type: ignore
+        elif session_type == SessionType.TEAM:
+            return [TeamRunSchema.from_team_run_response(run) for run in runs]  # type: ignore
+        elif session_type == SessionType.WORKFLOW:
+            return [WorkflowRunSchema.from_workflow_run_response(run) for run in runs]  # type: ignore
 
     return router

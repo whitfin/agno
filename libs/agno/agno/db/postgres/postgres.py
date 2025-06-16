@@ -3,9 +3,10 @@ from typing import List, Optional, Union
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
-from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
+from agno.db.session import AgentSession, TeamSession, WorkflowSession
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
+from agno.run.workflow import BaseWorkflowRunResponseEvent
 from agno.utils.log import log_debug, log_info, log_warning, logger
 
 try:
@@ -295,7 +296,7 @@ class PostgresDb(BaseDb):
 
     def get_runs(
         self, session_id: str, session_type: SessionType
-    ) -> Optional[List[Union[RunResponse, TeamRunResponse]]]:
+    ) -> Optional[Union[List[RunResponse], List[TeamRunResponse], List[BaseWorkflowRunResponseEvent]]]:
         """
         Get all runs for the given session.
 
@@ -317,7 +318,12 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-            return [RunResponse.from_dict(run) for run in result.runs]  # type: ignore
+            if table == self.agent_session_table:
+                return [RunResponse.from_dict(run) for run in result.runs]  # type: ignore
+            elif table == self.team_session_table:
+                return [TeamRunResponse.from_dict(run) for run in result.runs]  # type: ignore
+            elif table == self.workflow_session_table:
+                return [BaseWorkflowRunResponseEvent.from_dict(run) for run in result.runs]  # type: ignore
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
@@ -374,7 +380,7 @@ class PostgresDb(BaseDb):
         entity_id: Optional[str] = None,
         limit: Optional[int] = None,
         table: Optional[Table] = None,
-    ) -> List[Session]:
+    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
         """
         Get all sessions in the given table. Can filter by user_id and entity_id.
 
@@ -405,10 +411,17 @@ class PostgresDb(BaseDb):
                 stmt = stmt.order_by(table.c.created_at.desc())
 
                 records = sess.execute(stmt).fetchall()
-                if records is not None:
-                    return [AgentSession.from_dict(record._mapping) for record in records]  # type: ignore
-                else:
+                if records is None:
                     return []
+
+                if table == self.agent_session_table:
+                    return [AgentSession.from_dict(record._mapping) for record in records]  # type: ignore
+                elif table == self.team_session_table:
+                    return [TeamSession.from_dict(record._mapping) for record in records]  # type: ignore
+                elif table == self.workflow_session_table:
+                    return [WorkflowSession.from_dict(record._mapping) for record in records]  # type: ignore
+                else:
+                    raise ValueError(f"Invalid table: {table}")
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
@@ -420,12 +433,16 @@ class PostgresDb(BaseDb):
         entity_id: Optional[str] = None,
         limit: Optional[int] = 3,
         table: Optional[Table] = None,
-    ) -> List[Session]:
+    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
         """Get the most recent sessions for the given entity."""
         return self.get_sessions(session_type=session_type, entity_id=entity_id, limit=limit, table=table)
 
     def get_all_session_ids(
-        self, table: Table, user_id: Optional[str] = None, entity_id: Optional[str] = None
+        self,
+        session_type: Optional[SessionType] = None,
+        table: Optional[Table] = None,
+        user_id: Optional[str] = None,
+        entity_id: Optional[str] = None,
     ) -> List[str]:
         """
         Get all session IDs. Can filter by user_id and entity_id.
@@ -439,6 +456,11 @@ class PostgresDb(BaseDb):
             List[str]: List of session IDs matching the criteria.
         """
         try:
+            if table is None:
+                table = self.get_table_for_session_type(session_type)
+                if table is None:
+                    raise ValueError("No table found")
+
             with self.Session() as sess, sess.begin():
                 stmt = select(table.c.session_id)
 
@@ -501,12 +523,18 @@ class PostgresDb(BaseDb):
 
                 sess.execute(stmt)
 
-            return self.get_session(session_id=session.session_id, table=table)
+            return self.get_session(session_id=session.session_id, table=table)  # type: ignore
+
         except Exception as e:
             log_warning(f"Exception upserting into table: {e}")
             return None
 
-    def delete_session(self, table: Table, session_id: str) -> None:
+    def delete_session(
+        self,
+        session_id: str,
+        session_type: Optional[SessionType] = None,
+        table: Optional[Table] = None,
+    ) -> None:
         """
         Delete a Session from the database.
 
@@ -518,6 +546,11 @@ class PostgresDb(BaseDb):
             Exception: If an error occurs during deletion.
         """
         try:
+            if table is None:
+                table = self.get_table_for_session_type(session_type)
+                if table is None:
+                    raise ValueError("No table found")
+
             with self.Session() as sess, sess.begin():
                 delete_stmt = table.delete().where(table.c.session_id == session_id)
                 result = sess.execute(delete_stmt)
@@ -525,5 +558,6 @@ class PostgresDb(BaseDb):
                     log_debug(f"No session found with session_id: {session_id} in table {table.name}")
                 else:
                     log_debug(f"Successfully deleted session with session_id: {session_id} in table {table.name}")
+
         except Exception as e:
             logger.error(f"Error deleting session: {e}")

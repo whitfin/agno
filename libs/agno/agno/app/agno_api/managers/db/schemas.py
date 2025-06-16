@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
+from agno.run.workflow import BaseWorkflowRunResponseEvent
 
 
 class SessionSchema(BaseModel):
@@ -82,6 +84,48 @@ class RunSchema(BaseModel):
         return cls(
             run_id=run_response.run_id or "",
             agent_session_id=run_response.session_id or "",
+            workspace_id=None,
+            user_id=None,
+            run_data=run_response.to_dict(),
+            run_review=None,
+            created_at=datetime.fromtimestamp(run_response.created_at) if run_response.created_at else None,
+        )
+
+
+class TeamRunSchema(BaseModel):
+    run_id: str
+    team_session_id: str
+    workspace_id: Optional[str]
+    user_id: Optional[str]
+    run_data: dict
+    run_review: Optional[dict]
+    created_at: Optional[datetime]
+
+    @classmethod
+    def from_team_run_response(cls, run_response: TeamRunResponse) -> "TeamRunSchema":
+        return cls(
+            run_id=run_response.run_id or "",
+            team_session_id=run_response.session_id or "",
+            workspace_id=None,
+            user_id=None,
+            run_data=run_response.to_dict(),
+            run_review=None,
+            created_at=datetime.fromtimestamp(run_response.created_at) if run_response.created_at else None,
+        )
+
+
+class WorkflowRunSchema(BaseModel):
+    run_id: str
+    workspace_id: Optional[str]
+    user_id: Optional[str]
+    run_data: dict
+    run_review: Optional[dict]
+    created_at: Optional[datetime]
+
+    @classmethod
+    def from_workflow_run_response(cls, run_response: BaseWorkflowRunResponseEvent) -> "WorkflowRunSchema":
+        return cls(
+            run_id=run_response.run_id or "",
             workspace_id=None,
             user_id=None,
             run_data=run_response.to_dict(),

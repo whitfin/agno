@@ -3,22 +3,20 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-from agno.memory import Memory
+from agno.memory import UserMemory
 
 
-class MemorySchema(BaseModel):
+class UserMemorySchema(BaseModel):
     memory_id: str
     memory: str
     topics: Optional[List[str]]
-    created_at: datetime
-    updated_at: Optional[datetime]
+    last_updated: Optional[datetime]
 
     @classmethod
-    def from_memory(cls, memory: Memory) -> "MemorySchema":
+    def from_memory(cls, memory: UserMemory) -> "UserMemorySchema":
         return cls(
-            memory_id=memory.memory_id,
+            memory_id=memory.memory_id,  # type: ignore
             memory=memory.memory,
             topics=memory.topics,
-            created_at=memory.created_at,
-            updated_at=memory.updated_at,
+            last_updated=memory.last_updated,
         )

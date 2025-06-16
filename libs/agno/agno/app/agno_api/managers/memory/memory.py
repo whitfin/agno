@@ -5,7 +5,7 @@ from fastapi.routing import APIRouter
 from agno.app.agno_api.base import BaseInterface
 from agno.app.agno_api.managers.memory.async_router import attach_async_routes
 from agno.app.agno_api.managers.memory.sync_router import attach_sync_routes
-from agno.db.base import BaseDb
+from agno.memory import Memory
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +15,8 @@ class MemoryManager(BaseInterface):
 
     router: APIRouter
 
-    def __init__(self, db: BaseDb):
-        self.db = db
+    def __init__(self, memory: Memory):
+        self.memory = memory
 
     def get_router(self, use_async: bool = True) -> APIRouter:
         # Cannot be overridden
@@ -25,8 +25,8 @@ class MemoryManager(BaseInterface):
         self.router = APIRouter(prefix=prefix + version, tags=["Memory"])
 
         if use_async:
-            self.router = attach_async_routes(router=self.router, db=self.db)
+            self.router = attach_async_routes(router=self.router, memory=self.memory)
         else:
-            self.router = attach_sync_routes(router=self.router, db=self.db)
+            self.router = attach_sync_routes(router=self.router, memory=self.memory)
 
         return self.router

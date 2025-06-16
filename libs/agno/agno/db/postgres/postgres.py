@@ -1,9 +1,11 @@
 import time
 from typing import List, Optional, Union
+from uuid import uuid4
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.session import AgentSession, TeamSession, WorkflowSession
+from agno.memory import UserMemory
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.run.workflow import BaseWorkflowRunResponseEvent
@@ -80,6 +82,8 @@ class PostgresDb(BaseDb):
         self.Session: scoped_session = scoped_session(sessionmaker(bind=self.db_engine))
 
         log_debug("Created PostgresDb")
+
+    # -- DB methods --
 
     # TODO: should also check column types, indexes
     def is_valid_table(self, table_name: str, table_type: str, db_schema: str) -> bool:
@@ -229,6 +233,16 @@ class PostgresDb(BaseDb):
             logger.error(f"Could not create table {db_schema}.{table_name}: {e}")
             raise
 
+    def get_user_memory_table(self) -> Table:
+        """Get or create the user memory table."""
+        if not hasattr(self, "user_memory_table"):
+            if self.user_memory_table_name is None:
+                raise ValueError("User memory table was not provided on initialization")
+            self.user_memory_table = self.get_or_create_table(
+                table_name=self.user_memory_table_name, table_type="user_memories", db_schema=self.db_schema
+            )
+        return self.user_memory_table
+
     def get_table_for_session_type(self, session_type: Optional[SessionType] = None) -> Optional[Table]:
         """Map the given session type into the appropriate table.
         If the table has not been created yet, handle its creation.
@@ -293,6 +307,8 @@ class PostgresDb(BaseDb):
         except Exception as e:
             logger.error(f"Error loading existing table {db_schema}.{table_name}: {e}")
             raise
+
+    # -- Session methods --
 
     def get_runs(
         self, session_id: str, session_type: SessionType
@@ -561,3 +577,91 @@ class PostgresDb(BaseDb):
 
         except Exception as e:
             logger.error(f"Error deleting session: {e}")
+
+    # -- Memory methods --
+
+    def get_user_memory(self, memory_id: str) -> Optional[UserMemory]:
+        """Get a memory from the database."""
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                stmt = select(table).where(table.c.memory_id == memory_id)
+                result = sess.execute(stmt).fetchone()
+                if result is None:
+                    raise ValueError(f"Memory with ID {memory_id} not found")
+
+                return UserMemory.from_dict(result._mapping)
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return None
+
+    def get_user_memories(self) -> List[UserMemory]:
+        """Get all memories from the database."""
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                stmt = select(table)
+                result = sess.execute(stmt).fetchall()
+                if result is None:
+                    return []
+
+                return [UserMemory.from_dict(record._mapping) for record in result]  # type: ignore
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
+    def upsert_user_memory(self, memory: UserMemory) -> Optional[UserMemory]:
+        """Upsert a user memory in the database.
+
+        Args:
+            memory (UserMemory): The user memory to upsert.
+
+        Returns:
+            Optional[Memory]: The upserted user memory, or None if the operation fails.
+        """
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                if memory.memory_id is None:
+                    memory.memory_id = str(uuid4())
+                stmt = postgresql.insert(table).values(
+                    memory_id=memory.memory_id,
+                    memory=memory.memory,
+                    topics=memory.topics,
+                    created_at=int(time.time()),
+                )
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["memory_id"],
+                    set_=dict(
+                        memory=memory.memory,
+                        topics=memory.topics,
+                        updated_at=int(time.time()),
+                    ),
+                )
+                sess.execute(stmt)
+                return self.get_user_memory(memory_id=memory.memory_id)
+
+        except Exception as e:
+            log_warning(f"Exception upserting user memory: {e}")
+            return None
+
+    def delete_user_memory(self, memory_id: str) -> None:
+        """Delete a user memory from the database."""
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                delete_stmt = table.delete().where(table.c.memory_id == memory_id)
+                result = sess.execute(delete_stmt)
+                if result.rowcount == 0:
+                    log_debug(f"No user memory found with memory_id: {memory_id}")
+                else:
+                    log_debug(f"Successfully deleted user memory with memory_id: {memory_id}")
+
+        except Exception as e:
+            logger.error(f"Error deleting user memory: {e}")

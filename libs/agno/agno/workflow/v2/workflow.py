@@ -20,7 +20,7 @@ from agno.run.v2.workflow import (
 from agno.storage.base import Storage
 from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
 from agno.utils.log import log_debug, log_info, logger
-from agno.workflow.v2.pipeline import Pipeline
+from agno.workflow.v2.pipeline import Pipeline, PipelineInput
 from agno.workflow.v2.task import Task
 
 
@@ -105,14 +105,14 @@ class Workflow:
         if self.storage is not None:
             self.storage.mode = "workflow_v2"
 
-    def execute_pipeline(self, pipeline: Pipeline, inputs: Dict[str, Any], workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
+    def execute_pipeline(self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
         """Execute a specific pipeline by name synchronously"""
         log_debug(f"Starting workflow execution: {self.run_id}")
         workflow_run_response.status = RunStatus.running
 
         try:
             # Execute the pipeline synchronously - pass WorkflowRunResponse instead of context
-            pipeline.execute(inputs=inputs, workflow_run_response=workflow_run_response)
+            pipeline.execute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response)
 
             workflow_run_response.status = RunStatus.completed
 
@@ -141,7 +141,7 @@ class Workflow:
     def execute_pipeline_stream(
         self,
         pipeline: Pipeline,
-        inputs: Dict[str, Any],
+        pipeline_input: PipelineInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
     ) -> Iterator[WorkflowRunResponseEvent]:
@@ -152,7 +152,7 @@ class Workflow:
 
         try:
             # Execute the pipeline with streaming and yield all events
-            for event in pipeline.execute_stream(inputs=inputs, workflow_run_response=workflow_run_response, stream_intermediate_steps=stream_intermediate_steps):
+            for event in pipeline.execute_stream(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response, stream_intermediate_steps=stream_intermediate_steps):
                 # Store completed workflow response when we get the final event
                 if isinstance(event, WorkflowCompletedEvent):
                     # Update the workflow_run_response with final data
@@ -198,14 +198,14 @@ class Workflow:
             self.write_to_storage()
 
 
-    async def aexecute_pipeline(self, pipeline: Pipeline, inputs: Dict[str, Any], workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
+    async def aexecute_pipeline(self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
         """Execute a specific pipeline by name synchronously"""
         log_debug(f"Starting workflow execution: {self.run_id}")
         workflow_run_response.status = RunStatus.running
 
         try:
             # Execute the pipeline asynchronously - pass WorkflowRunResponse instead of context
-            await pipeline.aexecute(inputs=inputs, workflow_run_response=workflow_run_response)
+            await pipeline.aexecute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response)
 
             workflow_run_response.status = RunStatus.completed
 
@@ -234,7 +234,7 @@ class Workflow:
     async def aexecute_pipeline_stream(
         self,
         pipeline: Pipeline,
-        inputs: Dict[str, Any],
+        pipeline_input: PipelineInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
@@ -244,7 +244,7 @@ class Workflow:
 
         try:
             # Execute the pipeline with streaming and yield all events
-            async for event in pipeline.aexecute_stream(inputs=inputs, workflow_run_response=workflow_run_response, stream_intermediate_steps=stream_intermediate_steps):
+            async for event in pipeline.aexecute_stream(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response, stream_intermediate_steps=stream_intermediate_steps):
                 # Store completed workflow response when we get the final event
                 if isinstance(event, WorkflowCompletedEvent):
                     # Update the workflow_run_response with final data
@@ -379,7 +379,12 @@ class Workflow:
         pipeline = self.get_pipeline(selected_pipeline_name)
         if not pipeline:
             raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
-        inputs = self._prepare_inputs(message, audio, images, videos)
+        inputs = PipelineInput(
+            message=message,
+            audio=audio,
+            images=images,
+            videos=videos,
+        )
 
         # Update agents and teams with workflow session info
         self.update_agents_and_teams_session_info()
@@ -387,12 +392,12 @@ class Workflow:
         if stream:
             return self.execute_pipeline_stream(
                 pipeline=pipeline,
-                inputs=inputs,
+                pipeline_input=inputs,
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
         else:
-            return self.execute_pipeline(pipeline=pipeline, inputs=inputs, workflow_run_response=workflow_run_response)
+            return self.execute_pipeline(pipeline=pipeline, pipeline_input=inputs, workflow_run_response=workflow_run_response)
 
     @overload
     async def arun(
@@ -465,17 +470,21 @@ class Workflow:
         pipeline = self.get_pipeline(selected_pipeline_name)
         if not pipeline:
             raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
-        inputs = self._prepare_inputs(message, audio, images, videos)
-
+        inputs = PipelineInput(
+            message=message,
+            audio=audio,
+            images=images,
+            videos=videos,
+        )
         if stream:
             return self.aexecute_pipeline_stream(
                 pipeline=pipeline,
-                inputs=inputs,
+                pipeline_input=inputs,
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
         else:
-            return await self.aexecute_pipeline(pipeline=pipeline, inputs=inputs, workflow_run_response=workflow_run_response)
+            return await self.aexecute_pipeline(pipeline=pipeline, pipeline_input=inputs, workflow_run_response=workflow_run_response)
 
     def _get_pipeline_name(self, pipeline_name: Optional[str] = None) -> str:
         # If pipeline_name is provided, use that specific pipeline
@@ -491,18 +500,6 @@ class Workflow:
             # Default to first pipeline if no pipeline_name specified
             selected_pipeline_name = self.pipelines[0].name
         return selected_pipeline_name
-
-    def _prepare_inputs(self, message: str = None, audio: Optional[TypingSequence[Audio]] = None, images: Optional[TypingSequence[Image]] = None, videos: Optional[TypingSequence[Video]] = None) -> Dict[str, Any]:
-        inputs = {}
-        if message is not None:
-            inputs["message"] = message
-        if audio is not None:
-            inputs["audio"] = list(audio)
-        if images is not None:
-            inputs["images"] = list(images)
-        if videos is not None:
-            inputs["videos"] = list(videos)
-        return inputs
 
 
     def get_workflow_session(self) -> WorkflowSessionV2:

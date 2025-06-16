@@ -65,7 +65,7 @@ async def main():
     print("=== Research Pipeline (Rich Display) ===")
     try:
         await content_creation_workflow.aprint_response(
-            query="AI agent frameworks 2025",
+            message="AI agent frameworks 2025",
             markdown=True,
             stream=True,
             stream_intermediate_steps=True,

@@ -60,7 +60,7 @@ class Pipeline:
             self.pipeline_id = str(uuid4())
 
 
-    def execute(self, input: PipelineInput, workflow_run_response: WorkflowRunResponse):
+    def execute(self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
 
@@ -75,7 +75,7 @@ class Pipeline:
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
 
             # Create TaskInput for this task
-            task_input = self._create_task_input(inputs, previous_outputs, workflow_run_response)
+            task_input = self._create_task_input(pipeline_input, previous_outputs, workflow_run_response)
 
             # Execute the task (non-streaming) - pass workflow_run_response
             task_output = task.execute(task_input, workflow_run_response, task_index=i)
@@ -115,7 +115,7 @@ class Pipeline:
 
     def execute_stream(
         self,
-        inputs: Dict[str, Any],
+        pipeline_input: PipelineInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
     ) -> Iterator[WorkflowRunResponseEvent]:
@@ -142,7 +142,7 @@ class Pipeline:
         # Execute tasks in pipeline with streaming
         for task_index, task in enumerate(self.tasks):
             # Create TaskInput for this task
-            task_input = self._create_task_input(inputs, previous_outputs, workflow_run_response)
+            task_input = self._create_task_input(pipeline_input, previous_outputs, workflow_run_response)
 
             # Execute task with streaming and yield all events
             task_output = None
@@ -211,7 +211,7 @@ class Pipeline:
         )
 
     async def aexecute(
-        self, inputs: Dict[str, Any], workflow_run_response: WorkflowRunResponse
+        self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse
     ) -> WorkflowRunResponse:
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
@@ -227,7 +227,7 @@ class Pipeline:
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
 
             # Create TaskInput for this task
-            task_input = self._create_task_input(inputs, previous_outputs, workflow_run_response)
+            task_input = self._create_task_input(pipeline_input, previous_outputs, workflow_run_response)
 
             # Execute the task (non-streaming) - pass workflow_run_response
             task_output = await task.aexecute(task_input, workflow_run_response, task_index=i)
@@ -267,7 +267,7 @@ class Pipeline:
 
     async def aexecute_stream(
         self,
-        inputs: Dict[str, Any],
+        pipeline_input: PipelineInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
@@ -291,7 +291,7 @@ class Pipeline:
         # Execute tasks in pipeline with streaming
         for task_index, task in enumerate(self.tasks):
             # Create TaskInput for this task
-            task_input = self._create_task_input(inputs, previous_outputs, workflow_run_response)
+            task_input = self._create_task_input(pipeline_input, previous_outputs, workflow_run_response)
 
             task_output = None
             task_stream = await task.aexecute(
@@ -362,18 +362,15 @@ class Pipeline:
 
     def _create_task_input(
         self,
-        input: PipelineInput,
+        pipeline_input: PipelineInput,
         previous_outputs: Dict[str, Any],
         workflow_run_response: WorkflowRunResponse,
     ) -> TaskInput:
         """Create TaskInput for a task"""
-        # Get primary query/message
-        query = initial_inputs.get("query") or initial_inputs.get("message")
-
         # Extract media from initial inputs
-        images = initial_inputs.get("images")
-        videos = initial_inputs.get("videos")
-        audio = initial_inputs.get("audio")
+        images = pipeline_input.images
+        videos = pipeline_input.videos
+        audio = pipeline_input.audio
 
         # Create workflow session state from WorkflowRunResponse
         workflow_session_state = {
@@ -385,7 +382,7 @@ class Pipeline:
         }
 
         return TaskInput(
-            message=input.message,
+            message=pipeline_input.message,
             workflow_session_state=workflow_session_state,
             previous_outputs=previous_outputs.copy() if previous_outputs else None,
             images=images,

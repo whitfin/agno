@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 from uuid import uuid4
 
+from agno.media import ImageArtifact, VideoArtifact, AudioArtifact
 from agno.run.v2.workflow import (
     TaskCompletedEvent,
     WorkflowCompletedEvent,
@@ -13,6 +14,34 @@ from agno.run.v2.workflow import (
 from agno.utils.log import logger
 from agno.workflow.v2.task import Task, TaskInput, TaskOutput
 
+
+@dataclass
+class PipelineInput:
+    """Input data for a task execution"""
+
+    message: Optional[str] = None
+
+    # state
+    workflow_session_state: Optional[Dict[str, Any]] = None
+
+    # Media inputs
+    images: Optional[List[ImageArtifact]] = None
+    videos: Optional[List[VideoArtifact]] = None
+    audio: Optional[List[AudioArtifact]] = None
+
+    def get_primary_input(self) -> str:
+        """Get the primary text input (query or message)"""
+        return self.query or self.message or ""
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            "message": self.message,
+            "workflow_session_state": self.workflow_session_state,
+            "images": [img.to_dict() for img in self.images] if self.images else None,
+            "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
+            "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
+        }
 
 @dataclass
 class Pipeline:
@@ -30,20 +59,8 @@ class Pipeline:
         if self.pipeline_id is None:
             self.pipeline_id = str(uuid4())
 
-    def execute(
-        self,
-        inputs: Dict[str, Any],
-        workflow_run_response: WorkflowRunResponse,
-        stream: bool = False,
-        stream_intermediate_steps: bool = False,
-    ) -> Union[WorkflowCompletedEvent, Iterator[Union[WorkflowRunResponse, str]]]:
-        """Execute all tasks in the pipeline sequentially with optional streaming"""
-        if stream:
-            return self._execute_stream(inputs, workflow_run_response, stream_intermediate_steps)
-        else:
-            return self._execute(inputs, workflow_run_response)
 
-    def _execute(self, inputs: Dict[str, Any], workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
+    def execute(self, input: PipelineInput, workflow_run_response: WorkflowRunResponse):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
 
@@ -96,9 +113,7 @@ class Pipeline:
         workflow_run_response.task_responses = collected_task_outputs
         workflow_run_response.extra_data = final_output
 
-        return workflow_run_response
-
-    def _execute_stream(
+    def execute_stream(
         self,
         inputs: Dict[str, Any],
         workflow_run_response: WorkflowRunResponse,
@@ -196,20 +211,6 @@ class Pipeline:
         )
 
     async def aexecute(
-        self,
-        inputs: Dict[str, Any],
-        workflow_run_response: WorkflowRunResponse,
-        stream: bool = False,
-        stream_intermediate_steps: bool = False,
-    ) -> Union[WorkflowCompletedEvent, AsyncIterator[Union[WorkflowRunResponse, str]]]:
-        """Execute all tasks in the pipeline sequentially with optional streaming"""
-        if stream:
-            response_iterator = self._aexecute_stream(inputs, workflow_run_response, stream_intermediate_steps)
-            return response_iterator
-        else:
-            return await self._aexecute(inputs, workflow_run_response)
-
-    async def _aexecute(
         self, inputs: Dict[str, Any], workflow_run_response: WorkflowRunResponse
     ) -> WorkflowRunResponse:
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
@@ -264,9 +265,7 @@ class Pipeline:
         workflow_run_response.task_responses = collected_task_outputs
         workflow_run_response.extra_data = final_output
 
-        return workflow_run_response
-
-    async def _aexecute_stream(
+    async def aexecute_stream(
         self,
         inputs: Dict[str, Any],
         workflow_run_response: WorkflowRunResponse,
@@ -274,9 +273,6 @@ class Pipeline:
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
         """Execute the pipeline with event-driven streaming support"""
         logger.info(f"Executing pipeline with streaming: {self.name}")
-
-        # Update pipeline info in the response
-        workflow_run_response.pipeline_name = self.name
 
         # Yield workflow started event
         yield WorkflowStartedEvent(
@@ -366,7 +362,7 @@ class Pipeline:
 
     def _create_task_input(
         self,
-        initial_inputs: Dict[str, Any],
+        input: PipelineInput,
         previous_outputs: Dict[str, Any],
         workflow_run_response: WorkflowRunResponse,
     ) -> TaskInput:
@@ -389,7 +385,7 @@ class Pipeline:
         }
 
         return TaskInput(
-            query=query,
+            message=input.message,
             workflow_session_state=workflow_session_state,
             previous_outputs=previous_outputs.copy() if previous_outputs else None,
             images=images,

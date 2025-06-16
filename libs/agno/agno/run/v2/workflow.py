@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
 from agno.models.message import Message
+from agno.run.base import RunStatus
 from agno.utils.log import log_error
 
 if TYPE_CHECKING:
@@ -18,6 +19,7 @@ class WorkflowRunEvent(str, Enum):
 
     workflow_started = "WorkflowStarted"
     workflow_completed = "WorkflowCompleted"
+    workflow_cancelled = "WorkflowCancelled"
     workflow_error = "WorkflowError"
 
     task_started = "TaskStarted"
@@ -63,6 +65,23 @@ class BaseWorkflowRunResponseEvent:
 
         return json.dumps(_dict, indent=2)
 
+    @property
+    def is_cancelled(self):
+        return False
+
+    @property
+    def is_error(self):
+        return False
+
+    @property
+    def status(self):
+        status = "Completed"
+        if self.is_error:
+            status = "Error"
+        if self.is_cancelled:
+            status = "Cancelled"
+
+        return status
 
 @dataclass
 class WorkflowStartedEvent(BaseWorkflowRunResponseEvent):
@@ -90,6 +109,18 @@ class WorkflowErrorEvent(BaseWorkflowRunResponseEvent):
 
     event: str = WorkflowRunEvent.workflow_error.value
     error: Optional[str] = None
+
+
+@dataclass
+class WorkflowCancelledEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when workflow execution is cancelled"""
+
+    event: str = WorkflowRunEvent.workflow_cancelled.value
+    reason: Optional[str] = None
+
+    @property
+    def is_cancelled(self):
+        return True
 
 
 @dataclass
@@ -169,6 +200,12 @@ class WorkflowRunResponse:
     extra_data: Optional[Dict[str, Any]] = None
     created_at: int = field(default_factory=lambda: int(time()))
 
+    status: RunStatus = RunStatus.pending
+
+    @property
+    def is_cancelled(self):
+        return self.status == RunStatus.cancelled
+
     def to_dict(self) -> Dict[str, Any]:
         _dict = {
             k: v
@@ -185,6 +222,9 @@ class WorkflowRunResponse:
                 "task_responses",
             ]
         }
+
+        if self.status is not None:
+            _dict["status"] = self.status.value if isinstance(self.status, RunStatus) else self.status
 
         if self.messages is not None:
             _dict["messages"] = [m.to_dict() for m in self.messages]
@@ -223,25 +263,25 @@ class WorkflowRunResponse:
         # Import here to avoid circular import
         from agno.workflow.v2.task import TaskOutput
 
-        messages = data.pop("messages", None)
+        messages = data.pop("messages", [])
         messages = [Message.model_validate(message) for message in messages] if messages else None
 
-        task_responses = data.pop("task_responses", None)
+        task_responses = data.pop("task_responses", [])
         parsed_task_responses: List["TaskOutput"] = []
-        if task_responses is not None:
+        if task_responses:
             for task_output_dict in task_responses:
                 # Reconstruct TaskOutput from dict
                 parsed_task_responses.append(TaskOutput.from_dict(task_output_dict))
 
         extra_data = data.pop("extra_data", None)
 
-        images = data.pop("images", None)
+        images = data.pop("images", [])
         images = [ImageArtifact.model_validate(image) for image in images] if images else None
 
-        videos = data.pop("videos", None)
+        videos = data.pop("videos", [])
         videos = [VideoArtifact.model_validate(video) for video in videos] if videos else None
 
-        audio = data.pop("audio", None)
+        audio = data.pop("audio", [])
         audio = [AudioArtifact.model_validate(audio) for audio in audio] if audio else None
 
         response_audio = data.pop("response_audio", None)

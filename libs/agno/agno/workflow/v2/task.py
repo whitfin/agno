@@ -7,7 +7,6 @@ from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.response import RunResponse, RunResponseEvent
 from agno.run.team import TeamRunResponse
 from agno.run.v2.workflow import (
-    WorkflowRunEvent,
     WorkflowRunResponse,
     WorkflowRunResponseEvent,
 )
@@ -19,7 +18,6 @@ from agno.utils.log import logger
 class TaskInput:
     """Input data for a task execution"""
 
-    query: Optional[str] = None
     message: Optional[str] = None
 
     # state
@@ -35,12 +33,11 @@ class TaskInput:
 
     def get_primary_input(self) -> str:
         """Get the primary text input (query or message)"""
-        return self.query or self.message or ""
+        return self.message or ""
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
-            "query": self.query,
             "message": self.message,
             "workflow_session_state": self.workflow_session_state,
             "previous_outputs": self.previous_outputs,
@@ -215,7 +212,6 @@ class Task:
         self, task_input: TaskInput, workflow_run_response: WorkflowRunResponse, task_index: int = 0
     ) -> TaskOutput:
         """Execute the task with TaskInput, returning final TaskOutput (non-streaming)"""
-        logger.info(f"Executing task: {self.name}")
 
         # Initialize executor with workflow run response
         self._initialize_executor_context(task_input, workflow_run_response)
@@ -253,7 +249,6 @@ class Task:
         task_index: int = 0,
     ) -> Iterator[Union[WorkflowRunResponseEvent, TaskOutput]]:
         """Execute the task with event-driven streaming support"""
-        logger.info(f"Executing task with streaming: {self.name}")
         from agno.run.response import RunResponseEvent
         from agno.workflow.v2.workflow import TaskStartedEvent
 
@@ -420,7 +415,6 @@ class Task:
         self, task_input: TaskInput, workflow_run_response: WorkflowRunResponse, task_index: int = 0
     ) -> TaskOutput:
         """Execute the task with TaskInput, returning final TaskOutput (non-streaming)"""
-        logger.info(f"Executing task: {self.name}")
 
         # Initialize executor with workflow run response
         self._initialize_executor_context(task_input, workflow_run_response)
@@ -458,7 +452,6 @@ class Task:
         task_index: int = 0,
     ) -> AsyncIterator[Union[WorkflowRunResponseEvent, TaskOutput]]:
         """Execute the task with event-driven streaming support"""
-        logger.info(f"Executing task with streaming: {self.name}")
         from agno.run.response import RunResponseEvent
         from agno.workflow.v2.workflow import TaskStartedEvent
 

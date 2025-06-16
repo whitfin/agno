@@ -370,6 +370,9 @@ class Workflow:
         # Load or create session
         self.load_session()
 
+        # Prepare primary input by combining message and message_data
+        primary_input = self._prepare_primary_input(message, message_data)
+
         self.run_id = str(uuid4())
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
 
@@ -388,7 +391,7 @@ class Workflow:
         if not pipeline:
             raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         inputs = PipelineInput(
-            message=message,
+            message=primary_input,
             audio=audio,
             images=images,
             videos=videos,
@@ -462,6 +465,9 @@ class Workflow:
         # Load or create session
         self.load_session()
 
+        # Prepare primary input by combining message and message_data
+        primary_input = self._prepare_primary_input(message, message_data)
+
         # Initialize execution
         self.run_id = str(uuid4())
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
@@ -480,7 +486,7 @@ class Workflow:
         if not pipeline:
             raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         inputs = PipelineInput(
-            message=message,
+            message=primary_input,
             audio=audio,
             images=images,
             videos=videos,
@@ -697,13 +703,6 @@ class Workflow:
 
         pipeline_name = self._auto_create_pipeline_from_tasks()
 
-        # Process message_data and combine with message
-        primary_input = self._prepare_primary_input(message, message_data)
-
-        if primary_input is None:
-            console.print("[red]message must be provided[/red]")
-            return
-
         # Validate pipeline configuration based on trigger type
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
@@ -740,7 +739,18 @@ class Workflow:
         if pipeline.name != "Default Pipeline":
             workflow_info += f"""\n\n**Pipeline:** {pipeline.name}"""
         workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
-        workflow_info += f"""\n\n**Message:** {primary_input}{media_str}"""
+        if message:
+            workflow_info += f"""\n\n**Message:** {message}"""
+        if message_data:
+            if isinstance(message_data, BaseModel):
+                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
+            elif isinstance(message_data, dict):
+                import json
+
+                data_display = json.dumps(message_data, indent=2, default=str)
+            else:
+                data_display = str(message_data)
+            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -765,7 +775,8 @@ class Workflow:
             try:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunResponse = self.run(
-                    message=primary_input,
+                    message=message,
+                    message_data=message_data,
                     pipeline_name=pipeline_name,
                     user_id=user_id,
                     session_id=session_id,
@@ -846,13 +857,6 @@ class Workflow:
 
         pipeline_name = self._auto_create_pipeline_from_tasks()
 
-        # Process message_data and combine with message
-        primary_input = self._prepare_primary_input(message, message_data)
-
-        if primary_input is None:
-            console.print("[red]message must be provided[/red]")
-            return
-
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
@@ -886,7 +890,18 @@ class Workflow:
         if pipeline.name != "Default Pipeline":
             workflow_info += f"""\n\n**Pipeline:** {pipeline.name}"""
         workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
-        workflow_info += f"""\n\n**Message:** {primary_input}{media_str}"""
+        if message:
+            workflow_info += f"""\n\n**Message:** {message}"""
+        if message_data:
+            if isinstance(message_data, BaseModel):
+                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
+            elif isinstance(message_data, dict):
+                import json
+
+                data_display = json.dumps(message_data, indent=2, default=str)
+            else:
+                data_display = str(message_data)
+            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -917,7 +932,8 @@ class Workflow:
 
             try:
                 for response in self.run(
-                    message=primary_input,
+                    message=message,
+                    message_data=message_data,
                     pipeline_name=pipeline_name,
                     user_id=user_id,
                     session_id=session_id,
@@ -1127,13 +1143,6 @@ class Workflow:
 
         pipeline_name = self._auto_create_pipeline_from_tasks()
 
-        # Process message_data and combine with message
-        primary_input = self._prepare_primary_input(message, message_data)
-
-        if primary_input is None:
-            console.print("[red]Message must be provided[/red]")
-            return
-
         # Validate pipeline configuration based on trigger type
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
@@ -1170,7 +1179,18 @@ class Workflow:
         if pipeline.name != "Default Pipeline":
             workflow_info += f"""\n\n**Pipeline:** {pipeline.name}"""
         workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
-        workflow_info += f"""\n\n**Message:** {primary_input}{media_str}"""
+        if message:
+            workflow_info += f"""\n\n**Message:** {message}"""
+        if message_data:
+            if isinstance(message_data, BaseModel):
+                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
+            elif isinstance(message_data, dict):
+                import json
+
+                data_display = json.dumps(message_data, indent=2, default=str)
+            else:
+                data_display = str(message_data)
+            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -1195,7 +1215,8 @@ class Workflow:
             try:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunResponse = await self.arun(
-                    message=primary_input,
+                    message=message,
+                    message_data=message_data,
                     pipeline_name=pipeline_name,
                     user_id=user_id,
                     session_id=session_id,
@@ -1276,13 +1297,6 @@ class Workflow:
 
         pipeline_name = self._auto_create_pipeline_from_tasks()
 
-        # Process message_data and combine with message
-        primary_input = self._prepare_primary_input(message, message_data)
-
-        if primary_input is None:
-            console.print("[red]Message must be provided[/red]")
-            return
-
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
@@ -1316,7 +1330,18 @@ class Workflow:
         if pipeline.name != "Default Pipeline":
             workflow_info += f"""\n\n**Pipeline:** {pipeline.name}"""
         workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
-        workflow_info += f"""\n\n**Message:** {primary_input}{media_str}"""
+        if message:
+            workflow_info += f"""\n\n**Message:** {message}"""
+        if message_data:
+            if isinstance(message_data, BaseModel):
+                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
+            elif isinstance(message_data, dict):
+                import json
+
+                data_display = json.dumps(message_data, indent=2, default=str)
+            else:
+                data_display = str(message_data)
+            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -1347,7 +1372,8 @@ class Workflow:
 
             try:
                 async for response in await self.arun(
-                    message=primary_input,
+                    message=message,
+                    message_data=message_data,
                     pipeline_name=pipeline_name,
                     user_id=user_id,
                     session_id=session_id,

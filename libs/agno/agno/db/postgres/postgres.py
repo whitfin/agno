@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
-from agno.db.session import AgentSession, Session
+from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.utils.log import log_debug, log_info, log_warning, logger
@@ -242,16 +242,16 @@ class PostgresDb(BaseDb):
             return None
 
         if session_type == SessionType.AGENT:
-            if self.agent_session_table is None:
-                # if self.agent_session_table_name is None:
-                #     raise ValueError("Agent session table was not provided on initialization")
+            if not hasattr(self, "agent_session_table"):
+                if self.agent_session_table_name is None:
+                    raise ValueError("Agent session table was not provided on initialization")
                 self.agent_session_table = self.get_or_create_table(
                     table_name=self.agent_session_table_name, table_type="agent_sessions", db_schema=self.db_schema
                 )
             return self.agent_session_table
 
         elif session_type == SessionType.TEAM:
-            if self.team_session_table is None:
+            if not hasattr(self, "team_session_table"):
                 if self.team_session_table_name is None:
                     raise ValueError("Team session table was not provided on initialization")
                 self.team_session_table = self.get_or_create_table(
@@ -260,7 +260,7 @@ class PostgresDb(BaseDb):
             return self.team_session_table
 
         elif session_type == SessionType.WORKFLOW:
-            if self.workflow_session_table is None:
+            if not hasattr(self, "workflow_session_table"):
                 if self.workflow_session_table_name is None:
                     raise ValueError("Workflow session table was not provided on initialization")
                 self.workflow_session_table = self.get_or_create_table(
@@ -329,7 +329,7 @@ class PostgresDb(BaseDb):
         user_id: Optional[str] = None,
         session_type: Optional[SessionType] = None,
         table: Optional[Table] = None,
-    ) -> Optional[AgentSession]:
+    ) -> Optional[Union[AgentSession, TeamSession, WorkflowSession]]:
         """
         Read a Session from the database.
 
@@ -353,7 +353,15 @@ class PostgresDb(BaseDb):
                 if user_id:
                     stmt = stmt.where(table.c.user_id == user_id)
                 result = sess.execute(stmt).fetchone()
-                return AgentSession.from_dict(result._mapping) if result is not None else None
+                if result is None:
+                    raise ValueError(f"Session with ID {session_id} not found")
+
+                if table == self.agent_session_table:
+                    return AgentSession.from_dict(result._mapping)
+                elif table == self.team_session_table:
+                    return TeamSession.from_dict(result._mapping)
+                elif table == self.workflow_session_table:
+                    return WorkflowSession.from_dict(result._mapping)
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")

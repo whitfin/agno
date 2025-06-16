@@ -31,7 +31,7 @@ class PipelineInput:
 
     def get_primary_input(self) -> str:
         """Get the primary text input (query or message)"""
-        return self.query or self.message or ""
+        return self.message or ""
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -380,6 +380,12 @@ class Pipeline:
             "session_id": workflow_run_response.session_id,
             "pipeline_name": workflow_run_response.pipeline_name,
         }
+
+        # Merge with any existing workflow_session_state from pipeline_input
+        if pipeline_input.workflow_session_state:
+            from agno.utils.merge_dict import merge_dictionaries
+
+            merge_dictionaries(workflow_session_state, pipeline_input.workflow_session_state)
 
         return TaskInput(
             message=pipeline_input.message,

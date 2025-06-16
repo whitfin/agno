@@ -309,6 +309,8 @@ class Agent:
 
     # Optional team session state. Set by the team leader agent.
     team_session_state: Optional[Dict[str, Any]] = None
+    # Optional workflow session state. Set by the workflow.
+    workflow_session_state: Optional[Dict[str, Any]] = None
 
     # --- Debug & Monitoring ---
     # Enable debug logs
@@ -596,6 +598,7 @@ class Agent:
         self.session_name = None
         self.session_state = None
         self.team_session_state = None
+        self.workflow_session_state = None
         self.session_metrics = None
         self.images = None
         self.videos = None
@@ -3344,10 +3347,16 @@ class Agent:
             self.session_state["current_user_id"] = user_id
             if self.team_session_state is not None:
                 self.team_session_state["current_user_id"] = user_id
+
+            if self.workflow_session_state is not None:
+                self.workflow_session_state["current_user_id"] = user_id
         if session_id is not None:
             self.session_state["current_session_id"] = session_id
             if self.team_session_state is not None:
                 self.team_session_state["current_session_id"] = session_id
+
+            if self.workflow_session_state is not None:
+                self.workflow_session_state["current_session_id"] = session_id
 
     def _make_memories_and_summaries(
         self,
@@ -3775,6 +3784,8 @@ class Agent:
             session_data["session_state"] = self.session_state
         if self.team_session_state is not None and len(self.team_session_state) > 0:
             session_data["team_session_state"] = self.team_session_state
+        if self.workflow_session_state is not None and len(self.workflow_session_state) > 0:
+            session_data["workflow_session_state"] = self.workflow_session_state
         if self.session_metrics is not None:
             session_data["session_metrics"] = asdict(self.session_metrics) if self.session_metrics is not None else None
         if self.team_data is not None:
@@ -3885,6 +3896,22 @@ class Agent:
                     else:
                         # Update the current team_session_state
                         self.team_session_state = team_session_state_from_db
+
+            if "workflow_session_state" in session.session_data:
+                workflow_session_state_from_db = session.session_data.get("workflow_session_state")
+                if (
+                    workflow_session_state_from_db is not None
+                    and isinstance(workflow_session_state_from_db, dict)
+                    and len(workflow_session_state_from_db) > 0
+                ):
+                    # If the workflow_session_state is already set, merge the workflow_session_state from the database with the current workflow_session_state
+                    if self.workflow_session_state is not None and len(self.workflow_session_state) > 0:
+                        # This updates workflow_session_state_from_db
+                        # If there are conflicting keys, values from workflow_session_state_from_db will take precedence
+                        merge_dictionaries(self.workflow_session_state, workflow_session_state_from_db)
+                    else:
+                        # Update the current workflow_session_state
+                        self.workflow_session_state = workflow_session_state_from_db
 
             # Get the session_metrics from the database
             if "session_metrics" in session.session_data:
@@ -4144,6 +4171,7 @@ class Agent:
         format_variables = ChainMap(
             self.session_state or {},
             self.team_session_state or {},
+            self.workflow_session_state or {},
             self.context or {},
             self.extra_data or {},
             {"user_id": self.user_id} if self.user_id is not None else {},

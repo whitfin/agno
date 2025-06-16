@@ -612,10 +612,19 @@ class Task:
                     executor.workflow_session_id = workflow_run_response.session_id
 
             # Set workflow session state
-            if task_input.workflow_session_state and hasattr(executor, "session_state"):
-                if executor.session_state is None:
-                    executor.session_state = {}
-                executor.session_state.update(task_input.workflow_session_state)
+            if task_input.workflow_session_state and hasattr(executor, "workflow_session_state"):
+                if executor.workflow_session_state is None:
+                    executor.workflow_session_state = {}
+                executor.workflow_session_state.update(task_input.workflow_session_state)
+
+                # For teams, also initialize member workflow_session_state
+                if self._executor_type == "team" and hasattr(executor, "members"):
+                    for member in executor.members:
+                        if hasattr(member, "workflow_session_state"):
+                            if member.workflow_session_state is None:
+                                member.workflow_session_state = {}
+                            # Copy the team's session state to each member
+                            member.workflow_session_state.update(executor.workflow_session_state)
 
     def _format_message_with_previous_outputs(self, message: str, previous_outputs: Dict[str, Any]) -> str:
         """Format message with previous task outputs for context"""

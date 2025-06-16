@@ -41,6 +41,7 @@ class Workflow:
     # Session management
     session_id: Optional[str] = None
     workflow_session_id: Optional[str] = None
+    workflow_session_state: Optional[Dict[str, Any]] = None
     user_id: Optional[str] = None
 
     # Runtime state
@@ -116,6 +117,9 @@ class Workflow:
             # Execute the pipeline synchronously - pass WorkflowRunResponse instead of context
             pipeline.execute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response)
 
+            # Collect updated workflow_session_state from agents after execution
+            self._collect_workflow_session_state_from_agents_and_teams()
+
             workflow_run_response.status = RunStatus.completed
 
             # Store the completed workflow response
@@ -169,6 +173,9 @@ class Workflow:
 
                 yield event
 
+            # Collect updated workflow_session_state from agents after execution
+            self._collect_workflow_session_state_from_agents_and_teams()
+
             # Store the completed workflow response
             if self.workflow_session:
                 self.workflow_session.add_run(workflow_run_response)
@@ -212,6 +219,9 @@ class Workflow:
         try:
             # Execute the pipeline asynchronously - pass WorkflowRunResponse instead of context
             await pipeline.aexecute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response)
+
+            # Collect updated workflow_session_state from agents after execution
+            self._collect_workflow_session_state_from_agents_and_teams()
 
             workflow_run_response.status = RunStatus.completed
 
@@ -265,6 +275,9 @@ class Workflow:
 
                 yield event
 
+            # Collect updated workflow_session_state from agents after execution
+            self._collect_workflow_session_state_from_agents_and_teams()
+
             # Store the completed workflow response
             if self.workflow_session:
                 self.workflow_session.add_run(workflow_run_response)
@@ -310,6 +323,9 @@ class Workflow:
                 if hasattr(active_executor, "workflow_id"):
                     active_executor.workflow_id = self.workflow_id
 
+                # Set workflow_session_state on agents and teams
+                self._update_executor_workflow_session_state(active_executor)
+
                 # If it's a team, update all members
                 if hasattr(active_executor, "members"):
                     for member in active_executor.members:
@@ -317,6 +333,9 @@ class Workflow:
                             member.workflow_session_id = self.session_id
                         if hasattr(member, "workflow_id"):
                             member.workflow_id = self.workflow_id
+
+                        # Set workflow_session_state on team members
+                        self._update_executor_workflow_session_state(member)
 
     @overload
     def run(
@@ -392,6 +411,7 @@ class Workflow:
             raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         inputs = PipelineInput(
             message=primary_input,
+            workflow_session_state=self.workflow_session_state,
             audio=audio,
             images=images,
             videos=videos,
@@ -487,10 +507,15 @@ class Workflow:
             raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         inputs = PipelineInput(
             message=primary_input,
+            workflow_session_state=self.workflow_session_state,
             audio=audio,
             images=images,
             videos=videos,
         )
+
+        # Update agents and teams with workflow session info
+        self.update_agents_and_teams_session_info()
+
         if stream:
             return self.aexecute_pipeline_stream(
                 pipeline=pipeline,
@@ -1567,3 +1592,36 @@ class Workflow:
             return f"Process the following data:\n{data_str}"
         else:
             return None
+
+    def _update_executor_workflow_session_state(self, executor) -> None:
+        """Update executor with workflow_session_state"""
+        if self.workflow_session_state is not None:
+            # Initialize session_state if it doesn't exist
+            if not hasattr(executor, "workflow_session_state") or executor.workflow_session_state is None:
+                executor.workflow_session_state = {}
+
+            # Update session_state with workflow_session_state
+            from agno.utils.merge_dict import merge_dictionaries
+
+            merge_dictionaries(executor.workflow_session_state, self.workflow_session_state)
+
+    def _collect_workflow_session_state_from_agents_and_teams(self):
+        """Collect updated workflow_session_state from agents after task execution"""
+        if self.workflow_session_state is None:
+            self.workflow_session_state = {}
+
+        # Collect state from all agents in all pipelines
+        for pipeline in self.pipelines:
+            for task in pipeline.tasks:
+                executor = task._active_executor
+                if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
+                    # Merge the agent's session state back into workflow session state
+                    from agno.utils.merge_dict import merge_dictionaries
+
+                    merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
+
+                # If it's a team, collect from all members
+                if hasattr(executor, "members"):
+                    for member in executor.members:
+                        if hasattr(member, "workflow_session_state") and member.workflow_session_state:
+                            merge_dictionaries(self.workflow_session_state, member.workflow_session_state)

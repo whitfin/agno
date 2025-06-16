@@ -1,10 +1,11 @@
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.session import AgentSession, Session
 from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 from agno.utils.log import log_debug, log_info, log_warning, logger
 
 try:
@@ -292,7 +293,9 @@ class PostgresDb(BaseDb):
             logger.error(f"Error loading existing table {db_schema}.{table_name}: {e}")
             raise
 
-    def get_runs(self, session_id: str, session_type: SessionType) -> List[RunResponse]:
+    def get_runs(
+        self, session_id: str, session_type: SessionType
+    ) -> Optional[List[Union[RunResponse, TeamRunResponse]]]:
         """
         Get all runs for the given session.
 
@@ -312,10 +315,9 @@ class PostgresDb(BaseDb):
                 stmt = select(table).where(table.c.session_id == session_id)
                 result = sess.execute(stmt).fetchone()
                 if result is None:
-                    return []
+                    return None
 
-            breakpoint()
-            return [RunResponse.from_dict(run) for run in result]
+            return [RunResponse.from_dict(run) for run in result.runs]  # type: ignore
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
@@ -394,11 +396,12 @@ class PostgresDb(BaseDb):
                     stmt = stmt.limit(limit)
                 stmt = stmt.order_by(table.c.created_at.desc())
 
-                rows = sess.execute(stmt).fetchall()
-                if rows is not None:
-                    return [AgentSession.from_dict(row._mapping) for row in rows]  # type: ignore
+                records = sess.execute(stmt).fetchall()
+                if records is not None:
+                    return [AgentSession.from_dict(record._mapping) for record in records]  # type: ignore
                 else:
                     return []
+
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return []

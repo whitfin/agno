@@ -584,7 +584,7 @@ def attach_async_routes(
             )
         return workflow_sessions
 
-    @router.get("/workflows/{workflow_id}/sessions/{session_id}", response_model=WorkflowSession)
+    @router.get("/workflows/{workflow_id}/sessions/{session_id}")
     async def get_workflow_session(
         workflow_id: str, session_id: str, user_id: Optional[str] = Query(None, min_length=1)
     ):

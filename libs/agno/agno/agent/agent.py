@@ -6371,15 +6371,16 @@ class Agent:
                         live_log.update(Group(*panels))
                         self.memory.memory_manager.memories_updated = False
 
-                    if self.memory.summary_manager is not None and self.memory.summary_manager.summary_updated:
-                        summary_panel = create_panel(
-                            content=Text("Session summary updated"),
-                            title="Session Summary",
-                            border_style="green",
-                        )
-                        panels.append(summary_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.summary_manager.summary_updated = False
+                    # TODO: Session manager is somewhere else
+                    # if self.memory.summary_manager is not None and self.memory.summary_manager.summary_updated:
+                    #     summary_panel = create_panel(
+                    #         content=Text("Session summary updated"),
+                    #         title="Session Summary",
+                    #         border_style="green",
+                    #     )
+                    #     panels.append(summary_panel)
+                    #     live_log.update(Group(*panels))
+                    #     self.memory.summary_manager.summary_updated = False
 
                 response_timer.stop()
 

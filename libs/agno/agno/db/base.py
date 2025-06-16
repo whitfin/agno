@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from agno.db.session import Session
+from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 
 
 class SessionType(str, Enum):
@@ -39,6 +41,10 @@ class BaseDb(ABC):
         self.eval_table_name = eval_table
 
     # --- READ ---
+
+    @abstractmethod
+    def get_runs(self, session_id: str, session_type: SessionType) -> List[Union[RunResponse, TeamRunResponse]]:
+        raise NotImplementedError
 
     @abstractmethod
     def get_session(self, session_id: str, session_type: SessionType) -> Optional[Session]:

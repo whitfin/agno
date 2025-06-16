@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
+from agno.run.response import RunResponse
 
 
 class SessionSchema(BaseModel):
@@ -75,22 +76,15 @@ class RunSchema(BaseModel):
     run_data: dict
     run_review: Optional[dict]
     created_at: Optional[datetime]
-    updated_at: Optional[datetime]
 
     @classmethod
-    def from_run(cls, run_dict: dict) -> "RunSchema":
-        run_response = run_dict.get("run_response", {})
+    def from_run_response(cls, run_response: RunResponse) -> "RunSchema":
         return cls(
-            run_id=run_response.get("run_id"),
-            agent_session_id=run_response.get("session_id"),
-            workspace_id=run_response.get("workspace_id"),
-            user_id=run_response.get("user_id"),
-            run_data=run_dict,
-            run_review=run_response.get("run_review"),
-            created_at=datetime.fromtimestamp(run_response.get("created_at"))
-            if run_response.get("created_at")
-            else None,
-            updated_at=datetime.fromtimestamp(run_response.get("updated_at"))
-            if run_response.get("updated_at")
-            else None,
+            run_id=run_response.run_id or "",
+            agent_session_id=run_response.session_id or "",
+            workspace_id=None,
+            user_id=None,
+            run_data=run_response.to_dict(),
+            run_review=None,
+            created_at=datetime.fromtimestamp(run_response.created_at) if run_response.created_at else None,
         )

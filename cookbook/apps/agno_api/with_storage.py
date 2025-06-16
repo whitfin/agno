@@ -1,7 +1,7 @@
 from agno.agent import Agent
 from agno.app.agno_api import AgnoAPI
 from agno.app.agno_api.interfaces.playground import Playground
-from agno.app.agno_api.managers.db.db import DbManager
+from agno.app.agno_api.managers.session.session import DbManager
 from agno.db.postgres.postgres import PostgresDb
 from agno.models.openai import OpenAIChat
 

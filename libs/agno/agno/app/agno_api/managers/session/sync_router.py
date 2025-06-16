@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from agno.app.agno_api.managers.db.schemas import (
+from agno.app.agno_api.managers.session.schemas import (
     AgentSessionDetailSchema,
     RunSchema,
     SessionSchema,

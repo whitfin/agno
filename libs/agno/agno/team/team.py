@@ -129,6 +129,8 @@ class Team:
 
     # Team session state (shared between team leaders and team members)
     team_session_state: Optional[Dict[str, Any]] = None
+    workflow_session_state: Optional[Dict[str, Any]] = None
+
     # If True, add the session state variables in the user and system messages
     add_state_in_messages: bool = False
 
@@ -292,6 +294,7 @@ class Team:
         session_name: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
         team_session_state: Optional[Dict[str, Any]] = None,
+        workflow_session_state: Optional[Dict[str, Any]] = None,
         add_state_in_messages: bool = False,
         description: Optional[str] = None,
         instructions: Optional[Union[str, List[str], Callable]] = None,
@@ -364,6 +367,7 @@ class Team:
         self.session_name = session_name
         self.session_state = session_state
         self.team_session_state = team_session_state
+        self.workflow_session_state = workflow_session_state
         self.add_state_in_messages = add_state_in_messages
 
         self.description = description
@@ -510,6 +514,12 @@ class Team:
             else:
                 merge_dictionaries(member.team_session_state, self.team_session_state)
 
+        if self.workflow_session_state is not None:
+            if member.workflow_session_state is not None:
+                member.workflow_session_state = self.workflow_session_state
+            else:
+                merge_dictionaries(member.workflow_session_state, self.workflow_session_state)
+
         if isinstance(member, Agent):
             member.team_id = self.team_id
             member.set_agent_id()
@@ -552,6 +562,7 @@ class Team:
         self.session_name = None
         self.session_state = None
         self.team_session_state = None
+        self.workflow_session_state = None
         self.session_metrics = None
         self.images = None
         self.videos = None
@@ -1941,10 +1952,20 @@ class Team:
             if self.team_session_state is not None:
                 self.team_session_state["current_user_id"] = user_id
 
+        if user_id is not None:
+            self.session_state["current_user_id"] = user_id
+            if self.workflow_session_state is not None:
+                self.workflow_session_state["current_user_id"] = user_id
+
         if session_id is not None:
             self.session_state["current_session_id"] = session_id
             if self.team_session_state is not None:
                 self.team_session_state["current_session_id"] = session_id
+
+        if session_id is not None:
+            self.session_state["current_session_id"] = session_id
+            if self.workflow_session_state is not None:
+                self.workflow_session_state["current_session_id"] = session_id
 
     def _make_memories_and_summaries(
         self, run_messages: RunMessages, session_id: str, user_id: Optional[str] = None
@@ -5111,6 +5132,7 @@ class Team:
         format_variables = ChainMap(
             self.session_state or {},
             self.team_session_state or {},
+            self.workflow_session_state or {},
             self.context or {},
             self.extra_data or {},
             {"user_id": user_id} if user_id is not None else {},
@@ -5381,6 +5403,25 @@ class Team:
             else:
                 merge_dictionaries(self.team_session_state, member_agent.team_session_state)
 
+    def _update_workflow_session_state(self, member_agent: Union[Agent, "Team"]) -> None:
+        """Update workflow session state from either an Agent or nested Team member"""
+        # Get member state safely
+        member_state = getattr(member_agent, "workflow_session_state", None)
+
+        # Only proceed if member has valid state
+        if member_state is not None and isinstance(member_state, dict):
+            # Initialize team state if needed
+            if self.workflow_session_state is None:
+                self.workflow_session_state = {}
+
+            # Only merge if both are dictionaries and member state is not empty
+            if isinstance(self.workflow_session_state, dict) and member_state:
+                from agno.utils.merge_dict import merge_dictionaries
+
+                print("--> 3")
+
+                merge_dictionaries(self.workflow_session_state, member_state)
+
     def get_run_member_agents_function(
         self,
         session_id: str,
@@ -5540,6 +5581,8 @@ class Team:
                 # Update team session state
                 self._update_team_session_state(member_agent)
 
+                self._update_workflow_session_state(member_agent)
+
                 # Update the team media
                 self._update_team_media(member_agent.run_response)  # type: ignore
 
@@ -5615,6 +5658,8 @@ class Team:
 
                     # Update team session state
                     self._update_team_session_state(current_agent)
+
+                    self._update_workflow_session_state(current_agent)
 
                     # Update the team media
                     self._update_team_media(agent.run_response)
@@ -5846,6 +5891,8 @@ class Team:
             # Update team session state
             self._update_team_session_state(member_agent)
 
+            self._update_workflow_session_state(member_agent)
+
             # Update the team media
             self._update_team_media(member_agent.run_response)  # type: ignore
 
@@ -5971,6 +6018,8 @@ class Team:
 
             # Update team session state
             self._update_team_session_state(member_agent)
+
+            self._update_workflow_session_state(member_agent)
 
             # Update the team media
             self._update_team_media(member_agent.run_response)  # type: ignore
@@ -6202,6 +6251,8 @@ class Team:
             # Update team session state
             self._update_team_session_state(member_agent)
 
+            self._update_workflow_session_state(member_agent)
+
             # Update the team media
             self._update_team_media(member_agent.run_response)  # type: ignore
 
@@ -6329,6 +6380,8 @@ class Team:
             # Update team session state
             self._update_team_session_state(member_agent)
 
+            self._update_workflow_session_state(member_agent)
+
             # Update the team media
             self._update_team_media(member_agent.run_response)  # type: ignore
 
@@ -6448,6 +6501,20 @@ class Team:
                         merge_dictionaries(team_session_state_from_db, self.team_session_state)
                     # Update the current team_session_state
                     self.team_session_state = team_session_state_from_db
+
+            if "workflow_session_state" in session.session_data:
+                workflow_session_state_from_db = session.session_data.get("workflow_session_state")
+                if (
+                    workflow_session_state_from_db is not None
+                    and isinstance(workflow_session_state_from_db, dict)
+                    and len(workflow_session_state_from_db) > 0
+                ):
+                    # If the workflow_session_state is already set, merge the workflow_session_state from the database with the current workflow_session_state
+                    if self.workflow_session_state is not None and len(self.workflow_session_state) > 0:
+                        # This updates workflow_session_state_from_db
+                        merge_dictionaries(workflow_session_state_from_db, self.workflow_session_state)
+                    # Update the current workflow_session_state
+                    self.workflow_session_state = workflow_session_state_from_db
 
             # Get the session_metrics from the database
             if "session_metrics" in session.session_data:
@@ -7208,6 +7275,8 @@ class Team:
             session_data["session_state"] = self.session_state
         if self.team_session_state is not None and len(self.team_session_state) > 0:
             session_data["team_session_state"] = self.team_session_state
+        if self.workflow_session_state is not None and len(self.workflow_session_state) > 0:
+            session_data["workflow_session_state"] = self.workflow_session_state
         if self.session_metrics is not None:
             session_data["session_metrics"] = asdict(self.session_metrics) if self.session_metrics is not None else None
         if self.images is not None:

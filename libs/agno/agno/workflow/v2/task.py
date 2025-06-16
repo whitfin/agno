@@ -477,6 +477,7 @@ class Task:
 
                 if self._executor_type == "function":
                     import inspect
+
                     # Check if the function is an async generator
                     if inspect.isasyncgenfunction(self._active_executor):
                         # It's an async generator - iterate over it

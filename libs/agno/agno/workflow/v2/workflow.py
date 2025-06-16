@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union, overload, Literal
+from typing import Any, AsyncIterator, Dict, Iterator, List, Literal, Optional, Union, overload
 from typing import Sequence as TypingSequence
 from uuid import uuid4
 
@@ -105,7 +105,9 @@ class Workflow:
         if self.storage is not None:
             self.storage.mode = "workflow_v2"
 
-    def execute_pipeline(self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
+    def execute_pipeline(
+        self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse
+    ) -> WorkflowRunResponse:
         """Execute a specific pipeline by name synchronously"""
         log_debug(f"Starting workflow execution: {self.run_id}")
         workflow_run_response.status = RunStatus.running
@@ -152,7 +154,11 @@ class Workflow:
 
         try:
             # Execute the pipeline with streaming and yield all events
-            for event in pipeline.execute_stream(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response, stream_intermediate_steps=stream_intermediate_steps):
+            for event in pipeline.execute_stream(
+                pipeline_input=pipeline_input,
+                workflow_run_response=workflow_run_response,
+                stream_intermediate_steps=stream_intermediate_steps,
+            ):
                 # Store completed workflow response when we get the final event
                 if isinstance(event, WorkflowCompletedEvent):
                     # Update the workflow_run_response with final data
@@ -169,7 +175,6 @@ class Workflow:
 
             # Save to storage after complete execution
             self.write_to_storage()
-
 
         except Exception as e:
             logger.error(f"Workflow execution failed: {e}")
@@ -197,8 +202,9 @@ class Workflow:
                 self.workflow_session.add_run(workflow_run_response)
             self.write_to_storage()
 
-
-    async def aexecute_pipeline(self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse) -> WorkflowRunResponse:
+    async def aexecute_pipeline(
+        self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse
+    ) -> WorkflowRunResponse:
         """Execute a specific pipeline by name synchronously"""
         log_debug(f"Starting workflow execution: {self.run_id}")
         workflow_run_response.status = RunStatus.running
@@ -244,7 +250,11 @@ class Workflow:
 
         try:
             # Execute the pipeline with streaming and yield all events
-            async for event in pipeline.aexecute_stream(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response, stream_intermediate_steps=stream_intermediate_steps):
+            async for event in pipeline.aexecute_stream(
+                pipeline_input=pipeline_input,
+                workflow_run_response=workflow_run_response,
+                stream_intermediate_steps=stream_intermediate_steps,
+            ):
                 # Store completed workflow response when we get the final event
                 if isinstance(event, WorkflowCompletedEvent):
                     # Update the workflow_run_response with final data
@@ -288,7 +298,6 @@ class Workflow:
                 self.workflow_session.add_run(workflow_run_response)
             self.write_to_storage()
 
-
     def update_agents_and_teams_session_info(self):
         """Update agents and teams with workflow session information"""
         # Update all agents in pipelines
@@ -322,8 +331,7 @@ class Workflow:
         videos: Optional[TypingSequence[Video]] = None,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
-    ) -> WorkflowRunResponse:
-        ...
+    ) -> WorkflowRunResponse: ...
 
     @overload
     def run(
@@ -397,7 +405,9 @@ class Workflow:
                 stream_intermediate_steps=stream_intermediate_steps,
             )
         else:
-            return self.execute_pipeline(pipeline=pipeline, pipeline_input=inputs, workflow_run_response=workflow_run_response)
+            return self.execute_pipeline(
+                pipeline=pipeline, pipeline_input=inputs, workflow_run_response=workflow_run_response
+            )
 
     @overload
     async def arun(
@@ -412,8 +422,7 @@ class Workflow:
         videos: Optional[TypingSequence[Video]] = None,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
-    ) -> WorkflowRunResponse:
-        ...
+    ) -> WorkflowRunResponse: ...
 
     @overload
     async def arun(
@@ -484,7 +493,9 @@ class Workflow:
                 stream_intermediate_steps=stream_intermediate_steps,
             )
         else:
-            return await self.aexecute_pipeline(pipeline=pipeline, pipeline_input=inputs, workflow_run_response=workflow_run_response)
+            return await self.aexecute_pipeline(
+                pipeline=pipeline, pipeline_input=inputs, workflow_run_response=workflow_run_response
+            )
 
     def _get_pipeline_name(self, pipeline_name: Optional[str] = None) -> str:
         # If pipeline_name is provided, use that specific pipeline
@@ -492,15 +503,12 @@ class Workflow:
             target_pipeline = self.get_pipeline(pipeline_name)
             if not target_pipeline:
                 available_pipelines = [seq.name for seq in self.pipelines]
-                raise ValueError(
-                    f"Pipeline '{pipeline_name}' not found. Available pipelines: {available_pipelines}"
-                )
+                raise ValueError(f"Pipeline '{pipeline_name}' not found. Available pipelines: {available_pipelines}")
             selected_pipeline_name = pipeline_name
         else:
             # Default to first pipeline if no pipeline_name specified
             selected_pipeline_name = self.pipelines[0].name
         return selected_pipeline_name
-
 
     def get_workflow_session(self) -> WorkflowSessionV2:
         """Get a WorkflowSessionV2 object for storage"""

@@ -306,7 +306,7 @@ if __name__ == "__main__":
     print("=== Streaming Custom Functions Workflow ===")
     try:
         streaming_content_workflow.print_response(
-            query="AI trends in 2024",
+            message="AI trends in 2024",
             markdown=True,
             stream=True,
             stream_intermediate_steps=True,

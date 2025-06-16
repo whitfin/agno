@@ -83,6 +83,7 @@ class BaseWorkflowRunResponseEvent:
 
         return status
 
+
 @dataclass
 class WorkflowStartedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when workflow execution starts"""

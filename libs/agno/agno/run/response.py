@@ -335,7 +335,15 @@ class RunResponse:
         if "event" in data:
             data.pop("event")
 
-        return cls(messages=messages, tools=tools, images=images, videos=videos, audio=audio, response_audio=response_audio, **data)
+        return cls(
+            messages=messages,
+            tools=tools,
+            images=images,
+            videos=videos,
+            audio=audio,
+            response_audio=response_audio,
+            **data,
+        )
 
     def get_content_as_string(self, **kwargs) -> str:
         import json

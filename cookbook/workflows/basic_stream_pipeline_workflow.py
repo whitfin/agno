@@ -62,7 +62,7 @@ if __name__ == "__main__":
     print("=== Research Sequence (Rich Display) ===")
     try:
         content_creation_workflow.print_response(
-            query="AI trends in 2024",
+            message="AI trends in 2024",
             markdown=True,
             stream=True,
             stream_intermediate_steps=True,

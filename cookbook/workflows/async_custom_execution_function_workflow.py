@@ -284,7 +284,7 @@ async def main():
     print("=== Custom Sequence (Custom Execution Functions) ===")
     try:
         await content_creation_workflow.aprint_response(
-            query="AI trends in 2024",
+            message="AI trends in 2024",
             markdown=True,
         )
     except Exception as e:

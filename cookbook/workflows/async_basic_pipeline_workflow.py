@@ -4,7 +4,6 @@ This example shows a basic sequential pipeline of tasks that run agents and team
 It is for a content writer that creates posts about tech trends from Hackernews.
 """
 
-
 import asyncio
 
 from agno.agent import Agent
@@ -44,7 +43,7 @@ content_planner = Agent(
     instructions=[
         "Plan a content schedule over 4 weeks for the provided topic and research content",
         "Ensure that I have posts for 3 posts per week",
-    ]
+    ],
 )
 
 # Define tasks

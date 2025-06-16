@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 from uuid import uuid4
 
-from agno.media import ImageArtifact, VideoArtifact, AudioArtifact
+from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.v2.workflow import (
     TaskCompletedEvent,
     WorkflowCompletedEvent,
@@ -43,6 +43,7 @@ class PipelineInput:
             "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
         }
 
+
 @dataclass
 class Pipeline:
     """A pipeline of tasks that execute in order"""
@@ -58,7 +59,6 @@ class Pipeline:
     def __post_init__(self):
         if self.pipeline_id is None:
             self.pipeline_id = str(uuid4())
-
 
     def execute(self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""

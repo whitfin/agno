@@ -62,7 +62,9 @@ async def streaming_blog_analysis_function(
         accumulated_content = ""
 
         # Stream the agent response
-        response_stream = await blog_analyzer.arun(enhanced_query, stream=True, stream_intermediate_steps=True)
+        response_stream = await blog_analyzer.arun(
+            enhanced_query, stream=True, stream_intermediate_steps=True
+        )
         async for event in response_stream:
             yield event
             if hasattr(event, "content") and event.content:
@@ -140,7 +142,9 @@ async def streaming_team_research_function(
         accumulated_content = ""
 
         # Stream the team response
-        response_stream = await research_team.arun(team_prompt, stream=True, stream_intermediate_steps=True)
+        response_stream = await research_team.arun(
+            team_prompt, stream=True, stream_intermediate_steps=True
+        )
         async for event in response_stream:
             yield event
             if hasattr(event, "content") and event.content:
@@ -222,7 +226,9 @@ async def streaming_content_planning_function(
         accumulated_content = ""
 
         # Stream the content planner response
-        response_stream = await content_planner.arun(planning_prompt, stream=True, stream_intermediate_steps=True)
+        response_stream = await content_planner.arun(
+            planning_prompt, stream=True, stream_intermediate_steps=True
+        )
         async for event in response_stream:
             yield event
             if hasattr(event, "content") and event.content:
@@ -299,7 +305,10 @@ async def main():
     print("=== Custom Sequence (Custom Execution Functions) ===")
     try:
         await content_creation_workflow.aprint_response(
-            query="AI trends in 2024", markdown=True, stream=True, stream_intermediate_steps=True
+            message="AI trends in 2024",
+            markdown=True,
+            stream=True,
+            stream_intermediate_steps=True,
         )
     except Exception as e:
         print(f"Custom sequence failed: {e}")

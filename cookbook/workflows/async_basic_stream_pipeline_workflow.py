@@ -36,10 +36,10 @@ content_planner = Agent(
     instructions=[
         "Plan a content schedule over 4 weeks for the provided topic and research content",
         "Ensure that I have posts for 3 posts per week",
-    ]
+    ],
 )
 
-# Define tasks 
+# Define tasks
 research_task = Task(
     name="Research Task",
     team=research_team,
@@ -49,6 +49,7 @@ content_planning_task = Task(
     name="Content Planning Task",
     agent=content_planner,
 )
+
 
 # Create and use workflow
 async def main():

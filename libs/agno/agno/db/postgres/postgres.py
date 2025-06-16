@@ -4,6 +4,7 @@ from typing import List, Optional
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.session import AgentSession, Session
+from agno.run.response import RunResponse
 from agno.utils.log import log_debug, log_info, log_warning, logger
 
 try:
@@ -290,6 +291,35 @@ class PostgresDb(BaseDb):
             logger.error(f"Error loading existing table {db_schema}.{table_name}: {e}")
             raise
 
+    def get_runs(self, session_id: str, session_type: SessionType) -> List[RunResponse]:
+        """
+        Get all runs for the given session.
+
+        Args:
+            session_id (str): The ID of the session to get runs for.
+            session_type (SessionType): The type of session to get runs for.
+
+        Returns:
+            List[RunResponse]: List of RunResponse objects.
+        """
+        try:
+            table = self.get_table_for_session_type(session_type)
+            if table is None:
+                raise ValueError(f"Table not found for session type: {session_type}")
+
+            with self.Session() as sess:
+                stmt = select(table).where(table.c.session_id == session_id)
+                result = sess.execute(stmt).fetchone()
+                if result is None:
+                    return []
+
+            breakpoint()
+            return [RunResponse.from_dict(run) for run in result]
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
     def get_session(
         self,
         session_id: str,
@@ -324,7 +354,7 @@ class PostgresDb(BaseDb):
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
-        return None
+            return None
 
     def get_sessions(
         self,

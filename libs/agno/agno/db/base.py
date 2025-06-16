@@ -41,19 +41,23 @@ class BaseDb(ABC):
     # --- READ ---
 
     @abstractmethod
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str, session_type: SessionType) -> Optional[Session]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_sessions(self, entity_id: Optional[str] = None) -> List[Session]:
+    def get_sessions(
+        self, session_type: SessionType, entity_id: Optional[str] = None, limit: Optional[int] = None
+    ) -> List[Session]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_recent_sessions(self, entity_id: Optional[str] = None) -> List[str]:
+    def get_recent_sessions(
+        self, session_type: SessionType, entity_id: Optional[str] = None, limit: Optional[int] = None
+    ) -> List[str]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_all_session_ids(self, agent_id: Optional[str] = None) -> List[str]:
+    def get_all_session_ids(self, session_type: SessionType, entity_id: Optional[str] = None) -> List[str]:
         raise NotImplementedError
 
     # --- WRITE ---

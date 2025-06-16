@@ -2,24 +2,23 @@ from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from agno.app.agno_api.managers.storage.schemas import (
+from agno.app.agno_api.managers.db.schemas import (
     AgentSessionDetailSchema,
     RunSchema,
     SessionSchema,
     TeamSessionDetailSchema,
     WorkflowSessionDetailSchema,
 )
-from agno.db.base import SessionType
-from agno.db.base import Storage as StorageBase
+from agno.db.base import BaseDb, SessionType
 
 
-def attach_sync_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
+def attach_sync_routes(router: APIRouter, db: BaseDb) -> APIRouter:
     @router.get("/sessions", response_model=List[SessionSchema], status_code=200)
     def get_sessions(session_type: Optional[SessionType] = Query(None, alias="type")) -> List[SessionSchema]:
         if session_type is not None:
-            sessions = storage.get_all_sessions(session_type=session_type)
+            sessions = db.get_all_sessions(session_type=session_type)
         else:
-            sessions = storage.get_all_sessions()
+            sessions = db.get_all_sessions()
 
         return [SessionSchema.from_session(session) for session in sessions]
 
@@ -32,7 +31,7 @@ def attach_sync_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
         session_id: str = Path(...),
         session_type: SessionType = Query(default=SessionType.AGENT, description="Session type filter", alias="type"),
     ) -> Union[AgentSessionDetailSchema, TeamSessionDetailSchema, WorkflowSessionDetailSchema]:
-        session = storage.read_session(session_id=session_id, session_type=session_type)
+        session = db.read_session(session_id=session_id, session_type=session_type)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
@@ -48,11 +47,11 @@ def attach_sync_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
         session_id: str = Path(..., description="Session ID", alias="session-id"),
         session_type: Optional[SessionType] = Query(None, description="Session type filter", alias="type"),
     ) -> List[RunSchema]:
-        session = storage.read_session(session_id=session_id)
+        session = db.read_session(session_id=session_id)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-        runs = storage.get_all_runs(session_id=session_id)
+        runs = db.get_all_runs(session_id=session_id)
 
         return runs
 

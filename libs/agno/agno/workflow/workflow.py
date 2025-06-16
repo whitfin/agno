@@ -11,7 +11,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.agent import Agent
-from agno.db.base import Storage
+from agno.db.base import BaseDb
 from agno.db.session.workflow import WorkflowSession
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.memory.memory import Memory
@@ -52,7 +52,7 @@ class Workflow:
     memory: Optional[Memory] = None
 
     # --- Workflow Storage ---
-    storage: Optional[Storage] = None
+    storage: Optional[BaseDb] = None
     # Extra data stored with this workflow
     extra_data: Optional[Dict[str, Any]] = None
 
@@ -87,7 +87,7 @@ class Workflow:
         session_name: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
         memory: Optional[Memory] = None,
-        storage: Optional[Storage] = None,
+        storage: Optional[BaseDb] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         debug_mode: bool = False,
         monitoring: bool = False,

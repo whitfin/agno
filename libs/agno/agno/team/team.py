@@ -29,7 +29,7 @@ from pydantic import BaseModel
 
 from agno.agent import Agent
 from agno.agent.metrics import SessionMetrics
-from agno.db.base import Storage
+from agno.db.base import BaseDb
 from agno.db.session.team import TeamSession
 from agno.exceptions import ModelProviderError, RunCancelledException
 from agno.knowledge.agent import AgentKnowledge
@@ -243,7 +243,7 @@ class Team:
     num_history_runs: int = 3
 
     # --- Team Storage ---
-    storage: Optional[Storage] = None
+    storage: Optional[BaseDb] = None
     # Extra data stored with this team
     extra_data: Optional[Dict[str, Any]] = None
 
@@ -328,7 +328,7 @@ class Team:
         add_history_to_messages: bool = False,
         num_of_interactions_from_history: Optional[int] = None,
         num_history_runs: int = 3,
-        storage: Optional[Storage] = None,
+        storage: Optional[BaseDb] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         reasoning: bool = False,
         reasoning_model: Optional[Model] = None,

@@ -1,26 +1,23 @@
-from typing import List, Optional, Union
+from typing import List, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from agno.app.agno_api.managers.storage.schemas import (
+from agno.app.agno_api.managers.db.schemas import (
     AgentSessionDetailSchema,
     RunSchema,
     SessionSchema,
     TeamSessionDetailSchema,
     WorkflowSessionDetailSchema,
 )
-from agno.db.base import SessionType
-from agno.db.base import Storage as StorageBase
+from agno.db.base import BaseDb, SessionType
 
 
-def attach_async_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
+def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
     @router.get("/sessions", response_model=List[SessionSchema], status_code=200)
-    async def get_sessions(session_type: Optional[SessionType] = Query(None, alias="type")) -> List[SessionSchema]:
-        if session_type is not None:
-            sessions = storage.get_all_sessions(session_type=session_type)
-        else:
-            sessions = storage.get_all_sessions()
-
+    async def get_sessions(
+        session_type: SessionType = Query(default=SessionType.AGENT, alias="type"),
+    ) -> List[SessionSchema]:
+        sessions = db.get_sessions(session_type=session_type)
         return [SessionSchema.from_session(session) for session in sessions]
 
     @router.get(
@@ -32,7 +29,7 @@ def attach_async_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
         session_id: str = Path(...),
         session_type: SessionType = Query(default=SessionType.AGENT, description="Session type filter", alias="type"),
     ) -> Union[AgentSessionDetailSchema, TeamSessionDetailSchema, WorkflowSessionDetailSchema]:
-        session = storage.read_session(session_id=session_id, session_type=session_type)
+        session = db.get_session(session_id=session_id, session_type=session_type)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with id '{session_id}' not found")
 
@@ -46,13 +43,13 @@ def attach_async_routes(router: APIRouter, storage: StorageBase) -> APIRouter:
     @router.get("/sessions/{session_id}/runs", response_model=List[RunSchema], status_code=200)
     async def get_session_runs(
         session_id: str = Path(..., description="Session ID", alias="session-id"),
-        session_type: Optional[SessionType] = Query(None, description="Session type filter", alias="type"),
+        session_type: SessionType = Query(default=SessionType.AGENT, description="Session type filter", alias="type"),
     ) -> List[RunSchema]:
-        session = storage.read_session(session_id=session_id)
+        session = db.get_session(session_id=session_id, session_type=session_type)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-        runs = storage.get_all_runs(session_id=session_id)
+        runs = db.get_runs(session_id=session_id, session_type=session_type)
 
         return runs
 

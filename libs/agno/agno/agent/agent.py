@@ -28,7 +28,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.agent.metrics import SessionMetrics
-from agno.db.base import Storage
+from agno.db.base import BaseDb
 from agno.db.session.agent import AgentSession
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.agent import AgentKnowledge
@@ -153,7 +153,7 @@ class Agent:
     references_format: Literal["json", "yaml"] = "json"
 
     # --- Agent Storage ---
-    storage: Optional[Storage] = None
+    storage: Optional[BaseDb] = None
     # Extra data stored with this agent
     extra_data: Optional[Dict[str, Any]] = None
 
@@ -345,7 +345,7 @@ class Agent:
         add_references: bool = False,
         retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None,
         references_format: Literal["json", "yaml"] = "json",
-        storage: Optional[Storage] = None,
+        storage: Optional[BaseDb] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         show_tool_calls: bool = True,
@@ -541,13 +541,6 @@ class Agent:
         else:
             set_log_level_to_info()
 
-    def set_storage_mode(self) -> None:
-        if self.storage is not None:
-            if self.storage.mode in ["workflow", "team"]:
-                log_warning(f"You shouldn't use storage in multiple modes. Current mode is {self.storage.mode}.")
-
-            self.storage.mode = "agent"
-
     def set_monitoring(self) -> None:
         """Override monitoring and telemetry settings based on environment variables."""
 
@@ -606,7 +599,6 @@ class Agent:
     def initialize_agent(self) -> None:
         self.set_defaults()
         self.set_default_model()
-        # self.set_storage_mode()
         self.set_debug()
         self.set_agent_id()
 

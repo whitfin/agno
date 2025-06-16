@@ -1,18 +1,18 @@
 from agno.agent import Agent
 from agno.app.agno_api import AgnoAPI
 from agno.app.agno_api.interfaces.playground import Playground
-from agno.app.agno_api.managers.storage.storage import Storage
+from agno.app.agno_api.managers.db.db import DbManager
 from agno.db.postgres.postgres import PostgresDb
 from agno.models.openai import OpenAIChat
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
 
-storage = PostgresDb(db_url=db_url, agent_session_table="agent_sessions")
+db = PostgresDb(db_url=db_url, agent_session_table="agent_sessions")
 
 basic_agent = Agent(
     name="Basic Agent",
     model=OpenAIChat(id="gpt-4o"),
-    storage=storage,
+    storage=db,
     add_datetime_to_instructions=True,
     markdown=True,
 )
@@ -23,7 +23,7 @@ agno_client = AgnoAPI(
     app_id="basic-app",
     agents=[basic_agent],
     interfaces=[Playground()],
-    managers=[Storage(storage=storage)],
+    managers=[DbManager(db=db)],
 )
 app = agno_client.get_app()
 

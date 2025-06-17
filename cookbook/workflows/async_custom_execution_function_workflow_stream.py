@@ -1,7 +1,9 @@
 import asyncio
+from typing import AsyncIterator, Union
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
+from agno.run.v2.workflow import WorkflowRunResponseEvent
 from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
@@ -42,7 +44,9 @@ content_planner = Agent(
 )
 
 
-async def custom_content_planning_function(task_input: TaskInput) -> TaskOutput:
+async def custom_content_planning_function(
+    task_input: TaskInput,
+) -> AsyncIterator[Union[WorkflowRunResponseEvent, TaskOutput]]:
     """
     Custom function that does intelligent content planning with context awareness
     """

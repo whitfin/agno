@@ -675,13 +675,12 @@ class Workflow:
         # Initialize execution
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
         log_debug(f"Selected pipeline: {selected_pipeline_name}")
-        
+
         if self.pipelines:
             pipeline = self.get_pipeline(selected_pipeline_name)
             log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
             if not pipeline:
-                raise ValueError(
-                    f"Pipeline '{selected_pipeline_name}' not found")
+                raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         else:
             pipeline = None
 

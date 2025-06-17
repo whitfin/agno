@@ -30,7 +30,7 @@ agno_client = AgnoAPI(
     app_id="basic-app",
     agents=[basic_agent],
     interfaces=[Playground()],
-    managers=[MemoryManager(db=db)],
+    managers=[MemoryManager(memory=memory)],
 )
 app = agno_client.get_app()
 

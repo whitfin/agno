@@ -46,7 +46,6 @@ from agno.run.response import (
     RunResponseEvent,
     RunResponsePausedEvent,
 )
-from agno.run.team import TeamRunResponse
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -3730,7 +3729,7 @@ class Agent:
 
         # Try to load from database
         if self.memory is not None and self.memory.db is not None:
-            log_info(f"Reading AgentSession: {session_id}")
+            log_debug(f"Reading AgentSession: {session_id}")
             self.agent_session = cast(AgentSession, self.memory.read_agent_session(session_id=session_id))
 
             if self.agent_session and self.agent_session.runs:
@@ -3741,7 +3740,7 @@ class Agent:
                 return self.agent_session
 
         # Create new session if none found
-        log_info(f"Creating new AgentSession: {session_id}")
+        log_debug(f"Creating new AgentSession: {session_id}")
         self.agent_session = AgentSession(
             session_id=session_id,
             agent_id=self.agent_id,
@@ -3771,6 +3770,7 @@ class Agent:
                 AgentSession,
                 self.memory.upsert_agent_session(session=session),
             )
+            log_debug(f"Created new AgentSession record: {session_id}")
 
         return self.agent_session
 

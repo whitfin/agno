@@ -434,6 +434,7 @@ class PostgresDb(BaseDb):
                     return []
 
                 if table == self.agent_session_table:
+                    breakpoint()
                     return [AgentSession.from_dict(record._mapping) for record in records]  # type: ignore
                 elif table == self.team_session_table:
                     return [TeamSession.from_dict(record._mapping) for record in records]  # type: ignore

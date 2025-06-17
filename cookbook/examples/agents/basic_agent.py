@@ -7,4 +7,3 @@ agent = Agent(
     markdown=True,
 )
 runx = agent.run("What is the stock price of Apple?")
-breakpoint()

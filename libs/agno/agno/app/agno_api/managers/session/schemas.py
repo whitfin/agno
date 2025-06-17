@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from agno.app.agno_api.managers.session.utils import get_first_user_message
 from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
@@ -17,10 +18,9 @@ class SessionSchema(BaseModel):
 
     @classmethod
     def from_session(cls, session: Session) -> "SessionSchema":
-        session_title = session.runs[0].get("message", {}).get("content") if session.runs and session.runs[0] else ""
         return cls(
             session_id=session.session_id,
-            title=session_title,
+            title=get_first_user_message(session),
             created_at=datetime.fromtimestamp(session.created_at) if session.created_at else None,
             updated_at=datetime.fromtimestamp(session.updated_at) if session.updated_at else None,
         )

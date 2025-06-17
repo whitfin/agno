@@ -225,7 +225,6 @@ class Memory:
         # Refresh from the Db
         if refresh_from_db:
             self.refresh_from_db(user_id=user_id)
-
         if self.memories is None:
             return []
         return list(self.memories.get(user_id, {}).values())

@@ -3,44 +3,66 @@ from typing import List
 from fastapi import HTTPException, Path
 from fastapi.routing import APIRouter
 
-from agno.app.agno_api.managers.memory.schemas import UserMemorySchema
+from agno.app.agno_api.managers.memory.schemas import UserMemoryCreateSchema, UserMemorySchema
 from agno.memory import Memory
+from agno.memory.db.schema import MemoryRow
 
 
 def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
     @router.get("/memories", response_model=List[UserMemorySchema], status_code=200)
     async def get_memories() -> List[UserMemorySchema]:
-        user_memories = memory.get_user_memories()
-        if not user_memories:
-            return []
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
 
-        return [UserMemorySchema.from_memory(user_memory) for user_memory in user_memories]
+        user_memories = memory.db.get_user_memories()
+        return [UserMemorySchema.from_memory_row(user_memory) for user_memory in user_memories]
 
     @router.get("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)
     async def get_memory(memory_id: str = Path()) -> UserMemorySchema:
-        user_memory = memory.get_user_memory(memory_id=memory_id)
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+
+        user_memory = memory.db.get_user_memory(memory_id=memory_id)
         if not user_memory:
             raise HTTPException(status_code=404, detail=f"Memory with ID {memory_id} not found")
 
-        return UserMemorySchema.from_memory(user_memory)
+        return UserMemorySchema.from_memory_row(user_memory)
 
     @router.post("/memories", response_model=UserMemorySchema, status_code=200)
-    async def create_memory(payload: UserMemorySchema) -> UserMemorySchema:
-        user_memory = memory.upsert_user_memory(memory=payload)
-        if not user_memory:
-            raise HTTPException(status_code=400, detail="Failed to create memory")
-        return UserMemorySchema.from_memory(user_memory)
+    async def create_memory(payload: UserMemoryCreateSchema) -> UserMemorySchema:
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
 
-    @router.put("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)
-    async def update_memory(payload: UserMemorySchema) -> UserMemorySchema:
-        user_memory = memory.upsert_user_memory(memory=payload)
+        user_memory = memory.db.upsert_user_memory(
+            memory=MemoryRow(
+                id=None, memory={"memory": payload.memory, "topics": payload.topics}, user_id=payload.user_id
+            )
+        )
         if not user_memory:
-            raise HTTPException(status_code=400, detail="Failed to update memory")
+            raise HTTPException(status_code=500, detail="Failed to create memory")
 
-        return UserMemorySchema.from_memory(user_memory)
+        return UserMemorySchema.from_memory_row(user_memory)
+
+    @router.patch("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)
+    async def update_memory(payload: UserMemoryCreateSchema, memory_id: str = Path()) -> UserMemorySchema:
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+
+        user_memory = memory.db.upsert_user_memory(
+            memory=MemoryRow(
+                id=memory_id, memory={"memory": payload.memory, "topics": payload.topics or []}, user_id=payload.user_id
+            )
+        )
+        if not user_memory:
+            raise HTTPException(status_code=500, detail="Failed to update memory")
+
+        return UserMemorySchema.from_memory_row(user_memory)
 
     @router.delete("/memories/{memory_id}", status_code=204)
     async def delete_memory(memory_id: str = Path()) -> None:
-        memory.delete_user_memory(memory_id=memory_id)
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+
+        memory.db.delete_user_memory(memory_id=memory_id)
 
     return router

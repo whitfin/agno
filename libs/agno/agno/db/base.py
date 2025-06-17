@@ -86,6 +86,10 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def delete_user_memory(self, memory_id: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
         raise NotImplementedError
 

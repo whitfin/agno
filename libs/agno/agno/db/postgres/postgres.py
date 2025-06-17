@@ -433,7 +433,6 @@ class PostgresDb(BaseDb):
                     return []
 
                 if table == self.agent_session_table:
-                    breakpoint()
                     return [AgentSession.from_dict(record._mapping) for record in records]  # type: ignore
                 elif table == self.team_session_table:
                     return [TeamSession.from_dict(record._mapping) for record in records]  # type: ignore
@@ -541,10 +540,8 @@ class PostgresDb(BaseDb):
                         updated_at=int(time.time()),
                     ),
                 )
-
-                result = sess.execute(stmt)
-                if not result:
-                    return None
+                sess.execute(stmt)
+                sess.commit()
 
                 # TODO: we should be able to return here without hitting the DB again
                 return self.get_session(session_id=session.session_id, table=table)  # type: ignore
@@ -588,10 +585,11 @@ class PostgresDb(BaseDb):
 
     # -- Memory methods --
 
-    def get_user_memory(self, memory_id: str) -> Optional[MemoryRow]:
+    def get_user_memory(self, memory_id: str, table: Optional[Table] = None) -> Optional[MemoryRow]:
         """Get a memory from the database."""
         try:
-            table = self.get_user_memory_table()
+            if table is None:
+                table = self.get_user_memory_table()
 
             # TODO: Review if we need to use begin() for read operations
             with self.Session() as sess, sess.begin():
@@ -600,7 +598,9 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-                return MemoryRow.model_validate(result)
+            return MemoryRow(
+                id=result.memory_id, user_id=result.user_id, memory=result.memory, last_updated=result.last_updated
+            )
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
@@ -620,8 +620,15 @@ class PostgresDb(BaseDb):
                 if not result:
                     return []
 
-                # TODO: Review this pattern. Is this overhead necessary?
-                return [MemoryRow.model_validate(record) for record in result]
+                return [
+                    MemoryRow(
+                        id=record.memory_id,
+                        user_id=record.user_id,
+                        memory=record.memory,
+                        last_updated=record.last_updated,
+                    )
+                    for record in result
+                ]
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
@@ -656,13 +663,11 @@ class PostgresDb(BaseDb):
                         last_updated=int(time.time()),
                     ),
                 )
+                sess.execute(stmt)
+                sess.commit()
 
-                result = sess.execute(stmt)
-                if not result:
-                    return None
-
-                # TODO: we should be able to return here without hitting the DB again
-                return self.get_user_memory(memory_id=memory.id)
+            # TODO: we should be able to return here without hitting the DB again
+            return self.get_user_memory(memory_id=memory.id, table=table)
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")

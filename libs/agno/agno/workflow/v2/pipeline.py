@@ -1,10 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
+from typing import AsyncIterator, Iterator, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel
-
-from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.base import RunStatus
 from agno.run.v2.workflow import (
     TaskCompletedEvent,
@@ -15,36 +12,10 @@ from agno.run.v2.workflow import (
     WorkflowStartedEvent,
 )
 from agno.utils.log import logger
-from agno.workflow.v2.task import Task, TaskInput, TaskOutput
+from agno.workflow.v2.types import WorkflowExecutionInput
+from agno.workflow.v2.task import Task
+from agno.workflow.v2.types import TaskInput, TaskOutput
 
-
-@dataclass
-class PipelineInput:
-    """Input data for a task execution"""
-
-    message: Optional[str] = None
-    message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-
-    # Media inputs
-    images: Optional[List[ImageArtifact]] = None
-    videos: Optional[List[VideoArtifact]] = None
-    audio: Optional[List[AudioArtifact]] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        message_data_dict = {}
-        if isinstance(self.message_data, BaseModel):
-            message_data_dict = self.message_data.model_dump(exclude_none=True)
-        elif isinstance(self.message_data, dict):
-            message_data_dict = self.message_data
-
-        return {
-            "message": self.message,
-            "message_data": message_data_dict,
-            "images": [img.to_dict() for img in self.images] if self.images else None,
-            "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
-            "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
-        }
 
 
 @dataclass
@@ -68,7 +39,7 @@ class Pipeline:
         if self.pipeline_id is None:
             self.pipeline_id = str(uuid4())
 
-    def execute(self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse, session_id: Optional[str] = None, user_id: Optional[str] = None):
+    def execute(self, pipeline_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse, session_id: Optional[str] = None, user_id: Optional[str] = None):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
 
@@ -140,7 +111,7 @@ class Pipeline:
 
     def execute_stream(
         self,
-        pipeline_input: PipelineInput,
+        pipeline_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -148,18 +119,6 @@ class Pipeline:
     ) -> Iterator[WorkflowRunResponseEvent]:
         """Execute the pipeline with event-driven streaming support"""
         logger.info(f"Executing pipeline with streaming: {self.name}")
-
-        # Update pipeline info in the response
-        workflow_run_response.pipeline_name = self.name
-
-        # Yield workflow started event
-        yield WorkflowStartedEvent(
-            run_id=workflow_run_response.run_id or "",
-            workflow_name=workflow_run_response.workflow_name,
-            pipeline_name=self.name,
-            workflow_id=workflow_run_response.workflow_id,
-            session_id=workflow_run_response.session_id,
-        )
 
         # Track outputs from each task for chaining
         collected_task_outputs: List[TaskOutput] = []
@@ -255,20 +214,9 @@ class Pipeline:
         workflow_run_response.extra_data = final_output
         workflow_run_response.status = RunStatus.completed
 
-        # Yield workflow completed event
-        yield WorkflowCompletedEvent(
-            run_id=workflow_run_response.run_id or "",
-            content=workflow_run_response.content,
-            workflow_name=workflow_run_response.workflow_name,
-            pipeline_name=self.name,
-            workflow_id=workflow_run_response.workflow_id,
-            session_id=workflow_run_response.session_id,
-            task_responses=collected_task_outputs,
-            extra_data=final_output,
-        )
 
     async def aexecute(
-        self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse, session_id: Optional[str] = None, user_id: Optional[str] = None
+        self, pipeline_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse, session_id: Optional[str] = None, user_id: Optional[str] = None
     ):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
@@ -341,7 +289,7 @@ class Pipeline:
 
     async def aexecute_stream(
         self,
-        pipeline_input: PipelineInput,
+        pipeline_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,

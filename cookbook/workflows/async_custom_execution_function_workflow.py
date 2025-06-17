@@ -58,18 +58,18 @@ async def custom_content_planning_function(task_input: TaskInput) -> TaskOutput:
     # Create intelligent planning prompt
     planning_prompt = f"""
         STRATEGIC CONTENT PLANNING REQUEST:
-        
+
         Core Topic: {message}
-        
+
         Research Results: {previous_task_content[:500] if previous_task_content else "No research results"}
-        
+
         Planning Requirements:
         1. Create a comprehensive content strategy based on the research
         2. Leverage the research findings effectively
         3. Identify content formats and channels
         4. Provide timeline and priority recommendations
         5. Include engagement and distribution strategies
-        
+
         Please create a detailed, actionable content plan.
     """
 
@@ -135,7 +135,7 @@ async def main():
             markdown=True,
         )
     except Exception as e:
-        print(f"Custom sequence failed: {e}")
+        print(f"Custom workflow failed: {e}")
 
     print("\n" + "=" * 60 + "\n")
 

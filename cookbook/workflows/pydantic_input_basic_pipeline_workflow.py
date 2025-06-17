@@ -93,4 +93,4 @@ if __name__ == "__main__":
             markdown=True,
         )
     except Exception as e:
-        print(f"Research sequence failed: {e}")
+        print(f"Research workflow failed: {e}")

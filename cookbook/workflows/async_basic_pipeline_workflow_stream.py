@@ -1,8 +1,17 @@
+"""
+This example shows a basic sequential pipeline of tasks that run agents and teams.
+
+This shows how to stream the response from the pipeline.
+"""
+
+import asyncio
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
+from agno.tools.hackernews import HackerNewsTools
 from agno.workflow.v2.task import Task
 from agno.workflow.v2.workflow import Workflow
 
@@ -27,7 +36,6 @@ research_team = Team(
     members=[hackernews_agent, web_agent],
     instructions="Research tech topics from Hackernews and the web",
 )
-
 content_planner = Agent(
     name="Content Planner",
     model=OpenAIChat(id="gpt-4o"),
@@ -48,8 +56,9 @@ content_planning_task = Task(
     agent=content_planner,
 )
 
+
 # Create and use workflow
-if __name__ == "__main__":
+async def main():
     content_creation_workflow = Workflow(
         name="Content Creation Workflow",
         description="Automated content creation from blog posts to social media",
@@ -60,13 +69,17 @@ if __name__ == "__main__":
         ),
         tasks=[research_task, content_planning_task],
     )
-    print("=== Research Sequence (Rich Display) ===")
+    print("=== Research Pipeline (Rich Display) ===")
     try:
-        content_creation_workflow.print_response(
-            message="AI trends in 2024",
+        await content_creation_workflow.aprint_response(
+            message="AI agent frameworks 2025",
             markdown=True,
             stream=True,
             stream_intermediate_steps=True,
         )
     except Exception as e:
-        print(f"Research sequence failed: {e}")
+        print(f"Research workflow failed: {e}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -395,6 +395,10 @@ class Workflow:
         self.run_id = str(uuid4())
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
 
+        pipeline = self.get_pipeline(selected_pipeline_name)
+        if not pipeline:
+            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
+
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
             run_id=self.run_id,
@@ -405,10 +409,6 @@ class Workflow:
             created_at=int(datetime.now().timestamp()),
         )
         self.run_response = workflow_run_response
-
-        pipeline = self.get_pipeline(selected_pipeline_name)
-        if not pipeline:
-            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         inputs = PipelineInput(
             message=primary_input,
             workflow_session_state=self.workflow_session_state,
@@ -417,7 +417,6 @@ class Workflow:
             videos=videos,
         )
 
-        # Update agents and teams with workflow session info
         self.update_agents_and_teams_session_info()
 
         if stream:
@@ -491,6 +490,9 @@ class Workflow:
         # Initialize execution
         self.run_id = str(uuid4())
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
+        pipeline = self.get_pipeline(selected_pipeline_name)
+        if not pipeline:
+            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
 
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
@@ -502,9 +504,7 @@ class Workflow:
             created_at=int(datetime.now().timestamp()),
         )
         self.run_response = workflow_run_response
-        pipeline = self.get_pipeline(selected_pipeline_name)
-        if not pipeline:
-            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
+        
         inputs = PipelineInput(
             message=primary_input,
             workflow_session_state=self.workflow_session_state,
@@ -513,7 +513,6 @@ class Workflow:
             videos=videos,
         )
 
-        # Update agents and teams with workflow session info
         self.update_agents_and_teams_session_info()
 
         if stream:

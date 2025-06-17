@@ -4,8 +4,8 @@ import uuid
 import pytest
 
 from agno.agent import Agent
-from agno.db.session.agent import AgentSession
 from agno.db.sqlite import SqliteStorage
+from agno.session import AgentSession
 
 
 @pytest.fixture

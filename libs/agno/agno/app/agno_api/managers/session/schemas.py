@@ -4,10 +4,10 @@ from typing import Optional
 from pydantic import BaseModel
 
 from agno.app.agno_api.managers.session.utils import get_first_user_message
-from agno.db.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.run.workflow import BaseWorkflowRunResponseEvent
+from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 
 
 class SessionSchema(BaseModel):

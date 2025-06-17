@@ -33,15 +33,13 @@ from agno.app.agno_api.interfaces.playground.schemas import (
     WorkflowsGetResponse,
 )
 from agno.app.agno_api.interfaces.playground.utils import process_audio, process_document, process_image, process_video
-from agno.db.session.agent import AgentSession
-from agno.db.session.team import TeamSession
-from agno.db.session.workflow import WorkflowSession
 from agno.media import Audio, Image, Video
 from agno.media import File as FileMedia
 from agno.memory import Memory
 from agno.run.response import RunResponseErrorEvent
 from agno.run.team import RunResponseErrorEvent as TeamRunResponseErrorEvent
 from agno.run.team import TeamRunResponseEvent
+from agno.session import AgentSession, TeamSession, WorkflowSession
 from agno.team.team import Team
 from agno.utils.log import logger
 from agno.workflow.workflow import Workflow

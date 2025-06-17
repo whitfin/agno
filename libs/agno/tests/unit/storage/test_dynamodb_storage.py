@@ -4,8 +4,7 @@ import pytest
 from boto3.dynamodb.conditions import Key
 
 from agno.db.dynamodb import DynamoDbStorage
-from agno.db.session.agent import AgentSession
-from agno.db.session.workflow import WorkflowSession
+from agno.session import AgentSession, WorkflowSession
 
 
 @pytest.fixture

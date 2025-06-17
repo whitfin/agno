@@ -4,11 +4,11 @@ from uuid import uuid4
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
-from agno.db.session import AgentSession, TeamSession, WorkflowSession
 from agno.memory.db.schema import MemoryRow
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.run.workflow import BaseWorkflowRunResponseEvent
+from agno.session import AgentSession, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:

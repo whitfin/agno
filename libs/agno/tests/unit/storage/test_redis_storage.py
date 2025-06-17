@@ -6,9 +6,7 @@ import pytest
 import redis
 
 from agno.db.redis import RedisStorage
-from agno.db.session.agent import AgentSession
-from agno.db.session.team import TeamSession
-from agno.db.session.workflow import WorkflowSession
+from agno.session import AgentSession, TeamSession, WorkflowSession
 
 
 @pytest.fixture

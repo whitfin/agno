@@ -3,8 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agno.db.postgres import PostgresStorage
-from agno.db.session.agent import AgentSession
-from agno.db.session.workflow import WorkflowSession
+from agno.session import AgentSession, WorkflowSession
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 """Utility functions for the session manager"""
 
-from agno.db.session import Session
+from agno.session import Session
 
 
 def get_first_user_message(session: Session) -> str:

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agno.db.gcs_json import GCSJsonStorage
-from agno.db.session.agent import AgentSession
+from agno.session import AgentSession
 
 
 # Fixture to mock the GCS client and bucket

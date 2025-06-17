@@ -30,7 +30,6 @@ from pydantic import BaseModel
 from agno.agent import Agent
 from agno.agent.metrics import SessionMetrics
 from agno.db.base import BaseDb
-from agno.db.session.team import TeamSession
 from agno.exceptions import ModelProviderError, RunCancelledException
 from agno.knowledge.agent import AgentKnowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
@@ -43,6 +42,7 @@ from agno.run.base import RunResponseExtraData, RunStatus
 from agno.run.messages import RunMessages
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunEvent, TeamRunResponse, TeamRunResponseEvent, ToolCallCompletedEvent
+from agno.session import TeamSession
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (

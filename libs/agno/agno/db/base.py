@@ -2,10 +2,10 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Optional, Union
 
-from agno.db.session import AgentSession, Session
 from agno.memory.db.schema import MemoryRow
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
+from agno.session import AgentSession, Session
 
 
 class SessionType(str, Enum):

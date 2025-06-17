@@ -1,11 +1,9 @@
 from typing import Any, List, Optional, Union, cast
 
 from agno.agent.agent import Agent, Function, Toolkit
-from agno.db.session.agent import AgentSession
-from agno.db.session.team import TeamSession
-from agno.db.session.workflow import WorkflowSession
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
+from agno.session import AgentSession, TeamSession, WorkflowSession
 from agno.team.team import Team
 from agno.utils.log import logger
 from agno.workflow.workflow import Workflow

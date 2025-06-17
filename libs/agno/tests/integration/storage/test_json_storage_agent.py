@@ -4,7 +4,7 @@ import pytest
 
 from agno.agent import Agent
 from agno.db.json import JsonStorage
-from agno.db.session.agent import AgentSession
+from agno.session import AgentSession
 
 
 @pytest.fixture

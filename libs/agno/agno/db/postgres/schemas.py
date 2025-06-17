@@ -56,7 +56,7 @@ WORKFLOW_SESSION_TABLE_SCHEMA = {
 
 USER_MEMORY_TABLE_SCHEMA = {
     "memory_id": {"type": String, "primary_key": True, "nullable": False},
-    "memory": {"type": String, "nullable": False},
+    "memory": {"type": JSON, "nullable": False},
     "agent_id": {"type": String, "nullable": True},
     "team_id": {"type": String, "nullable": True},
     "workflow_id": {"type": String, "nullable": True},
@@ -83,7 +83,7 @@ def get_table_schema_definition(table_type: str) -> dict[str, Any]:
         "agent_sessions": AGENT_SESSION_TABLE_SCHEMA,
         "team_sessions": TEAM_SESSION_TABLE_SCHEMA,
         "workflow_sessions": WORKFLOW_SESSION_TABLE_SCHEMA,
-        "memory": USER_MEMORY_TABLE_SCHEMA,
+        "user_memories": USER_MEMORY_TABLE_SCHEMA,
         "learnings": {},
         "eval_runs": {},
     }

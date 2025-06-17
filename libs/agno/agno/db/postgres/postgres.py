@@ -6,10 +6,11 @@ from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.session import AgentSession, TeamSession, WorkflowSession
 from agno.memory import UserMemory
+from agno.memory.db.schema import MemoryRow
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.run.workflow import BaseWorkflowRunResponseEvent
-from agno.utils.log import log_debug, log_info, log_warning, logger
+from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:
     from sqlalchemy.dialects import postgresql
@@ -115,7 +116,7 @@ class PostgresDb(BaseDb):
             log_debug(f"Table {db_schema}.{table_name} has all expected columns")
             return True
         except Exception as e:
-            logger.error(f"Error validating table schema for {db_schema}.{table_name}: {e}")
+            log_error(f"Error validating table schema for {db_schema}.{table_name}: {e}")
             return False
 
     def table_exists(self, table_name: str, db_schema: str) -> bool:
@@ -137,7 +138,7 @@ class PostgresDb(BaseDb):
                 return exists
 
         except Exception as e:
-            logger.error(f"Error checking if table exists: {e}")
+            log_error(f"Error checking if table exists: {e}")
             return False
 
     def create_schema(self, db_schema: str) -> None:
@@ -147,7 +148,7 @@ class PostgresDb(BaseDb):
                 log_debug(f"Creating schema if not exists: {db_schema}")
                 sess.execute(text(f"CREATE SCHEMA IF NOT EXISTS {db_schema};"))
         except Exception as e:
-            logger.warning(f"Could not create schema {db_schema}: {e}")
+            log_warning(f"Could not create schema {db_schema}: {e}")
 
     def create_table(self, table_name: str, table_type: str, db_schema: str) -> Table:
         """
@@ -224,13 +225,13 @@ class PostgresDb(BaseDb):
                         log_debug(f"Index {idx_name} already exists in {db_schema}.{table_name}, skipping creation")
 
                 except Exception as e:
-                    logger.warning(f"Error creating index {idx.name}: {e}")
+                    log_warning(f"Error creating index {idx.name}: {e}")
 
             log_info(f"Successfully created table {db_schema}.{table_name}")
             return table
 
         except Exception as e:
-            logger.error(f"Could not create table {db_schema}.{table_name}: {e}")
+            log_error(f"Could not create table {db_schema}.{table_name}: {e}")
             raise
 
     def get_user_memory_table(self) -> Table:
@@ -238,6 +239,7 @@ class PostgresDb(BaseDb):
         if not hasattr(self, "user_memory_table"):
             if self.user_memory_table_name is None:
                 raise ValueError("User memory table was not provided on initialization")
+            log_info(f"Getting user memory table: {self.user_memory_table_name}")
             self.user_memory_table = self.get_or_create_table(
                 table_name=self.user_memory_table_name, table_type="user_memories", db_schema=self.db_schema
             )
@@ -253,6 +255,7 @@ class PostgresDb(BaseDb):
         Returns:
             Optional[Table]: The table for the given session type.
         """
+        log_debug(f"Getting table for session type: {session_type}")
         if session_type is None:
             return None
 
@@ -260,29 +263,29 @@ class PostgresDb(BaseDb):
             if not hasattr(self, "agent_session_table"):
                 if self.agent_session_table_name is None:
                     raise ValueError("Agent session table was not provided on initialization")
-                self.agent_session_table = self.get_or_create_table(
-                    table_name=self.agent_session_table_name, table_type="agent_sessions", db_schema=self.db_schema
-                )
+            self.agent_session_table = self.get_or_create_table(
+                table_name=self.agent_session_table_name, table_type="agent_sessions", db_schema=self.db_schema
+            )
             return self.agent_session_table
 
         elif session_type == SessionType.TEAM:
             if not hasattr(self, "team_session_table"):
                 if self.team_session_table_name is None:
                     raise ValueError("Team session table was not provided on initialization")
-                self.team_session_table = self.get_or_create_table(
-                    table_name=self.team_session_table_name, table_type="team_sessions", db_schema=self.db_schema
-                )
+            self.team_session_table = self.get_or_create_table(
+                table_name=self.team_session_table_name, table_type="team_sessions", db_schema=self.db_schema
+            )
             return self.team_session_table
 
         elif session_type == SessionType.WORKFLOW:
             if not hasattr(self, "workflow_session_table"):
                 if self.workflow_session_table_name is None:
                     raise ValueError("Workflow session table was not provided on initialization")
-                self.workflow_session_table = self.get_or_create_table(
-                    table_name=self.workflow_session_table_name,
-                    table_type="workflow_sessions",
-                    db_schema=self.db_schema,
-                )
+            self.workflow_session_table = self.get_or_create_table(
+                table_name=self.workflow_session_table_name,
+                table_type="workflow_sessions",
+                db_schema=self.db_schema,
+            )
             return self.workflow_session_table
 
     def get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Table:
@@ -305,7 +308,7 @@ class PostgresDb(BaseDb):
             return table
 
         except Exception as e:
-            logger.error(f"Error loading existing table {db_schema}.{table_name}: {e}")
+            log_error(f"Error loading existing table {db_schema}.{table_name}: {e}")
             raise
 
     # -- Session methods --
@@ -533,6 +536,7 @@ class PostgresDb(BaseDb):
                         agent_data=session.agent_data,
                         session_data=session.session_data,
                         extra_data=session.extra_data,
+                        runs=session.runs,
                         updated_at=int(time.time()),
                     ),
                 )
@@ -576,92 +580,108 @@ class PostgresDb(BaseDb):
                     log_debug(f"Successfully deleted session with session_id: {session_id} in table {table.name}")
 
         except Exception as e:
-            logger.error(f"Error deleting session: {e}")
+            log_error(f"Error deleting session: {e}")
 
     # -- Memory methods --
-
-    def get_user_memory(self, memory_id: str) -> Optional[UserMemory]:
+    def get_user_memory(self, memory_id: str):
         """Get a memory from the database."""
         try:
             table = self.get_user_memory_table()
 
+            # TODO: Review if we need to use begin() for read operations
             with self.Session() as sess, sess.begin():
                 stmt = select(table).where(table.c.memory_id == memory_id)
                 result = sess.execute(stmt).fetchone()
                 if result is None:
-                    raise ValueError(f"Memory with ID {memory_id} not found")
+                    return None
 
-                return UserMemory.from_dict(result._mapping)
+                return MemoryRow.model_validate(result)
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return None
 
-    def get_user_memories(self) -> List[UserMemory]:
+    def get_user_memories(self, user_id: Optional[str] = None):
         """Get all memories from the database."""
         try:
             table = self.get_user_memory_table()
 
+            # TODO: Review if we need to use begin() for read operations
             with self.Session() as sess, sess.begin():
                 stmt = select(table)
+                if user_id is not None:
+                    stmt = stmt.where(table.c.user_id == user_id)
                 result = sess.execute(stmt).fetchall()
-                if result is None:
-                    return []
 
-                return [UserMemory.from_dict(record._mapping) for record in result]  # type: ignore
+                # TODO: Review this pattern. Is this overhead necessary?
+                return [MemoryRow.model_validate(record) for record in result] if result is not None else []
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return []
 
-    def upsert_user_memory(self, memory: UserMemory) -> Optional[UserMemory]:
+    def upsert_user_memory(self, memory: MemoryRow) -> Optional[UserMemory]:
         """Upsert a user memory in the database.
 
         Args:
-            memory (UserMemory): The user memory to upsert.
+            memory (MemoryRow): The user memory to upsert.
 
         Returns:
-            Optional[Memory]: The upserted user memory, or None if the operation fails.
+            Optional[UserMemory]: The upserted user memory, or None if the operation fails.
         """
         try:
             table = self.get_user_memory_table()
 
             with self.Session() as sess, sess.begin():
-                if memory.memory_id is None:
-                    memory.memory_id = str(uuid4())
+                if memory.id is None:
+                    memory.id = str(uuid4())
+
                 stmt = postgresql.insert(table).values(
-                    memory_id=memory.memory_id,
+                    user_id=memory.user_id,
+                    memory_id=memory.id,
                     memory=memory.memory,
-                    topics=memory.topics,
-                    created_at=int(time.time()),
+                    last_updated=int(time.time()),
                 )
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["memory_id"],
                     set_=dict(
                         memory=memory.memory,
-                        topics=memory.topics,
-                        updated_at=int(time.time()),
+                        last_updated=int(time.time()),
                     ),
                 )
                 sess.execute(stmt)
-                return self.get_user_memory(memory_id=memory.memory_id)
+
+                return UserMemory(
+                    memory_id=memory.id,
+                    memory=memory.memory,
+                    last_updated=memory.last_updated,
+                )
 
         except Exception as e:
-            log_warning(f"Exception upserting user memory: {e}")
+            log_error(f"Exception upserting user memory: {e}")
             return None
 
-    def delete_user_memory(self, memory_id: str) -> None:
-        """Delete a user memory from the database."""
+    def delete_user_memory(self, memory_id: str) -> bool:
+        """Delete a user memory from the database.
+
+        Returns:
+            bool: True if deletion was successful, False otherwise.
+        """
         try:
             table = self.get_user_memory_table()
 
             with self.Session() as sess, sess.begin():
                 delete_stmt = table.delete().where(table.c.memory_id == memory_id)
                 result = sess.execute(delete_stmt)
-                if result.rowcount == 0:
-                    log_debug(f"No user memory found with memory_id: {memory_id}")
-                else:
+
+                success = result.rowcount > 0
+                if success:
                     log_debug(f"Successfully deleted user memory with memory_id: {memory_id}")
+                else:
+                    log_debug(f"No user memory found with memory_id: {memory_id}")
+
+                return success
 
         except Exception as e:
-            logger.error(f"Error deleting user memory: {e}")
+            log_error(f"Error deleting user memory: {e}")
+            return False

@@ -81,10 +81,8 @@ class Memory:
     # Manager to manage memories
     memory_manager: Optional[MemoryManager] = None
 
+    # The database to store long term and short term memories
     db: Optional[BaseDb] = None
-
-    # runs per session
-    runs: Optional[Dict[str, List[Union[RunResponse, TeamRunResponse]]]] = None
 
     # Whether to delete memories
     delete_memories: bool = False
@@ -164,17 +162,18 @@ class Memory:
         return self.model
 
     def refresh_from_db(self, user_id: Optional[str] = None):
-        # if self.db:
-        #     # If no user_id is provided, read all memories
-        #     if user_id is None:
-        #         all_memories = self.db.read_memories()
-        #     else:
-        #         all_memories = self.db.read_memories(user_id=user_id)
-        #     # Reset the memories
-        #     self.memories = {}
-        #     for memory in all_memories:
-        #         if memory.user_id is not None and memory.id is not None:
-        #             self.memories.setdefault(memory.user_id, {})[memory.id] = UserMemory.from_dict(memory.memory)
+        if self.db:
+            # If no user_id is provided, read all memories
+            if user_id is None:
+                all_memories = self.db.get_user_memories()
+            else:
+                all_memories = self.db.get_user_memories(user_id=user_id)
+
+            # Reset the memories
+            self.memories = {}
+            for memory in all_memories:
+                if memory.user_id is not None and memory.id is not None:
+                    self.memories.setdefault(memory.user_id, {})[memory.id] = UserMemory.from_dict(memory.memory)
         return None
 
     def set_log_level(self):
@@ -223,7 +222,7 @@ class Memory:
         """Get the user memories for a given user id"""
         if user_id is None:
             user_id = "default"
-        # Refresh from the DB
+        # Refresh from the Db
         if refresh_from_db:
             self.refresh_from_db(user_id=user_id)
 
@@ -299,7 +298,6 @@ class Memory:
                     last_updated=memory.last_updated or datetime.now(),
                 )
             )
-
         return memory_id
 
     def replace_user_memory(
@@ -378,12 +376,6 @@ class Memory:
             session_id (str): The id of the session to delete
         """
         del self.summaries[user_id][session_id]  # type: ignore
-
-    def get_runs(self, session_id: str) -> List[Union[RunResponse, TeamRunResponse]]:
-        """Get all runs for a given session id"""
-        if self.runs is None:
-            return []
-        return self.runs.get(session_id, [])
 
     # -*- Agent Functions
     def create_session_summary(self, session_id: str, user_id: Optional[str] = None) -> Optional[SessionSummary]:
@@ -594,13 +586,13 @@ class Memory:
 
         return response
 
-    # -*- DB Functions
+    # -*- Memory Db Functions
     def _upsert_db_memory(self, memory: MemoryRow) -> str:
         """Use this function to add a memory to the database."""
         try:
             if not self.db:
                 raise ValueError("Memory db not initialized")
-            self.db.upsert_memory(memory)
+            self.db.upsert_user_memory(memory)
             return "Memory added successfully"
         except Exception as e:
             logger.warning(f"Error storing memory in db: {e}")
@@ -611,7 +603,7 @@ class Memory:
         try:
             if not self.db:
                 raise ValueError("Memory db not initialized")
-            self.db.delete_memory(memory_id=memory_id)
+            self.db.delete_user_memory(memory_id=memory_id)
             return "Memory deleted successfully"
         except Exception as e:
             logger.warning(f"Error deleting memory in db: {e}")
@@ -640,6 +632,7 @@ class Memory:
             return None
 
     # -*- Utility Functions
+    # TODO: Remove this function from memory
     def get_messages_for_session(
         self,
         session_id: str,
@@ -679,88 +672,6 @@ class Memory:
                     final_messages.append(user_message_from_run)
                     final_messages.append(assistant_message_from_run)
         return final_messages
-
-    def add_run(self, session_id: str, run: Union[RunResponse, TeamRunResponse]) -> None:
-        """Adds a RunResponse to the runs list."""
-        if not self.runs:
-            self.runs = {}
-
-        if session_id not in self.runs:
-            self.runs[session_id] = []
-
-        # Check if run already exists with the same run_id
-        if hasattr(run, "run_id") and run.run_id:
-            run_id = run.run_id
-            # Look for existing run with same ID
-            for i, existing_run in enumerate(self.runs[session_id]):
-                if hasattr(existing_run, "run_id") and existing_run.run_id == run_id:
-                    # Replace existing run
-                    self.runs[session_id][i] = run
-                    log_debug(f"Replaced existing run with run_id {run_id} in memory")
-                    return
-
-        self.runs[session_id].append(run)
-        log_debug("Added RunResponse to Memory")
-
-    def get_messages_from_last_n_runs(
-        self,
-        session_id: str,
-        last_n: Optional[int] = None,
-        skip_role: Optional[str] = None,
-        skip_history_messages: bool = True,
-    ) -> List[Message]:
-        """Returns the messages from the last_n runs, excluding previously tagged history messages.
-        Args:
-            session_id: The session id to get the messages from.
-            last_n: The number of runs to return from the end of the conversation. Defaults to all runs.
-            skip_role: Skip messages with this role.
-            skip_history_messages: Skip messages that were tagged as history in previous runs.
-        Returns:
-            A list of Messages from the specified runs, excluding history messages.
-        """
-        if not self.runs:
-            return []
-
-        session_runs = self.runs.get(session_id, [])
-        runs_to_process = session_runs[-last_n:] if last_n is not None else session_runs
-        messages_from_history = []
-        system_message = None
-        for run_response in runs_to_process:
-            if not (run_response and run_response.messages):
-                continue
-
-            for message in run_response.messages:
-                # Skip messages with specified role
-                if skip_role and message.role == skip_role:
-                    continue
-                # Skip messages that were tagged as history in previous runs
-                if hasattr(message, "from_history") and message.from_history and skip_history_messages:
-                    continue
-                if message.role == "system":
-                    # Only add the system message once
-                    if system_message is None:
-                        system_message = message
-                        messages_from_history.append(system_message)
-                else:
-                    messages_from_history.append(message)
-
-        log_debug(f"Getting messages from previous runs: {len(messages_from_history)}")
-        return messages_from_history
-
-    def get_tool_calls(self, session_id: str, num_calls: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Returns a list of tool calls from the messages"""
-
-        tool_calls = []
-        session_runs = self.runs.get(session_id, []) if self.runs else []
-        for run_response in session_runs[::-1]:
-            if run_response and run_response.messages:
-                for message in run_response.messages:
-                    if message.tool_calls:
-                        for tool_call in message.tool_calls:
-                            tool_calls.append(tool_call)
-                            if num_calls and len(tool_calls) >= num_calls:
-                                return tool_calls
-        return tool_calls
 
     def search_user_memories(
         self,
@@ -970,7 +881,6 @@ class Memory:
             self.db.clear()
         self.memories = {}
         self.summaries = {}
-        self.runs = {}
 
     def deep_copy(self) -> "Memory":
         from copy import deepcopy

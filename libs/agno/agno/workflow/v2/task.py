@@ -55,12 +55,12 @@ class TaskInput:
 @dataclass
 class TaskOutput:
     """Output data from a task execution"""
-    
+
     task_name: Optional[str] = None
     task_id: Optional[str] = None
     executor_type: Optional[str] = None
     executor_name: Optional[str] = None
-    
+
     # Primary output
     content: Optional[str] = None
 
@@ -147,7 +147,7 @@ class Task:
     # Executor options - only one should be provided
     agent: Optional[Agent] = None
     team: Optional[Team] = None
-    execution_function: Optional[TaskExecutor] = None
+    executor: Optional[TaskExecutor] = None
 
     task_id: Optional[str] = None
     description: Optional[str] = None
@@ -178,7 +178,7 @@ class Task:
         self.name = name
         self.agent = agent
         self.team = team
-        self.execution_function = execution_function
+        self.executor = execution_function
 
         # Validate executor configuration
         self._validate_executor_config()
@@ -215,12 +215,12 @@ class Task:
             [
                 self.agent is not None,
                 self.team is not None,
-                self.execution_function is not None,
+                self.executor is not None,
             ]
         )
 
         if executor_count == 0:
-            raise ValueError(f"Task '{self.name}' must have one executor: agent=, team=, or execution_function=")
+            raise ValueError(f"Task '{self.name}' must have one executor: agent=, team=, or executor=")
 
         if executor_count > 1:
             provided_executors = []
@@ -228,13 +228,13 @@ class Task:
                 provided_executors.append("agent")
             if self.team is not None:
                 provided_executors.append("team")
-            if self.execution_function is not None:
-                provided_executors.append("execution_function")
+            if self.executor is not None:
+                provided_executors.append("executor")
 
             raise ValueError(
                 f"Task '{self.name}' can only have one executor type. "
                 f"Provided: {', '.join(provided_executors)}. "
-                f"Please use only one of: agent=, team=, or execution_function="
+                f"Please use only one of: agent=, team=, or executor="
             )
 
     def _set_active_executor(self):
@@ -245,8 +245,8 @@ class Task:
         elif self.team is not None:
             self.active_executor = self.team
             self._executor_type = "team"
-        elif self.execution_function is not None:
-            self.active_executor = self.execution_function
+        elif self.executor is not None:
+            self.active_executor = self.executor
             self._executor_type = "function"
 
     def execute(

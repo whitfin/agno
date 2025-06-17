@@ -113,7 +113,7 @@ research_task = Task(
 
 content_planning_task = Task(
     name="Content Planning Task",
-    execution_function=custom_content_planning_function,
+    executor=custom_content_planning_function,
 )
 
 async def main():

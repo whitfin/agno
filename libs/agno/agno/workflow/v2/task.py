@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, Optional, Union
+
 from pydantic import BaseModel
 
 from agno.agent import Agent
@@ -9,21 +10,22 @@ from agno.run.v2.workflow import (
     WorkflowRunResponseEvent,
 )
 from agno.team import Team
-from agno.utils.log import logger
+from agno.utils.log import log_debug, logger
 from agno.workflow.v2.types import TaskInput, TaskOutput
 
 TaskExecutor = Callable[
-            [TaskInput],
-            Union[
-                TaskOutput,
-                Iterator[TaskOutput],
-                Iterator[Any],
-                Awaitable[TaskOutput],
-                Awaitable[Any],
-                AsyncIterator[TaskOutput],
-                AsyncIterator[Any],
-            ]
-        ]
+    [TaskInput],
+    Union[
+        TaskOutput,
+        Iterator[TaskOutput],
+        Iterator[Any],
+        Awaitable[TaskOutput],
+        Awaitable[Any],
+        AsyncIterator[TaskOutput],
+        AsyncIterator[Any],
+    ],
+]
+
 
 @dataclass
 class Task:
@@ -51,17 +53,19 @@ class Task:
 
     _retry_count: int = 0
 
-    def __init__(self,
-                 name: Optional[str] = None,
-                 agent: Optional[Agent] = None,
-                 team: Optional[Team] = None,
-                 executor: Optional[TaskExecutor] = None,
-                 task_id: Optional[str] = None,
-                 description: Optional[str] = None,
-                 max_retries: int = 3,
-                 timeout_seconds: Optional[int] = None,
-                 skip_on_failure: bool = False,
-                 strict_input_validation: bool = False):
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        agent: Optional[Agent] = None,
+        team: Optional[Team] = None,
+        executor: Optional[TaskExecutor] = None,
+        task_id: Optional[str] = None,
+        description: Optional[str] = None,
+        max_retries: int = 3,
+        timeout_seconds: Optional[int] = None,
+        skip_on_failure: bool = False,
+        strict_input_validation: bool = False,
+    ):
         self.name = name
         self.agent = agent
         self.team = team
@@ -94,7 +98,6 @@ class Task:
     def executor_type(self) -> str:
         """Get the type of the current executor"""
         return self._executor_type
-
 
     def _validate_executor_config(self):
         """Validate that only one executor type is provided"""
@@ -145,8 +148,16 @@ class Task:
         stream_intermediate_steps: bool = False,
     ) -> Union[TaskOutput, Iterator[WorkflowRunResponseEvent]]:
         """Execute the task with TaskInput, with optional streaming support"""
+        log_debug(f"Task Execute Start: {self.name}", center=True)
+        log_debug(f"Task ID: {self.task_id}")
+
         if stream:
-            return self._execute_task_stream(task_input=task_input, session_id=session_id, user_id=user_id, stream_intermediate_steps=stream_intermediate_steps)
+            return self._execute_task_stream(
+                task_input=task_input,
+                session_id=session_id,
+                user_id=user_id,
+                stream_intermediate_steps=stream_intermediate_steps,
+            )
         else:
             return self._execute_task(task_input=task_input, session_id=session_id, user_id=user_id)
 
@@ -154,10 +165,12 @@ class Task:
         self, task_input: TaskInput, session_id: Optional[str] = None, user_id: Optional[str] = None
     ) -> TaskOutput:
         """Execute the task with TaskInput, returning final TaskOutput (non-streaming)"""
+        log_debug(f"Executor type: {self._executor_type}")
 
         # Execute with retries
         for attempt in range(self.max_retries + 1):
             try:
+                log_debug(f"Task {self.name} attempt {attempt + 1}/{self.max_retries + 1}")
                 if self._executor_type == "function":
                     # Execute function directly with TaskInput
                     result = self.active_executor(task_input)  # type: ignore
@@ -188,6 +201,9 @@ class Task:
                 # Create TaskOutput from response
                 task_output = self._create_task_output(response)
 
+                log_debug(f"Task {self.name} completed successfully on attempt {attempt + 1}")
+                log_debug(f"Task Execute End: {self.name}", center=True, symbol="*")
+
                 logger.info(f"Task {self.name} completed successfully")
                 return task_output
 
@@ -199,9 +215,7 @@ class Task:
                     if self.skip_on_failure:
                         logger.info(f"Task {self.name} failed but continuing due to skip_on_failure=True")
                         # Create empty TaskOutput for skipped task
-                        return TaskOutput(
-                            content=f"Task {self.name} failed but skipped", success=False, error=str(e)
-                        )
+                        return TaskOutput(content=f"Task {self.name} failed but skipped", success=False, error=str(e))
                     else:
                         raise e
 
@@ -216,18 +230,23 @@ class Task:
         # Execute with retries and streaming
         for attempt in range(self.max_retries + 1):
             try:
+                log_debug(f"Task {self.name} streaming attempt {attempt + 1}/{self.max_retries + 1}")
                 final_response = None
 
                 if self._executor_type == "function":
+                    log_debug(f"Executing function executor for task: {self.name}")
                     # Handle custom function streaming
                     result = self.active_executor(task_input)  # type: ignore
 
                     if hasattr(result, "__iter__") and not isinstance(result, (str, bytes, dict, TaskOutput)):
+                        log_debug(f"Function returned iterable, streaming events")
                         try:
                             for event in result:
                                 if isinstance(event, TaskOutput):
                                     final_response = event
+                                    log_debug(f"Received final TaskOutput from function")
                                 else:
+                                    log_debug(f"Yielding event from function: {type(event).__name__}")
                                     yield event
                         except StopIteration as e:
                             if hasattr(e, "value") and isinstance(e.value, TaskOutput):
@@ -242,6 +261,7 @@ class Task:
                             final_response = result
                         else:
                             final_response = TaskOutput(content=str(result))
+                        log_debug(f"Function returned non-iterable, created TaskOutput")
                 else:
                     message = self._prepare_message(task_input.message, task_input.message_data)
 
@@ -258,6 +278,7 @@ class Task:
                         )
 
                         for event in response_stream:
+                            log_debug(f"Received event from agent: {type(event).__name__}")
                             yield event
                         final_response = self._create_task_output(self.active_executor.run_response)
 
@@ -267,6 +288,7 @@ class Task:
                 # If we didn't get a final response, create one
                 if final_response is None:
                     final_response = TaskOutput(content="")
+                    log_debug(f"Created empty TaskOutput as fallback")
 
                 logger.info(f"Task {self.name} completed successfully with streaming")
                 yield final_response
@@ -288,7 +310,6 @@ class Task:
                     else:
                         raise e
 
-
     async def aexecute(
         self,
         task_input: TaskInput,
@@ -298,8 +319,16 @@ class Task:
         stream_intermediate_steps: bool = False,
     ) -> Union[TaskOutput, AsyncIterator[WorkflowRunResponseEvent]]:
         """Execute the task with TaskInput, with optional streaming support"""
+        log_debug(f"Async Task Execute Start: {self.name}", center=True)
+        log_debug(f"Task ID: {self.task_id}")
+
         if stream:
-            return self._aexecute_task_stream(task_input=task_input, session_id=session_id, user_id=user_id, stream_intermediate_steps=stream_intermediate_steps)
+            return self._aexecute_task_stream(
+                task_input=task_input,
+                session_id=session_id,
+                user_id=user_id,
+                stream_intermediate_steps=stream_intermediate_steps,
+            )
         else:
             return await self._aexecute_task(task_input=task_input, session_id=session_id, user_id=user_id)
 
@@ -307,12 +336,15 @@ class Task:
         self, task_input: TaskInput, session_id: Optional[str] = None, user_id: Optional[str] = None
     ) -> TaskOutput:
         """Execute the task with TaskInput, returning final TaskOutput (non-streaming)"""
+        log_debug(f"Executing async task (non-streaming): {self.name}")
+        log_debug(f"Executor type: {self._executor_type}")
 
         # Execute with retries
         for attempt in range(self.max_retries + 1):
             try:
                 if self._executor_type == "function":
                     import inspect
+
                     if inspect.iscoroutinefunction(self.active_executor):
                         result = await self.active_executor(task_input)  # type: ignore
                     else:
@@ -325,7 +357,7 @@ class Task:
                     # Otherwise, wrap in TaskOutput
                     response = TaskOutput(content=str(result))
                 else:
-                # For agents and teams, prepare message with context
+                    # For agents and teams, prepare message with context
                     message = self._prepare_message(task_input.message, task_input.message_data)
 
                     # Execute agent or team with media
@@ -344,7 +376,7 @@ class Task:
                 # Create TaskOutput from response
                 task_output = self._create_task_output(response)
 
-                logger.info(f"Task {self.name} completed successfully")
+                logger.info(f"Async Task {self.name} completed successfully")
                 return task_output
 
             except Exception as e:
@@ -355,9 +387,7 @@ class Task:
                     if self.skip_on_failure:
                         logger.info(f"Task {self.name} failed but continuing due to skip_on_failure=True")
                         # Create empty TaskOutput for skipped task
-                        return TaskOutput(
-                            content=f"Task {self.name} failed but skipped", success=False, error=str(e)
-                        )
+                        return TaskOutput(content=f"Task {self.name} failed but skipped", success=False, error=str(e))
                     else:
                         raise e
 
@@ -372,9 +402,11 @@ class Task:
         # Execute with retries and streaming
         for attempt in range(self.max_retries + 1):
             try:
+                log_debug(f"Async task {self.name} streaming attempt {attempt + 1}/{self.max_retries + 1}")
                 final_response = None
 
                 if self._executor_type == "function":
+                    log_debug(f"Executing async function executor for task: {self.name}")
                     import inspect
 
                     # Check if the function is an async generator
@@ -383,7 +415,9 @@ class Task:
                         async for event in self.active_executor(task_input):
                             if isinstance(event, TaskOutput):
                                 final_response = event
+                                log_debug(f"Received final TaskOutput from async generator")
                             else:
+                                log_debug(f"Yielding event from async generator: {type(event).__name__}")
                                 yield event
                     elif inspect.iscoroutinefunction(self.active_executor):
                         # It's a regular async function - await it
@@ -408,7 +442,6 @@ class Task:
                             final_response = TaskOutput(content=str(result))
                 else:
                     message = self._prepare_message(task_input.message, task_input.message_data)
-
                     if self._executor_type in ["agent", "team"]:
                         response_stream = await self.active_executor.arun(  # type: ignore
                             message=message,
@@ -422,6 +455,7 @@ class Task:
                         )
 
                         async for event in response_stream:
+                            log_debug(f"Received async event from agent: {type(event).__name__}")
                             yield event
                         final_response = self._create_task_output(self.active_executor.run_response)  # type: ignore
                     else:
@@ -451,7 +485,6 @@ class Task:
                     else:
                         raise e
 
-
     def _parse_message_data(self, message_data: Optional[Union[BaseModel, Dict[str, Any]]]) -> Optional[str]:
         """Parse the message data into a string"""
         data_str = None
@@ -473,7 +506,6 @@ class Task:
 
         # Convert message_data to string if provided
         data_str = self._parse_message_data(message_data)
-
         # Combine message and data
         if message and data_str:
             return f"{message}\n\n--- Structured Data ---\n{data_str}"
@@ -484,9 +516,11 @@ class Task:
         else:
             return None
 
-
     def _create_task_output(self, response: Union[RunResponse, TeamRunResponse, TaskOutput]) -> TaskOutput:
         """Create TaskOutput from execution response"""
+        log_debug(f"Creating TaskOutput for task: {self.name}")
+        log_debug(f"Response type: {type(response).__name__}")
+
         if isinstance(response, TaskOutput):
             response.task_name = self.name
             response.task_id = self.task_id

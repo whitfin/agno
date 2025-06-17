@@ -657,7 +657,7 @@ class PostgresDb(BaseDb):
                     ),
                 )
 
-                result = sess.execute(stmt).first()
+                result = sess.execute(stmt)
                 if not result:
                     return None
 

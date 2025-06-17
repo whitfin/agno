@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Optional, Union
 
-from agno.db.session import Session
+from agno.db.session import AgentSession, Session
+from agno.memory.db.schema import MemoryRow
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 
@@ -66,6 +67,14 @@ class BaseDb(ABC):
     def get_all_session_ids(self, session_type: SessionType, entity_id: Optional[str] = None) -> List[str]:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_user_memory(self, memory_id: str) -> Optional[MemoryRow]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_user_memories(self, user_id: Optional[str] = None) -> List[MemoryRow]:
+        raise NotImplementedError
+
     # --- WRITE ---
 
     @abstractmethod
@@ -76,9 +85,13 @@ class BaseDb(ABC):
     def delete_session(self, session_id: Optional[str] = None):
         raise NotImplementedError
 
-    # @abstractmethod
-    # def upsert(self, session: Session) -> Optional[Session]:
-    #     raise NotImplementedError
+    @abstractmethod
+    def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
+        raise NotImplementedError
 
     # --- UTILITIES ---
 

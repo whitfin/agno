@@ -5,7 +5,6 @@ from uuid import uuid4
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.session import AgentSession, TeamSession, WorkflowSession
-from agno.memory import UserMemory
 from agno.memory.db.schema import MemoryRow
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
@@ -527,6 +526,7 @@ class PostgresDb(BaseDb):
                     extra_data=session.extra_data,
                     created_at=session.created_at,
                 )
+
                 # TODO: Review the conflict params
                 stmt = stmt.on_conflict_do_update(
                     index_elements=["session_id"],
@@ -542,9 +542,12 @@ class PostgresDb(BaseDb):
                     ),
                 )
 
-                sess.execute(stmt)
+                result = sess.execute(stmt)
+                if not result:
+                    return None
 
-            return self.get_session(session_id=session.session_id, table=table)  # type: ignore
+                # TODO: we should be able to return here without hitting the DB again
+                return self.get_session(session_id=session.session_id, table=table)  # type: ignore
 
         except Exception as e:
             log_warning(f"Exception upserting into table: {e}")
@@ -584,7 +587,8 @@ class PostgresDb(BaseDb):
             log_error(f"Error deleting session: {e}")
 
     # -- Memory methods --
-    def get_user_memory(self, memory_id: str):
+
+    def get_user_memory(self, memory_id: str) -> Optional[MemoryRow]:
         """Get a memory from the database."""
         try:
             table = self.get_user_memory_table()
@@ -602,7 +606,7 @@ class PostgresDb(BaseDb):
             log_debug(f"Exception reading from table: {e}")
             return None
 
-    def get_user_memories(self, user_id: Optional[str] = None):
+    def get_user_memories(self, user_id: Optional[str] = None) -> List[MemoryRow]:
         """Get all memories from the database."""
         try:
             table = self.get_user_memory_table()
@@ -613,15 +617,17 @@ class PostgresDb(BaseDb):
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
                 result = sess.execute(stmt).fetchall()
+                if not result:
+                    return []
 
                 # TODO: Review this pattern. Is this overhead necessary?
-                return [MemoryRow.model_validate(record) for record in result] if result is not None else []
+                return [MemoryRow.model_validate(record) for record in result]
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return []
 
-    def upsert_user_memory(self, memory: MemoryRow) -> Optional[UserMemory]:
+    def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
         """Upsert a user memory in the database.
 
         Args:
@@ -650,13 +656,13 @@ class PostgresDb(BaseDb):
                         last_updated=int(time.time()),
                     ),
                 )
-                sess.execute(stmt)
 
-                return UserMemory(
-                    memory_id=memory.id,
-                    memory=memory.memory,
-                    last_updated=memory.last_updated,
-                )
+                result = sess.execute(stmt).first()
+                if not result:
+                    return None
+
+                # TODO: we should be able to return here without hitting the DB again
+                return self.get_user_memory(memory_id=memory.id)
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")
@@ -677,9 +683,9 @@ class PostgresDb(BaseDb):
 
                 success = result.rowcount > 0
                 if success:
-                    log_debug(f"Successfully deleted user memory with memory_id: {memory_id}")
+                    log_debug(f"Successfully deleted user memory id: {memory_id}")
                 else:
-                    log_debug(f"No user memory found with memory_id: {memory_id}")
+                    log_debug(f"No user memory found with id: {memory_id}")
 
                 return success
 

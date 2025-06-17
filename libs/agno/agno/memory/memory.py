@@ -592,7 +592,7 @@ class Memory:
         try:
             if not self.db:
                 raise ValueError("Memory db not initialized")
-            self.db.upsert_user_memory(memory)
+            self.db.upsert_user_memory(memory=memory)
             return "Memory added successfully"
         except Exception as e:
             logger.warning(f"Error storing memory in db: {e}")

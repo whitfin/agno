@@ -149,7 +149,6 @@ class Task:
     ) -> Union[TaskOutput, Iterator[WorkflowRunResponseEvent]]:
         """Execute the task with TaskInput, with optional streaming support"""
         log_debug(f"Task Execute Start: {self.name}", center=True)
-        log_debug(f"Task ID: {self.task_id}")
 
         if stream:
             return self._execute_task_stream(
@@ -320,7 +319,6 @@ class Task:
     ) -> Union[TaskOutput, AsyncIterator[WorkflowRunResponseEvent]]:
         """Execute the task with TaskInput, with optional streaming support"""
         log_debug(f"Async Task Execute Start: {self.name}", center=True)
-        log_debug(f"Task ID: {self.task_id}")
 
         if stream:
             return self._aexecute_task_stream(

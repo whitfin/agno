@@ -69,7 +69,6 @@ class Pipeline:
         for i, task in enumerate(self.tasks):
             log_debug(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
             log_debug(f"Task ID: {task.task_id}")
-            log_debug(f"Task executor type: {task.executor_type}")
 
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
 
@@ -155,7 +154,6 @@ class Pipeline:
         # Execute tasks in pipeline with streaming
         for task_index, task in enumerate(self.tasks):
             log_debug(f"Streaming task {task_index + 1}/{len(self.tasks)}: {task.name}")
-            log_debug(f"Task executor type: {task.executor_type}")
 
             # Create TaskInput for this task
             task_input = TaskInput(
@@ -273,7 +271,6 @@ class Pipeline:
         for i, task in enumerate(self.tasks):
             log_debug(f"Executing async task {i + 1}/{len(self.tasks)}: {task.name}")
             log_debug(f"Task ID: {task.task_id}")
-            log_debug(f"Task executor type: {task.executor_type}")
 
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
 
@@ -358,7 +355,6 @@ class Pipeline:
         # Execute tasks in pipeline with streaming
         for task_index, task in enumerate(self.tasks):
             log_debug(f"Async streaming task {task_index + 1}/{len(self.tasks)}: {task.name}")
-            log_debug(f"Task executor type: {task.executor_type}")
 
             # Create TaskInput for this task
             task_input = TaskInput(

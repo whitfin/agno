@@ -69,8 +69,7 @@ class Workflow:
 
     # Workflow session for storage
     workflow_session: Optional[WorkflowSessionV2] = None
-
-    debug_mode: bool = False
+    debug_mode: Optional[bool] = False
 
     def __init__(
         self,
@@ -84,6 +83,7 @@ class Workflow:
         session_id: Optional[str] = None,
         workflow_session_state: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
+        debug_mode: Optional[bool] = False,
     ):
         self.workflow_id = workflow_id
         self.name = name
@@ -95,6 +95,7 @@ class Workflow:
         self.session_id = session_id
         self.workflow_session_state = workflow_session_state
         self.user_id = user_id
+        self.debug_mode = debug_mode
 
     def initialize_workflow(self):
         if self.workflow_id is None:
@@ -149,8 +150,8 @@ class Workflow:
                 # Propagate to tasks in pipeline
                 for task in pipeline.tasks:
                     # Propagate to task executors (agents/teams)
-                    if hasattr(task, "_active_executor") and task._active_executor:
-                        executor = task._active_executor
+                    if hasattr(task, "active_executor") and task.active_executor:  # Fixed: removed underscore
+                        executor = task.active_executor
                         if hasattr(executor, "debug_mode"):
                             executor.debug_mode = True
 

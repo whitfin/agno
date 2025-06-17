@@ -571,12 +571,11 @@ class Workflow:
 
         if self.pipelines:
             pipeline = self.get_pipeline(selected_pipeline_name)
+            log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
             if not pipeline:
                 raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         else:
             pipeline = None
-
-        log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
 
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
@@ -675,11 +674,16 @@ class Workflow:
 
         # Initialize execution
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
-        pipeline = self.get_pipeline(selected_pipeline_name)
-        if not pipeline:
-            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
-
-        log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
+        log_debug(f"Selected pipeline: {selected_pipeline_name}")
+        
+        if self.pipelines:
+            pipeline = self.get_pipeline(selected_pipeline_name)
+            log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
+            if not pipeline:
+                raise ValueError(
+                    f"Pipeline '{selected_pipeline_name}' not found")
+        else:
+            pipeline = None
 
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(

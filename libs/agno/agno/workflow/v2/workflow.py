@@ -141,7 +141,7 @@ class Workflow:
 
         try:
             # Execute the pipeline synchronously - pass WorkflowRunResponse instead of context
-            pipeline.execute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response)
+            pipeline.execute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response, session_id=self.session_id, user_id=self.user_id)
 
             # Collect updated workflow_session_state from agents after execution
             self._collect_workflow_session_state_from_agents_and_teams()
@@ -185,6 +185,8 @@ class Workflow:
             for event in pipeline.execute_stream(
                 pipeline_input=pipeline_input,
                 workflow_run_response=workflow_run_response,
+                session_id=self.session_id,
+                user_id=self.user_id,
                 stream_intermediate_steps=stream_intermediate_steps,
             ):
                 yield event
@@ -206,7 +208,6 @@ class Workflow:
 
             error_event = WorkflowErrorEvent(
                 run_id=self.run_id or "",
-                content=f"Workflow execution failed: {e}",
                 workflow_id=self.workflow_id,
                 workflow_name=self.name,
                 pipeline_name=pipeline.name,
@@ -217,7 +218,7 @@ class Workflow:
             yield error_event
 
             # Update workflow_run_response with error
-            workflow_run_response.content = error_event.content
+            workflow_run_response.content = error_event.error
             workflow_run_response.status = RunStatus.error
 
             # Store error response
@@ -234,7 +235,7 @@ class Workflow:
 
         try:
             # Execute the pipeline asynchronously - pass WorkflowRunResponse instead of context
-            await pipeline.aexecute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response)
+            await pipeline.aexecute(pipeline_input=pipeline_input, workflow_run_response=workflow_run_response, session_id=self.session_id, user_id=self.user_id)
 
             # Collect updated workflow_session_state from agents after execution
             self._collect_workflow_session_state_from_agents_and_teams()
@@ -277,6 +278,8 @@ class Workflow:
             async for event in pipeline.aexecute_stream(
                 pipeline_input=pipeline_input,
                 workflow_run_response=workflow_run_response,
+                session_id=self.session_id,
+                user_id=self.user_id,
                 stream_intermediate_steps=stream_intermediate_steps,
             ):
                 yield event
@@ -298,7 +301,6 @@ class Workflow:
 
             error_event = WorkflowErrorEvent(
                 run_id=self.run_id or "",
-                content=f"Workflow execution failed: {e}",
                 workflow_id=self.workflow_id,
                 workflow_name=self.name,
                 pipeline_name=pipeline.name,
@@ -309,7 +311,7 @@ class Workflow:
             yield error_event
 
             # Update workflow_run_response with error
-            workflow_run_response.content = error_event.content
+            workflow_run_response.content = error_event.error
             workflow_run_response.event = WorkflowRunEvent.workflow_error
 
             # Store error response
@@ -388,9 +390,6 @@ class Workflow:
 
         # Load or create session
         self.load_session()
-        
-        # Prepare primary input by combining message and message_data
-        primary_input = self._prepare_primary_input(message, message_data)
 
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
 
@@ -409,7 +408,8 @@ class Workflow:
         )
         self.run_response = workflow_run_response
         inputs = PipelineInput(
-            message=primary_input,
+            message=message,
+            message_data=message_data,
             audio=audio,
             images=images,
             videos=videos,
@@ -485,9 +485,6 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        # Prepare primary input by combining message and message_data
-        primary_input = self._prepare_primary_input(message, message_data)
-
         # Initialize execution
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
         pipeline = self.get_pipeline(selected_pipeline_name)
@@ -506,7 +503,8 @@ class Workflow:
         self.run_response = workflow_run_response
 
         inputs = PipelineInput(
-            message=primary_input,
+            message=message,
+            message_data=message_data,
             audio=audio,
             images=images,
             videos=videos,
@@ -805,7 +803,7 @@ class Workflow:
                         if task_output.content:
                             task_panel = create_panel(
                                 content=Markdown(task_output.content) if markdown else task_output.content,
-                                title=f"Task {i + 1}: {getattr(task_output, 'metadata', {}).get('task_name', 'Unknown')} (Completed)",
+                                title=f"Task {i + 1}: {task_output.task_name} (Completed)",
                                 border_style="green",
                             )
                             console.print(task_panel)
@@ -1223,7 +1221,7 @@ class Workflow:
                         if task_output.content:
                             task_panel = create_panel(
                                 content=Markdown(task_output.content) if markdown else task_output.content,
-                                title=f"Task {i + 1}: {getattr(task_output, 'metadata', {}).get('task_name', 'Unknown')} (Completed)",
+                                title=f"Task {i + 1}: {task_output.task_name} (Completed)",
                                 border_style="green",
                             )
                             console.print(task_panel)
@@ -1520,32 +1518,6 @@ class Workflow:
             "session_id": self.session_id,
         }
 
-    def _prepare_primary_input(
-        self, message: Optional[str], message_data: Optional[Union[BaseModel, Dict[str, Any]]]
-    ) -> Optional[str]:
-        """Prepare the primary input by combining message and message_data"""
-
-        # Convert message_data to string if provided
-        data_str = None
-        if message_data is not None:
-            if isinstance(message_data, BaseModel):
-                data_str = message_data.model_dump_json(indent=2, exclude_none=True)
-            elif isinstance(message_data, dict):
-                import json
-
-                data_str = json.dumps(message_data, indent=2, default=str)
-            else:
-                data_str = str(message_data)
-
-        # Combine message and data
-        if message and data_str:
-            return f"{message}\n\n--- Structured Data ---\n{data_str}"
-        elif message:
-            return message
-        elif data_str:
-            return f"Process the following data:\n{data_str}"
-        else:
-            return None
 
     def _collect_workflow_session_state_from_agents_and_teams(self):
         """Collect updated workflow_session_state from agents after task execution"""

@@ -1,6 +1,8 @@
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Union
 from uuid import uuid4
+
+from pydantic import BaseModel
 
 from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.run.base import RunStatus
@@ -21,6 +23,7 @@ class PipelineInput:
     """Input data for a task execution"""
 
     message: Optional[str] = None
+    message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
 
     # Media inputs
     images: Optional[List[ImageArtifact]] = None
@@ -29,8 +32,15 @@ class PipelineInput:
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
+        message_data_dict = {}
+        if isinstance(self.message_data, BaseModel):
+            message_data_dict = self.message_data.model_dump(exclude_none=True)
+        elif isinstance(self.message_data, dict):
+            message_data_dict = self.message_data
+
         return {
             "message": self.message,
+            "message_data": message_data_dict,
             "images": [img.to_dict() for img in self.images] if self.images else None,
             "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
             "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
@@ -58,7 +68,7 @@ class Pipeline:
         if self.pipeline_id is None:
             self.pipeline_id = str(uuid4())
 
-    def execute(self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse):
+    def execute(self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse, session_id: Optional[str] = None, user_id: Optional[str] = None):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
 
@@ -71,7 +81,7 @@ class Pipeline:
         pipeline_images = pipeline_input.images or []
         pipeline_videos = pipeline_input.videos or []
         pipeline_audio = pipeline_input.audio or []
-        task_message = pipeline_input.message
+        previous_task_content = None
 
         # Execute tasks sequentially
         for i, task in enumerate(self.tasks):
@@ -79,21 +89,23 @@ class Pipeline:
 
             # Create TaskInput for this task
             task_input = TaskInput(
-                message=task_message,
+                message=pipeline_input.message,
+                message_data=pipeline_input.message_data,
+                previous_task_content=previous_task_content,
                 images=pipeline_images,
                 videos=pipeline_videos,
                 audio=pipeline_audio,
             )
 
             # Execute the task (non-streaming)
-            task_output = task.execute(task_input)
+            task_output = task.execute(task_input, session_id=session_id, user_id=user_id)
 
             # Collect the task output
             if task_output is None:
                 raise RuntimeError(f"Task {task.name} did not return a TaskOutput")
 
             # Update the input for the next task
-            task_message = task_output.content
+            previous_task_content = task_output.content
             pipeline_images.extend(task_output.images or [])
             pipeline_videos.extend(task_output.videos or [])
             pipeline_audio.extend(task_output.audio or [])
@@ -118,7 +130,7 @@ class Pipeline:
         }
 
         # Update the workflow_run_response with completion data
-        workflow_run_response.content = task_message  # Final workflow response output is the last task's output
+        workflow_run_response.content = collected_task_outputs[-1].content  # Final workflow response output is the last task's output
         workflow_run_response.task_responses = collected_task_outputs
         workflow_run_response.extra_data = final_output
         workflow_run_response.images = pipeline_images
@@ -130,6 +142,8 @@ class Pipeline:
         self,
         pipeline_input: PipelineInput,
         workflow_run_response: WorkflowRunResponse,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
         stream_intermediate_steps: bool = False,
     ) -> Iterator[WorkflowRunResponseEvent]:
         """Execute the pipeline with event-driven streaming support"""
@@ -152,13 +166,15 @@ class Pipeline:
         pipeline_images = pipeline_input.images or []
         pipeline_videos = pipeline_input.videos or []
         pipeline_audio = pipeline_input.audio or []
-        task_message = pipeline_input.message
+        previous_task_content = None
 
         # Execute tasks in pipeline with streaming
         for task_index, task in enumerate(self.tasks):
             # Create TaskInput for this task
             task_input = TaskInput(
-                message=task_message,
+                message=pipeline_input.message,
+                message_data=pipeline_input.message_data,
+                previous_task_content=previous_task_content,
                 images=pipeline_images,
                 videos=pipeline_videos,
                 audio=pipeline_audio,
@@ -178,6 +194,8 @@ class Pipeline:
             # Execute task with streaming and yield all events
             for event in task.execute(
                 task_input,
+                session_id=session_id,
+                user_id=user_id,
                 stream=True,
                 stream_intermediate_steps=stream_intermediate_steps,
             ):
@@ -191,6 +209,7 @@ class Pipeline:
                     pipeline_images.extend(task_output.images or [])
                     pipeline_videos.extend(task_output.videos or [])
                     pipeline_audio.extend(task_output.audio or [])
+                    previous_task_content = task_output.content
 
                     # Yield task completed event
                     yield TaskCompletedEvent(
@@ -249,7 +268,7 @@ class Pipeline:
         )
 
     async def aexecute(
-        self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse
+        self, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse, session_id: Optional[str] = None, user_id: Optional[str] = None
     ):
         """Execute all tasks in the pipeline using TaskInput/TaskOutput (non-streaming)"""
         logger.info(f"Starting pipeline: {self.name}")
@@ -263,21 +282,23 @@ class Pipeline:
         pipeline_images = pipeline_input.images or []
         pipeline_videos = pipeline_input.videos or []
         pipeline_audio = pipeline_input.audio or []
-        task_message = pipeline_input.message
+        previous_task_content = None
 
         for i, task in enumerate(self.tasks):
             logger.info(f"Executing task {i + 1}/{len(self.tasks)}: {task.name}")
 
             # Create TaskInput for this task
             task_input = TaskInput(
-                message=task_message,
+                message=pipeline_input.message,
+                message_data=pipeline_input.message_data,
+                previous_task_content=previous_task_content,
                 images=pipeline_images,
                 videos=pipeline_videos,
                 audio=pipeline_audio,
             )
 
             # Execute the task (non-streaming) - pass workflow_run_response
-            task_output = await task.aexecute(task_input)
+            task_output = await task.aexecute(task_input, session_id=session_id, user_id=user_id)
 
             # Collect the task output
             if task_output is None:
@@ -285,7 +306,7 @@ class Pipeline:
 
 
             # Update the input for the next task
-            task_message = task_output.content
+            previous_task_content = task_output.content
             pipeline_images.extend(task_output.images or [])
             pipeline_videos.extend(task_output.videos or [])
             pipeline_audio.extend(task_output.audio or [])
@@ -310,7 +331,7 @@ class Pipeline:
         }
 
         # Update the workflow_run_response with completion data
-        workflow_run_response.content = task_message  # Final workflow response output is the last task's output
+        workflow_run_response.content = collected_task_outputs[-1].content  # Final workflow response output is the last task's output
         workflow_run_response.task_responses = collected_task_outputs
         workflow_run_response.extra_data = final_output
         workflow_run_response.images = pipeline_images
@@ -322,6 +343,8 @@ class Pipeline:
         self,
         pipeline_input: PipelineInput,
         workflow_run_response: WorkflowRunResponse,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
         stream_intermediate_steps: bool = False,
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
         """Execute the pipeline with event-driven streaming support"""
@@ -341,13 +364,15 @@ class Pipeline:
         pipeline_images = pipeline_input.images or []
         pipeline_videos = pipeline_input.videos or []
         pipeline_audio = pipeline_input.audio or []
-        task_message = pipeline_input.message
+        previous_task_content = None
 
         # Execute tasks in pipeline with streaming
         for task_index, task in enumerate(self.tasks):
             # Create TaskInput for this task
             task_input = TaskInput(
-                message=task_message,
+                message=pipeline_input.message,
+                message_data=pipeline_input.message_data,
+                previous_task_content=previous_task_content,
                 images=pipeline_images,
                 videos=pipeline_videos,
                 audio=pipeline_audio,
@@ -366,6 +391,8 @@ class Pipeline:
 
             task_stream = await task.aexecute(
                 task_input,
+                session_id=session_id,
+                user_id=user_id,
                 stream=True,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
@@ -381,6 +408,7 @@ class Pipeline:
                     pipeline_images.extend(task_output.images or [])
                     pipeline_videos.extend(task_output.videos or [])
                     pipeline_audio.extend(task_output.audio or [])
+                    previous_task_content = task_output.content
 
                     # Yield task completed event
                     yield TaskCompletedEvent(
@@ -436,6 +464,7 @@ class Pipeline:
             task_responses=collected_task_outputs,
             extra_data=final_output,
         )
+
 
     def add_task(self, task: Task) -> None:
         """Add a task to the pipeline"""

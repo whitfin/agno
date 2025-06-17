@@ -1,7 +1,7 @@
 """
 This example shows a basic sequential pipeline of tasks that run agents and teams.
 
-It is for a content writer that creates posts about tech trends from Hackernews.
+It is for a content writer that creates posts about tech trends from Hackernews and the web.
 """
 
 import asyncio

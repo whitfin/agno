@@ -1,3 +1,9 @@
+"""
+This example shows a basic sequential pipeline of tasks that run agents and teams.
+
+This shows how to stream the response from the pipeline.
+"""
+
 import asyncio
 
 from agno.agent import Agent

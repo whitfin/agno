@@ -3604,6 +3604,7 @@ class Agent:
 
             self._tools_for_model = []
             self._functions_for_model = {}
+            self._tool_instructions = []
 
             # Get Agent tools
             if agent_tools is not None and len(agent_tools) > 0:
@@ -4726,7 +4727,8 @@ class Agent:
                     session_id=session_id,
                     last_n=self.num_history_runs,
                     skip_role=self.system_message_role,
-                    agent_id=self.agent_id,
+                    # Only filter by agent_id if this is part of a team
+                    agent_id=self.agent_id if self.team_session_id is not None else None,
                 )
 
             if len(history) > 0:
@@ -4859,7 +4861,8 @@ class Agent:
                     session_id=session_id,
                     last_n=self.num_history_runs,
                     skip_role=self.system_message_role,
-                    agent_id=self.agent_id,
+                    # Only filter by agent_id if this is part of a team
+                    agent_id=self.agent_id if self.team_session_id is not None else None,
                 )
             if len(history) > 0:
                 # Create a deep copy of the history messages to avoid modifying the original messages
@@ -5554,7 +5557,11 @@ class Agent:
         if isinstance(self.memory, AgentMemory):
             return self.memory.messages
         elif isinstance(self.memory, Memory):
-            return self.memory.get_messages_from_last_n_runs(session_id=_session_id, agent_id=self.agent_id)
+            return self.memory.get_messages_from_last_n_runs(
+                session_id=_session_id,
+                # Only filter by agent_id if this is part of a team
+                agent_id=self.agent_id if self.team_session_id is not None else None,
+            )
         else:
             return []
 

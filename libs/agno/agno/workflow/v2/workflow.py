@@ -20,6 +20,7 @@ from agno.run.v2.workflow import (
 from agno.storage.base import Storage
 from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
 from agno.utils.log import log_debug, log_info, logger
+from agno.utils.merge_dict import merge_dictionaries
 from agno.workflow.v2.pipeline import Pipeline, PipelineInput
 from agno.workflow.v2.task import Task
 
@@ -51,28 +52,28 @@ class Workflow:
     # Workflow session for storage
     workflow_session: Optional[WorkflowSessionV2] = None
 
-    def __post_init__(self):
-        # Handle inheritance - get name from class attribute if not provided
-        if self.name is None:
-            self.name = getattr(self.__class__, "name", self.__class__.__name__)
+    def __init__(self,
+                 workflow_id: Optional[str] = None,
+                 name: Optional[str] = None,
+                 description: Optional[str] = None,
+                 storage: Optional[Storage] = None,
+                 pipelines: Optional[List[Pipeline]] = None,
+                 tasks: Optional[List[Task]] = None,
+                 session_id: Optional[str] = None,
+                 workflow_session_state: Optional[Dict[str, Any]] = None,
+                 user_id: Optional[str] = None):
 
-        # Handle other class attributes
-        if hasattr(self.__class__, "description") and self.description is None:
-            self.description = getattr(self.__class__, "description", None)
+        self.workflow_id = workflow_id
+        self.name = name
+        self.description = description
+        self.storage = storage
+        self.pipelines = pipelines
+        self.tasks = tasks
+        self.session_id = session_id
+        self.workflow_session_state = workflow_session_state
+        self.user_id = user_id
 
-        if hasattr(self.__class__, "storage") and self.storage is None:
-            self.storage = getattr(self.__class__, "storage", None)
-
-        if hasattr(self.__class__, "pipelines") and not self.pipelines:
-            class_pipelines = getattr(self.__class__, "pipelines", [])
-            if class_pipelines:
-                self.pipelines = class_pipelines.copy()
-
-        if hasattr(self.__class__, "tasks") and not self.tasks:
-            class_tasks = getattr(self.__class__, "tasks", [])
-            if class_tasks:
-                self.tasks = class_tasks.copy()
-
+    def initialize_workflow(self):
         if self.workflow_id is None:
             self.workflow_id = str(uuid4())
 
@@ -80,7 +81,38 @@ class Workflow:
             self.session_id = str(uuid4())
 
         # Set storage mode to workflow_v2
-        self.set_storage_mode()
+        if self.storage is not None:
+            self.storage.mode = "workflow_v2"
+
+        self._update_workflow_session_state()
+
+        # Initialize pipelines/tasks
+        for pipeline in self.pipelines:
+            pipeline.initialize()
+            for task in pipeline.tasks:
+                active_executor = task.active_executor
+
+                if hasattr(active_executor, "workflow_session_id"):
+                    active_executor.workflow_session_id = self.session_id
+                if hasattr(active_executor, "workflow_id"):
+                    active_executor.workflow_id = self.workflow_id
+
+
+                if self.workflow_session_state is not None:
+                    # Initialize session_state if it doesn't exist
+                    if hasattr(active_executor, "workflow_session_state"):
+                        if active_executor.workflow_session_state is None:
+                            active_executor.workflow_session_state = {}
+
+                # If it's a team, update all members
+                if hasattr(active_executor, "members"):
+                    for member in active_executor.members:
+                        member.workflow_session_id = self.session_id
+                        member.workflow_id = self.workflow_id
+
+                        # Initialize session_state if it doesn't exist
+                        if member.workflow_session_state is None:
+                            member.workflow_session_state = {}
 
     def _auto_create_pipeline_from_tasks(self):
         """Auto-create a pipeline from tasks for manual triggers"""
@@ -99,12 +131,6 @@ class Workflow:
             self.pipelines = [auto_pipeline]
 
             log_info(f"Auto-created pipeline for workflow {self.name} with {len(self.tasks)} tasks")
-            return pipeline_name
-
-    def set_storage_mode(self):
-        """Set storage mode to workflow_v2"""
-        if self.storage is not None:
-            self.storage.mode = "workflow_v2"
 
     def execute_pipeline(
         self, pipeline: Pipeline, pipeline_input: PipelineInput, workflow_run_response: WorkflowRunResponse
@@ -119,8 +145,6 @@ class Workflow:
 
             # Collect updated workflow_session_state from agents after execution
             self._collect_workflow_session_state_from_agents_and_teams()
-
-            workflow_run_response.status = RunStatus.completed
 
             # Store the completed workflow response
             if self.workflow_session:
@@ -163,14 +187,6 @@ class Workflow:
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             ):
-                # Store completed workflow response when we get the final event
-                if isinstance(event, WorkflowCompletedEvent):
-                    # Update the workflow_run_response with final data
-                    workflow_run_response.content = event.content
-                    workflow_run_response.task_responses = event.task_responses
-                    workflow_run_response.extra_data = event.extra_data
-                    workflow_run_response.status = RunStatus.completed
-
                 yield event
 
             # Collect updated workflow_session_state from agents after execution
@@ -223,8 +239,6 @@ class Workflow:
             # Collect updated workflow_session_state from agents after execution
             self._collect_workflow_session_state_from_agents_and_teams()
 
-            workflow_run_response.status = RunStatus.completed
-
             # Store the completed workflow response
             if self.workflow_session:
                 self.workflow_session.add_run(workflow_run_response)
@@ -265,14 +279,6 @@ class Workflow:
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             ):
-                # Store completed workflow response when we get the final event
-                if isinstance(event, WorkflowCompletedEvent):
-                    # Update the workflow_run_response with final data
-                    workflow_run_response.content = event.content
-                    workflow_run_response.task_responses = event.task_responses
-                    workflow_run_response.extra_data = event.extra_data
-                    workflow_run_response.status = RunStatus.completed
-
                 yield event
 
             # Collect updated workflow_session_state from agents after execution
@@ -311,31 +317,20 @@ class Workflow:
                 self.workflow_session.add_run(workflow_run_response)
             self.write_to_storage()
 
-    def update_agents_and_teams_session_info(self):
-        """Update agents and teams with workflow session information"""
-        # Update all agents in pipelines
-        for pipeline in self.pipelines:
-            for task in pipeline.tasks:
-                active_executor = task._active_executor
+    def _update_workflow_session_state(self):
 
-                if hasattr(active_executor, "workflow_session_id"):
-                    active_executor.workflow_session_id = self.session_id
-                if hasattr(active_executor, "workflow_id"):
-                    active_executor.workflow_id = self.workflow_id
+        if not self.workflow_session_state:
+            self.workflow_session_state = {}
 
-                # Set workflow_session_state on agents and teams
-                self._update_executor_workflow_session_state(active_executor)
+        self.workflow_session_state.update({
+            "workflow_id": self.workflow_id,
+            "run_id": self.run_id,
+            "session_id": self.session_id,
+        })
+        if self.name:
+            self.workflow_session_state["workflow_name"] = self.name
 
-                # If it's a team, update all members
-                if hasattr(active_executor, "members"):
-                    for member in active_executor.members:
-                        if hasattr(member, "workflow_session_id"):
-                            member.workflow_session_id = self.session_id
-                        if hasattr(member, "workflow_id"):
-                            member.workflow_id = self.workflow_id
-
-                        # Set workflow_session_state on team members
-                        self._update_executor_workflow_session_state(member)
+        return self.workflow_session_state
 
     @overload
     def run(
@@ -386,13 +381,17 @@ class Workflow:
         if session_id is not None:
             self.session_id = session_id
 
+        self._auto_create_pipeline_from_tasks()
+        self.run_id = str(uuid4())
+
+        self.initialize_workflow()
+
         # Load or create session
         self.load_session()
-
+        
         # Prepare primary input by combining message and message_data
         primary_input = self._prepare_primary_input(message, message_data)
 
-        self.run_id = str(uuid4())
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
 
         pipeline = self.get_pipeline(selected_pipeline_name)
@@ -411,13 +410,10 @@ class Workflow:
         self.run_response = workflow_run_response
         inputs = PipelineInput(
             message=primary_input,
-            workflow_session_state=self.workflow_session_state,
             audio=audio,
             images=images,
             videos=videos,
         )
-
-        self.update_agents_and_teams_session_info()
 
         if stream:
             return self.execute_pipeline_stream(
@@ -481,6 +477,11 @@ class Workflow:
         if session_id is not None:
             self.session_id = session_id
 
+        self._auto_create_pipeline_from_tasks()
+        self.run_id = str(uuid4())
+
+        self.initialize_workflow()
+
         # Load or create session
         self.load_session()
 
@@ -488,7 +489,6 @@ class Workflow:
         primary_input = self._prepare_primary_input(message, message_data)
 
         # Initialize execution
-        self.run_id = str(uuid4())
         selected_pipeline_name = self._get_pipeline_name(pipeline_name)
         pipeline = self.get_pipeline(selected_pipeline_name)
         if not pipeline:
@@ -504,16 +504,13 @@ class Workflow:
             created_at=int(datetime.now().timestamp()),
         )
         self.run_response = workflow_run_response
-        
+
         inputs = PipelineInput(
             message=primary_input,
-            workflow_session_state=self.workflow_session_state,
             audio=audio,
             images=images,
             videos=videos,
         )
-
-        self.update_agents_and_teams_session_info()
 
         if stream:
             return self.aexecute_pipeline_stream(
@@ -669,6 +666,9 @@ class Workflow:
             show_task_details: Whether to show individual task outputs
             console: Rich console instance (optional)
         """
+
+        self._auto_create_pipeline_from_tasks()
+
         if stream:
             self._print_response_stream(
                 message=message,
@@ -725,26 +725,14 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        pipeline_name = self._auto_create_pipeline_from_tasks()
-
         # Validate pipeline configuration based on trigger type
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        # Determine which pipeline to use
-        if pipeline_name:
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                available_pipelines = [seq.name for seq in self.pipelines]
-                console.print(
-                    f"[red]Pipeline '{pipeline_name}' not found. Available pipelines: {available_pipelines}[/red]"
-                )
-                return
-        else:
-            # Default to first pipeline
-            pipeline = self.pipelines[0]
-            pipeline_name = pipeline.name
+        # Default to first pipeline
+        pipeline = self.pipelines[0]
+        pipeline_name = pipeline.name
 
         # Show workflow info
         media_info = []
@@ -879,23 +867,12 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        pipeline_name = self._auto_create_pipeline_from_tasks()
-
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        if pipeline_name:
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                available_pipelines = [seq.name for seq in self.pipelines]
-                console.print(
-                    f"[red]Pipelines '{pipeline_name}' not found. Available pipelines: {available_pipelines}[/red]"
-                )
-                return
-        else:
-            pipeline = self.pipelines[0]
-            pipeline_name = pipeline.name
+        pipeline = self.pipelines[0]
+        pipeline_name = pipeline.name
 
         # Show workflow info (same as before)
         media_info = []
@@ -1109,6 +1086,7 @@ class Workflow:
             show_task_details: Whether to show individual task outputs
             console: Rich console instance (optional)
         """
+        self._auto_create_pipeline_from_tasks()
         if stream:
             await self._aprint_response_stream(
                 message=message,
@@ -1165,26 +1143,14 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        pipeline_name = self._auto_create_pipeline_from_tasks()
-
         # Validate pipeline configuration based on trigger type
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
         # Determine which pipeline to use
-        if pipeline_name:
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                available_pipelines = [seq.name for seq in self.pipelines]
-                console.print(
-                    f"[red]Pipeline '{pipeline_name}' not found. Available pipelines: {available_pipelines}[/red]"
-                )
-                return
-        else:
-            # Default to first pipeline
-            pipeline = self.pipelines[0]
-            pipeline_name = pipeline.name
+        pipeline = self.pipelines[0]
+        pipeline_name = pipeline.name
 
         # Show workflow info
         media_info = []
@@ -1319,23 +1285,12 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        pipeline_name = self._auto_create_pipeline_from_tasks()
-
         if not self.pipelines:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        if pipeline_name:
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                available_pipelines = [seq.name for seq in self.pipelines]
-                console.print(
-                    f"[red]Pipelines '{pipeline_name}' not found. Available pipelines: {available_pipelines}[/red]"
-                )
-                return
-        else:
-            pipeline = self.pipelines[0]
-            pipeline_name = pipeline.name
+        pipeline = self.pipelines[0]
+        pipeline_name = pipeline.name
 
         # Show workflow info (same as before)
         media_info = []
@@ -1592,18 +1547,6 @@ class Workflow:
         else:
             return None
 
-    def _update_executor_workflow_session_state(self, executor) -> None:
-        """Update executor with workflow_session_state"""
-        if self.workflow_session_state is not None:
-            # Initialize session_state if it doesn't exist
-            if not hasattr(executor, "workflow_session_state") or executor.workflow_session_state is None:
-                executor.workflow_session_state = {}
-
-            # Update session_state with workflow_session_state
-            from agno.utils.merge_dict import merge_dictionaries
-
-            merge_dictionaries(executor.workflow_session_state, self.workflow_session_state)
-
     def _collect_workflow_session_state_from_agents_and_teams(self):
         """Collect updated workflow_session_state from agents after task execution"""
         if self.workflow_session_state is None:
@@ -1612,11 +1555,8 @@ class Workflow:
         # Collect state from all agents in all pipelines
         for pipeline in self.pipelines:
             for task in pipeline.tasks:
-                executor = task._active_executor
+                executor = task.active_executor
                 if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
-                    # Merge the agent's session state back into workflow session state
-                    from agno.utils.merge_dict import merge_dictionaries
-
                     merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
 
                 # If it's a team, collect from all members

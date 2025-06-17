@@ -39,12 +39,7 @@ class BaseWorkflowRunResponseEvent:
     workflow_id: Optional[str] = None
     workflow_name: Optional[str] = None
     pipeline_name: Optional[str] = None
-    task_name: Optional[str] = None
-    task_index: Optional[int] = None
     session_id: Optional[str] = None
-
-    # For backwards compatibility
-    content: Optional[Any] = None
 
     def to_dict(self) -> Dict[str, Any]:
         _dict = {k: v for k, v in asdict(self).items() if v is not None}
@@ -129,6 +124,8 @@ class TaskStartedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when task execution starts"""
 
     event: str = WorkflowRunEvent.task_started.value
+    task_name: Optional[str] = None
+    task_index: Optional[int] = None
 
 
 @dataclass
@@ -136,6 +133,9 @@ class TaskCompletedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when task execution completes"""
 
     event: str = WorkflowRunEvent.task_completed.value
+    task_name: Optional[str] = None
+    task_index: Optional[int] = None
+    
     content: Optional[Any] = None
     content_type: str = "str"
 
@@ -146,7 +146,7 @@ class TaskCompletedEvent(BaseWorkflowRunResponseEvent):
     response_audio: Optional[AudioResponse] = None
 
     # Store actual task execution results as TaskOutput objects
-    task_responses: List["TaskOutput"] = field(default_factory=list)
+    task_response: Optional["TaskOutput"] = None
 
 
 @dataclass
@@ -154,6 +154,8 @@ class TaskErrorEvent(BaseWorkflowRunResponseEvent):
     """Event sent when task execution fails"""
 
     event: str = WorkflowRunEvent.task_error.value
+    task_name: Optional[str] = None
+    task_index: Optional[int] = None
     error: Optional[str] = None
 
 
@@ -171,8 +173,6 @@ WorkflowRunResponseEvent = Union[
 @dataclass
 class WorkflowRunResponse:
     """Response returned by Workflow.run() functions - kept for backwards compatibility"""
-
-    event: str = WorkflowRunEvent.task_completed.value
 
     content: Optional[Any] = None
     content_type: str = "str"

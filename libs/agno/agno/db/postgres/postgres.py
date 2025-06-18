@@ -33,6 +33,7 @@ class PostgresDb(BaseDb):
         workflow_session_table: Optional[str] = None,
         user_memory_table: Optional[str] = None,
         eval_table: Optional[str] = None,
+        knowledge_table: Optional[str] = None,
     ):
         """
         Interface for interacting with a PostgreSQL database.
@@ -51,6 +52,7 @@ class PostgresDb(BaseDb):
             workflow_session_table (Optional[str]): Name of the table to store Workflow sessions.
             user_memory_table (Optional[str]): Name of the table to store user memories.
             eval_table (Optional[str]): Name of the table to store evaluation runs data.
+            knowledge_table (Optional[str]): Name of the table to store knowledge documents data.
 
         Raises:
             ValueError: If neither db_url nor db_engine is provided.
@@ -62,6 +64,7 @@ class PostgresDb(BaseDb):
             workflow_session_table=workflow_session_table,
             user_memory_table=user_memory_table,
             eval_table=eval_table,
+            knowledge_table=knowledge_table,
         )
 
         self.agent_session_table: Optional[Table] = None
@@ -395,8 +398,9 @@ class PostgresDb(BaseDb):
         self,
         session_type: Optional[SessionType] = None,
         user_id: Optional[str] = None,
-        entity_id: Optional[str] = None,
+        component_id: Optional[str] = None,
         limit: Optional[int] = None,
+        offset: Optional[int] = None,
         table: Optional[Table] = None,
     ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
         """
@@ -422,10 +426,12 @@ class PostgresDb(BaseDb):
 
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
-                if entity_id is not None:
-                    stmt = stmt.where(table.c.agent_id == entity_id)
+                if component_id is not None:
+                    stmt = stmt.where(table.c.agent_id == component_id)
                 if limit is not None:
                     stmt = stmt.limit(limit)
+                if offset is not None:
+                    stmt = stmt.offset(offset)
                 stmt = stmt.order_by(table.c.created_at.desc())
 
                 records = sess.execute(stmt).fetchall()
@@ -606,7 +612,9 @@ class PostgresDb(BaseDb):
             log_debug(f"Exception reading from table: {e}")
             return None
 
-    def get_user_memories(self, user_id: Optional[str] = None) -> List[MemoryRow]:
+    def get_user_memories(
+        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
+    ) -> List[MemoryRow]:
         """Get all memories from the database."""
         try:
             table = self.get_user_memory_table()
@@ -616,6 +624,11 @@ class PostgresDb(BaseDb):
                 stmt = select(table)
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
+                stmt = stmt.order_by(table.c.last_updated.desc())
+                if limit is not None:
+                    stmt = stmt.limit(limit)
+                if offset is not None:
+                    stmt = stmt.offset(offset)
                 result = sess.execute(stmt).fetchall()
                 if not result:
                     return []
@@ -697,3 +710,17 @@ class PostgresDb(BaseDb):
         except Exception as e:
             log_error(f"Error deleting user memory: {e}")
             return False
+
+    # -- Knowledge methods --
+
+    def delete_knowledge_document(self, knowledge_id: str):
+        return
+
+    def get_knowledge_document(self, knowledge_id: str):
+        return
+
+    def get_knowledge_documents(self, knowledge_id: str):
+        return
+
+    def upsert_knowledge_document(self, knowledge_id: str):
+        return

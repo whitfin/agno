@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import HTTPException, Path
+from fastapi import HTTPException, Path, Query
 from fastapi.routing import APIRouter
 
 from agno.app.agno_api.managers.memory.schemas import UserMemoryCreateSchema, UserMemorySchema
@@ -10,11 +10,14 @@ from agno.memory.db.schema import MemoryRow
 
 def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
     @router.get("/memories", response_model=List[UserMemorySchema], status_code=200)
-    async def get_memories() -> List[UserMemorySchema]:
+    async def get_memories(
+        limit: Optional[int] = Query(default=20, description="Number of memories to return"),
+        offset: Optional[int] = Query(default=0, description="Number of memories to skip"),
+    ) -> List[UserMemorySchema]:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        user_memories = memory.db.get_user_memories()
+        user_memories = memory.db.get_user_memories(limit=limit, offset=offset)
         return [UserMemorySchema.from_memory_row(user_memory) for user_memory in user_memories]
 
     @router.get("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)

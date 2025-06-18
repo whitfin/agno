@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
@@ -18,8 +18,11 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
     @router.get("/sessions", response_model=List[SessionSchema], status_code=200)
     async def get_sessions(
         session_type: SessionType = Query(default=SessionType.AGENT, alias="type"),
+        component_id: Optional[str] = Query(default=None, description="Component (Agent, Team, Workflow) ID"),
+        limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
+        offset: Optional[int] = Query(default=0, description="Number of sessions to skip"),
     ) -> List[SessionSchema]:
-        sessions = db.get_sessions(session_type=session_type)
+        sessions = db.get_sessions(session_type=session_type, component_id=component_id, limit=limit, offset=offset)
         return [SessionSchema.from_session(session) for session in sessions]
 
     @router.get(

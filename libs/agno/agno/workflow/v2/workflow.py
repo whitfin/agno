@@ -568,17 +568,18 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        selected_pipeline_name = self._get_pipeline_name(
-            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-        )
-
         if self.pipelines:
+            selected_pipeline_name = self._get_pipeline_name(
+                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+            )
+
             pipeline = self.get_pipeline(selected_pipeline_name)
             log_debug(f"Pipeline found with {len(pipeline.steps)} steps")
             if not pipeline:
                 raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         else:
             pipeline = None
+            selected_pipeline_name = "Custom Executor"
 
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
@@ -675,12 +676,18 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        selected_pipeline_name = self._get_pipeline_name(
-            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-        )
-        pipeline = self.get_pipeline(selected_pipeline_name)
-        if not pipeline:
-            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
+        if self.pipelines:
+            selected_pipeline_name = self._get_pipeline_name(
+                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+            )
+
+            pipeline = self.get_pipeline(selected_pipeline_name)
+            log_debug(f"Pipeline found with {len(pipeline.steps)} steps")
+            if not pipeline:
+                raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
+        else:
+            pipeline = None
+            selected_pipeline_name = "Custom Executor"
 
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
@@ -971,11 +978,18 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        pipeline_name = self._get_pipeline_name(
-            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-        )
-
-        pipeline = self.get_pipeline(pipeline_name)
+        if self.pipelines:
+            pipeline_name = self._get_pipeline_name(
+                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+            )
+            pipeline = self.get_pipeline(pipeline_name)
+            if not pipeline:
+                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
+                return
+        else:
+            # For workflows with custom executor but no pipelines
+            pipeline_name = "Custom Executor"
+            pipeline = None
 
         # Show workflow info
         media_info = []
@@ -1115,11 +1129,18 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        pipeline_name = self._get_pipeline_name(
-            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-        )
-
-        pipeline = self.get_pipeline(pipeline_name)
+        if self.pipelines:
+            pipeline_name = self._get_pipeline_name(
+                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+            )
+            pipeline = self.get_pipeline(pipeline_name)
+            if not pipeline:
+                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
+                return
+        else:
+            # For workflows with custom executor but no pipelines
+            pipeline_name = "Custom Executor"
+            pipeline = None
 
         # Show workflow info (same as before)
         media_info = []
@@ -1399,14 +1420,18 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        pipeline_name = self._get_pipeline_name(
-            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-        )
-
-        pipeline = self.get_pipeline(pipeline_name)
-        if not pipeline:
-            console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
-            return
+        if self.pipelines:
+            pipeline_name = self._get_pipeline_name(
+                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+            )
+            pipeline = self.get_pipeline(pipeline_name)
+            if not pipeline:
+                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
+                return
+        else:
+            # For workflows with custom executor but no pipelines
+            pipeline_name = "Custom Executor"
+            pipeline = None
 
         # Show workflow info
         media_info = []
@@ -1544,14 +1569,18 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        pipeline_name = self._get_pipeline_name(
-            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-        )
-
-        pipeline = self.get_pipeline(pipeline_name)
-        if not pipeline:
-            console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
-            return
+        if self.pipelines:
+            pipeline_name = self._get_pipeline_name(
+                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+            )
+            pipeline = self.get_pipeline(pipeline_name)
+            if not pipeline:
+                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
+                return
+        else:
+            # For workflows with custom executor but no pipelines
+            pipeline_name = "Custom Executor"
+            pipeline = None
 
         # Show workflow info (same as before)
         media_info = []

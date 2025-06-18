@@ -8,7 +8,7 @@ from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
-from agno.workflow.v2.task import Task, TaskInput, TaskOutput
+from agno.workflow.v2.step import Step, StepInput, StepOutput
 from agno.workflow.v2.workflow import Workflow
 
 # Define agents
@@ -45,13 +45,13 @@ content_planner = Agent(
 
 
 async def custom_content_planning_function(
-    task_input: TaskInput,
-) -> AsyncIterator[Union[WorkflowRunResponseEvent, TaskOutput]]:
+    step_input: StepInput,
+) -> AsyncIterator[Union[WorkflowRunResponseEvent, StepOutput]]:
     """
     Custom function that does intelligent content planning with context awareness
     """
-    message = task_input.message
-    previous_task_content = task_input.previous_task_content
+    message = step_input.message
+    previous_step_content = step_input.previous_step_content
 
     # Create intelligent planning prompt
     planning_prompt = f"""
@@ -59,7 +59,7 @@ async def custom_content_planning_function(
 
         Core Topic: {message}
 
-        Research Results: {previous_task_content[:500] if previous_task_content else "No research results"}
+        Research Results: {previous_step_content[:500] if previous_step_content else "No research results"}
 
         Planning Requirements:
         1. Create a comprehensive content strategy based on the research
@@ -85,35 +85,35 @@ async def custom_content_planning_function(
 
             **Planning Topic:** {message}
 
-            **Research Integration:** {"✓ Research-based" if previous_task_content else "✗ No research foundation"}
+            **Research Integration:** {"✓ Research-based" if previous_step_content else "✗ No research foundation"}
 
             **Content Strategy:**
             {response.content}
 
             **Custom Planning Enhancements:**
-            - Research Integration: {"High" if previous_task_content else "Baseline"}
+            - Research Integration: {"High" if previous_step_content else "Baseline"}
             - Strategic Alignment: Optimized for multi-channel distribution
             - Execution Ready: Detailed action items included
         """.strip()
 
-        yield TaskOutput(content=enhanced_content, response=response)
+        yield StepOutput(content=enhanced_content, response=response)
 
     except Exception as e:
-        yield TaskOutput(
+        yield StepOutput(
             content=f"Custom content planning failed: {str(e)}",
             success=False,
         )
 
 
-# Define tasks using different executor types
+# Define steps using different executor types
 
-research_task = Task(
-    name="Research Task",
+research_step = Step(
+    name="Research Step",
     team=research_team,
 )
 
-content_planning_task = Task(
-    name="Content Planning Task",
+content_planning_step = Step(
+    name="Content Planning Step",
     executor=custom_content_planning_function,
 )
 
@@ -127,7 +127,7 @@ async def main():
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        tasks=[research_task, content_planning_task],
+        steps=[research_step, content_planning_step],
     )
     print("=== Custom Sequence (Custom Execution Functions) ===")
     try:

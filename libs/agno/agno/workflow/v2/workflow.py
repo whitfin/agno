@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from os import getenv
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Literal, Optional, Union, overload, Awaitable
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Literal, Optional, Union, overload
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -12,8 +12,8 @@ from agno.run.base import RunStatus
 from agno.run.response import RunResponseEvent
 from agno.run.team import TeamRunResponseEvent
 from agno.run.v2.workflow import (
-    TaskCompletedEvent,
-    TaskStartedEvent,
+    StepCompletedEvent,
+    StepStartedEvent,
     WorkflowCompletedEvent,
     WorkflowRunEvent,
     WorkflowRunResponse,
@@ -25,18 +25,18 @@ from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV
 from agno.utils.log import log_debug, log_info, logger, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.merge_dict import merge_dictionaries
 from agno.workflow.v2.pipeline import Pipeline
-from agno.workflow.v2.task import Task
+from agno.workflow.v2.step import Step
 from agno.workflow.v2.types import WorkflowExecutionInput
 
 WorkflowExecutor = Callable[
-            ["Workflow", WorkflowExecutionInput],
-            Union[
-                Any,
-                Iterator[Any],
-                Awaitable[Any],
-                AsyncIterator[Any],
-            ]
-        ]
+    ["Workflow", WorkflowExecutionInput],
+    Union[
+        Any,
+        Iterator[Any],
+        Awaitable[Any],
+        AsyncIterator[Any],
+    ],
+]
 
 
 @dataclass
@@ -50,7 +50,7 @@ class Workflow:
 
     # Workflow configuration
     pipelines: List[Pipeline] = field(default_factory=list)
-    tasks: Optional[List[Task]] = field(default_factory=list)
+    steps: Optional[List[Step]] = field(default_factory=list)
 
     # Custom executor for the workflow
     executor: Optional[WorkflowExecutor] = None
@@ -78,7 +78,7 @@ class Workflow:
         description: Optional[str] = None,
         storage: Optional[Storage] = None,
         pipelines: Optional[List[Pipeline]] = None,
-        tasks: Optional[List[Task]] = None,
+        steps: Optional[List[Step]] = None,
         executor: Optional[WorkflowExecutor] = None,
         session_id: Optional[str] = None,
         workflow_session_state: Optional[Dict[str, Any]] = None,
@@ -90,7 +90,7 @@ class Workflow:
         self.description = description
         self.storage = storage
         self.pipelines = pipelines
-        self.tasks = tasks
+        self.steps = steps
         self.executor = executor
         self.session_id = session_id
         self.workflow_session_state = workflow_session_state
@@ -112,11 +112,11 @@ class Workflow:
 
         self._update_workflow_session_state()
 
-        # Initialize pipelines/tasks
+        # Initialize pipelines/steps
         for pipeline in self.pipelines or []:
             pipeline.initialize()
-            for task in pipeline.tasks:
-                active_executor = task.active_executor
+            for step in pipeline.steps:
+                active_executor = step.active_executor
 
                 if hasattr(active_executor, "workflow_session_id"):
                     active_executor.workflow_session_id = self.session_id
@@ -147,11 +147,11 @@ class Workflow:
 
             # Propagate to pipelines
             for pipeline in self.pipelines:
-                # Propagate to tasks in pipeline
-                for task in pipeline.tasks:
-                    # Propagate to task executors (agents/teams)
-                    if hasattr(task, "active_executor") and task.active_executor:  # Fixed: removed underscore
-                        executor = task.active_executor
+                # Propagate to steps in pipeline
+                for step in pipeline.steps:
+                    # Propagate to step executors (agents/teams)
+                    if hasattr(step, "active_executor") and step.active_executor:  # Fixed: removed underscore
+                        executor = step.active_executor
                         if hasattr(executor, "debug_mode"):
                             executor.debug_mode = True
 
@@ -163,24 +163,24 @@ class Workflow:
         else:
             set_log_level_to_info()
 
-    def _auto_create_pipeline_from_tasks(self):
-        """Auto-create a pipeline from tasks for manual triggers"""
-        # Only auto-create for manual triggers and when tasks are provided but no pipelines
-        if self.tasks and not self.pipelines:
+    def _auto_create_pipeline_from_steps(self):
+        """Auto-create a pipeline from steps for manual triggers"""
+        # Only auto-create for manual triggers and when steps are provided but no pipelines
+        if self.steps and not self.pipelines:
             # Create a default pipeline_name
             pipeline_name = "Default Pipeline"
 
-            # Create pipeline from tasks
+            # Create pipeline from steps
             auto_pipeline = Pipeline(
                 name=pipeline_name,
                 description=f"Auto-generated pipeline for workflow {self.name}",
-                tasks=self.tasks.copy(),
+                steps=self.steps.copy(),
             )
 
             # Add to pipelines
             self.pipelines = [auto_pipeline]
 
-            log_info(f"Auto-created pipeline for workflow {self.name} with {len(self.tasks)} tasks")
+            log_info(f"Auto-created pipeline for workflow {self.name} with {len(self.steps)} steps")
 
     def execute(
         self, pipeline: Pipeline, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
@@ -233,7 +233,6 @@ class Workflow:
 
         log_debug(f"Starting workflow execution with streaming: {self.run_id}")
         workflow_run_response.status = RunStatus.running
-
 
         if self.executor:
             yield WorkflowStartedEvent(
@@ -303,7 +302,7 @@ class Workflow:
                     pipeline_name=pipeline.name,
                     workflow_id=workflow_run_response.workflow_id,
                     session_id=workflow_run_response.session_id,
-                    task_responses=workflow_run_response.task_responses,
+                    step_responses=workflow_run_response.step_responses,
                     extra_data=workflow_run_response.extra_data,
                 )
 
@@ -461,7 +460,7 @@ class Workflow:
                     pipeline_name=pipeline.name,
                     workflow_id=workflow_run_response.workflow_id,
                     session_id=workflow_run_response.session_id,
-                    task_responses=workflow_run_response.task_responses,
+                    step_responses=workflow_run_response.step_responses,
                     extra_data=workflow_run_response.extra_data,
                 )
 
@@ -561,7 +560,7 @@ class Workflow:
             self.session_id = session_id
             log_debug(f"Session ID: {session_id}")
 
-        self._auto_create_pipeline_from_tasks()
+        self._auto_create_pipeline_from_steps()
         self.run_id = str(uuid4())
 
         self.initialize_workflow()
@@ -575,7 +574,7 @@ class Workflow:
 
         if self.pipelines:
             pipeline = self.get_pipeline(selected_pipeline_name)
-            log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
+            log_debug(f"Pipeline found with {len(pipeline.steps)} steps")
             if not pipeline:
                 raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
         else:
@@ -668,7 +667,7 @@ class Workflow:
             self.session_id = session_id
             log_debug(f"Session ID: {session_id}")
 
-        self._auto_create_pipeline_from_tasks()
+        self._auto_create_pipeline_from_steps()
         self.run_id = str(uuid4())
 
         self.initialize_workflow()
@@ -773,13 +772,13 @@ class Workflow:
                 {
                     "name": pipeline.name,
                     "description": pipeline.description,
-                    "tasks": [
+                    "steps": [
                         {
-                            "name": task.name,
-                            "description": task.description,
-                            "executor_type": task.executor_type,
+                            "name": step.name,
+                            "description": step.description,
+                            "executor_type": step.executor_type,
                         }
-                        for task in pipeline.tasks
+                        for step in pipeline.steps
                     ],
                 }
                 for pipeline in self.pipelines
@@ -884,7 +883,7 @@ class Workflow:
         stream_intermediate_steps: bool = False,
         markdown: bool = True,
         show_time: bool = True,
-        show_task_details: bool = True,
+        show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
         """Print workflow execution with rich formatting and optional streaming
@@ -902,11 +901,11 @@ class Workflow:
             stream_intermediate_steps: Whether to stream intermediate steps
             markdown: Whether to render content as markdown
             show_time: Whether to show execution time
-            show_task_details: Whether to show individual task outputs
+            show_step_details: Whether to show individual step outputs
             console: Rich console instance (optional)
         """
 
-        self._auto_create_pipeline_from_tasks()
+        self._auto_create_pipeline_from_steps()
 
         if stream:
             self._print_response_stream(
@@ -921,7 +920,7 @@ class Workflow:
                 stream_intermediate_steps=stream_intermediate_steps,
                 markdown=markdown,
                 show_time=show_time,
-                show_task_details=show_task_details,
+                show_step_details=show_step_details,
                 console=console,
             )
         else:
@@ -936,7 +935,7 @@ class Workflow:
                 videos=videos,
                 markdown=markdown,
                 show_time=show_time,
-                show_task_details=show_task_details,
+                show_step_details=show_step_details,
                 console=console,
             )
 
@@ -952,7 +951,7 @@ class Workflow:
         videos: Optional[List[Video]] = None,
         markdown: bool = True,
         show_time: bool = True,
-        show_task_details: bool = True,
+        show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
         """Print workflow execution with rich formatting (non-streaming)"""
@@ -993,7 +992,7 @@ class Workflow:
         if pipeline:
             if pipeline_name and pipeline_name != "Default Pipeline":
                 workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-            workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
+            workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1042,23 +1041,23 @@ class Workflow:
 
                 response_timer.stop()
 
-                # Show individual task responses if available
-                if show_task_details and workflow_response.task_responses:
-                    for i, task_output in enumerate(workflow_response.task_responses):
-                        if task_output.content:
-                            task_panel = create_panel(
-                                content=Markdown(task_output.content) if markdown else task_output.content,
-                                title=f"Task {i + 1}: {task_output.task_name} (Completed)",
+                # Show individual step responses if available
+                if show_step_details and workflow_response.step_responses:
+                    for i, step_output in enumerate(workflow_response.step_responses):
+                        if step_output.content:
+                            step_panel = create_panel(
+                                content=Markdown(step_output.content) if markdown else step_output.content,
+                                title=f"Step {i + 1}: {step_output.step_name} (Completed)",
                                 border_style="green",
                             )
-                            console.print(task_panel)
+                            console.print(step_panel)
 
                 # Show final summary
                 if workflow_response.extra_data:
                     status = workflow_response.status.value
                     summary_content = ""
                     summary_content += f"""\n\n**Status:** {status}"""
-                    summary_content += f"""\n\n**Tasks Completed:** {len(workflow_response.task_responses) if workflow_response.task_responses else 0}"""
+                    summary_content += f"""\n\n**Steps Completed:** {len(workflow_response.step_responses) if workflow_response.step_responses else 0}"""
                     summary_content = summary_content.strip()
 
                     summary_panel = create_panel(
@@ -1096,10 +1095,10 @@ class Workflow:
         stream_intermediate_steps: bool = False,
         markdown: bool = True,
         show_time: bool = True,
-        show_task_details: bool = True,
+        show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
-        """Print workflow execution with clean streaming - green task blocks displayed once"""
+        """Print workflow execution with clean streaming - green step blocks displayed once"""
         from rich.console import Group
         from rich.live import Live
         from rich.markdown import Markdown
@@ -1137,7 +1136,7 @@ class Workflow:
         if pipeline:
             if pipeline_name and pipeline_name != "Default Pipeline":
                 workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-            workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
+            workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1168,11 +1167,11 @@ class Workflow:
         response_timer.start()
 
         # Streaming execution variables
-        current_task_content = ""
-        current_task_name = ""
-        current_task_index = 0
-        task_responses = []
-        task_started_printed = False
+        current_step_content = ""
+        current_step_name = ""
+        current_step_index = 0
+        step_responses = []
+        step_started_printed = False
 
         with Live(console=console, refresh_per_second=10) as live_log:
             status = Status("Starting workflow...", spinner="dots")
@@ -1196,41 +1195,41 @@ class Workflow:
                         status.update("Workflow started...")
                         live_log.update(status)
 
-                    elif isinstance(response, TaskStartedEvent):
-                        current_task_name = response.task_name or "Unknown"
-                        current_task_index = response.task_index or 0
-                        current_task_content = ""
-                        task_started_printed = False
-                        status.update(f"Starting task {current_task_index + 1}: {current_task_name}...")
+                    elif isinstance(response, StepStartedEvent):
+                        current_step_name = response.step_name or "Unknown"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        status.update(f"Starting step {current_step_index + 1}: {current_step_name}...")
                         live_log.update(status)
 
-                    elif isinstance(response, TaskCompletedEvent):
-                        task_name = response.task_name or "Unknown"
-                        task_index = response.task_index or 0
+                    elif isinstance(response, StepCompletedEvent):
+                        step_name = response.step_name or "Unknown"
+                        step_index = response.step_index or 0
 
-                        status.update(f"Completed task {task_index + 1}: {task_name}")
+                        status.update(f"Completed step {step_index + 1}: {step_name}")
 
                         if response.content:
-                            task_responses.append(
+                            step_responses.append(
                                 {
-                                    "task_name": task_name,
-                                    "task_index": task_index,
+                                    "step_name": step_name,
+                                    "step_index": step_index,
                                     "content": response.content,
                                     "event": response.event,
                                 }
                             )
 
-                        # Print the final task result in green (only once)
-                        if show_task_details and current_task_content and not task_started_printed:
+                        # Print the final step result in green (only once)
+                        if show_step_details and current_step_content and not step_started_printed:
                             live_log.update(status, refresh=True)
 
-                            final_task_panel = create_panel(
-                                content=Markdown(current_task_content) if markdown else current_task_content,
-                                title=f"Task {task_index + 1}: {task_name} (Completed)",
+                            final_step_panel = create_panel(
+                                content=Markdown(current_step_content) if markdown else current_step_content,
+                                title=f"Step {step_index + 1}: {step_name} (Completed)",
                                 border_style="green",
                             )
-                            console.print(final_task_panel)
-                            task_started_printed = True
+                            console.print(final_step_panel)
+                            step_started_printed = True
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
@@ -1243,7 +1242,7 @@ class Workflow:
                             if pipeline_name != "Default Pipeline":
                                 summary_content += f"""\n\n**Pipeline:** {pipeline_name}"""
                             summary_content += f"""\n\n**Status:** {status}"""
-                            summary_content += f"""\n\n**Tasks Completed:** {len(response.task_responses) if response.task_responses else 0}"""
+                            summary_content += f"""\n\n**Steps Completed:** {len(response.step_responses) if response.step_responses else 0}"""
                             summary_content = summary_content.strip()
 
                             summary_panel = create_panel(
@@ -1269,21 +1268,21 @@ class Workflow:
                             else:
                                 continue
 
-                        # Filter out empty responses and add to current task content
+                        # Filter out empty responses and add to current step content
                         if response_str and response_str.strip():
-                            current_task_content += response_str
+                            current_step_content += response_str
 
-                            # Live update the task panel with streaming content
-                            if show_task_details and not task_started_printed:
+                            # Live update the step panel with streaming content
+                            if show_step_details and not step_started_printed:
                                 # Show the streaming content live in green panel
-                                live_task_panel = create_panel(
-                                    content=Markdown(current_task_content) if markdown else current_task_content,
-                                    title=f"Task {current_task_index + 1}: {current_task_name} (Streaming...)",
+                                live_step_panel = create_panel(
+                                    content=Markdown(current_step_content) if markdown else current_step_content,
+                                    title=f"Step {current_step_index + 1}: {current_step_name} (Streaming...)",
                                     border_style="green",
                                 )
 
-                                # Create group with status and current task content
-                                group = Group(status, live_task_panel)
+                                # Create group with status and current step content
+                                group = Group(status, live_step_panel)
                                 live_log.update(group)
 
                 response_timer.stop()
@@ -1314,7 +1313,7 @@ class Workflow:
         stream_intermediate_steps: bool = False,
         markdown: bool = True,
         show_time: bool = True,
-        show_task_details: bool = True,
+        show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
         """Print workflow execution with rich formatting and optional streaming
@@ -1332,10 +1331,10 @@ class Workflow:
             stream: Whether to stream the response content
             markdown: Whether to render content as markdown
             show_time: Whether to show execution time
-            show_task_details: Whether to show individual task outputs
+            show_step_details: Whether to show individual step outputs
             console: Rich console instance (optional)
         """
-        self._auto_create_pipeline_from_tasks()
+        self._auto_create_pipeline_from_steps()
         if stream:
             await self._aprint_response_stream(
                 message=message,
@@ -1349,7 +1348,7 @@ class Workflow:
                 stream_intermediate_steps=stream_intermediate_steps,
                 markdown=markdown,
                 show_time=show_time,
-                show_task_details=show_task_details,
+                show_step_details=show_step_details,
                 console=console,
             )
         else:
@@ -1364,7 +1363,7 @@ class Workflow:
                 videos=videos,
                 markdown=markdown,
                 show_time=show_time,
-                show_task_details=show_task_details,
+                show_step_details=show_step_details,
                 console=console,
             )
 
@@ -1380,7 +1379,7 @@ class Workflow:
         videos: Optional[List[Video]] = None,
         markdown: bool = True,
         show_time: bool = True,
-        show_task_details: bool = True,
+        show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
         """Print workflow execution with rich formatting (non-streaming)"""
@@ -1423,7 +1422,7 @@ class Workflow:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         if pipeline_name != "Default Pipeline":
             workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-        workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
+        workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1472,16 +1471,16 @@ class Workflow:
 
                 response_timer.stop()
 
-                # Show individual task responses if available
-                if show_task_details and workflow_response.task_responses:
-                    for i, task_output in enumerate(workflow_response.task_responses):
-                        if task_output.content:
-                            task_panel = create_panel(
-                                content=Markdown(task_output.content) if markdown else task_output.content,
-                                title=f"Task {i + 1}: {task_output.task_name} (Completed)",
+                # Show individual step responses if available
+                if show_step_details and workflow_response.step_responses:
+                    for i, step_output in enumerate(workflow_response.step_responses):
+                        if step_output.content:
+                            step_panel = create_panel(
+                                content=Markdown(step_output.content) if markdown else step_output.content,
+                                title=f"Step {i + 1}: {step_output.step_name} (Completed)",
                                 border_style="green",
                             )
-                            console.print(task_panel)
+                            console.print(step_panel)
 
                 # Show final summary
                 if workflow_response.extra_data:
@@ -1490,7 +1489,7 @@ class Workflow:
                     if pipeline_name != "Default Pipeline":
                         summary_content += f"""\n\n**Pipeline:** {pipeline_name}"""
                     summary_content += f"""\n\n**Status:** {status}"""
-                    summary_content += f"""\n\n**Tasks Completed:** {len(workflow_response.task_responses) if workflow_response.task_responses else 0}"""
+                    summary_content += f"""\n\n**Steps Completed:** {len(workflow_response.step_responses) if workflow_response.step_responses else 0}"""
                     summary_content = summary_content.strip()
 
                     summary_panel = create_panel(
@@ -1525,10 +1524,10 @@ class Workflow:
         stream_intermediate_steps: bool = False,
         markdown: bool = True,
         show_time: bool = True,
-        show_task_details: bool = True,
+        show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
-        """Print workflow execution with clean streaming - green task blocks displayed once"""
+        """Print workflow execution with clean streaming - green step blocks displayed once"""
         from rich.console import Group
         from rich.live import Live
         from rich.markdown import Markdown
@@ -1568,7 +1567,7 @@ class Workflow:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         if pipeline_name != "Default Pipeline":
             workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-        workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
+        workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1599,11 +1598,11 @@ class Workflow:
         response_timer.start()
 
         # Streaming execution variables
-        current_task_content = ""
-        current_task_name = ""
-        current_task_index = 0
-        task_responses = []
-        task_started_printed = False
+        current_step_content = ""
+        current_step_name = ""
+        current_step_index = 0
+        step_responses = []
+        step_started_printed = False
 
         with Live(console=console, refresh_per_second=10) as live_log:
             status = Status("Starting async workflow...", spinner="dots")
@@ -1627,41 +1626,41 @@ class Workflow:
                         status.update("Workflow started...")
                         live_log.update(status)
 
-                    elif isinstance(response, TaskStartedEvent):
-                        current_task_name = response.task_name or "Unknown"
-                        current_task_index = response.task_index or 0
-                        current_task_content = ""
-                        task_started_printed = False
-                        status.update(f"Starting task {current_task_index + 1}: {current_task_name}...")
+                    elif isinstance(response, StepStartedEvent):
+                        current_step_name = response.step_name or "Unknown"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        status.update(f"Starting step {current_step_index + 1}: {current_step_name}...")
                         live_log.update(status)
 
-                    elif isinstance(response, TaskCompletedEvent):
-                        task_name = response.task_name or "Unknown"
-                        task_index = response.task_index or 0
+                    elif isinstance(response, StepCompletedEvent):
+                        step_name = response.step_name or "Unknown"
+                        step_index = response.step_index or 0
 
-                        status.update(f"Completed task {task_index + 1}: {task_name}")
+                        status.update(f"Completed step {step_index + 1}: {step_name}")
 
                         if response.content:
-                            task_responses.append(
+                            step_responses.append(
                                 {
-                                    "task_name": task_name,
-                                    "task_index": task_index,
+                                    "step_name": step_name,
+                                    "step_index": step_index,
                                     "content": response.content,
                                     "event": response.event,
                                 }
                             )
 
-                        # Print the final task result in green (only once)
-                        if show_task_details and current_task_content and not task_started_printed:
+                        # Print the final step result in green (only once)
+                        if show_step_details and current_step_content and not step_started_printed:
                             live_log.update(status, refresh=True)
 
-                            final_task_panel = create_panel(
-                                content=Markdown(current_task_content) if markdown else current_task_content,
-                                title=f"Task {task_index + 1}: {task_name} (Completed)",
+                            final_step_panel = create_panel(
+                                content=Markdown(current_step_content) if markdown else current_step_content,
+                                title=f"Step {step_index + 1}: {step_name} (Completed)",
                                 border_style="green",
                             )
-                            console.print(final_task_panel)
-                            task_started_printed = True
+                            console.print(final_step_panel)
+                            step_started_printed = True
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
@@ -1674,7 +1673,7 @@ class Workflow:
                             if pipeline_name != "Default Pipeline":
                                 summary_content += f"""\n\n**Pipeline:** {pipeline_name}"""
                             summary_content += f"""\n\n**Status:** {status}"""
-                            summary_content += f"""\n\n**Tasks Completed:** {len(response.task_responses) if response.task_responses else 0}"""
+                            summary_content += f"""\n\n**Steps Completed:** {len(response.step_responses) if response.step_responses else 0}"""
                             summary_content = summary_content.strip()
 
                             summary_panel = create_panel(
@@ -1702,21 +1701,21 @@ class Workflow:
                             else:
                                 continue
 
-                        # Filter out empty responses and add to current task content
+                        # Filter out empty responses and add to current step content
                         if response_str and response_str.strip():
-                            current_task_content += response_str
+                            current_step_content += response_str
 
-                            # Live update the task panel with streaming content
-                            if show_task_details and not task_started_printed:
+                            # Live update the step panel with streaming content
+                            if show_step_details and not step_started_printed:
                                 # Show the streaming content live in green panel
-                                live_task_panel = create_panel(
-                                    content=Markdown(current_task_content) if markdown else current_task_content,
-                                    title=f"Task {current_task_index + 1}: {current_task_name} (Streaming...)",
+                                live_step_panel = create_panel(
+                                    content=Markdown(current_step_content) if markdown else current_step_content,
+                                    title=f"Step {current_step_index + 1}: {current_step_name} (Streaming...)",
                                     border_style="green",
                                 )
 
-                                # Create group with status and current task content
-                                group = Group(status, live_task_panel)
+                                # Create group with status and current step content
+                                group = Group(status, live_step_panel)
                                 live_log.update(group)
 
                 response_timer.stop()
@@ -1766,13 +1765,13 @@ class Workflow:
                 {
                     "name": p.name,
                     "description": p.description,
-                    "tasks": [
+                    "steps": [
                         {
                             "name": t.name,
                             "description": t.description,
                             "executor_type": t.executor_type,
                         }
-                        for t in p.tasks
+                        for t in p.steps
                     ],
                 }
                 for p in self.pipelines
@@ -1781,7 +1780,7 @@ class Workflow:
         }
 
     def _collect_workflow_session_state_from_agents_and_teams(self):
-        """Collect updated workflow_session_state from agents after task execution"""
+        """Collect updated workflow_session_state from agents after step execution"""
         log_debug("Collecting workflow session state from agents and teams")
 
         if self.workflow_session_state is None:
@@ -1791,8 +1790,8 @@ class Workflow:
         # Collect state from all agents in all pipelines
         for pipeline in self.pipelines:
             log_debug(f"Collecting state from pipeline: {pipeline.name}")
-            for task in pipeline.tasks:
-                executor = task.active_executor
+            for step in pipeline.steps:
+                executor = step.active_executor
                 if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
                     merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
                     log_debug("Merged executor session state into workflow")

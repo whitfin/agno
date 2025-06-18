@@ -3,138 +3,138 @@ from typing import Any, Dict, Optional
 from agno.agent.agent import Agent
 from agno.models.openai.chat import OpenAIChat
 from agno.team.team import Team
-from agno.workflow.v2.task import Task
+from agno.workflow.v2.step import Step
 from agno.workflow.v2.workflow import Workflow
 
 
 # === TEAM TOOLS ===
-def add_task(team: Team, task_name: str, assignee: str) -> str:
-    """Add a task to the team's task list."""
+def add_step(team: Team, step_name: str, assignee: str) -> str:
+    """Add a step to the team's step list."""
     if team.workflow_session_state is None:
         team.workflow_session_state = {}
 
-    if "tasks" not in team.workflow_session_state:
-        team.workflow_session_state["tasks"] = []
+    if "steps" not in team.workflow_session_state:
+        team.workflow_session_state["steps"] = []
 
-    task = {"name": task_name, "assignee": assignee, "status": "pending"}
-    team.workflow_session_state["tasks"].append(task)
+    step = {"name": step_name, "assignee": assignee, "status": "pending"}
+    team.workflow_session_state["steps"].append(step)
 
-    return f"Added task '{task_name}' assigned to {assignee}"
+    return f"Added step '{step_name}' assigned to {assignee}"
 
 
-def delete_task(team: Team, task_name: str) -> str:
-    """Delete a task from the team's task list."""
+def delete_step(team: Team, step_name: str) -> str:
+    """Delete a step from the team's step list."""
     if (
         team.workflow_session_state is None
-        or "tasks" not in team.workflow_session_state
+        or "steps" not in team.workflow_session_state
     ):
-        return "No tasks found to delete"
+        return "No steps found to delete"
 
-    tasks = team.workflow_session_state["tasks"]
-    for i, task in enumerate(tasks):
-        if task["name"] == task_name:
-            deleted_task = tasks.pop(i)
-            return f"Deleted task '{task_name}' that was assigned to {deleted_task['assignee']}"
+    steps = team.workflow_session_state["steps"]
+    for i, step in enumerate(steps):
+        if step["name"] == step_name:
+            deleted_step = steps.pop(i)
+            return f"Deleted step '{step_name}' that was assigned to {deleted_step['assignee']}"
 
-    return f"Task '{task_name}' not found"
+    return f"Step '{step_name}' not found"
 
 
 # === AGENT TOOL ===
-def display_tasks(agent: Agent) -> str:
-    """Display all tasks from the agent's workflow session state."""
+def display_steps(agent: Agent) -> str:
+    """Display all steps from the agent's workflow session state."""
     if (
         agent.workflow_session_state is None
-        or "tasks" not in agent.workflow_session_state
+        or "steps" not in agent.workflow_session_state
     ):
-        return "No tasks found"
+        return "No steps found"
 
-    tasks = agent.workflow_session_state["tasks"]
-    if not tasks:
-        return "Task list is empty"
+    steps = agent.workflow_session_state["steps"]
+    if not steps:
+        return "Step list is empty"
 
-    result = "Current tasks:\n"
-    for i, task in enumerate(tasks, 1):
-        result += f"{i}. {task['name']} (assigned to: {task['assignee']}, status: {task['status']})\n"
+    result = "Current steps:\n"
+    for i, step in enumerate(steps, 1):
+        result += f"{i}. {step['name']} (assigned to: {step['assignee']}, status: {step['status']})\n"
 
     return result
 
 
 # === CREATE AGENTS ===
-task_manager = Agent(
-    name="TaskManager",
+step_manager = Agent(
+    name="StepManager",
     model=OpenAIChat(id="gpt-4o-mini"),
-    instructions=["You manage tasks by adding and deleting them as requested."],
+    instructions=["You manage steps by adding and deleting them as requested."],
 )
 
-task_coordinator = Agent(
-    name="TaskCoordinator",
+step_coordinator = Agent(
+    name="StepCoordinator",
     model=OpenAIChat(id="gpt-4o-mini"),
-    instructions=["You help coordinate tasks and provide task management support."],
+    instructions=["You help coordinate steps and provide step management support."],
 )
 
-task_viewer = Agent(
-    name="TaskViewer",
+step_viewer = Agent(
+    name="StepViewer",
     model=OpenAIChat(id="gpt-4o-mini"),
-    tools=[display_tasks],
+    tools=[display_steps],
     instructions=[
-        "You display and view tasks. Use the display_tasks function to show current tasks."
+        "You display and view steps. Use the display_steps function to show current steps."
     ],
 )
 
 # === CREATE TEAM ===
 management_team = Team(
     name="ManagementTeam",
-    members=[task_manager, task_coordinator],
-    tools=[add_task, delete_task],
+    members=[step_manager, step_coordinator],
+    tools=[add_step, delete_step],
     instructions=[
-        "You are a task management team.",
-        "Use add_task to create new tasks and delete_task to remove tasks.",
-        "Coordinate between team members to manage tasks effectively.",
+        "You are a step management team.",
+        "Use add_step to create new steps and delete_step to remove steps.",
+        "Coordinate between team members to manage steps effectively.",
     ],
     mode="coordinate",
 )
 
-# === CREATE TASKS ===
-manage_tasks_task = Task(
-    name="manage_tasks",
-    description="Team manages tasks by adding and deleting them",
+# === CREATE STEPS ===
+manage_steps_step = Step(
+    name="manage_steps",
+    description="Team manages steps by adding and deleting them",
     team=management_team,
 )
 
-display_tasks_task = Task(
-    name="display_tasks",
-    description="Agent displays the current tasks",
-    agent=task_viewer,
+display_steps_step = Step(
+    name="display_steps",
+    description="Agent displays the current steps",
+    agent=step_viewer,
 )
 
 # === CREATE WORKFLOW ===
 simple_workflow = Workflow(
-    name="Simple Task Management",
-    tasks=[manage_tasks_task, display_tasks_task],
-    workflow_session_state={"tasks": []},  # Initialize with empty task list
+    name="Simple Step Management",
+    steps=[manage_steps_step, display_steps_step],
+    workflow_session_state={"steps": []},  # Initialize with empty step list
 )
 
 if __name__ == "__main__":
-    # Example 1: Add a task
-    print("=== Example 1: Add Task ===")
+    # Example 1: Add a step
+    print("=== Example 1: Add Step ===")
     simple_workflow.print_response(
-        message="Add a task called 'Write Documentation' assigned to John"
+        message="Add a step called 'Write Documentation' assigned to John"
     )
 
     print("Current workflow session state:", simple_workflow.workflow_session_state)
 
-    # Example 2: Add another task and then display all tasks
-    print("\n=== Example 2: Add Another Task and Display ===")
+    # Example 2: Add another step and then display all steps
+    print("\n=== Example 2: Add Another Step and Display ===")
     simple_workflow.print_response(
-        message="Add a task called 'Code Review' assigned to Sarah, then display all tasks"
+        message="Add a step called 'Code Review' assigned to Sarah, then display all steps"
     )
 
     print("Current workflow session state:", simple_workflow.workflow_session_state)
 
-    # Example 3: Delete a task and display remaining tasks
-    print("\n=== Example 3: Delete Task and Display ===")
+    # Example 3: Delete a step and display remaining steps
+    print("\n=== Example 3: Delete Step and Display ===")
     simple_workflow.print_response(
-        message="Delete the 'Write Documentation' task, then display remaining tasks"
+        message="Delete the 'Write Documentation' step, then display remaining steps"
     )
 
     print("\nFinal workflow session state:", simple_workflow.workflow_session_state)

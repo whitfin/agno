@@ -1,5 +1,5 @@
 """
-This example shows a basic sequential pipeline of tasks that run agents and teams.
+This example shows a basic sequential pipeline of steps that run agents and teams.
 
 This shows how to stream the response from the pipeline.
 """
@@ -12,7 +12,7 @@ from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
-from agno.workflow.v2.task import Task
+from agno.workflow.v2.step import Step
 from agno.workflow.v2.workflow import Workflow
 
 # Define agents
@@ -45,14 +45,14 @@ content_planner = Agent(
     ],
 )
 
-# Define tasks
-research_task = Task(
-    name="Research Task",
+# Define steps
+research_step = Step(
+    name="Research Step",
     team=research_team,
 )
 
-content_planning_task = Task(
-    name="Content Planning Task",
+content_planning_step = Step(
+    name="Content Planning Step",
     agent=content_planner,
 )
 
@@ -67,7 +67,7 @@ async def main():
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        tasks=[research_task, content_planning_task],
+        steps=[research_step, content_planning_step],
     )
     print("=== Research Pipeline (Rich Display) ===")
     try:

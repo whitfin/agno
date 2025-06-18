@@ -6,7 +6,7 @@ from agno.storage.sqlite import SqliteStorage
 from agno.tools.models.gemini import GeminiTools
 from agno.tools.openai import OpenAITools
 from agno.workflow.v2.pipeline import Pipeline
-from agno.workflow.v2.task import Task
+from agno.workflow.v2.step import Step
 from agno.workflow.v2.workflow import Workflow
 from pydantic import BaseModel
 
@@ -38,13 +38,13 @@ image_describer = Agent(
     name="Image Describer",
     model=OpenAIChat(id="gpt-4o"),
     instructions="""You are an expert image analyst and describer.
-    When you receive an image (either as input or from a previous task), analyze and describe it in vivid detail, including:
+    When you receive an image (either as input or from a previous step), analyze and describe it in vivid detail, including:
     - Visual elements and composition
     - Colors, lighting, and mood
     - Artistic style and technique
     - Emotional impact and narrative
     
-    If no image is provided, work with the image description or prompt from the previous task.
+    If no image is provided, work with the image description or prompt from the previous step.
     Provide rich, engaging descriptions that capture the essence of the visual content.""",
 )
 
@@ -73,27 +73,27 @@ video_describer = Agent(
     Provide detailed, professional video analysis.""",
 )
 
-# Define tasks for image pipeline
-generate_image_task = Task(
+# Define steps for image pipeline
+generate_image_step = Step(
     name="generate_image",
     agent=image_generator,
     description="Generate a detailed image creation prompt based on the user's request",
 )
 
-describe_image_task = Task(
+describe_image_step = Step(
     name="describe_image",
     agent=image_describer,
     description="Analyze and describe the generated image concept in vivid detail",
 )
 
-# Define tasks for video pipeline
-generate_video_task = Task(
+# Define steps for video pipeline
+generate_video_step = Step(
     name="generate_video",
     agent=video_generator,
     description="Create a comprehensive video production plan and storyboard",
 )
 
-describe_video_task = Task(
+describe_video_step = Step(
     name="describe_video",
     agent=video_describer,
     description="Analyze and critique the video production plan with professional insights",
@@ -103,13 +103,13 @@ describe_video_task = Task(
 image_pipeline = Pipeline(
     name="image_generation",
     description="Complete image generation and analysis workflow",
-    tasks=[generate_image_task, describe_image_task],
+    steps=[generate_image_step, describe_image_step],
 )
 
 video_pipeline = Pipeline(
     name="video_generation",
     description="Complete video production and analysis workflow",
-    tasks=[generate_video_task, describe_video_task],
+    steps=[generate_video_step, describe_video_step],
 )
 
 
@@ -167,7 +167,8 @@ if __name__ == "__main__":
         media_workflow.print_response(
             message="Create a magical forest scene",
             message_data=image_request,
-            selector=media_pipeline_selector,  # Alternatively supply just the pipeline name string
+            # Alternatively supply just the pipeline name string
+            selector=media_pipeline_selector,
             markdown=True,
         )
     except Exception as e:

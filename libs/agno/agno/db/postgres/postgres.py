@@ -33,6 +33,7 @@ class PostgresDb(BaseDb):
         workflow_session_table: Optional[str] = None,
         user_memory_table: Optional[str] = None,
         eval_table: Optional[str] = None,
+        knowledge_table: Optional[str] = None,
     ):
         """
         Interface for interacting with a PostgreSQL database.
@@ -51,6 +52,7 @@ class PostgresDb(BaseDb):
             workflow_session_table (Optional[str]): Name of the table to store Workflow sessions.
             user_memory_table (Optional[str]): Name of the table to store user memories.
             eval_table (Optional[str]): Name of the table to store evaluation runs data.
+            knowledge_table (Optional[str]): Name of the table to store knowledge documents data.
 
         Raises:
             ValueError: If neither db_url nor db_engine is provided.
@@ -62,6 +64,7 @@ class PostgresDb(BaseDb):
             workflow_session_table=workflow_session_table,
             user_memory_table=user_memory_table,
             eval_table=eval_table,
+            knowledge_table=knowledge_table,
         )
 
         self.agent_session_table: Optional[Table] = None

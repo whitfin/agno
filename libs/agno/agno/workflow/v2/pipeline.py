@@ -9,7 +9,6 @@ from agno.run.v2.workflow import (
     WorkflowCompletedEvent,
     WorkflowRunResponse,
     WorkflowRunResponseEvent,
-    WorkflowStartedEvent,
 )
 from agno.utils.log import log_debug, logger
 from agno.workflow.v2.task import Task
@@ -343,8 +342,6 @@ class Pipeline:
         log_debug(f"Stream intermediate steps: {stream_intermediate_steps}")
         log_debug(f"Total tasks: {len(self.tasks)}")
 
-        logger.info(f"Executing pipeline with streaming: {self.name}")
-
         # Track outputs from each task for chaining
         collected_task_outputs: List[TaskOutput] = []
         pipeline_images = pipeline_input.images or []
@@ -438,7 +435,6 @@ class Pipeline:
         }
 
         log_debug(f"Async Pipeline Streaming Execution End: {self.name}", center=True, symbol="*")
-
         workflow_run_response.content = collected_task_outputs[
             -1
         ].content  # Final workflow response output is the last task's output

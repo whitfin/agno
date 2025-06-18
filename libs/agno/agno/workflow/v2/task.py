@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, Optional, Union
-
+from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, Optional, Union, List
 from pydantic import BaseModel
 
 from agno.agent import Agent
+from agno.media import Image, ImageArtifact, Video, VideoArtifact
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.run.v2.workflow import (
@@ -186,10 +186,12 @@ class Task:
 
                     # Execute agent or team with media
                     if self._executor_type in ["agent", "team"]:
+                        images = self._convert_image_artifacts_to_images(task_input.images) if task_input.images else None
+                        videos = self._convert_video_artifacts_to_videos(task_input.videos) if task_input.videos else None
                         response = self.active_executor.run(
                             message=message,
-                            images=task_input.images,
-                            videos=task_input.videos,
+                            images=images,
+                            videos=videos,
                             audio=task_input.audio,
                             session_id=session_id,
                             user_id=user_id,
@@ -265,10 +267,12 @@ class Task:
                     message = self._prepare_message(task_input.message, task_input.message_data)
 
                     if self._executor_type in ["agent", "team"]:
+                        images = self._convert_image_artifacts_to_images(task_input.images) if task_input.images else None
+                        videos = self._convert_video_artifacts_to_videos(task_input.videos) if task_input.videos else None
                         response_stream = self.active_executor.run(
                             message=message,
-                            images=task_input.images,
-                            videos=task_input.videos,
+                            images=images,
+                            videos=videos,
                             audio=task_input.audio,
                             session_id=session_id,
                             user_id=user_id,
@@ -360,10 +364,12 @@ class Task:
 
                     # Execute agent or team with media
                     if self._executor_type in ["agent", "team"]:
+                        images = self._convert_image_artifacts_to_images(task_input.images) if task_input.images else None
+                        videos = self._convert_video_artifacts_to_videos(task_input.videos) if task_input.videos else None
                         response = await self.active_executor.arun(
                             message=message,
-                            images=task_input.images,
-                            videos=task_input.videos,
+                            images=images,
+                            videos=videos,
                             audio=task_input.audio,
                             session_id=session_id,
                             user_id=user_id,
@@ -441,10 +447,12 @@ class Task:
                 else:
                     message = self._prepare_message(task_input.message, task_input.message_data)
                     if self._executor_type in ["agent", "team"]:
+                        images = self._convert_image_artifacts_to_images(task_input.images) if task_input.images else None
+                        videos = self._convert_video_artifacts_to_videos(task_input.videos) if task_input.videos else None
                         response_stream = await self.active_executor.arun(  # type: ignore
                             message=message,
-                            images=task_input.images,
-                            videos=task_input.videos,
+                            images=images,
+                            videos=videos,
                             audio=task_input.audio,
                             session_id=session_id,
                             user_id=user_id,
@@ -557,3 +565,83 @@ class Task:
         else:
             # Convert any other type to string
             return RunResponse(content=str(result))
+
+    def _convert_image_artifacts_to_images(self, image_artifacts: List[ImageArtifact]) -> List[Image]:
+        """
+        Convert ImageArtifact objects to Image objects with proper content handling.
+
+        Args:
+            image_artifacts: List of ImageArtifact objects to convert
+
+        Returns:
+            List of Image objects ready for agent processing
+        """
+        import base64
+
+        images = []
+        for i, img_artifact in enumerate(image_artifacts):
+            # Create Image object with proper data from ImageArtifact
+            if img_artifact.url:
+                images.append(Image(url=img_artifact.url))
+
+            elif img_artifact.content:
+                # Handle the case where content is base64-encoded bytes from OpenAI tools
+                try:
+                    # Try to decode as base64 first (for images from OpenAI tools)
+                    if isinstance(img_artifact.content, bytes):
+                        # Decode bytes to string, then decode base64 to get actual image bytes
+                        base64_string = img_artifact.content.decode("utf-8")
+                        actual_image_bytes = base64.b64decode(base64_string)
+                        logger.info(f"Decoded base64 content to {len(actual_image_bytes)} bytes")
+                    else:
+                        # If it's already actual image bytes
+                        actual_image_bytes = img_artifact.content
+
+                    # Create Image object with proper format
+                    image_kwargs = {"content": actual_image_bytes}
+                    if img_artifact.mime_type:
+                        # Convert mime_type to format (e.g., "image/png" -> "png")
+                        if "/" in img_artifact.mime_type:
+                            format_from_mime = img_artifact.mime_type.split("/")[-1]
+                            image_kwargs["format"] = format_from_mime
+                            logger.info(f"Setting format from mime_type: {format_from_mime}")
+
+                    images.append(Image(**image_kwargs))
+
+                except Exception as e:
+                    logger.error(f"Failed to process image content: {e}")
+                    # Skip this image if we can't process it
+                    continue
+
+            else:
+                # Skip images that have neither URL nor content
+                logger.warning(f"Skipping ImageArtifact {i} with no URL or content: {img_artifact}")
+                continue
+
+        return images
+
+    def _convert_video_artifacts_to_videos(self, video_artifacts: List[VideoArtifact]) -> List[Video]:
+        """
+        Convert VideoArtifact objects to Video objects with proper content handling.
+
+        Args:
+            video_artifacts: List of VideoArtifact objects to convert
+
+        Returns:
+            List of Video objects ready for agent processing
+        """
+        videos = []
+        for i, video_artifact in enumerate(video_artifacts):
+            # Create Image object with proper data from ImageArtifact
+            if video_artifact.url:
+                videos.append(Video(url=video_artifact.url))
+
+            elif video_artifact.content:
+                videos.append(Video(content=video_artifact.content))
+
+            else:
+                # Skip images that have neither URL nor content
+                logger.warning(f"Skipping VideoArtifact {i} with no URL or content: {video_artifact}")
+                continue
+
+        return videos

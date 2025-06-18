@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 from os import getenv
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Literal, Optional, Union, overload
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Literal, Optional, Union, overload, Awaitable
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -29,14 +29,14 @@ from agno.workflow.v2.task import Task
 from agno.workflow.v2.types import WorkflowExecutionInput
 
 WorkflowExecutor = Callable[
-    [WorkflowExecutionInput, "Workflow"],
-    Union[
-        Any,
-        Iterator[Any],
-        Awaitable[Any],
-        AsyncIterator[Any],
-    ],
-]
+            ["Workflow", WorkflowExecutionInput],
+            Union[
+                Any,
+                Iterator[Any],
+                Awaitable[Any],
+                AsyncIterator[Any],
+            ]
+        ]
 
 
 @dataclass
@@ -233,6 +233,8 @@ class Workflow:
 
         log_debug(f"Starting workflow execution with streaming: {self.run_id}")
         workflow_run_response.status = RunStatus.running
+
+
         if self.executor:
             yield WorkflowStartedEvent(
                 run_id=workflow_run_response.run_id or "",
@@ -510,7 +512,7 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        pipeline_name: Optional[str] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -525,7 +527,7 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        pipeline_name: Optional[str] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -539,7 +541,7 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        pipeline_name: Optional[str] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -567,8 +569,9 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        selected_pipeline_name = self._get_pipeline_name(pipeline_name)
-        log_debug(f"Selected pipeline: {selected_pipeline_name}")
+        selected_pipeline_name = self._get_pipeline_name(
+            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+        )
 
         if self.pipelines:
             pipeline = self.get_pipeline(selected_pipeline_name)
@@ -615,7 +618,7 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        pipeline_name: Optional[str] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -630,7 +633,7 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        pipeline_name: Optional[str] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -644,7 +647,7 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        pipeline_name: Optional[str] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -673,17 +676,12 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        # Initialize execution
-        selected_pipeline_name = self._get_pipeline_name(pipeline_name)
-        log_debug(f"Selected pipeline: {selected_pipeline_name}")
-
-        if self.pipelines:
-            pipeline = self.get_pipeline(selected_pipeline_name)
-            log_debug(f"Pipeline found with {len(pipeline.tasks)} tasks")
-            if not pipeline:
-                raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
-        else:
-            pipeline = None
+        selected_pipeline_name = self._get_pipeline_name(
+            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+        )
+        pipeline = self.get_pipeline(selected_pipeline_name)
+        if not pipeline:
+            raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
 
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
@@ -719,20 +717,53 @@ class Workflow:
                 pipeline=pipeline, execution_input=inputs, workflow_run_response=workflow_run_response
             )
 
-    def _get_pipeline_name(self, pipeline_name: Optional[str] = None) -> Optional[str]:
-        # If pipeline_name is provided, use that specific pipeline
-        if pipeline_name:
-            target_pipeline = self.get_pipeline(pipeline_name)
+    def _get_pipeline_name(
+        self,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
+        message: Optional[str] = None,
+        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+    ) -> str:
+        """Get pipeline name from selector or default to first pipeline"""
+        if selector:
+            if isinstance(selector, str):
+                # String selector - direct pipeline name
+                selected_name = selector
+                log_debug(f"Using string selector: {selected_name}")
+            elif callable(selector):
+                # Callable selector - call with context
+                try:
+                    selected_name = selector(
+                        message=message,
+                        message_data=message_data,
+                        user_id=user_id,
+                        session_id=session_id,
+                        pipelines=[p.name for p in self.pipelines],
+                        workflow=self,
+                    )
+                    log_debug(f"Callable selector returned: {selected_name}")
+                except Exception as e:
+                    log_debug(f"Selector function failed: {e}")
+                    raise ValueError(f"Pipeline selector function failed: {e}")
+            else:
+                raise ValueError(f"Invalid selector type: {type(selector)}. Must be string or callable.")
+
+            # Validate selected pipeline exists
+            target_pipeline = self.get_pipeline(selected_name)
             if not target_pipeline:
                 available_pipelines = [seq.name for seq in self.pipelines]
-                raise ValueError(f"Pipeline '{pipeline_name}' not found. Available pipelines: {available_pipelines}")
-            selected_pipeline_name = pipeline_name
-        elif self.pipelines:
-            # Default to first pipeline if no pipeline_name specified
-            selected_pipeline_name = self.pipelines[0].name
+                raise ValueError(
+                    f"Selector returned invalid pipeline '{selected_name}'. Available pipelines: {available_pipelines}"
+                )
+            return selected_name
         else:
-            selected_pipeline_name = None
-        return selected_pipeline_name
+            # Default to first pipeline if no selector provided
+            if not self.pipelines:
+                raise ValueError("No pipelines available in workflow")
+            selected_pipeline_name = self.pipelines[0].name
+            log_debug(f"No selector provided, defaulting to first pipeline: {selected_pipeline_name}")
+            return selected_pipeline_name
 
     def get_workflow_session(self) -> WorkflowSessionV2:
         """Get a WorkflowSessionV2 object for storage"""
@@ -843,6 +874,7 @@ class Workflow:
         self,
         message: Optional[str] = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -860,6 +892,7 @@ class Workflow:
         Args:
             message: The main query/input for the workflow
             message_data: Attached message data to the input
+            selector: Either callable or string. If string, it will be used as the pipeline name. If callable, it will be used to select the pipeline.
             user_id: User ID
             session_id: Session ID
             audio: Audio input
@@ -879,6 +912,7 @@ class Workflow:
             self._print_response_stream(
                 message=message,
                 message_data=message_data,
+                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -894,6 +928,7 @@ class Workflow:
             self._print_response(
                 message=message,
                 message_data=message_data,
+                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -909,6 +944,7 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -936,9 +972,11 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        # Default to first pipeline
-        pipeline = self.pipelines[0] if self.pipelines else None
-        pipeline_name = pipeline.name if pipeline else None
+        pipeline_name = self._get_pipeline_name(
+            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+        )
+
+        pipeline = self.get_pipeline(pipeline_name)
 
         # Show workflow info
         media_info = []
@@ -948,8 +986,6 @@ class Workflow:
             media_info.append(f"Images: {len(images)}")
         if videos:
             media_info.append(f"Videos: {len(videos)}")
-
-        media_str = f" | {' | '.join(media_info)}" if media_info else ""
 
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
@@ -995,8 +1031,8 @@ class Workflow:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunResponse = self.run(
                     message=message,
+                    selector=selector,
                     message_data=message_data,
-                    pipeline_name=pipeline_name,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1051,6 +1087,7 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1079,8 +1116,11 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        pipeline = self.pipelines[0] if self.pipelines else None
-        pipeline_name = pipeline.name if pipeline else None
+        pipeline_name = self._get_pipeline_name(
+            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+        )
+
+        pipeline = self.get_pipeline(pipeline_name)
 
         # Show workflow info (same as before)
         media_info = []
@@ -1090,8 +1130,6 @@ class Workflow:
             media_info.append(f"Images: {len(images)}")
         if videos:
             media_info.append(f"Videos: {len(videos)}")
-
-        media_str = f" | {' | '.join(media_info)}" if media_info else ""
 
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
@@ -1144,7 +1182,7 @@ class Workflow:
                 for response in self.run(
                     message=message,
                     message_data=message_data,
-                    pipeline_name=pipeline_name,
+                    selector=selector,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1266,6 +1304,7 @@ class Workflow:
         self,
         message: Optional[str] = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1283,6 +1322,7 @@ class Workflow:
         Args:
             message: The main message/input for the workflow
             message_data: Attached message data to the input
+            selector: Either callable or string. If string, it will be used as the pipeline name. If callable, it will be used to select the pipeline.
             user_id: User ID
             session_id: Session ID
             audio: Audio input
@@ -1300,6 +1340,7 @@ class Workflow:
             await self._aprint_response_stream(
                 message=message,
                 message_data=message_data,
+                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1315,6 +1356,7 @@ class Workflow:
             await self._aprint_response(
                 message=message,
                 message_data=message_data,
+                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1330,6 +1372,7 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1357,9 +1400,14 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        # Determine which pipeline to use
-        pipeline = self.pipelines[0]
-        pipeline_name = pipeline.name
+        pipeline_name = self._get_pipeline_name(
+            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+        )
+
+        pipeline = self.get_pipeline(pipeline_name)
+        if not pipeline:
+            console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
+            return
 
         # Show workflow info
         media_info = []
@@ -1370,13 +1418,11 @@ class Workflow:
         if videos:
             media_info.append(f"Videos: {len(videos)}")
 
-        media_str = f" | {' | '.join(media_info)}" if media_info else ""
-
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
-        if pipeline.name != "Default Pipeline":
-            workflow_info += f"""\n\n**Pipeline:** {pipeline.name}"""
+        if pipeline_name != "Default Pipeline":
+            workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
         workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
@@ -1416,7 +1462,7 @@ class Workflow:
                 workflow_response: WorkflowRunResponse = await self.arun(
                     message=message,
                     message_data=message_data,
-                    pipeline_name=pipeline_name,
+                    selector=selector,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1470,6 +1516,7 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1498,8 +1545,14 @@ class Workflow:
             console.print("[red]No pipelines available in this workflow[/red]")
             return
 
-        pipeline = self.pipelines[0]
-        pipeline_name = pipeline.name
+        pipeline_name = self._get_pipeline_name(
+            selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
+        )
+
+        pipeline = self.get_pipeline(pipeline_name)
+        if not pipeline:
+            console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
+            return
 
         # Show workflow info (same as before)
         media_info = []
@@ -1510,13 +1563,11 @@ class Workflow:
         if videos:
             media_info.append(f"Videos: {len(videos)}")
 
-        media_str = f" | {' | '.join(media_info)}" if media_info else ""
-
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
-        if pipeline.name != "Default Pipeline":
-            workflow_info += f"""\n\n**Pipeline:** {pipeline.name}"""
+        if pipeline_name != "Default Pipeline":
+            workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
         workflow_info += f"""\n\n**Tasks:** {len(pipeline.tasks)} tasks"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
@@ -1562,7 +1613,7 @@ class Workflow:
                 async for response in await self.arun(
                     message=message,
                     message_data=message_data,
-                    pipeline_name=pipeline_name,
+                    selector=selector,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,

@@ -400,6 +400,7 @@ class PostgresDb(BaseDb):
         user_id: Optional[str] = None,
         entity_id: Optional[str] = None,
         limit: Optional[int] = None,
+        offset: Optional[int] = None,
         table: Optional[Table] = None,
     ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
         """
@@ -429,6 +430,8 @@ class PostgresDb(BaseDb):
                     stmt = stmt.where(table.c.agent_id == entity_id)
                 if limit is not None:
                     stmt = stmt.limit(limit)
+                if offset is not None:
+                    stmt = stmt.offset(offset)
                 stmt = stmt.order_by(table.c.created_at.desc())
 
                 records = sess.execute(stmt).fetchall()
@@ -609,7 +612,9 @@ class PostgresDb(BaseDb):
             log_debug(f"Exception reading from table: {e}")
             return None
 
-    def get_user_memories(self, user_id: Optional[str] = None) -> List[MemoryRow]:
+    def get_user_memories(
+        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
+    ) -> List[MemoryRow]:
         """Get all memories from the database."""
         try:
             table = self.get_user_memory_table()
@@ -619,6 +624,11 @@ class PostgresDb(BaseDb):
                 stmt = select(table)
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
+                stmt = stmt.order_by(table.c.last_updated.desc())
+                if limit is not None:
+                    stmt = stmt.limit(limit)
+                if offset is not None:
+                    stmt = stmt.offset(offset)
                 result = sess.execute(stmt).fetchall()
                 if not result:
                     return []

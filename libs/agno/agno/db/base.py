@@ -49,13 +49,13 @@ class BaseDb(ABC):
     @abstractmethod
     def create_table(self) -> None:
         raise NotImplementedError
-        
+
     # --- Runs Table ---
 
     @abstractmethod
     def get_runs(self, session_id: str, session_type: SessionType) -> List[Union[RunResponse, TeamRunResponse]]:
         raise NotImplementedError
-    
+
     # --- Session Table ---
 
     @abstractmethod
@@ -64,7 +64,11 @@ class BaseDb(ABC):
 
     @abstractmethod
     def get_sessions(
-        self, session_type: SessionType, entity_id: Optional[str] = None, limit: Optional[int] = None
+        self,
+        session_type: SessionType,
+        entity_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> List[Session]:
         raise NotImplementedError
 
@@ -77,11 +81,11 @@ class BaseDb(ABC):
     @abstractmethod
     def get_all_session_ids(self, session_type: SessionType, entity_id: Optional[str] = None) -> List[str]:
         raise NotImplementedError
-    
+
     @abstractmethod
     def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
         raise NotImplementedError
-    
+
     @abstractmethod
     def delete_session(self, session_id: Optional[str] = None):
         raise NotImplementedError
@@ -93,9 +97,11 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_user_memories(self, user_id: Optional[str] = None) -> List[MemoryRow]:
+    def get_user_memories(
+        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
+    ) -> List[MemoryRow]:
         raise NotImplementedError
-        
+
     @abstractmethod
     def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
         raise NotImplementedError
@@ -113,7 +119,7 @@ class BaseDb(ABC):
     @abstractmethod
     def get_knowledge_documents(self, knowledge_id: str):
         raise NotImplementedError
-    
+
     @abstractmethod
     def upsert_knowledge_document(self):
         raise NotImplementedError
@@ -121,14 +127,8 @@ class BaseDb(ABC):
     @abstractmethod
     def delete_knowledge_document(self):
         raise NotImplementedError
-    
 
     # --- WRITE ---
-
-
-
-    
-    
 
     # --- UTILITIES ---
 

@@ -398,7 +398,7 @@ class PostgresDb(BaseDb):
         self,
         session_type: Optional[SessionType] = None,
         user_id: Optional[str] = None,
-        entity_id: Optional[str] = None,
+        component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         table: Optional[Table] = None,
@@ -426,8 +426,8 @@ class PostgresDb(BaseDb):
 
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
-                if entity_id is not None:
-                    stmt = stmt.where(table.c.agent_id == entity_id)
+                if component_id is not None:
+                    stmt = stmt.where(table.c.agent_id == component_id)
                 if limit is not None:
                     stmt = stmt.limit(limit)
                 if offset is not None:

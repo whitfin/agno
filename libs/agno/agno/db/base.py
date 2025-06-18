@@ -66,7 +66,7 @@ class BaseDb(ABC):
     def get_sessions(
         self,
         session_type: SessionType,
-        entity_id: Optional[str] = None,
+        component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
     ) -> List[Session]:

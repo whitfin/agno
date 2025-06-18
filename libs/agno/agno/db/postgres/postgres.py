@@ -700,3 +700,17 @@ class PostgresDb(BaseDb):
         except Exception as e:
             log_error(f"Error deleting user memory: {e}")
             return False
+
+    # -- Knowledge methods --
+
+    def delete_knowledge_document(self, knowledge_id: str):
+        return
+
+    def get_knowledge_document(self, knowledge_id: str):
+        return
+
+    def get_knowledge_documents(self, knowledge_id: str):
+        return
+
+    def upsert_knowledge_document(self, knowledge_id: str):
+        return

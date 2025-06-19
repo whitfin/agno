@@ -5,7 +5,7 @@ from agno.models.openai import OpenAIChat
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
 
-db = PostgresDb(db_url=db_url, agent_session_table="test_agent_session_0616")
+db = PostgresDb(db_url=db_url, agent_session_table="test_agent_session_0618")
 
 memory = Memory(db=db)
 

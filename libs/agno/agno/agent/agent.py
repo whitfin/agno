@@ -125,12 +125,12 @@ class Agent:
     enable_session_summaries: bool = False
     # If True, the agent adds a reference to the session summaries in the response
     add_session_summary_references: Optional[bool] = None
+    # Extra data stored with this agent
+    extra_data: Optional[Dict[str, Any]] = None
 
     # --- Agent History ---
     # add_history_to_messages=true adds messages from the chat history to the messages list sent to the Model.
     add_history_to_messages: bool = False
-    # Deprecated in favor of num_history_runs: Number of historical responses to add to the messages
-    num_history_responses: Optional[int] = None
     # Number of historical runs to include in the messages
     num_history_runs: int = 3
 
@@ -149,11 +149,6 @@ class Agent:
     #     ...
     retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None
     references_format: Literal["json", "yaml"] = "json"
-
-    # --- Agent Storage ---
-    storage: Optional[Any] = None
-    # Extra data stored with this agent
-    extra_data: Optional[Dict[str, Any]] = None
 
     # --- Agent Tools ---
     # A list of tools provided to the Model.
@@ -335,7 +330,6 @@ class Agent:
         enable_session_summaries: bool = False,
         add_session_summary_references: Optional[bool] = None,
         add_history_to_messages: bool = False,
-        num_history_responses: Optional[int] = None,
         num_history_runs: int = 3,
         knowledge: Optional[AgentKnowledge] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
@@ -343,7 +337,6 @@ class Agent:
         add_references: bool = False,
         retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None,
         references_format: Literal["json", "yaml"] = "json",
-        storage: Optional[Any] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         show_tool_calls: bool = True,
@@ -424,7 +417,6 @@ class Agent:
         self.add_session_summary_references = add_session_summary_references
 
         self.add_history_to_messages = add_history_to_messages
-        self.num_history_responses = num_history_responses
         self.num_history_runs = num_history_runs
 
         self.knowledge = knowledge
@@ -434,7 +426,6 @@ class Agent:
         self.retriever = retriever
         self.references_format = references_format
 
-        self.storage = storage
         self.extra_data = extra_data
 
         self.tools = tools
@@ -574,9 +565,6 @@ class Agent:
         if self.add_session_summary_references is None:
             self.add_session_summary_references = self.enable_session_summaries
 
-        if self.num_history_responses is not None:
-            self.num_history_runs = self.num_history_responses
-
     def reset_session_state(self) -> None:
         self.session_name = None
         self.session_state = None
@@ -701,7 +689,7 @@ class Agent:
                 run_response=run_response, session_id=session_id, user_id=user_id, message=message
             )
 
-        # 4. Update Agent Memory
+        # 4. Update long-term memory
         response_iterator = self.update_memory(
             run_messages=run_messages,
             session_id=session_id,
@@ -714,8 +702,8 @@ class Agent:
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
 
-        # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        # 6. Save session to short-term memory
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -795,7 +783,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1160,7 +1148,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1243,7 +1231,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1817,7 +1805,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1895,7 +1883,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -2216,7 +2204,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -2299,7 +2287,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -2323,7 +2311,7 @@ class Agent:
         run_response.status = RunStatus.paused
 
         # Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
 
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
@@ -2347,7 +2335,7 @@ class Agent:
         run_response.status = RunStatus.paused
 
         # Save session to storage
-        self.write_to_storage(user_id=user_id, session_id=session_id)
+        self.write_to_memory(user_id=user_id, session_id=session_id)
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
 
@@ -3724,7 +3712,7 @@ class Agent:
         from time import time
 
         # Return existing session if we have one
-        if self.agent_session is not None:
+        if self.agent_session is not None and self.agent_session.session_id == session_id:
             return self.agent_session
 
         # Try to load from database
@@ -3753,7 +3741,7 @@ class Agent:
         )
         return self.agent_session
 
-    def write_to_storage(self, session_id: str, user_id: Optional[str] = None) -> Optional[AgentSession]:
+    def write_to_memory(self, session_id: str, user_id: Optional[str] = None) -> Optional[AgentSession]:
         """Save the AgentSession to storage
 
         Returns:
@@ -3787,7 +3775,7 @@ class Agent:
                 return self.agent_session.session_id
 
         # Load an existing session or create a new session
-        if self.storage is not None:
+        if self.memory.db is not None:
             # Load existing session if session_id is provided
             log_debug(f"Reading AgentSession: {self.session_id}")
             self.get_agent_session(session_id=self.session_id)  # type: ignore
@@ -3800,9 +3788,9 @@ class Agent:
                     self.initialize_agent()
                 if self.session_id is None or self.session_id == "":
                     self.session_id = str(uuid4())
-                # write_to_storage() will create a new AgentSession
+                # write_to_memory() will create a new AgentSession
                 # and populate self.agent_session with the new session
-                self.write_to_storage(user_id=self.user_id, session_id=self.session_id)  # type: ignore
+                self.write_to_memory(user_id=self.user_id, session_id=self.session_id)  # type: ignore
                 if self.agent_session is None:
                     raise Exception("Failed to create new AgentSession in storage")
                 log_debug(f"-*- Created AgentSession: {self.agent_session.session_id}")
@@ -5058,7 +5046,7 @@ class Agent:
         # -*- Rename Agent
         self.name = name
         # -*- Save to storage
-        self.write_to_storage(user_id=self.user_id, session_id=session_id)  # type: ignore
+        self.write_to_memory(user_id=self.user_id, session_id=session_id)  # type: ignore
         # -*- Log Agent session
         self._log_agent_session(user_id=self.user_id, session_id=session_id)  # type: ignore
 
@@ -5075,7 +5063,7 @@ class Agent:
         # -*- Rename session
         self.session_name = session_name
         # -*- Save to storage
-        self.write_to_storage(user_id=self.user_id, session_id=session_id)  # type: ignore
+        self.write_to_memory(user_id=self.user_id, session_id=session_id)  # type: ignore
         # -*- Log Agent session
         self._log_agent_session(user_id=self.user_id, session_id=session_id)  # type: ignore
 
@@ -5124,16 +5112,16 @@ class Agent:
         # -*- Rename thread
         self.session_name = generated_session_name
         # -*- Save to storage
-        self.write_to_storage(user_id=self.user_id, session_id=self.session_id)  # type: ignore
+        self.write_to_memory(user_id=self.user_id, session_id=self.session_id)  # type: ignore
         # -*- Log Agent Session
         self._log_agent_session(user_id=self.user_id, session_id=self.session_id)  # type: ignore
 
     def delete_session(self, session_id: str):
         """Delete the current session and save to storage"""
-        if self.storage is None:
+        if self.memory.db is None:
             return
         # -*- Delete session
-        self.storage.delete_session(session_id=session_id)
+        self.memory.db.delete_session(session_id=session_id)
 
     def get_messages_for_session(self, session_id: Optional[str] = None) -> List[Message]:
         """Get messages for a session"""
@@ -7165,20 +7153,21 @@ class Agent:
             Returns:
                 str: JSON formatted list of message pairs from previous sessions
             """
+            # TODO: Review and Test this function
             import json
 
-            if self.storage is None:
-                return "Storage not available"
+            if self.memory.db is None:
+                return "Memory not available"
 
-            selected_sessions = self.storage.get_recent_sessions(limit=num_history_sessions, user_id=user_id)
+            selected_sessions = self.memory.db.get_recent_sessions(limit=num_history_sessions, user_id=user_id)
 
             all_messages = []
             seen_message_pairs = set()
 
             for session in selected_sessions:
-                if isinstance(session, AgentSession) and session.memory:
+                if isinstance(session, AgentSession) and session.runs:
                     message_count = 0
-                    for run in session.memory.get("runs", []):
+                    for run in session.runs:
                         messages = run.get("messages", [])
                         for i in range(0, len(messages) - 1, 2):
                             if i + 1 < len(messages):
@@ -7303,11 +7292,6 @@ class Agent:
                 if self.memory is not None and hasattr(self.memory, "db") and self.memory.db is not None
                 else None
             ),
-            "storage": {
-                "name": self.storage.__class__.__name__,
-            }
-            if self.storage is not None
-            else None,
             "knowledge": {
                 "name": self.knowledge.__class__.__name__,
             }

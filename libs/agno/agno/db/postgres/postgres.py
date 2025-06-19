@@ -5,7 +5,7 @@ from uuid import uuid4
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.memory.db.schema import MemoryRow
-from agno.session import AgentSession, TeamSession, WorkflowSession
+from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:
@@ -312,6 +312,39 @@ class PostgresDb(BaseDb):
 
     # -- Session methods --
 
+    def delete_session(
+        self,
+        session_id: str,
+        session_type: Optional[SessionType] = None,
+        table: Optional[Table] = None,
+    ) -> None:
+        """
+        Delete a Session from the database.
+
+        Args:
+            table (Table): Table to delete from.
+            session_id (str): ID of the session to delete
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
+        try:
+            if table is None:
+                table = self.get_table_for_session_type(session_type)
+                if table is None:
+                    raise ValueError("No table found")
+
+            with self.Session() as sess, sess.begin():
+                delete_stmt = table.delete().where(table.c.session_id == session_id)
+                result = sess.execute(delete_stmt)
+                if result.rowcount == 0:
+                    log_debug(f"No session found with session_id: {session_id} in table {table.name}")
+                else:
+                    log_debug(f"Successfully deleted session with session_id: {session_id} in table {table.name}")
+
+        except Exception as e:
+            log_error(f"Error deleting session: {e}")
+
     def get_runs_raw(self, session_id: str, session_type: SessionType) -> Optional[List[Dict[str, Any]]]:
         """
         Get all runs for the given session, as raw dictionaries.
@@ -571,23 +604,12 @@ class PostgresDb(BaseDb):
             log_debug(f"Exception reading from table: {e}")
             return []
 
-    def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
-        """
-        Insert or update an AgentSession in the database.
-
-        Args:
-            session (Session): The session data to upsert.
-            table (Table): Table to upsert into.
-            create_and_retry (bool): Retry upsert if table does not exist.
-
-        Returns:
-            Optional[AgentSession]: The upserted AgentSession, or None if operation failed.
-        """
-
+    def upsert_agent_session_raw(self, session: AgentSession, table: Optional[Table] = None) -> Optional[AgentSession]:
         try:
-            table = self.get_table_for_session_type(session_type=SessionType.AGENT)
             if table is None:
-                raise ValueError("No table found")
+                table = self.get_table_for_session_type(SessionType.AGENT)
+                if table is None:
+                    raise ValueError("Agent session table not found")
 
             with self.Session() as sess, sess.begin():
                 stmt = postgresql.insert(table).values(
@@ -622,48 +644,141 @@ class PostgresDb(BaseDb):
                 row = result.fetchone()
                 sess.commit()
 
-            # Test
-            # return row._mapping
+            return row._mapping
 
-            # TODO: we should be able to return here without hitting the DB again
-            return self.get_session(session_id=session.session_id, table=table)  # type: ignore
+        except Exception as e:
+            log_error(f"Exception upserting into agent session table: {e}")
+            return None
+
+    def upsert_team_session_raw(self, session: TeamSession, table: Optional[Table] = None) -> Optional[TeamSession]:
+        try:
+            if table is None:
+                table = self.get_table_for_session_type(SessionType.TEAM)
+                if table is None:
+                    raise ValueError("Team session table not found")
+
+            with self.Session() as sess, sess.begin():
+                stmt = postgresql.insert(table).values(
+                    session_id=session.session_id,
+                    team_id=session.team_id,
+                    team_session_id=session.team_session_id,
+                    user_id=session.user_id,
+                    runs=session.runs,
+                    team_data=session.team_data,
+                    session_data=session.session_data,
+                    summary=session.summary,
+                    extra_data=session.extra_data,
+                    created_at=session.created_at,
+                    chat_history=session.chat_history,
+                )
+                # TODO: Review the conflict params
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["session_id"],
+                    set_=dict(
+                        team_id=session.team_id,
+                        team_session_id=session.team_session_id,
+                        user_id=session.user_id,
+                        team_data=session.team_data,
+                        session_data=session.session_data,
+                        summary=session.summary,
+                        extra_data=session.extra_data,
+                        runs=session.runs,
+                        chat_history=session.chat_history,
+                        updated_at=int(time.time()),
+                    ),
+                ).returning(table)
+                result = sess.execute(stmt)
+                row = result.fetchone()
+                sess.commit()
+
+            return row._mapping
+
+        except Exception as e:
+            log_error(f"Exception upserting into team session table: {e}")
+            return None
+
+    def upsert_workflow_session_raw(
+        self, session: WorkflowSession, table: Optional[Table] = None
+    ) -> Optional[WorkflowSession]:
+        try:
+            if table is None:
+                table = self.get_table_for_session_type(SessionType.WORKFLOW)
+                if table is None:
+                    raise ValueError("Workflow session table not found")
+
+            with self.Session() as sess, sess.begin():
+                stmt = postgresql.insert(table).values(
+                    session_id=session.session_id,
+                    workflow_id=session.workflow_id,
+                    user_id=session.user_id,
+                    runs=session.runs,
+                    workflow_data=session.workflow_data,
+                    session_data=session.session_data,
+                    summary=session.summary,
+                    extra_data=session.extra_data,
+                    created_at=session.created_at,
+                    chat_history=session.chat_history,
+                )
+                # TODO: Review the conflict params
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["session_id"],
+                    set_=dict(
+                        workflow_id=session.workflow_id,
+                        user_id=session.user_id,
+                        workflow_data=session.workflow_data,
+                        session_data=session.session_data,
+                        summary=session.summary,
+                        extra_data=session.extra_data,
+                        runs=session.runs,
+                        chat_history=session.chat_history,
+                        updated_at=int(time.time()),
+                    ),
+                ).returning(table)
+                result = sess.execute(stmt)
+                row = result.fetchone()
+                sess.commit()
+
+            return row._mapping
+
+        except Exception as e:
+            log_error(f"Exception upserting into workflow session table: {e}")
+            return None
+
+    def upsert_session_raw(self, session: Session) -> Optional[Session]:
+        """
+        Insert or update a Session in the database.
+
+        Args:
+            session (Session): The session data to upsert.
+            table (Table): Table to upsert into.
+
+        Returns:
+            Optional[AgentSession]: The upserted AgentSession, or None if operation failed.
+        """
+
+        try:
+            if isinstance(session, AgentSession):
+                return self.upsert_agent_session_raw(session=session)
+            elif isinstance(session, TeamSession):
+                return self.upsert_team_session_raw(session=session)
+            elif isinstance(session, WorkflowSession):
+                return self.upsert_workflow_session_raw(session=session)
 
         except Exception as e:
             log_warning(f"Exception upserting into table: {e}")
             return None
 
-    def delete_session(
-        self,
-        session_id: str,
-        session_type: Optional[SessionType] = None,
-        table: Optional[Table] = None,
-    ) -> None:
+    def upsert_session(self, session: Session) -> Optional[Session]:
         """
-        Delete a Session from the database.
-
-        Args:
-            table (Table): Table to delete from.
-            session_id (str): ID of the session to delete
-
-        Raises:
-            Exception: If an error occurs during deletion.
+        Insert or update a Session in the database.
         """
-        try:
-            if table is None:
-                table = self.get_table_for_session_type(session_type)
-                if table is None:
-                    raise ValueError("No table found")
+        session_raw = self.upsert_session_raw(session=session)
+        if session_raw is None:
+            return None
 
-            with self.Session() as sess, sess.begin():
-                delete_stmt = table.delete().where(table.c.session_id == session_id)
-                result = sess.execute(delete_stmt)
-                if result.rowcount == 0:
-                    log_debug(f"No session found with session_id: {session_id} in table {table.name}")
-                else:
-                    log_debug(f"Successfully deleted session with session_id: {session_id} in table {table.name}")
+        # TODO:
 
-        except Exception as e:
-            log_error(f"Error deleting session: {e}")
+        return session_raw
 
     # -- Memory methods --
 

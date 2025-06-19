@@ -2,8 +2,10 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import Table
+
 from agno.memory.db.schema import MemoryRow
-from agno.session import AgentSession, Session
+from agno.session import Session
 
 
 class SessionType(str, Enum):
@@ -45,16 +47,34 @@ class BaseDb(ABC):
     # --- Base ---
 
     @abstractmethod
+    def create_schema(self, db_schema: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def create_table(self) -> None:
         raise NotImplementedError
 
-    # --- Runs Table ---
+    @abstractmethod
+    def get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Optional[Table]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def table_exists(self, table_name: str, db_schema: str) -> bool:
+        raise NotImplementedError
+
+    # @abstractmethod
+    # def upgrade_schema(self) -> None:
+    #     raise NotImplementedError
+
+    # --- Sessions Table ---
+
+    @abstractmethod
+    def delete_session(self, session_id: Optional[str] = None):
+        raise NotImplementedError
 
     @abstractmethod
     def get_runs_raw(self, session_id: str, session_type: SessionType) -> List[Dict[str, Any]]:
         raise NotImplementedError
-
-    # --- Session Table ---
 
     @abstractmethod
     def get_session_raw(
@@ -101,14 +121,18 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
+    def upsert_session_raw(self, session: Session) -> Optional[Session]:
         raise NotImplementedError
 
     @abstractmethod
-    def delete_session(self, session_id: Optional[str] = None):
+    def upsert_session(self, session: Session) -> Optional[Session]:
         raise NotImplementedError
 
     # --- User Memory Table ---
+
+    @abstractmethod
+    def delete_user_memory(self, memory_id: str) -> None:
+        raise NotImplementedError
 
     @abstractmethod
     def get_user_memory_raw(self, memory_id: str) -> Optional[Dict[str, Any]]:
@@ -138,10 +162,6 @@ class BaseDb(ABC):
     def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
         raise NotImplementedError
 
-    @abstractmethod
-    def delete_user_memory(self, memory_id: str) -> None:
-        raise NotImplementedError
-
     # --- Knowledge Table ---
 
     @abstractmethod
@@ -159,19 +179,3 @@ class BaseDb(ABC):
     @abstractmethod
     def delete_knowledge_document(self):
         raise NotImplementedError
-
-    # --- WRITE ---
-
-    # --- UTILITIES ---
-
-    # @abstractmethod
-    # def create_table(self, table_name: str, schema: str) -> None:
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def validate_table_schema(self, table_name: str, schema: str) -> None:
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def upgrade_schema(self) -> None:
-    #     raise NotImplementedError

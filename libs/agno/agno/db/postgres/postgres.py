@@ -310,6 +310,33 @@ class PostgresDb(BaseDb):
             log_error(f"Error loading existing table {db_schema}.{table_name}: {e}")
             raise
 
+    def _apply_sorting(self, stmt, table: Table, sort_by: Optional[str], sort_order: Optional[str]):
+        """Apply sorting to the given SQLAlchemy statement.
+
+        Args:
+            stmt: The SQLAlchemy statement to modify
+            table: The table being queried
+            sort_by: The field to sort by
+            sort_order: The sort order ('asc' or 'desc')
+
+        Returns:
+            The modified statement with sorting applied
+        """
+        if sort_by is None:
+            return stmt.order_by(table.c.last_updated.desc())
+
+        # Validate the field to sort by exists in the given table
+        if not hasattr(table.c, sort_by):
+            log_debug(f"Invalid sort field '{sort_by}', will fall back to default sorting")
+            return stmt.order_by(table.c.last_updated.desc())
+
+        # Apply the given sorting
+        sort_column = getattr(table.c, sort_by)
+        if sort_order and sort_order == "asc":
+            return stmt.order_by(sort_column.asc())
+        else:
+            return stmt.order_by(sort_column.desc())
+
     # -- Session methods --
 
     def delete_session(
@@ -462,6 +489,8 @@ class PostgresDb(BaseDb):
         component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
         table: Optional[Table] = None,
     ) -> List[Dict[str, Any]]:
         """
@@ -484,16 +513,18 @@ class PostgresDb(BaseDb):
 
             with self.Session() as sess, sess.begin():
                 stmt = select(table)
-
+                # Filtering
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
                 if component_id is not None:
                     stmt = stmt.where(table.c.agent_id == component_id)
+                # Sorting
+                stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
+                # Paginating
                 if limit is not None:
                     stmt = stmt.limit(limit)
                 if offset is not None:
                     stmt = stmt.offset(offset)
-                stmt = stmt.order_by(table.c.created_at.desc())
 
                 records = sess.execute(stmt).fetchall()
                 if records is None:
@@ -512,6 +543,8 @@ class PostgresDb(BaseDb):
         component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
         table: Optional[Table] = None,
     ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
         """
@@ -538,6 +571,8 @@ class PostgresDb(BaseDb):
                 component_id=component_id,
                 limit=limit,
                 offset=offset,
+                sort_by=sort_by,
+                sort_order=sort_order,
                 table=table,
             )
 
@@ -841,14 +876,22 @@ class PostgresDb(BaseDb):
     def get_user_memories_raw(
         self,
         user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
         table: Optional[Table] = None,
     ) -> List[Dict[str, Any]]:
         """Get all memories from the database as raw dictionaries.
 
         Args:
             user_id (Optional[str]): The ID of the user to filter by.
+            agent_id (Optional[str]): The ID of the agent to filter by.
+            team_id (Optional[str]): The ID of the team to filter by.
+            workflow_id (Optional[str]): The ID of the workflow to filter by.
             limit (Optional[int]): The maximum number of memories to return.
             offset (Optional[int]): The number of memories to skip.
             table (Optional[Table]): The table to read from.
@@ -863,13 +906,23 @@ class PostgresDb(BaseDb):
             # TODO: Review if we need to use begin() for read operations
             with self.Session() as sess, sess.begin():
                 stmt = select(table)
+                # Filtering
                 if user_id is not None:
                     stmt = stmt.where(table.c.user_id == user_id)
-                stmt = stmt.order_by(table.c.last_updated.desc())
+                if agent_id is not None:
+                    stmt = stmt.where(table.c.agent_id == agent_id)
+                if team_id is not None:
+                    stmt = stmt.where(table.c.team_id == team_id)
+                if workflow_id is not None:
+                    stmt = stmt.where(table.c.workflow_id == workflow_id)
+                # Sorting
+                stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
+                # Paginating
                 if limit is not None:
                     stmt = stmt.limit(limit)
                 if offset is not None:
                     stmt = stmt.offset(offset)
+
                 result = sess.execute(stmt).fetchall()
                 if not result:
                     return []
@@ -883,14 +936,22 @@ class PostgresDb(BaseDb):
     def get_user_memories(
         self,
         user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
         table: Optional[Table] = None,
     ) -> List[MemoryRow]:
         """Get all memories from the database as MemoryRow objects.
 
         Args:
             user_id (Optional[str]): The ID of the user to filter by.
+            agent_id (Optional[str]): The ID of the agent to filter by.
+            team_id (Optional[str]): The ID of the team to filter by.
+            workflow_id (Optional[str]): The ID of the workflow to filter by.
             limit (Optional[int]): The maximum number of memories to return.
             offset (Optional[int]): The number of memories to skip.
             table (Optional[Table]): The table to read from.
@@ -902,7 +963,17 @@ class PostgresDb(BaseDb):
             if table is None:
                 table = self.get_user_memory_table()
 
-            user_memories_raw = self.get_user_memories_raw(user_id=user_id, limit=limit, offset=offset, table=table)
+            user_memories_raw = self.get_user_memories_raw(
+                user_id=user_id,
+                agent_id=agent_id,
+                team_id=team_id,
+                workflow_id=workflow_id,
+                limit=limit,
+                offset=offset,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                table=table,
+            )
             if not user_memories_raw:
                 return []
 

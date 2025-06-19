@@ -96,6 +96,8 @@ class BaseDb(ABC):
         component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
@@ -107,6 +109,8 @@ class BaseDb(ABC):
         component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> List[Session]:
         raise NotImplementedError
 
@@ -144,13 +148,29 @@ class BaseDb(ABC):
 
     @abstractmethod
     def get_user_memories_raw(
-        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
+        self,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
     def get_user_memories(
-        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
+        self,
+        user_id: Optional[str] = None,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
+        workflow_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
     ) -> List[MemoryRow]:
         raise NotImplementedError
 

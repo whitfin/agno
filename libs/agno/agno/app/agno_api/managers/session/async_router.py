@@ -11,6 +11,7 @@ from agno.app.agno_api.managers.session.schemas import (
     WorkflowRunSchema,
     WorkflowSessionDetailSchema,
 )
+from agno.app.agno_api.managers.utils import SortOrder
 from agno.db.base import BaseDb, SessionType
 
 
@@ -18,11 +19,20 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
     @router.get("/sessions", response_model=List[SessionSchema], status_code=200)
     async def get_sessions(
         session_type: SessionType = Query(default=SessionType.AGENT, alias="type"),
-        component_id: Optional[str] = Query(default=None, description="Component (Agent, Team, Workflow) ID"),
+        component_id: Optional[str] = Query(default=None, description="Filter sessions by component ID"),
         limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
         offset: Optional[int] = Query(default=0, description="Number of sessions to skip"),
+        sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
+        sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
     ) -> List[SessionSchema]:
-        sessions = db.get_sessions(session_type=session_type, component_id=component_id, limit=limit, offset=offset)
+        sessions = db.get_sessions(
+            session_type=session_type,
+            component_id=component_id,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_order=sort_order,
+        )
         return [SessionSchema.from_session(session) for session in sessions]
 
     @router.get(

@@ -19,9 +19,9 @@ class WorkflowRunEvent(str, Enum):
     workflow_cancelled = "WorkflowCancelled"
     workflow_error = "WorkflowError"
 
-    task_started = "TaskStarted"
-    task_completed = "TaskCompleted"
-    task_error = "TaskError"
+    step_started = "StepStarted"
+    step_completed = "StepCompleted"
+    step_error = "StepError"
 
 
 @dataclass
@@ -91,8 +91,8 @@ class WorkflowCompletedEvent(BaseWorkflowRunResponseEvent):
     content: Optional[Any] = None
     content_type: str = "str"
 
-    # Store actual task execution results as TaskOutput objects
-    task_responses: List["TaskOutput"] = field(default_factory=list)
+    # Store actual step execution results as StepOutput objects
+    step_responses: List["StepOutput"] = field(default_factory=list)
     extra_data: Optional[Dict[str, Any]] = None
 
 
@@ -117,21 +117,21 @@ class WorkflowCancelledEvent(BaseWorkflowRunResponseEvent):
 
 
 @dataclass
-class TaskStartedEvent(BaseWorkflowRunResponseEvent):
-    """Event sent when task execution starts"""
+class StepStartedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when step execution starts"""
 
-    event: str = WorkflowRunEvent.task_started.value
-    task_name: Optional[str] = None
-    task_index: Optional[int] = None
+    event: str = WorkflowRunEvent.step_started.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
 
 
 @dataclass
-class TaskCompletedEvent(BaseWorkflowRunResponseEvent):
-    """Event sent when task execution completes"""
+class StepCompletedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when step execution completes"""
 
-    event: str = WorkflowRunEvent.task_completed.value
-    task_name: Optional[str] = None
-    task_index: Optional[int] = None
+    event: str = WorkflowRunEvent.step_completed.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
 
     content: Optional[Any] = None
     content_type: str = "str"
@@ -142,17 +142,17 @@ class TaskCompletedEvent(BaseWorkflowRunResponseEvent):
     audio: Optional[List[AudioArtifact]] = None
     response_audio: Optional[AudioResponse] = None
 
-    # Store actual task execution results as TaskOutput objects
-    task_response: Optional["TaskOutput"] = None
+    # Store actual step execution results as StepOutput objects
+    step_response: Optional["StepOutput"] = None
 
 
 @dataclass
-class TaskErrorEvent(BaseWorkflowRunResponseEvent):
-    """Event sent when task execution fails"""
+class StepErrorEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when step execution fails"""
 
-    event: str = WorkflowRunEvent.task_error.value
-    task_name: Optional[str] = None
-    task_index: Optional[int] = None
+    event: str = WorkflowRunEvent.step_error.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
     error: Optional[str] = None
 
 
@@ -161,9 +161,9 @@ WorkflowRunResponseEvent = Union[
     WorkflowStartedEvent,
     WorkflowCompletedEvent,
     WorkflowErrorEvent,
-    TaskStartedEvent,
-    TaskCompletedEvent,
-    TaskErrorEvent,
+    StepStartedEvent,
+    StepCompletedEvent,
+    StepErrorEvent,
 ]
 
 
@@ -180,8 +180,8 @@ class WorkflowRunResponse:
     workflow_id: Optional[str] = None
     workflow_name: Optional[str] = None
     pipeline_name: Optional[str] = None
-    task_name: Optional[str] = None
-    task_index: Optional[int] = None
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
 
     run_id: Optional[str] = None
     session_id: Optional[str] = None
@@ -192,8 +192,8 @@ class WorkflowRunResponse:
     audio: Optional[List[AudioArtifact]] = None
     response_audio: Optional[AudioResponse] = None
 
-    # Store actual task execution results as TaskOutput objects
-    task_responses: List["TaskOutput"] = field(default_factory=list)
+    # Store actual step execution results as StepOutput objects
+    step_responses: List["StepOutput"] = field(default_factory=list)
 
     extra_data: Optional[Dict[str, Any]] = None
     created_at: int = field(default_factory=lambda: int(time()))
@@ -217,7 +217,7 @@ class WorkflowRunResponse:
                 "videos",
                 "audio",
                 "response_audio",
-                "task_responses",
+                "step_responses",
             ]
         }
 
@@ -242,8 +242,8 @@ class WorkflowRunResponse:
         if self.response_audio is not None:
             _dict["response_audio"] = self.response_audio.to_dict()
 
-        if self.task_responses:
-            _dict["task_responses"] = [task_output.to_dict() for task_output in self.task_responses]
+        if self.step_responses:
+            _dict["step_responses"] = [step_output.to_dict() for step_output in self.step_responses]
 
         if self.content and isinstance(self.content, BaseModel):
             _dict["content"] = self.content.model_dump(exclude_none=True)
@@ -259,17 +259,17 @@ class WorkflowRunResponse:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "WorkflowRunResponse":
         # Import here to avoid circular import
-        from agno.workflow.v2.task import TaskOutput
+        from libs.agno.agno.workflow.v2.step import StepOutput
 
         messages = data.pop("messages", [])
         messages = [Message.model_validate(message) for message in messages] if messages else None
 
-        task_responses = data.pop("task_responses", [])
-        parsed_task_responses: List["TaskOutput"] = []
-        if task_responses:
-            for task_output_dict in task_responses:
-                # Reconstruct TaskOutput from dict
-                parsed_task_responses.append(TaskOutput.from_dict(task_output_dict))
+        step_responses = data.pop("step_responses", [])
+        parsed_step_responses: List["StepOutput"] = []
+        if step_responses:
+            for step_output_dict in step_responses:
+                # Reconstruct StepOutput from dict
+                parsed_step_responses.append(StepOutput.from_dict(step_output_dict))
 
         extra_data = data.pop("extra_data", None)
 
@@ -287,7 +287,7 @@ class WorkflowRunResponse:
 
         return cls(
             messages=messages,
-            task_responses=parsed_task_responses,
+            step_responses=parsed_step_responses,
             extra_data=extra_data,
             images=images,
             videos=videos,

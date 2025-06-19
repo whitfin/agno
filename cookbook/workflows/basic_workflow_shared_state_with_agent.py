@@ -1,6 +1,6 @@
 from agno.agent.agent import Agent
 from agno.models.openai.chat import OpenAIChat
-from agno.workflow.v2.task import Task
+from agno.workflow.v2.step import Step
 from agno.workflow.v2.workflow import Workflow
 
 
@@ -100,14 +100,14 @@ list_manager = Agent(
     ],
 )
 
-# Create tasks
-manage_items_task = Task(
+# Create steps
+manage_items_step = Step(
     name="manage_items",
     description="Help manage shopping list items (add/remove)",
     agent=shopping_assistant,
 )
 
-view_list_task = Task(
+view_list_step = Step(
     name="view_list",
     description="View and manage the complete shopping list",
     agent=list_manager,
@@ -116,7 +116,7 @@ view_list_task = Task(
 # Create workflow with workflow_session_state
 shopping_workflow = Workflow(
     name="Shopping List Workflow",
-    tasks=[manage_items_task, view_list_task],
+    steps=[manage_items_step, view_list_step],
     workflow_session_state={},  # Initialize empty workflow session state
 )
 

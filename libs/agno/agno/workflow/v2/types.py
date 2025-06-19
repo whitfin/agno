@@ -10,7 +10,7 @@ from agno.run.team import TeamRunResponse
 
 @dataclass
 class WorkflowExecutionInput:
-    """Input data for a task execution"""
+    """Input data for a step execution"""
 
     message: Optional[str] = None
     message_data: Optional[Union[BaseModel, Dict[str, Any]]] = (None,)
@@ -38,12 +38,12 @@ class WorkflowExecutionInput:
 
 
 @dataclass
-class TaskInput:
-    """Input data for a task execution"""
+class StepInput:
+    """Input data for a step execution"""
 
     message: Optional[str] = None
     message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None
-    previous_task_content: Optional[Any] = None
+    previous_step_content: Optional[Any] = None
 
     # Media inputs
     images: Optional[List[ImageArtifact]] = None
@@ -58,19 +58,19 @@ class TaskInput:
         elif isinstance(self.message_data, dict):
             message_data_dict = self.message_data
 
-        if isinstance(self.previous_task_content, BaseModel):
-            previous_task_content_str = self.previous_task_content.model_dump_json(indent=2, exclude_none=True)
-        elif isinstance(self.previous_task_content, dict):
+        if isinstance(self.previous_step_content, BaseModel):
+            previous_step_content_str = self.previous_step_content.model_dump_json(indent=2, exclude_none=True)
+        elif isinstance(self.previous_step_content, dict):
             import json
 
-            previous_task_content_str = json.dumps(self.previous_task_content, indent=2, default=str)
+            previous_step_content_str = json.dumps(self.previous_step_content, indent=2, default=str)
         else:
-            previous_task_content_str = str(self.previous_task_content)
+            previous_step_content_str = str(self.previous_step_content)
 
         return {
             "message": self.message,
             "message_data": message_data_dict,
-            "previous_task_content": previous_task_content_str,
+            "previous_step_content": previous_step_content_str,
             "images": [img.to_dict() for img in self.images] if self.images else None,
             "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
             "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
@@ -78,11 +78,11 @@ class TaskInput:
 
 
 @dataclass
-class TaskOutput:
-    """Output data from a task execution"""
+class StepOutput:
+    """Output data from a step execution"""
 
-    task_name: Optional[str] = None
-    task_id: Optional[str] = None
+    step_name: Optional[str] = None
+    step_id: Optional[str] = None
     executor_type: Optional[str] = None
     executor_name: Optional[str] = None
 
@@ -111,8 +111,8 @@ class TaskOutput:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TaskOutput":
-        """Create TaskOutput from dictionary"""
+    def from_dict(cls, data: Dict[str, Any]) -> "StepOutput":
+        """Create StepOutput from dictionary"""
         from agno.run.response import RunResponse
         from agno.run.team import TeamRunResponse
 

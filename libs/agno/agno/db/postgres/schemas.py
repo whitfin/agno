@@ -71,6 +71,7 @@ KNOWLEDGE_TABLE_SCHEMA = {
     "description": {"type": String, "nullable": False},
 }
 
+
 def get_table_schema_definition(table_type: str) -> dict[str, Any]:
     """
     Get the expected schema definition for the given table.

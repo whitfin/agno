@@ -31,8 +31,7 @@ from agno.agent.metrics import SessionMetrics
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.agent import AgentKnowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
-from agno.memory.memory import Memory, SessionSummary
-from agno.memory.schema import UserMemory
+from agno.memory.memory import Memory
 from agno.models.base import Model
 from agno.models.message import Citations, Message, MessageMetrics, MessageReferences
 from agno.models.response import ModelResponse, ModelResponseEvent, ToolExecution
@@ -46,6 +45,9 @@ from agno.run.response import (
     RunResponsePausedEvent,
 )
 from agno.session import AgentSession
+from agno.session.schema import SessionSummary
+from agno.memory.schema import UserMemory
+from agno.session.summarizer import SessionSummarizer
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -104,6 +106,8 @@ class Agent:
     session_state: Optional[Dict[str, Any]] = None
     search_previous_sessions_history: Optional[bool] = False
     num_history_sessions: Optional[int] = None
+    # Session summarizer
+    summary_manager: Optional[SessionSummarizer] = None
 
     # --- Agent Context ---
     # Context available for tools and prompt functions
@@ -3144,9 +3148,21 @@ class Agent:
 
             # Create session summary
             if self.enable_session_summaries:
+                from copy import deepcopy
+
                 log_debug("Creating session summary.")
+                if self.summary_manager is None:
+                    self.summary_manager = SessionSummarizer(model=deepcopy(self.model))
+                # Set the model on the summary_manager if it is not set
+                elif self.summary_manager.model is None:
+                    self.summary_manager.model = deepcopy(self.model)
                 futures.append(
-                    executor.submit(self.memory.create_session_summary, session_id=session_id, user_id=user_id)  # type: ignore
+                    executor.submit(
+                        self.agent_session.create_session_summary,
+                        session_id=session_id,
+                        user_id=user_id,
+                        summary_manager=self.summary_manager,
+                    )
                 )
 
             if futures:
@@ -3206,8 +3222,19 @@ class Agent:
 
         # Create session summary
         if self.enable_session_summaries:
+            from copy import deepcopy
+
             log_debug("Creating session summary.")
-            tasks.append(self.memory.acreate_session_summary(session_id=session_id, user_id=user_id))  # type: ignore
+            if self.summary_manager is None:
+                self.summary_manager = SessionSummarizer(model=deepcopy(self.model))
+            # Set the model on the summary_manager if it is not set
+            elif self.summary_manager.model is None:
+                self.summary_manager.model = deepcopy(self.model)
+            tasks.append(
+                self.agent_session.acreate_session_summary(
+                    session_id=session_id, user_id=user_id, summary_manager=self.summary_manager
+                )
+            )
 
         if tasks:
             if self.stream_intermediate_steps:
@@ -3682,17 +3709,11 @@ class Agent:
         #         except Exception as e:
         #             log_warning(f"Failed to load session summaries: {e}")
 
-        if session.summary is not None:
-            try:
-                self.agent_session.summary = {
-                    user_id: {
-                        session_id: SessionSummary.from_dict(summary)
-                        for session_id, summary in user_session_summaries.items()
-                    }
-                    for user_id, user_session_summaries in session.summary.items()
-                }
-            except Exception as e:
-                log_warning(f"Failed to load session summaries: {e}")
+        # if session.summary is not None:
+        #     try:
+        #         self.agent_session.summary = SessionSummary.from_dict(session.summary)
+        #     except Exception as e:
+        #         log_warning(f"Failed to load session summaries: {e}")
 
         log_debug(f"-*- AgentSession loaded: {session.session_id}")
 
@@ -3723,6 +3744,9 @@ class Agent:
             if self.agent_session and self.agent_session.runs:
                 self.agent_session.runs = [RunResponse.from_dict(run) for run in self.agent_session.runs]
 
+            if self.agent_session and self.agent_session.summary:
+                self.agent_session.summary = SessionSummary.from_dict(self.agent_session.summary)
+
             if self.agent_session is not None:
                 self.load_agent_session(session=self.agent_session)
                 return self.agent_session
@@ -3747,16 +3771,20 @@ class Agent:
         Returns:
             Optional[AgentSession]: The saved AgentSession or None if not saved.
         """
+        from copy import deepcopy
+
         if self.memory is not None and self.memory.db is not None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
+            session_copy = deepcopy(session)
 
-            if session and session.runs:
-                session.runs = [run.to_dict() for run in session.runs]
+            if session_copy and session_copy.runs:
+                session_copy.runs = [run.to_dict() for run in session_copy.runs]
 
-            self.agent_session = cast(
-                AgentSession,
-                self.memory.upsert_agent_session(session=session),
-            )
+            if session_copy.summary is not None:
+                session_copy.summary = SessionSummary.to_dict(session_copy.summary)
+
+            self.memory.upsert_agent_session(session=session_copy)
+
             log_debug(f"Created new AgentSession record: {session_id}")
 
         return self.agent_session
@@ -4075,9 +4103,7 @@ class Agent:
 
             # 3.3.11 Then add a summary of the interaction to the system prompt
             if self.add_session_summary_references or self.enable_session_summaries:
-                if not user_id:
-                    user_id = "default"
-                session_summary: SessionSummary = self.memory.summaries.get(user_id, {}).get(session_id, None)  # type: ignore
+                session_summary = self.agent_session.summary
                 if session_summary is not None:
                     system_message_content += "Here is a brief summary of your previous interactions:\n\n"
                     system_message_content += "<summary_of_previous_interactions>\n"

@@ -528,6 +528,7 @@ class PostgresDb(BaseDb):
                     runs=session.runs,
                     agent_data=session.agent_data,
                     session_data=session.session_data,
+                    summary=session.summary,
                     extra_data=session.extra_data,
                     created_at=session.created_at,
                 )
@@ -541,6 +542,7 @@ class PostgresDb(BaseDb):
                         user_id=session.user_id,
                         agent_data=session.agent_data,
                         session_data=session.session_data,
+                        summary=session.summary,
                         extra_data=session.extra_data,
                         runs=session.runs,
                         updated_at=int(time.time()),
@@ -549,8 +551,8 @@ class PostgresDb(BaseDb):
                 sess.execute(stmt)
                 sess.commit()
 
-                # TODO: we should be able to return here without hitting the DB again
-                return self.get_session(session_id=session.session_id, table=table)  # type: ignore
+            # TODO: we should be able to return here without hitting the DB again
+            return self.get_session(session_id=session.session_id, table=table)  # type: ignore
 
         except Exception as e:
             log_warning(f"Exception upserting into table: {e}")

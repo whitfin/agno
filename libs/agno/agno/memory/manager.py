@@ -5,9 +5,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 from agno.memory.db.base import MemoryDb
 from agno.memory.db.schema import MemoryRow
-from agno.memory.schema import UserMemory
 from agno.models.base import Model
 from agno.models.message import Message
+from agno.session.schema import UserMemory
 from agno.tools.function import Function
 from agno.utils.log import log_debug, log_error, log_warning
 

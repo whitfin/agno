@@ -3,7 +3,7 @@ from agno.db.postgres import PostgresDb
 from agno.memory.memory import Memory
 from agno.models.openai import OpenAIChat
 
-db_url = "postgresql+psycopg://ai:ai@localhost:5432/ai"
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 db = PostgresDb(db_url=db_url, agent_session_table="test_agent_session_0618")
 
@@ -16,4 +16,4 @@ agent = Agent(
     add_history_to_messages=True,
 )
 
-agent.print_response("Tell me an interesting fact about the moon")
+agent.print_response("Tell me an interesting fact about space")

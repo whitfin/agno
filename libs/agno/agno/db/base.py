@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from agno.memory.db.schema import MemoryRow
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
 from agno.session import AgentSession, Session
 
 
@@ -53,19 +51,39 @@ class BaseDb(ABC):
     # --- Runs Table ---
 
     @abstractmethod
-    def get_runs(self, session_id: str, session_type: SessionType) -> List[Union[RunResponse, TeamRunResponse]]:
+    def get_runs_raw(self, session_id: str, session_type: SessionType) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     # --- Session Table ---
 
     @abstractmethod
-    def get_session(self, session_id: str, session_type: SessionType) -> Optional[Session]:
+    def get_session_raw(
+        self, session_id: str, session_type: SessionType, user_id: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_session(
+        self, session_id: str, session_type: SessionType, user_id: Optional[str] = None
+    ) -> Optional[Session]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_sessions_raw(
+        self,
+        session_type: SessionType,
+        user_id: Optional[str] = None,
+        component_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
     def get_sessions(
         self,
         session_type: SessionType,
+        user_id: Optional[str] = None,
         component_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
@@ -74,7 +92,7 @@ class BaseDb(ABC):
 
     @abstractmethod
     def get_recent_sessions(
-        self, session_type: SessionType, entity_id: Optional[str] = None, limit: Optional[int] = None
+        self, session_type: SessionType, component_id: Optional[str] = None, limit: Optional[int] = None
     ) -> List[str]:
         raise NotImplementedError
 
@@ -93,13 +111,27 @@ class BaseDb(ABC):
     # --- User Memory Table ---
 
     @abstractmethod
+    def get_user_memory_raw(self, memory_id: str) -> Optional[Dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_user_memory(self, memory_id: str) -> Optional[MemoryRow]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_user_memories_raw(
+        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
     def get_user_memories(
         self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
     ) -> List[MemoryRow]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def upsert_user_memory_raw(self, memory: MemoryRow) -> Optional[Dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod

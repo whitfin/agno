@@ -52,19 +52,15 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         session_id: str = Path(..., description="Session ID", alias="session_id"),
         session_type: SessionType = Query(default=SessionType.AGENT, description="Session type filter", alias="type"),
     ) -> Union[List[RunSchema], List[TeamRunSchema]]:
-        session = db.get_session(session_id=session_id, session_type=session_type)
-        if not session:
-            raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
-
-        runs = db.get_runs(session_id=session_id, session_type=session_type)
+        runs = db.get_runs_raw(session_id=session_id, session_type=session_type)
         if not runs:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} has no runs")
 
         if session_type == SessionType.AGENT:
-            return [RunSchema.from_run_response(run) for run in runs]  # type: ignore
+            return [RunSchema.from_dict(run) for run in runs]  # type: ignore
         elif session_type == SessionType.TEAM:
-            return [TeamRunSchema.from_team_run_response(run) for run in runs]  # type: ignore
+            return [TeamRunSchema.from_dict(run) for run in runs]  # type: ignore
         elif session_type == SessionType.WORKFLOW:
-            return [WorkflowRunSchema.from_workflow_run_response(run) for run in runs]  # type: ignore
+            return [WorkflowRunSchema.from_dict(run) for run in runs]  # type: ignore
 
     return router

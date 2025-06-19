@@ -54,7 +54,7 @@ def attach_sync_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} not found")
 
-        runs = db.get_runs(session_id=session_id, session_type=session_type)
+        runs = db.get_runs_raw(session_id=session_id, session_type=session_type)
         if not runs:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} has no runs")
 

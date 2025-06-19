@@ -17,26 +17,29 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        user_memories = memory.db.get_user_memories(limit=limit, offset=offset)
-        return [UserMemorySchema.from_memory_row(user_memory) for user_memory in user_memories]
+        user_memories = memory.db.get_user_memories_raw(limit=limit, offset=offset)
+
+        # {'memory_id': 'e847f219-06c4-49b0-9cdb-e16206c387b9', 'memory': {'memory': 'This is an updated fake memory', 'topics': ['Fake', 'Test']}, 'agent_id': None, 'team_id': None, 'workflow_id': None, 'user_id': '123', 'topics': None, 'feedback': None, 'last_updated': 1750324808}
+
+        return [UserMemorySchema.from_dict(user_memory) for user_memory in user_memories]
 
     @router.get("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)
     async def get_memory(memory_id: str = Path()) -> UserMemorySchema:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        user_memory = memory.db.get_user_memory(memory_id=memory_id)
+        user_memory = memory.db.get_user_memory_raw(memory_id=memory_id)
         if not user_memory:
             raise HTTPException(status_code=404, detail=f"Memory with ID {memory_id} not found")
 
-        return UserMemorySchema.from_memory_row(user_memory)
+        return UserMemorySchema.from_dict(user_memory)
 
     @router.post("/memories", response_model=UserMemorySchema, status_code=200)
     async def create_memory(payload: UserMemoryCreateSchema) -> UserMemorySchema:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        user_memory = memory.db.upsert_user_memory(
+        user_memory = memory.db.upsert_user_memory_raw(
             memory=MemoryRow(
                 id=None, memory={"memory": payload.memory, "topics": payload.topics}, user_id=payload.user_id
             )
@@ -44,14 +47,14 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
         if not user_memory:
             raise HTTPException(status_code=500, detail="Failed to create memory")
 
-        return UserMemorySchema.from_memory_row(user_memory)
+        return UserMemorySchema.from_dict(user_memory)
 
     @router.patch("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)
     async def update_memory(payload: UserMemoryCreateSchema, memory_id: str = Path()) -> UserMemorySchema:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        user_memory = memory.db.upsert_user_memory(
+        user_memory = memory.db.upsert_user_memory_raw(
             memory=MemoryRow(
                 id=memory_id, memory={"memory": payload.memory, "topics": payload.topics or []}, user_id=payload.user_id
             )
@@ -59,7 +62,7 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
         if not user_memory:
             raise HTTPException(status_code=500, detail="Failed to update memory")
 
-        return UserMemorySchema.from_memory_row(user_memory)
+        return UserMemorySchema.from_dict(user_memory)
 
     @router.delete("/memories/{memory_id}", status_code=204)
     async def delete_memory(memory_id: str = Path()) -> None:

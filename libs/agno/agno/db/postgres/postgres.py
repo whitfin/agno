@@ -1,13 +1,10 @@
 import time
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.memory.db.schema import MemoryRow
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
-from agno.run.workflow import BaseWorkflowRunResponseEvent
 from agno.session import AgentSession, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
@@ -315,18 +312,16 @@ class PostgresDb(BaseDb):
 
     # -- Session methods --
 
-    def get_runs(
-        self, session_id: str, session_type: SessionType
-    ) -> Optional[Union[List[RunResponse], List[TeamRunResponse], List[BaseWorkflowRunResponseEvent]]]:
+    def get_runs_raw(self, session_id: str, session_type: SessionType) -> Optional[List[Dict[str, Any]]]:
         """
-        Get all runs for the given session.
+        Get all runs for the given session, as raw dictionaries.
 
         Args:
             session_id (str): The ID of the session to get runs for.
             session_type (SessionType): The type of session to get runs for.
 
         Returns:
-            List[RunResponse]: List of RunResponse objects.
+            List[Dict[str, Any]]: List of run dictionaries.
         """
         try:
             table = self.get_table_for_session_type(session_type)
@@ -339,16 +334,48 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-            if table == self.agent_session_table:
-                return [RunResponse.from_dict(run) for run in result.runs]  # type: ignore
-            elif table == self.team_session_table:
-                return [TeamRunResponse.from_dict(run) for run in result.runs]  # type: ignore
-            elif table == self.workflow_session_table:
-                return [BaseWorkflowRunResponseEvent.from_dict(run) for run in result.runs]  # type: ignore
+            return result.runs
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return []
+
+    def get_session_raw(
+        self,
+        session_id: str,
+        user_id: Optional[str] = None,
+        session_type: Optional[SessionType] = None,
+        table: Optional[Table] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get a session as a raw dictionary.
+
+        Args:
+            session_id (str): The ID of the session to get.
+            session_type (SessionType): The type of session to get.
+
+        Returns:
+            Optional[Dict[str, Any]]: The session as a raw dictionary, or None if not found.
+        """
+        try:
+            if table is None:
+                table = self.get_table_for_session_type(session_type)
+                if table is None:
+                    raise ValueError(f"Table not found for session type: {session_type}")
+
+            with self.Session() as sess:
+                stmt = select(table).where(table.c.session_id == session_id)
+                if user_id:
+                    stmt = stmt.where(table.c.user_id == user_id)
+                result = sess.execute(stmt).fetchone()
+                if result is None:
+                    return None
+
+                return result._mapping
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return None
 
     def get_session(
         self,
@@ -375,26 +402,27 @@ class PostgresDb(BaseDb):
                 if table is None:
                     raise ValueError(f"Table not found for session type: {session_type}")
 
-            with self.Session() as sess:
-                stmt = select(table).where(table.c.session_id == session_id)
-                if user_id:
-                    stmt = stmt.where(table.c.user_id == user_id)
-                result = sess.execute(stmt).fetchone()
-                if result is None:
-                    raise ValueError(f"Session with ID {session_id} not found")
+            session_raw = self.get_session_raw(
+                session_id=session_id,
+                user_id=user_id,
+                session_type=session_type,
+                table=table,
+            )
+            if session_raw is None:
+                return None
 
-                if table == self.agent_session_table:
-                    return AgentSession.from_dict(result._mapping)
-                elif table == self.team_session_table:
-                    return TeamSession.from_dict(result._mapping)
-                elif table == self.workflow_session_table:
-                    return WorkflowSession.from_dict(result._mapping)
+            if table == self.agent_session_table:
+                return AgentSession.from_dict(session_raw)
+            elif table == self.team_session_table:
+                return TeamSession.from_dict(session_raw)
+            elif table == self.workflow_session_table:
+                return WorkflowSession.from_dict(session_raw)
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return None
 
-    def get_sessions(
+    def get_sessions_raw(
         self,
         session_type: Optional[SessionType] = None,
         user_id: Optional[str] = None,
@@ -402,9 +430,9 @@ class PostgresDb(BaseDb):
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         table: Optional[Table] = None,
-    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
+    ) -> List[Dict[str, Any]]:
         """
-        Get all sessions in the given table. Can filter by user_id and entity_id.
+        Get all sessions in the given table as raw dictionaries.
 
         Args:
             table (Table): Table to read from.
@@ -438,14 +466,56 @@ class PostgresDb(BaseDb):
                 if records is None:
                     return []
 
-                if table == self.agent_session_table:
-                    return [AgentSession.from_dict(record._mapping) for record in records]  # type: ignore
-                elif table == self.team_session_table:
-                    return [TeamSession.from_dict(record._mapping) for record in records]  # type: ignore
-                elif table == self.workflow_session_table:
-                    return [WorkflowSession.from_dict(record._mapping) for record in records]  # type: ignore
-                else:
-                    raise ValueError(f"Invalid table: {table}")
+                return [record._mapping for record in records]
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
+    def get_sessions(
+        self,
+        session_type: Optional[SessionType] = None,
+        user_id: Optional[str] = None,
+        component_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        table: Optional[Table] = None,
+    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
+        """
+        Get all sessions in the given table. Can filter by user_id and entity_id.
+
+        Args:
+            table (Table): Table to read from.
+            user_id (Optional[str]): The ID of the user to filter by.
+            entity_id (Optional[str]): The ID of the agent / workflow to filter by.
+            limit (Optional[int]): The maximum number of sessions to return. Defaults to None.
+
+        Returns:
+            List[Session]: List of Session objects matching the criteria.
+        """
+        try:
+            if table is None:
+                table = self.get_table_for_session_type(session_type)
+                if table is None:
+                    raise ValueError("No table found")
+
+            sessions_raw = self.get_sessions_raw(
+                session_type=session_type,
+                user_id=user_id,
+                component_id=component_id,
+                limit=limit,
+                offset=offset,
+                table=table,
+            )
+
+            if table == self.agent_session_table:
+                return [AgentSession.from_dict(record) for record in sessions_raw]  # type: ignore
+            elif table == self.team_session_table:
+                return [TeamSession.from_dict(record) for record in sessions_raw]  # type: ignore
+            elif table == self.workflow_session_table:
+                return [WorkflowSession.from_dict(record) for record in sessions_raw]  # type: ignore
+            else:
+                raise ValueError(f"Invalid table: {table}")
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
@@ -454,12 +524,12 @@ class PostgresDb(BaseDb):
     def get_recent_sessions(
         self,
         session_type: Optional[SessionType] = None,
-        entity_id: Optional[str] = None,
+        component_id: Optional[str] = None,
         limit: Optional[int] = 3,
         table: Optional[Table] = None,
     ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession]]:
         """Get the most recent sessions for the given entity."""
-        return self.get_sessions(session_type=session_type, entity_id=entity_id, limit=limit, table=table)
+        return self.get_sessions(session_type=session_type, component_id=component_id, limit=limit, table=table)
 
     def get_all_session_ids(
         self,
@@ -547,9 +617,13 @@ class PostgresDb(BaseDb):
                         runs=session.runs,
                         updated_at=int(time.time()),
                     ),
-                )
-                sess.execute(stmt)
+                ).returning(table)
+                result = sess.execute(stmt)
+                row = result.fetchone()
                 sess.commit()
+
+            # Test
+            # return row._mapping
 
             # TODO: we should be able to return here without hitting the DB again
             return self.get_session(session_id=session.session_id, table=table)  # type: ignore
@@ -593,8 +667,16 @@ class PostgresDb(BaseDb):
 
     # -- Memory methods --
 
-    def get_user_memory(self, memory_id: str, table: Optional[Table] = None) -> Optional[MemoryRow]:
-        """Get a memory from the database."""
+    def get_user_memory_raw(self, memory_id: str, table: Optional[Table] = None) -> Optional[Dict[str, Any]]:
+        """Get a memory from the database as a raw dictionary.
+
+        Args:
+            memory_id (str): The ID of the memory to get.
+            table (Table): Table to read from.
+
+        Returns:
+            Optional[Dict[str, Any]]: The memory as a raw dictionary, or None if not found.
+        """
         try:
             if table is None:
                 table = self.get_user_memory_table()
@@ -606,20 +688,62 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
+            return result._mapping
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return None
+
+    def get_user_memory(self, memory_id: str, table: Optional[Table] = None) -> Optional[MemoryRow]:
+        """Get a memory from the database.
+
+        Args:
+            memory_id (str): The ID of the memory to get.
+            table (Table): Table to read from.
+
+        Returns:
+            Optional[MemoryRow]: The memory as a MemoryRow object, or None if not found.
+        """
+        try:
+            if table is None:
+                table = self.get_user_memory_table()
+
+            memory_raw = self.get_user_memory_raw(memory_id=memory_id, table=table)
+            if memory_raw is None:
+                return None
+
             return MemoryRow(
-                id=result.memory_id, user_id=result.user_id, memory=result.memory, last_updated=result.last_updated
+                id=memory_raw["memory_id"],
+                user_id=memory_raw["user_id"],
+                memory=memory_raw["memory"],
+                last_updated=memory_raw["last_updated"],
             )
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return None
 
-    def get_user_memories(
-        self, user_id: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None
-    ) -> List[MemoryRow]:
-        """Get all memories from the database."""
+    def get_user_memories_raw(
+        self,
+        user_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        table: Optional[Table] = None,
+    ) -> List[Dict[str, Any]]:
+        """Get all memories from the database as raw dictionaries.
+
+        Args:
+            user_id (Optional[str]): The ID of the user to filter by.
+            limit (Optional[int]): The maximum number of memories to return.
+            offset (Optional[int]): The number of memories to skip.
+            table (Optional[Table]): The table to read from.
+
+        Returns:
+            List[Dict[str, Any]]: The memories as raw dictionaries.
+        """
         try:
-            table = self.get_user_memory_table()
+            if table is None:
+                table = self.get_user_memory_table()
 
             # TODO: Review if we need to use begin() for read operations
             with self.Session() as sess, sess.begin():
@@ -635,31 +759,65 @@ class PostgresDb(BaseDb):
                 if not result:
                     return []
 
-                return [
-                    MemoryRow(
-                        id=record.memory_id,
-                        user_id=record.user_id,
-                        memory=record.memory,
-                        last_updated=record.last_updated,
-                    )
-                    for record in result
-                ]
+                return [record._mapping for record in result]
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
             return []
 
-    def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
-        """Upsert a user memory in the database.
+    def get_user_memories(
+        self,
+        user_id: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        table: Optional[Table] = None,
+    ) -> List[MemoryRow]:
+        """Get all memories from the database as MemoryRow objects.
+
+        Args:
+            user_id (Optional[str]): The ID of the user to filter by.
+            limit (Optional[int]): The maximum number of memories to return.
+            offset (Optional[int]): The number of memories to skip.
+            table (Optional[Table]): The table to read from.
+
+        Returns:
+            List[MemoryRow]: The memories as MemoryRow objects.
+        """
+        try:
+            if table is None:
+                table = self.get_user_memory_table()
+
+            user_memories_raw = self.get_user_memories_raw(user_id=user_id, limit=limit, offset=offset, table=table)
+            if not user_memories_raw:
+                return []
+
+            return [
+                MemoryRow(
+                    id=record["memory_id"],
+                    user_id=record["user_id"],
+                    memory=record["memory"],
+                    last_updated=record["last_updated"],
+                )
+                for record in user_memories_raw
+            ]
+
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
+    def upsert_user_memory_raw(self, memory: MemoryRow, table: Optional[Table] = None) -> Optional[Dict[str, Any]]:
+        """Upsert a user memory in the database, and return the upserted memory as a raw dictionary.
 
         Args:
             memory (MemoryRow): The user memory to upsert.
+            table (Optional[Table]): The table to upsert into.
 
         Returns:
-            Optional[UserMemory]: The upserted user memory, or None if the operation fails.
+            Optional[Dict[str, Any]]: The upserted user memory, or None if the operation fails.
         """
         try:
-            table = self.get_user_memory_table()
+            if table is None:
+                table = self.get_user_memory_table()
 
             with self.Session() as sess, sess.begin():
                 if memory.id is None:
@@ -677,12 +835,39 @@ class PostgresDb(BaseDb):
                         memory=memory.memory,
                         last_updated=int(time.time()),
                     ),
-                )
-                sess.execute(stmt)
+                ).returning(table)
+                result = sess.execute(stmt)
+                row = result.fetchone()
                 sess.commit()
 
-            # TODO: we should be able to return here without hitting the DB again
-            return self.get_user_memory(memory_id=memory.id, table=table)
+            return row._mapping
+
+        except Exception as e:
+            log_error(f"Exception upserting user memory: {e}")
+            return None
+
+    def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
+        """Upsert a user memory in the database.
+
+        Args:
+            memory (MemoryRow): The user memory to upsert.
+
+        Returns:
+            Optional[UserMemory]: The upserted user memory, or None if the operation fails.
+        """
+        try:
+            table = self.get_user_memory_table()
+
+            user_memory_raw = self.upsert_user_memory_raw(memory=memory, table=table)
+            if user_memory_raw is None:
+                return None
+
+            return MemoryRow(
+                id=user_memory_raw["memory_id"],
+                user_id=user_memory_raw["user_id"],
+                memory=user_memory_raw["memory"],
+                last_updated=user_memory_raw["last_updated"],
+            )
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")

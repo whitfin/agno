@@ -3762,7 +3762,6 @@ class Agent:
         if self.memory is not None and self.memory.db is not None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
 
-            # ✅ Convert runs to dicts BEFORE upsert
             if session and session.runs:
                 session.runs = [run.to_dict() for run in session.runs]
 

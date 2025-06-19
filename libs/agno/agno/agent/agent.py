@@ -27,7 +27,6 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from agno.agent.metrics import SessionMetrics
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.agent import AgentKnowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
@@ -45,6 +44,7 @@ from agno.run.response import (
     RunResponsePausedEvent,
 )
 from agno.session import AgentSession
+from agno.session.metrics import SessionMetrics
 from agno.session.summarizer import SessionSummarizer, SessionSummary
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
@@ -3710,6 +3710,9 @@ class Agent:
 
         if self.memory is not None and self.memory.db is not None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
+            # Update the session_data with the latest data
+            session.session_data = self.get_agent_session_data()
+
             session_copy = deepcopy(session)
 
             if session_copy and session_copy.runs:

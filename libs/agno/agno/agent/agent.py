@@ -31,7 +31,7 @@ from agno.agent.metrics import SessionMetrics
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.agent import AgentKnowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
-from agno.memory.memory import Memory
+from agno.memory.memory import Memory, UserMemory
 from agno.models.base import Model
 from agno.models.message import Citations, Message, MessageMetrics, MessageReferences
 from agno.models.response import ModelResponse, ModelResponseEvent, ToolExecution
@@ -45,9 +45,7 @@ from agno.run.response import (
     RunResponsePausedEvent,
 )
 from agno.session import AgentSession
-from agno.session.schema import SessionSummary
-from agno.memory.schema import UserMemory
-from agno.session.summarizer import SessionSummarizer
+from agno.session.summarizer import SessionSummarizer, SessionSummary
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -3651,69 +3649,6 @@ class Agent:
                 merge_dictionaries(session.extra_data, self.extra_data)
             # Update the current extra_data with the extra_data from the database which is updated in place
             self.extra_data = session.extra_data
-
-        # If we haven't instantiated the memory yet, set it to the memory from the database
-        # if self.memory is None:
-        #     self.memory = session.memory
-
-        # if not isinstance(self.memory, Memory):
-        #     if isinstance(self.memory, dict):
-        #         memory_dict = self.memory
-        #         memory_dict.pop("runs")
-        #         self.memory = Memory(**memory_dict)
-        #     else:
-        #         raise TypeError(f"Expected memory to be a dict or Memory, but got {type(self.memory)}")
-
-        # if session.memory is not None:
-        #     if "runs" in session.memory:
-        #         try:
-        #             if self.memory.runs is None:
-        #                 self.memory.runs = {}
-        #             self.memory.runs[session.session_id] = []
-        #             for run in session.memory["runs"]:
-        #                 run_session_id = run["session_id"]
-        #                 if "team_id" in run:
-        #                     self.memory.runs[run_session_id].append(TeamRunResponse.from_dict(run))
-        #                 else:
-        #                     self.memory.runs[run_session_id].append(RunResponse.from_dict(run))
-        #         except Exception as e:
-        #             log_warning(f"Failed to load runs from memory: {e}")
-        #     if "memories" in session.memory:
-        #         from agno.memory.memory import UserMemory as UserMemoryV2
-
-        #         try:
-        #             # If memories are already loaded, use them as is for the current session
-        #             if self.memory.memories is not None:
-        #                 pass
-        #             # If memories do not exist, we load them from the session memory for the current user
-        #             else:
-        #                 self.memory.memories = {
-        #                     user_id: {
-        #                         memory_id: UserMemoryV2.from_dict(memory) for memory_id, memory in user_memories.items()
-        #                     }
-        #                     for user_id, user_memories in session.memory["memories"].items()
-        #                 }
-        #         except Exception as e:
-        #             log_warning(f"Failed to load user memories: {e}")
-        #     if "summaries" in session.memory:
-        #         from agno.memory.memory import SessionSummary as SessionSummaryV2
-
-        #         try:
-        #             self.memory.summaries = {
-        #                 user_id: {
-        #                     session_id: SessionSummaryV2.from_dict(summary)
-        #                     for session_id, summary in user_session_summaries.items()
-        #                 }
-        #                 for user_id, user_session_summaries in session.memory["summaries"].items()
-        #             }
-        #         except Exception as e:
-        #             log_warning(f"Failed to load session summaries: {e}")
-
-        # if session.summary is not None:
-        #     try:
-        #         self.agent_session.summary = SessionSummary.from_dict(session.summary)
-        #     except Exception as e:
-        #         log_warning(f"Failed to load session summaries: {e}")
 
         log_debug(f"-*- AgentSession loaded: {session.session_id}")
 

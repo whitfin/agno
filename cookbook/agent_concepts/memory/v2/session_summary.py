@@ -2,7 +2,6 @@ from agno.agent.agent import Agent
 from agno.db.postgres import PostgresDb
 from agno.memory.memory import Memory
 from agno.models.openai import OpenAIChat
-from agno.session.summarizer import SessionSummarizer
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
@@ -10,16 +9,12 @@ db = PostgresDb(db_url=db_url, agent_session_table="test_agent_session_0618")
 
 memory = Memory(db=db)
 
-session_summarizer = SessionSummarizer(model=OpenAIChat(id="gpt-4o-mini"))
-
 agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
     memory=memory,
     enable_session_summaries=True,
     session_id="session_summary_test",
-    # summary_manager=session_summarizer,
 )
 
-# agent.print_response("Hi my name is John and I live in New York")
-# agent.print_response("I like to play basketball and hike in the mountains")
-agent.print_response("What is the capital of France?")
+agent.print_response("Hi my name is John and I live in New York")
+agent.print_response("I like to play basketball and hike in the mountains")

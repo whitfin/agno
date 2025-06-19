@@ -7,7 +7,6 @@ from agno.memory.db.base import MemoryDb
 from agno.memory.db.schema import MemoryRow
 from agno.models.base import Model
 from agno.models.message import Message
-from agno.session.schema import UserMemory
 from agno.tools.function import Function
 from agno.utils.log import log_debug, log_error, log_warning
 
@@ -346,6 +345,8 @@ class MemoryManager:
             """
             from uuid import uuid4
 
+            from agno.memory.memory import UserMemory
+
             try:
                 last_updated = datetime.now()
                 memory_id = str(uuid4())
@@ -378,6 +379,8 @@ class MemoryManager:
             Returns:
                 str: A message indicating if the memory was updated successfully or not.
             """
+            from agno.memory.memory import UserMemory
+
             try:
                 last_updated = datetime.now()
                 db.upsert_user(

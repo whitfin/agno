@@ -16,7 +16,6 @@ from agno.models.message import Message
 from agno.run.response import RunResponse
 from agno.run.team import TeamRunResponse
 from agno.session import AgentSession
-from agno.memory.schema import UserMemory
 from agno.utils.log import log_debug, log_error, log_warning, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.prompts import get_json_output_prompt
 from agno.utils.string import parse_response_model_str
@@ -28,6 +27,34 @@ class MemorySearchResponse(BaseModel):
     memory_ids: List[str] = Field(
         ..., description="The IDs of the memories that are most semantically similar to the query."
     )
+
+
+@dataclass
+class UserMemory:
+    """Model for User Memories"""
+
+    memory: str
+    topics: Optional[List[str]] = None
+    input: Optional[str] = None
+    last_updated: Optional[datetime] = None
+    memory_id: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        _dict = {
+            "memory_id": self.memory_id,
+            "memory": self.memory,
+            "topics": self.topics,
+            "last_updated": self.last_updated.isoformat() if self.last_updated else None,
+            "input": self.input,
+        }
+        return {k: v for k, v in _dict.items() if v is not None}
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "UserMemory":
+        last_updated = data.get("last_updated")
+        if last_updated:
+            data["last_updated"] = datetime.fromisoformat(last_updated)
+        return cls(**data)
 
 
 @dataclass

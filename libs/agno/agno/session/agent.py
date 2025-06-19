@@ -5,8 +5,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from agno.models.message import Message
 from agno.run.response import RunResponse
-from agno.session.schema import SessionSummary
-from agno.session.summarizer import SessionSummarizer
+from agno.session.summarizer import SessionSummarizer, SessionSummary
 from agno.utils.log import log_debug, log_warning
 
 

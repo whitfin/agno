@@ -35,7 +35,7 @@ class BaseWorkflowRunResponseEvent:
     # Workflow-specific fields
     workflow_id: Optional[str] = None
     workflow_name: Optional[str] = None
-    pipeline_name: Optional[str] = None
+    steps_name: Optional[str] = None
     session_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -179,7 +179,7 @@ class WorkflowRunResponse:
     # Workflow-specific fields
     workflow_id: Optional[str] = None
     workflow_name: Optional[str] = None
-    pipeline_name: Optional[str] = None
+    steps_name: Optional[str] = None
     step_name: Optional[str] = None
     step_index: Optional[int] = None
 

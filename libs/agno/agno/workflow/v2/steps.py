@@ -15,12 +15,12 @@ from agno.workflow.v2.types import StepInput, StepOutput, WorkflowExecutionInput
 
 
 @dataclass
-class Pipeline:
-    """A pipeline of steps that execute in order"""
+class Steps:
+    """A sequence of steps that execute in order"""
 
-    # Pipeline_name identification
+    # sequence_name identification
     name: Optional[str] = None
-    pipeline_id: Optional[str] = None
+    steps_id: Optional[str] = None
     description: Optional[str] = None
 
     # Steps to execute
@@ -34,33 +34,33 @@ class Pipeline:
         self.steps = steps if steps else []
 
     def initialize(self):
-        if self.pipeline_id is None:
-            log_debug(f"Initializing pipeline ID for {self.name}")
-            self.pipeline_id = str(uuid4())
+        if self.steps_id is None:
+            log_debug(f"Initializing steps ID for {self.name}")
+            self.steps_id = str(uuid4())
 
     def execute(
         self,
-        pipeline_input: WorkflowExecutionInput,
+        steps_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ):
-        """Execute all steps in the pipeline using StepInput/StepOutput (non-streaming)"""
-        log_debug(f"Pipeline Execution Start: {self.name}", center=True)
-        log_debug(f"Pipeline ID: {self.pipeline_id}")
+        """Execute all steps in the sequence using StepInput/StepOutput (non-streaming)"""
+        log_debug(f"Steps Execution Start: {self.name}", center=True)
+        log_debug(f"Steps ID: {self.steps_id}")
         log_debug(f"Total steps: {len(self.steps)}")
 
-        logger.info(f"Starting pipeline: {self.name}")
+        logger.info(f"Starting sequence: {self.name}")
 
-        # Update pipeline info in the response
-        workflow_run_response.pipeline_name = self.name
+        # Update steps info in the response
+        workflow_run_response.steps_name = self.name
 
         # Track outputs from each step for chaining
         collected_step_outputs: List[StepOutput] = []
 
-        pipeline_images = pipeline_input.images or []
-        pipeline_videos = pipeline_input.videos or []
-        pipeline_audio = pipeline_input.audio or []
+        steps_images = steps_input.images or []
+        steps_videos = steps_input.videos or []
+        steps_audio = steps_input.audio or []
         previous_step_content = None
 
         # Execute steps sequentially
@@ -73,12 +73,12 @@ class Pipeline:
             # Create StepInput for this step
             log_debug(f"Created StepInput for step {step.name}")
             step_input = StepInput(
-                message=pipeline_input.message,
-                message_data=pipeline_input.message_data,
+                message=steps_input.message,
+                message_data=steps_input.message_data,
                 previous_step_content=previous_step_content,
-                images=pipeline_images,
-                videos=pipeline_videos,
-                audio=pipeline_audio,
+                images=steps_images,
+                videos=steps_videos,
+                audio=steps_audio,
             )
 
             # Execute the step (non-streaming)
@@ -90,16 +90,16 @@ class Pipeline:
 
             # Update the input for the next step
             previous_step_content = step_output.content
-            pipeline_images.extend(step_output.images or [])
-            pipeline_videos.extend(step_output.videos or [])
-            pipeline_audio.extend(step_output.audio or [])
+            steps_images.extend(step_output.images or [])
+            steps_videos.extend(step_output.videos or [])
+            steps_audio.extend(step_output.audio or [])
 
             # Collect the StepOutput for storage
             collected_step_outputs.append(step_output)
 
         # Create final output data
         final_output = {
-            "pipeline_id": self.pipeline_id,
+            "steps_id": self.steps_id,
             "total_steps": len(self.steps),
             "step_summary": [
                 {
@@ -113,7 +113,7 @@ class Pipeline:
             ],
         }
 
-        log_debug(f"Pipeline Execution End: {self.name}", center=True, symbol="*")
+        log_debug(f"Sequence Execution End: {self.name}", center=True, symbol="*")
 
         # Update the workflow_run_response with completion data
         workflow_run_response.content = collected_step_outputs[
@@ -121,53 +121,53 @@ class Pipeline:
         ].content  # Final workflow response output is the last step's output
         workflow_run_response.step_responses = collected_step_outputs
         workflow_run_response.extra_data = final_output
-        workflow_run_response.images = pipeline_images
-        workflow_run_response.videos = pipeline_videos
-        workflow_run_response.audio = pipeline_audio
+        workflow_run_response.images = steps_images
+        workflow_run_response.videos = steps_videos
+        workflow_run_response.audio = steps_audio
         workflow_run_response.status = RunStatus.completed
 
     def execute_stream(
         self,
-        pipeline_input: WorkflowExecutionInput,
+        steps_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         stream_intermediate_steps: bool = False,
     ) -> Iterator[WorkflowRunResponseEvent]:
-        """Execute the pipeline with event-driven streaming support"""
-        log_debug(f"Pipeline Streaming Execution Start: {self.name}", center=True)
-        log_debug(f"Pipeline ID: {self.pipeline_id}")
+        """Execute the steps with event-driven streaming support"""
+        log_debug(f"Steps Streaming Execution Start: {self.name}", center=True)
+        log_debug(f"Steps ID: {self.steps_id}")
         log_debug(f"Stream intermediate steps: {stream_intermediate_steps}")
         log_debug(f"Total steps: {len(self.steps)}")
 
-        logger.info(f"Executing pipeline with streaming: {self.name}")
+        logger.info(f"Executing steps with streaming: {self.name}")
 
         # Track outputs from each step for chaining
         collected_step_outputs: List[StepOutput] = []
-        pipeline_images = pipeline_input.images or []
-        pipeline_videos = pipeline_input.videos or []
-        pipeline_audio = pipeline_input.audio or []
+        steps_images = steps_input.images or []
+        steps_videos = steps_input.videos or []
+        steps_audio = steps_input.audio or []
         previous_step_content = None
 
-        # Execute steps in pipeline with streaming
+        # Execute steps in steps with streaming
         for step_index, step in enumerate(self.steps):
             log_debug(f"Streaming step {step_index + 1}/{len(self.steps)}: {step.name}")
 
             # Create StepInput for this step
             step_input = StepInput(
-                message=pipeline_input.message,
-                message_data=pipeline_input.message_data,
+                message=steps_input.message,
+                message_data=steps_input.message_data,
                 previous_step_content=previous_step_content,
-                images=pipeline_images,
-                videos=pipeline_videos,
-                audio=pipeline_audio,
+                images=steps_images,
+                videos=steps_videos,
+                audio=steps_audio,
             )
 
             # Yield step started event
             yield StepStartedEvent(
                 run_id=workflow_run_response.run_id or "",
                 workflow_name=workflow_run_response.workflow_name,
-                pipeline_name=workflow_run_response.pipeline_name,
+                steps_name=workflow_run_response.steps_name,
                 step_name=step.name,
                 step_index=step_index,
                 workflow_id=workflow_run_response.workflow_id,
@@ -190,9 +190,9 @@ class Pipeline:
                     # Collect the step output
                     collected_step_outputs.append(step_output)
 
-                    pipeline_images.extend(step_output.images or [])
-                    pipeline_videos.extend(step_output.videos or [])
-                    pipeline_audio.extend(step_output.audio or [])
+                    steps_images.extend(step_output.images or [])
+                    steps_videos.extend(step_output.videos or [])
+                    steps_audio.extend(step_output.audio or [])
                     previous_step_content = step_output.content
 
                     # Yield step completed event
@@ -200,7 +200,7 @@ class Pipeline:
                         run_id=workflow_run_response.run_id or "",
                         content=step_output.content,
                         workflow_name=workflow_run_response.workflow_name,
-                        pipeline_name=self.name,
+                        steps_name=self.name,
                         step_name=step.name,
                         step_index=step_index,
                         workflow_id=workflow_run_response.workflow_id,
@@ -216,7 +216,7 @@ class Pipeline:
 
         # Create final output data
         final_output = {
-            "pipeline_id": self.pipeline_id,
+            "steps_id": self.steps_id,
             "status": "completed",
             "total_steps": len(self.steps),
             "step_summary": [
@@ -235,35 +235,35 @@ class Pipeline:
             -1
         ].content  # Final workflow response output is the last step's output
         workflow_run_response.step_responses = collected_step_outputs
-        workflow_run_response.images = pipeline_images
-        workflow_run_response.videos = pipeline_videos
-        workflow_run_response.audio = pipeline_audio
+        workflow_run_response.images = steps_images
+        workflow_run_response.videos = steps_videos
+        workflow_run_response.audio = steps_audio
         workflow_run_response.extra_data = final_output
         workflow_run_response.status = RunStatus.completed
 
     async def aexecute(
         self,
-        pipeline_input: WorkflowExecutionInput,
+        steps_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ):
-        """Execute all steps in the pipeline using StepInput/StepOutput (non-streaming)"""
-        log_debug(f"Async Pipeline Execution Start: {self.name}", center=True)
-        log_debug(f"Pipeline ID: {self.pipeline_id}")
+        """Execute all steps in the Sequence using StepInput/StepOutput (non-streaming)"""
+        log_debug(f"Async Steps Execution Start: {self.name}", center=True)
+        log_debug(f"Steps ID: {self.steps_id}")
         log_debug(f"Total steps: {len(self.steps)}")
 
-        logger.info(f"Starting pipeline: {self.name}")
+        logger.info(f"Starting steps: {self.name}")
 
-        # Update pipeline info in the response
-        workflow_run_response.pipeline_name = self.name
+        # Update steps info in the response
+        workflow_run_response.steps_name = self.name
 
         # Track outputs from each step for chaining
         collected_step_outputs: List[StepOutput] = []
 
-        pipeline_images = pipeline_input.images or []
-        pipeline_videos = pipeline_input.videos or []
-        pipeline_audio = pipeline_input.audio or []
+        steps_images = steps_input.images or []
+        steps_videos = steps_input.videos or []
+        steps_audio = steps_input.audio or []
         previous_step_content = None
 
         for i, step in enumerate(self.steps):
@@ -274,12 +274,12 @@ class Pipeline:
 
             # Create StepInput for this step
             step_input = StepInput(
-                message=pipeline_input.message,
-                message_data=pipeline_input.message_data,
+                message=steps_input.message,
+                message_data=steps_input.message_data,
                 previous_step_content=previous_step_content,
-                images=pipeline_images,
-                videos=pipeline_videos,
-                audio=pipeline_audio,
+                images=steps_images,
+                videos=steps_videos,
+                audio=steps_audio,
             )
 
             # Execute the step (non-streaming) - pass workflow_run_response
@@ -291,16 +291,16 @@ class Pipeline:
 
             # Update the input for the next step
             previous_step_content = step_output.content
-            pipeline_images.extend(step_output.images or [])
-            pipeline_videos.extend(step_output.videos or [])
-            pipeline_audio.extend(step_output.audio or [])
+            steps_images.extend(step_output.images or [])
+            steps_videos.extend(step_output.videos or [])
+            steps_audio.extend(step_output.audio or [])
 
             # Collect the StepOutput for storage
             collected_step_outputs.append(step_output)
 
         # Create final output data
         final_output = {
-            "pipeline_id": self.pipeline_id,
+            "steps_id": self.steps_id,
             "total_steps": len(self.steps),
             "step_summary": [
                 {
@@ -314,7 +314,7 @@ class Pipeline:
             ],
         }
 
-        log_debug(f"Async Pipeline Execution End: {self.name}", center=True, symbol="*")
+        log_debug(f"Async Steps Execution End: {self.name}", center=True, symbol="*")
 
         # Update the workflow_run_response with completion data
         workflow_run_response.content = collected_step_outputs[
@@ -322,51 +322,51 @@ class Pipeline:
         ].content  # Final workflow response output is the last step's output
         workflow_run_response.step_responses = collected_step_outputs
         workflow_run_response.extra_data = final_output
-        workflow_run_response.images = pipeline_images
-        workflow_run_response.videos = pipeline_videos
-        workflow_run_response.audio = pipeline_audio
+        workflow_run_response.images = steps_images
+        workflow_run_response.videos = steps_videos
+        workflow_run_response.audio = steps_audio
         workflow_run_response.status = RunStatus.completed
 
     async def aexecute_stream(
         self,
-        pipeline_input: WorkflowExecutionInput,
+        steps_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         stream_intermediate_steps: bool = False,
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
-        """Execute the pipeline with event-driven streaming support"""
-        log_debug(f"Async Pipeline Streaming Execution Start: {self.name}", center=True)
-        log_debug(f"Pipeline ID: {self.pipeline_id}")
+        """Execute the steps with event-driven streaming support"""
+        log_debug(f"Async steps Streaming Execution Start: {self.name}", center=True)
+        log_debug(f"Steps ID: {self.steps_id}")
         log_debug(f"Stream intermediate steps: {stream_intermediate_steps}")
         log_debug(f"Total steps: {len(self.steps)}")
 
         # Track outputs from each step for chaining
         collected_step_outputs: List[StepOutput] = []
-        pipeline_images = pipeline_input.images or []
-        pipeline_videos = pipeline_input.videos or []
-        pipeline_audio = pipeline_input.audio or []
+        steps_images = steps_input.images or []
+        steps_videos = steps_input.videos or []
+        steps_audio = steps_input.audio or []
         previous_step_content = None
 
-        # Execute steps in pipeline with streaming
+        # Execute steps in sequence with streaming
         for step_index, step in enumerate(self.steps):
             log_debug(f"Async streaming step {step_index + 1}/{len(self.steps)}: {step.name}")
 
             # Create StepInput for this step
             step_input = StepInput(
-                message=pipeline_input.message,
-                message_data=pipeline_input.message_data,
+                message=steps_input.message,
+                message_data=steps_input.message_data,
                 previous_step_content=previous_step_content,
-                images=pipeline_images,
-                videos=pipeline_videos,
-                audio=pipeline_audio,
+                images=steps_images,
+                videos=steps_videos,
+                audio=steps_audio,
             )
 
             # Yield step started event
             yield StepStartedEvent(
                 run_id=workflow_run_response.run_id or "",
                 workflow_name=workflow_run_response.workflow_name,
-                pipeline_name=workflow_run_response.pipeline_name,
+                steps_name=workflow_run_response.steps_name,
                 step_name=step.name,
                 step_index=step_index,
                 workflow_id=workflow_run_response.workflow_id,
@@ -393,9 +393,9 @@ class Pipeline:
                     collected_step_outputs.append(step_output)
 
                     log_debug(f"Updated previous outputs with async streaming step {step.name} results")
-                    pipeline_images.extend(step_output.images or [])
-                    pipeline_videos.extend(step_output.videos or [])
-                    pipeline_audio.extend(step_output.audio or [])
+                    steps_images.extend(step_output.images or [])
+                    steps_videos.extend(step_output.videos or [])
+                    steps_audio.extend(step_output.audio or [])
                     previous_step_content = step_output.content
                     log_debug(f"Yielding async StepCompletedEvent for step: {step.name}")
                     # Yield step completed event
@@ -403,7 +403,7 @@ class Pipeline:
                         run_id=workflow_run_response.run_id or "",
                         content=step_output.content,
                         workflow_name=workflow_run_response.workflow_name,
-                        pipeline_name=self.name,
+                        steps_name=self.name,
                         step_name=step.name,
                         step_index=step_index,
                         workflow_id=workflow_run_response.workflow_id,
@@ -418,7 +418,7 @@ class Pipeline:
 
         # Create final output data
         final_output = {
-            "pipeline_id": self.pipeline_id,
+            "steps_id": self.steps_id,
             "status": "completed",
             "total_steps": len(self.steps),
             "step_summary": [
@@ -433,23 +433,23 @@ class Pipeline:
             ],
         }
 
-        log_debug(f"Async Pipeline Streaming Execution End: {self.name}", center=True, symbol="*")
+        log_debug(f"Async Steps Streaming Execution End: {self.name}", center=True, symbol="*")
         workflow_run_response.content = collected_step_outputs[
             -1
         ].content  # Final workflow response output is the last step's output
         workflow_run_response.step_responses = collected_step_outputs
-        workflow_run_response.images = pipeline_images
-        workflow_run_response.videos = pipeline_videos
-        workflow_run_response.audio = pipeline_audio
+        workflow_run_response.images = steps_images
+        workflow_run_response.videos = steps_videos
+        workflow_run_response.audio = steps_audio
         workflow_run_response.extra_data = final_output
         workflow_run_response.status = RunStatus.completed
 
     def add_step(self, step: Step) -> None:
-        """Add a step to the pipeline"""
+        """Add a step to the sequence"""
         self.steps.append(step)
 
     def remove_step(self, step_name: str) -> bool:
-        """Remove a step from the pipeline by name"""
+        """Remove a step from the Sequence by name"""
         for i, step in enumerate(self.steps):
             if step.name == step_name:
                 del self.steps[i]

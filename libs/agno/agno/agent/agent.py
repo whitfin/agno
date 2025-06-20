@@ -2674,7 +2674,7 @@ class Agent:
         # Update the RunResponse messages
         run_response.messages = messages_for_run_response
         # Update the RunResponse metrics
-        run_response.metrics = self.calculate_session_metrics(messages_for_run_response)
+        run_response.metrics = self.calculate_metrics(messages_for_run_response)
 
     def add_run_to_session(
         self,
@@ -2686,11 +2686,11 @@ class Agent:
     def set_session_metrics(self, run_messages: RunMessages):
         # Calculate session metrics
         if self.session_metrics is None:
-            self.session_metrics = self.calculate_session_metrics(
+            self.session_metrics = self.calculate_metrics(
                 run_messages.messages, for_session=True
             )  # Calculate initial metrics
         else:
-            self.session_metrics += self.calculate_session_metrics(
+            self.session_metrics += self.calculate_metrics(
                 run_messages.messages, for_session=True
             )  # Update metrics
 
@@ -2770,7 +2770,7 @@ class Agent:
         # Update the RunResponse messages
         run_response.messages = messages_for_run_response
         # Update the RunResponse metrics
-        run_response.metrics = self.calculate_session_metrics(messages_for_run_response)
+        run_response.metrics = self.calculate_metrics(messages_for_run_response)
 
         # Update the run_response audio if streaming
         if model_response.audio is not None:
@@ -2829,7 +2829,7 @@ class Agent:
         # Update the RunResponse messages
         run_response.messages = messages_for_run_response
         # Update the RunResponse metrics
-        run_response.metrics = self.calculate_session_metrics(messages_for_run_response)
+        run_response.metrics = self.calculate_metrics(messages_for_run_response)
 
         # Update the run_response audio if streaming
         if model_response.audio is not None:
@@ -4926,20 +4926,7 @@ class Agent:
         else:
             self.run_response.reasoning_content += reasoning_content
 
-    # def calculate_session_metrics(self, messages: List[Message]) -> Dict[str, Any]:
-    #     run_metrics: Dict[str, Any] = defaultdict(int)
-    #     assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
-
-    #     for m in messages:
-    #         if m.role == assistant_message_role and m.metrics is not None and m.from_history is False:
-    #             for k, v in asdict(m.metrics).items():
-    #                 if k == "timer":
-    #                     continue
-    #                 elif isinstance(v, (int, float)):
-    #                     run_metrics[k] += v
-    #     return run_metrics
-
-    def calculate_session_metrics(self, messages: List[Message], for_session: bool = False) -> Metrics:
+    def calculate_metrics(self, messages: List[Message], for_session: bool = False) -> Metrics:
         metrics = Metrics()
         assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
         for m in messages:

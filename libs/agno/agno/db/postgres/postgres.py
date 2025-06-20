@@ -15,6 +15,7 @@ try:
     from sqlalchemy.orm import scoped_session, sessionmaker
     from sqlalchemy.schema import Column, MetaData, Table
     from sqlalchemy.sql.expression import select, text
+    from sqlalchemy import or_
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
@@ -879,6 +880,7 @@ class PostgresDb(BaseDb):
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
+        topics: Optional[List[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_by: Optional[str] = None,
@@ -892,6 +894,7 @@ class PostgresDb(BaseDb):
             agent_id (Optional[str]): The ID of the agent to filter by.
             team_id (Optional[str]): The ID of the team to filter by.
             workflow_id (Optional[str]): The ID of the workflow to filter by.
+            topics (Optional[List[str]]): List of topics to filter by.
             limit (Optional[int]): The maximum number of memories to return.
             offset (Optional[int]): The number of memories to skip.
             table (Optional[Table]): The table to read from.
@@ -915,6 +918,10 @@ class PostgresDb(BaseDb):
                     stmt = stmt.where(table.c.team_id == team_id)
                 if workflow_id is not None:
                     stmt = stmt.where(table.c.workflow_id == workflow_id)
+                if topics is not None and len(topics) > 0:
+                    topic_conditions = [table.c.memory["topics"].astext.contains(topic) for topic in topics]
+                    stmt = stmt.where(or_(*topic_conditions))  
+                # Eg topics - fruits,mangoes -> filter where memory.topics contains any of the topics
                 # Sorting
                 stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
                 # Paginating
@@ -939,6 +946,7 @@ class PostgresDb(BaseDb):
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
+        topics: Optional[List[str]] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_by: Optional[str] = None,
@@ -952,6 +960,7 @@ class PostgresDb(BaseDb):
             agent_id (Optional[str]): The ID of the agent to filter by.
             team_id (Optional[str]): The ID of the team to filter by.
             workflow_id (Optional[str]): The ID of the workflow to filter by.
+            topics (Optional[List[str]]): List of topics to filter by.
             limit (Optional[int]): The maximum number of memories to return.
             offset (Optional[int]): The number of memories to skip.
             table (Optional[Table]): The table to read from.
@@ -968,6 +977,7 @@ class PostgresDb(BaseDb):
                 agent_id=agent_id,
                 team_id=team_id,
                 workflow_id=workflow_id,
+                topics=topics,
                 limit=limit,
                 offset=offset,
                 sort_by=sort_by,

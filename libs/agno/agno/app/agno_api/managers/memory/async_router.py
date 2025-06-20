@@ -16,6 +16,7 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
         agent_id: Optional[str] = Query(default=None, description="Filter memories by agent ID"),
         team_id: Optional[str] = Query(default=None, description="Filter memories by team ID"),
         workflow_id: Optional[str] = Query(default=None, description="Filter memories by workflow ID"),
+        topics: Optional[List[str]] = Query(default=None, description="Filter memories by topics"),
         limit: Optional[int] = Query(default=20, description="Number of memories to return"),
         offset: Optional[int] = Query(default=0, description="Number of memories to skip"),
         sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
@@ -31,6 +32,7 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
             agent_id=agent_id,
             team_id=team_id,
             workflow_id=workflow_id,
+            topics=topics,
             sort_by=sort_by,
             sort_order=sort_order,
         )

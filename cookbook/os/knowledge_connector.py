@@ -2,10 +2,12 @@ from agno.agent import Agent
 from agno.os import AgentOS
 from agno.os.connectors import KnowledgeConnector
 from agno.document import Document
+from agno.os.interfaces.playground import Playground
+from agno.knowledge.knowledge import Knowledge
 from agno.document.local_document_store import LocalDocumentStore
-from agno.knowledge.knowledge_base import KnowledgeBase
 from agno.models.openai import OpenAIChat
 from agno.vectordb.pgvector import PgVector
+from agno.db.postgres.postgres import PostgresDb
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
@@ -15,27 +17,32 @@ document_store = LocalDocumentStore(
     storage_path="tmp/documents",
 )
 
+documents_db = PostgresDb(
+    db_url="postgresql+psycopg://ai:ai@localhost:5532/ai",
+    knowledge_table="knowledge_documents",
+)
 vector_store = PgVector(
     table_name="pdf_documents",
-    # Can inspect database via psql e.g. "psql -h localhost -p 5432 -U ai -d ai"
     db_url=db_url,
 )
 
 # Create knowledge base
-knowledge_base = KnowledgeBase(
-    name="My Knowledge Base",
+knowledge = Knowledge(
+    name="My Knowledge Base", 
     description="A simple knowledge base",
     document_store=document_store,
+    documents_db=documents_db,
+    vector_store=vector_store,
 )
 
 # Add a document
 doc = Document(content="Hello worlds", name="greetings")
-doc_id = knowledge_base.add_document(doc)
+doc_id = knowledge.add_document(doc)
 
 basic_agent = Agent(
     name="Basic Agent",
     model=OpenAIChat(id="gpt-4o"),
-    knowledge=knowledge_base,
+    knowledge=knowledge,
     add_datetime_to_instructions=True,
     markdown=True,
 )
@@ -47,7 +54,10 @@ agent_os = AgentOS(
     agents=[
         basic_agent,
     ],
-    apps=[KnowledgeConnector(knowledge=knowledge_base)],
+    apps=[KnowledgeConnector(knowledge=knowledge)],
+    interfaces=[
+        Playground(),
+    ],
 )
 app = agent_os.get_app()
 

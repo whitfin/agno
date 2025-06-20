@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import Table
 
 from agno.db.schemas import MemoryRow
+from agno.db.schemas.knowledge import KnowledgeRow
+
 from agno.eval.schemas import EvalRunRecord, EvalType
 from agno.session import Session
 
@@ -194,7 +196,7 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_knowledge_documents(self, knowledge_id: str):
+    def get_knowledge_documents(self) -> List[KnowledgeRow]:
         raise NotImplementedError
 
     @abstractmethod

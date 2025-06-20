@@ -705,7 +705,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to short-term memory
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -785,7 +785,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1150,7 +1150,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1233,7 +1233,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1807,7 +1807,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -1885,7 +1885,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -2206,7 +2206,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -2289,7 +2289,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         # 6. Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=message, session_id=session_id)
@@ -2313,7 +2313,7 @@ class Agent:
         run_response.status = RunStatus.paused
 
         # Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
 
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
@@ -2337,7 +2337,7 @@ class Agent:
         run_response.status = RunStatus.paused
 
         # Save session to storage
-        self.write_to_memory(user_id=user_id, session_id=session_id)
+        self.save_session(user_id=user_id, session_id=session_id)
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
 
@@ -3146,14 +3146,12 @@ class Agent:
 
             # Create session summary
             if self.enable_session_summaries:
-                from copy import deepcopy
-
                 log_debug("Creating session summary.")
                 if self.summary_manager is None:
-                    self.summary_manager = SessionSummarizer(model=deepcopy(self.model))
+                    self.summary_manager = SessionSummarizer(model=self.model)
                 # Set the model on the summary_manager if it is not set
                 elif self.summary_manager.model is None:
-                    self.summary_manager.model = deepcopy(self.model)
+                    self.summary_manager.model = self.model
                 futures.append(
                     executor.submit(
                         self.agent_session.create_session_summary,
@@ -3220,14 +3218,12 @@ class Agent:
 
         # Create session summary
         if self.enable_session_summaries:
-            from copy import deepcopy
-
             log_debug("Creating session summary.")
             if self.summary_manager is None:
-                self.summary_manager = SessionSummarizer(model=deepcopy(self.model))
+                self.summary_manager = SessionSummarizer(model=self.model)
             # Set the model on the summary_manager if it is not set
             elif self.summary_manager.model is None:
-                self.summary_manager.model = deepcopy(self.model)
+                self.summary_manager.model = self.model
             tasks.append(
                 self.agent_session.acreate_session_summary(
                     session_id=session_id, user_id=user_id, summary_manager=self.summary_manager
@@ -3546,33 +3542,6 @@ class Agent:
             session_data["audio"] = [aud.to_dict() for aud in self.audio]  # type: ignore
         return session_data
 
-    # def get_agent_session(self, session_id: str, user_id: Optional[str] = None) -> AgentSession:
-    #     from time import time
-
-    #     """Get an AgentSession object, which can be saved to the database"""
-    #     if self.memory is not None:
-    #         self.memory = cast(Memory, self.memory)
-    #         # We fake the structure on storage, to maintain the interface with the legacy implementation
-    #         run_responses = self.memory.runs.get(session_id, [])  # type: ignore
-    #         memory_dict = self.memory.to_dict()
-    #         memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
-    #     else:
-    #         memory_dict = None
-
-    #     self.team_session_id = cast(str, self.team_session_id)
-    #     self.agent_id = cast(str, self.agent_id)
-    #     return AgentSession(
-    #         session_id=session_id,
-    #         agent_id=self.agent_id,
-    #         user_id=user_id,
-    #         team_session_id=self.team_session_id,
-    #         memory=memory_dict,
-    #         agent_data=self.get_agent_data(),
-    #         session_data=self.get_agent_session_data(),
-    #         extra_data=self.extra_data,
-    #         created_at=int(time()),
-    #     )
-
     def load_agent_session(self, session: AgentSession):
         """Load the existing Agent from an AgentSession (from the database)"""
 
@@ -3700,28 +3669,19 @@ class Agent:
         )
         return self.agent_session
 
-    def write_to_memory(self, session_id: str, user_id: Optional[str] = None) -> Optional[AgentSession]:
+    def save_session(self, session_id: str, user_id: Optional[str] = None) -> Optional[AgentSession]:
         """Save the AgentSession to storage
 
         Returns:
             Optional[AgentSession]: The saved AgentSession or None if not saved.
         """
-        from copy import deepcopy
 
         if self.memory is not None and self.memory.db is not None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
             # Update the session_data with the latest data
             session.session_data = self.get_agent_session_data()
 
-            session_copy = deepcopy(session)
-
-            if session_copy and session_copy.runs:
-                session_copy.runs = [run.to_dict() for run in session_copy.runs]
-
-            if session_copy.summary is not None:
-                session_copy.summary = SessionSummary.to_dict(session_copy.summary)
-
-            self.memory.upsert_agent_session(session=session_copy)
+            self.memory.upsert_agent_session(session=session)
 
             log_debug(f"Created new AgentSession record: {session_id}")
 
@@ -3754,9 +3714,9 @@ class Agent:
                     self.initialize_agent()
                 if self.session_id is None or self.session_id == "":
                     self.session_id = str(uuid4())
-                # write_to_memory() will create a new AgentSession
+                # save_session() will create a new AgentSession
                 # and populate self.agent_session with the new session
-                self.write_to_memory(user_id=self.user_id, session_id=self.session_id)  # type: ignore
+                self.save_session(user_id=self.user_id, session_id=self.session_id)  # type: ignore
                 if self.agent_session is None:
                     raise Exception("Failed to create new AgentSession in storage")
                 log_debug(f"-*- Created AgentSession: {self.agent_session.session_id}")
@@ -5010,7 +4970,7 @@ class Agent:
         # -*- Rename Agent
         self.name = name
         # -*- Save to storage
-        self.write_to_memory(user_id=self.user_id, session_id=session_id)  # type: ignore
+        self.save_session(user_id=self.user_id, session_id=session_id)  # type: ignore
         # -*- Log Agent session
         self._log_agent_session(user_id=self.user_id, session_id=session_id)  # type: ignore
 
@@ -5027,7 +4987,7 @@ class Agent:
         # -*- Rename session
         self.session_name = session_name
         # -*- Save to storage
-        self.write_to_memory(user_id=self.user_id, session_id=session_id)  # type: ignore
+        self.save_session(user_id=self.user_id, session_id=session_id)  # type: ignore
         # -*- Log Agent session
         self._log_agent_session(user_id=self.user_id, session_id=session_id)  # type: ignore
 
@@ -5076,7 +5036,7 @@ class Agent:
         # -*- Rename thread
         self.session_name = generated_session_name
         # -*- Save to storage
-        self.write_to_memory(user_id=self.user_id, session_id=self.session_id)  # type: ignore
+        self.save_session(user_id=self.user_id, session_id=self.session_id)  # type: ignore
         # -*- Log Agent Session
         self._log_agent_session(user_id=self.user_id, session_id=self.session_id)  # type: ignore
 
@@ -6310,7 +6270,7 @@ class Agent:
                             panels.append(citations_panel)
                             live_log.update(Group(*panels))
 
-                if self.memory is not None and isinstance(self.memory, Memory):
+                if self.memory is not None:
                     if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
                         memory_panel = create_panel(
                             content=Text("Memories updated"),
@@ -6321,16 +6281,18 @@ class Agent:
                         live_log.update(Group(*panels))
                         self.memory.memory_manager.memories_updated = False
 
-                    # TODO: Session manager is somewhere else
-                    # if self.memory.summary_manager is not None and self.memory.summary_manager.summary_updated:
-                    #     summary_panel = create_panel(
-                    #         content=Text("Session summary updated"),
-                    #         title="Session Summary",
-                    #         border_style="green",
-                    #     )
-                    #     panels.append(summary_panel)
-                    #     live_log.update(Group(*panels))
-                    #     self.memory.summary_manager.summary_updated = False
+                    if (
+                        self.agent_session is not None
+                        and self.agent_session.summary is not None
+                        and self.enable_session_summaries
+                    ):
+                        summary_panel = create_panel(
+                            content=Text("Session summary updated"),
+                            title="Session Summary",
+                            border_style="green",
+                        )
+                        panels.append(summary_panel)
+                        live_log.update(Group(*panels))
 
                 response_timer.stop()
 
@@ -6490,7 +6452,7 @@ class Agent:
                         panels.append(citations_panel)
                         live_log.update(Group(*panels))
 
-                if self.memory is not None and isinstance(self.memory, Memory):
+                if self.memory is not None:
                     if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
                         memory_panel = create_panel(
                             content=Text("Memories updated"),
@@ -6501,15 +6463,18 @@ class Agent:
                         live_log.update(Group(*panels))
                         self.memory.memory_manager.memories_updated = False
 
-                    # if self.memory.summary_manager is not None and self.memory.summary_manager.summary_updated:
-                    #     summary_panel = create_panel(
-                    #         content=Text("Session summary updated"),
-                    #         title="Session Summary",
-                    #         border_style="green",
-                    #     )
-                    #     panels.append(summary_panel)
-                    #     live_log.update(Group(*panels))
-                    #     self.memory.summary_manager.summary_updated = False
+                if (
+                    self.agent_session is not None
+                    and self.agent_session.summary is not None
+                    and self.enable_session_summaries
+                ):
+                    summary_panel = create_panel(
+                        content=Text("Session summary updated"),
+                        title="Session Summary",
+                        border_style="green",
+                    )
+                    panels.append(summary_panel)
+                    live_log.update(Group(*panels))
 
                 # Final update to remove the "Thinking..." status
                 panels = [p for p in panels if not isinstance(p, Status)]
@@ -6731,7 +6696,7 @@ class Agent:
                             panels.append(citations_panel)
                             live_log.update(Group(*panels))
 
-                if self.memory is not None and isinstance(self.memory, Memory):
+                if self.memory is not None:
                     if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
                         memory_panel = create_panel(
                             content=Text("Memories updated"),
@@ -6742,15 +6707,18 @@ class Agent:
                         live_log.update(Group(*panels))
                         self.memory.memory_manager.memories_updated = False
 
-                    if self.memory.summary_manager is not None and self.memory.summary_manager.summary_updated:
-                        summary_panel = create_panel(
-                            content=Text("Session summary updated"),
-                            title="Session Summary",
-                            border_style="green",
-                        )
-                        panels.append(summary_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.summary_manager.summary_updated = False
+                if (
+                    self.agent_session is not None
+                    and self.agent_session.summary is not None
+                    and self.enable_session_summaries
+                ):
+                    summary_panel = create_panel(
+                        content=Text("Session summary updated"),
+                        title="Session Summary",
+                        border_style="green",
+                    )
+                    panels.append(summary_panel)
+                    live_log.update(Group(*panels))
 
                 response_timer.stop()
 
@@ -6907,7 +6875,7 @@ class Agent:
                         panels.append(citations_panel)
                         live_log.update(Group(*panels))
 
-                if self.memory is not None and isinstance(self.memory, Memory):
+                if self.memory is not None:
                     if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
                         memory_panel = create_panel(
                             content=Text("Memories updated"),
@@ -6918,15 +6886,18 @@ class Agent:
                         live_log.update(Group(*panels))
                         self.memory.memory_manager.memories_updated = False
 
-                    if self.memory.summary_manager is not None and self.memory.summary_manager.summary_updated:
-                        summary_panel = create_panel(
-                            content=Text("Session summary updated"),
-                            title="Session Summary",
-                            border_style="green",
-                        )
-                        panels.append(summary_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.summary_manager.summary_updated = False
+                if (
+                    self.agent_session is not None
+                    and self.agent_session.summary is not None
+                    and self.enable_session_summaries
+                ):
+                    summary_panel = create_panel(
+                        content=Text("Session summary updated"),
+                        title="Session Summary",
+                        border_style="green",
+                    )
+                    panels.append(summary_panel)
+                    live_log.update(Group(*panels))
 
                 # Final update to remove the "Thinking..." status
                 panels = [p for p in panels if not isinstance(p, Status)]

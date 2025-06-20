@@ -556,10 +556,15 @@ class Memory:
 
     def upsert_agent_session(self, session: AgentSession) -> Optional[AgentSession]:
         """Upsert a session into the database."""
+        from copy import deepcopy
+
+        session_copy = deepcopy(session)
+        session_copy.summary = deepcopy(session.summary)
+
         try:
             if not self.db:
                 raise ValueError("Db not initialized")
-            return self.db.upsert_agent_session(session=session)
+            return self.db.upsert_agent_session(session=session_copy)
         except Exception as e:
             log_warning(f"Error upserting session into db: {e}")
             return None

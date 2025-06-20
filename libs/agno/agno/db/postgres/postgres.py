@@ -16,6 +16,7 @@ try:
     from sqlalchemy.schema import Column, MetaData, Table
     from sqlalchemy.sql.expression import select, text
     from sqlalchemy import or_
+    from sqlalchemy import text
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
@@ -938,6 +939,38 @@ class PostgresDb(BaseDb):
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")
+            return []
+
+    def get_unique_topics(self, table: Optional[Table] = None) -> List[str]:
+        """Get all unique topics from memories.
+
+        Args:
+            table (Optional[Table]): The table to read from.
+
+        Returns:
+            List[str]: List of unique topics.
+        """
+        try:
+            if table is None:
+                table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                stmt = select(table.c.memory).where(table.c.memory['topics'].isnot(None)) 
+                result = sess.execute(stmt).fetchall() # Get all memories with topics
+                topics_set = set()
+                for row in result: # loop through all memories with topics
+                    memory_data = row[0]
+                    if isinstance(memory_data, dict) and 'topics' in memory_data:
+                        topics = memory_data['topics']
+                        if isinstance(topics, list):
+                            topics_set.update(topics)
+                
+                unique_topics = sorted(list(topics_set))
+                log_debug(f"Found {len(unique_topics)} unique topics: {unique_topics}")
+                return unique_topics
+
+        except Exception as e:
+            log_debug(f"Exception reading unique topics from table: {e}")
             return []
 
     def get_user_memories(

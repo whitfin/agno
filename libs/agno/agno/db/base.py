@@ -184,6 +184,10 @@ class BaseDb(ABC):
     def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_unique_topics(self) -> List[str]:
+        raise NotImplementedError
+
     # --- Knowledge Table ---
 
     @abstractmethod

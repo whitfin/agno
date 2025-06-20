@@ -32,7 +32,8 @@ from agno.knowledge.agent import AgentKnowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
 from agno.memory.memory import Memory, UserMemory
 from agno.models.base import Model
-from agno.models.message import Citations, Message, MessageMetrics, MessageReferences
+from agno.models.message import Citations, Message, MessageReferences
+from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse, ModelResponseEvent, ToolExecution
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
 from agno.run.base import RunResponseExtraData, RunStatus
@@ -44,7 +45,6 @@ from agno.run.response import (
     RunResponsePausedEvent,
 )
 from agno.session import AgentSession
-from agno.session.metrics import SessionMetrics
 from agno.session.summarizer import SessionSummarizer, SessionSummary
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
@@ -498,7 +498,7 @@ class Agent:
         self.telemetry = telemetry
 
         # --- Params not to be set by user ---
-        self.session_metrics: Optional[SessionMetrics] = None
+        self.session_metrics: Optional[Metrics] = None
 
         self.run_id: Optional[str] = None
         self.run_input: Optional[Union[str, List, Dict, Message]] = None
@@ -682,7 +682,6 @@ class Agent:
         # 3. Add the RunResponse to Agent Session
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -763,7 +762,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -1128,7 +1126,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -1209,7 +1206,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -1784,7 +1780,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -1863,7 +1858,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -2184,7 +2178,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -2265,7 +2258,6 @@ class Agent:
         # 3. Add the run to memory
         self.add_run_to_session(
             run_response=run_response,
-            session_id=session_id,
         )
 
         # We should break out of the run function
@@ -2417,7 +2409,7 @@ class Agent:
                 tool_call_id=tool.tool_call_id,
                 tool_name=tool.tool_name,
                 tool_args=tool.tool_args,
-                metrics=MessageMetrics(time=0),
+                metrics=Metrics(time=0),
             )
         )
 
@@ -2682,24 +2674,25 @@ class Agent:
         # Update the RunResponse messages
         run_response.messages = messages_for_run_response
         # Update the RunResponse metrics
-        run_response.metrics = self.aggregate_metrics_from_messages(messages_for_run_response)
+        run_response.metrics = self.calculate_session_metrics(messages_for_run_response)
 
     def add_run_to_session(
         self,
         run_response: RunResponse,
-        session_id: Optional[str] = None,
     ):
         # Add AgentRun to memory
         self.agent_session.add_run(run=run_response)
 
     def set_session_metrics(self, run_messages: RunMessages):
-        # self.memory = cast(Memory, self.memory)
-
         # Calculate session metrics
         if self.session_metrics is None:
-            self.session_metrics = self.calculate_metrics(run_messages.messages)  # Calculate initial metrics
+            self.session_metrics = self.calculate_session_metrics(
+                run_messages.messages, for_session=True
+            )  # Calculate initial metrics
         else:
-            self.session_metrics += self.calculate_metrics(run_messages.messages)  # Update metrics
+            self.session_metrics += self.calculate_session_metrics(
+                run_messages.messages, for_session=True
+            )  # Update metrics
 
     def update_memory(
         self,
@@ -2777,7 +2770,7 @@ class Agent:
         # Update the RunResponse messages
         run_response.messages = messages_for_run_response
         # Update the RunResponse metrics
-        run_response.metrics = self.aggregate_metrics_from_messages(messages_for_run_response)
+        run_response.metrics = self.calculate_session_metrics(messages_for_run_response)
 
         # Update the run_response audio if streaming
         if model_response.audio is not None:
@@ -2836,7 +2829,7 @@ class Agent:
         # Update the RunResponse messages
         run_response.messages = messages_for_run_response
         # Update the RunResponse metrics
-        run_response.metrics = self.aggregate_metrics_from_messages(messages_for_run_response)
+        run_response.metrics = self.calculate_session_metrics(messages_for_run_response)
 
         # Update the run_response audio if streaming
         if model_response.audio is not None:
@@ -3588,7 +3581,7 @@ class Agent:
             if "session_metrics" in session.session_data:
                 session_metrics_from_db = session.session_data.get("session_metrics")
                 if session_metrics_from_db is not None and isinstance(session_metrics_from_db, dict):
-                    self.session_metrics = SessionMetrics(**session_metrics_from_db)
+                    self.session_metrics = Metrics(**session_metrics_from_db)
 
             # Get images, videos, and audios from the database
             if "images" in session.session_data:
@@ -3636,6 +3629,8 @@ class Agent:
         """
         from time import time
 
+        from agno.db.base import SessionType
+
         # Return existing session if we have one
         if self.agent_session is not None and self.agent_session.session_id == session_id:
             return self.agent_session
@@ -3643,13 +3638,9 @@ class Agent:
         # Try to load from database
         if self.memory is not None and self.memory.db is not None:
             log_debug(f"Reading AgentSession: {session_id}")
-            self.agent_session = cast(AgentSession, self.memory.read_agent_session(session_id=session_id))
-
-            if self.agent_session and self.agent_session.runs:
-                self.agent_session.runs = [RunResponse.from_dict(run) for run in self.agent_session.runs]
-
-            if self.agent_session and self.agent_session.summary:
-                self.agent_session.summary = SessionSummary.from_dict(self.agent_session.summary)
+            self.agent_session = cast(
+                AgentSession, self.memory.read_session(session_id=session_id, session_type=SessionType.AGENT)
+            )
 
             if self.agent_session is not None:
                 self.load_agent_session(session=self.agent_session)
@@ -3681,7 +3672,7 @@ class Agent:
             # Update the session_data with the latest data
             session.session_data = self.get_agent_session_data()
 
-            self.memory.upsert_agent_session(session=session)
+            self.memory.upsert_session(session=session)
 
             log_debug(f"Created new AgentSession record: {session_id}")
 
@@ -4935,27 +4926,26 @@ class Agent:
         else:
             self.run_response.reasoning_content += reasoning_content
 
-    def aggregate_metrics_from_messages(self, messages: List[Message]) -> Dict[str, Any]:
-        aggregated_metrics: Dict[str, Any] = defaultdict(list)
+    # def calculate_session_metrics(self, messages: List[Message]) -> Dict[str, Any]:
+    #     run_metrics: Dict[str, Any] = defaultdict(int)
+    #     assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
+
+    #     for m in messages:
+    #         if m.role == assistant_message_role and m.metrics is not None and m.from_history is False:
+    #             for k, v in asdict(m.metrics).items():
+    #                 if k == "timer":
+    #                     continue
+    #                 elif isinstance(v, (int, float)):
+    #                     run_metrics[k] += v
+    #     return run_metrics
+
+    def calculate_session_metrics(self, messages: List[Message], for_session: bool = False) -> Metrics:
+        metrics = Metrics()
         assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
         for m in messages:
             if m.role == assistant_message_role and m.metrics is not None and m.from_history is False:
-                for k, v in asdict(m.metrics).items():
-                    if k == "timer":
-                        continue
-                    if v is not None:
-                        aggregated_metrics[k].append(v)
-        if aggregated_metrics is not None:
-            aggregated_metrics = dict(aggregated_metrics)
-        return aggregated_metrics
-
-    def calculate_metrics(self, messages: List[Message]) -> SessionMetrics:
-        session_metrics = SessionMetrics()
-        assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
-        for m in messages:
-            if m.role == assistant_message_role and m.metrics is not None:
-                session_metrics += m.metrics
-        return session_metrics
+                metrics += m.metrics
+        return metrics if for_session else metrics._to_dict()
 
     def rename(self, name: str, session_id: Optional[str] = None) -> None:
         """Rename the Agent and save to storage"""

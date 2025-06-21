@@ -26,14 +26,18 @@ content_planner = Agent(
 )
 
 
-def custom_workflow_executor(
+def custom_execution_function(
     workflow: Workflow, execution_input: WorkflowExecutionInput
 ):
     print(f"Executing workflow: {workflow.name}")
 
-    # Run the research team
-    run_response = hackernews_agent.run(execution_input.message)
-    research_content = run_response.content
+    # Run the Hackernews agent to gather research content
+    research_content = ""
+    for response in hackernews_agent.run(
+        execution_input.message, stream=True, stream_intermediate_steps=True
+    ):
+        if hasattr(response, "content") and response.content:
+            research_content += str(response.content)
 
     # Create intelligent planning prompt
     planning_prompt = f"""
@@ -67,18 +71,10 @@ if __name__ == "__main__":
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        executor=custom_workflow_executor,
+        steps=custom_execution_function,
     )
-    print("=== Research Pipeline (Rich Display) ===")
-    try:
-        response = content_creation_workflow.run(
-            message="AI trends in 2024",
-            stream=True,
-            stream_intermediate_steps=True,
-        )
-        pprint_run_response(response, markdown=True)
-    except Exception as e:
-        import traceback
-
-        traceback.print_exc()
-        print(f"Research workflow failed: {e}")
+    response = content_creation_workflow.print_response(
+        message="AI trends in 2024",
+        stream=True,
+        stream_intermediate_steps=True,
+    )

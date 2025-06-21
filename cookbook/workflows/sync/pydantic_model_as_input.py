@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
@@ -6,8 +8,19 @@ from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.workflow.v2.step import Step
 from agno.workflow.v2.workflow import Workflow
+from pydantic import BaseModel, Field
+
+
+class ResearchTopic(BaseModel):
+    """Structured research topic with specific requirements"""
+
+    focus_areas: List[str] = Field(description="Specific areas to focus on")
+    target_audience: str = Field(description="Who this research is for")
+    sources_required: int = Field(description="Number of sources needed", default=5)
+
 
 # Define agents
+
 hackernews_agent = Agent(
     name="Hackernews Agent",
     model=OpenAIChat(id="gpt-4o-mini"),
@@ -61,11 +74,20 @@ if __name__ == "__main__":
         ),
         steps=[research_step, content_planning_step],
     )
-    print("=== Research Pipeline (Rich Display) ===")
-    try:
-        content_creation_workflow.print_response(
-            message="AI trends in 2024",
-            markdown=True,
-        )
-    except Exception as e:
-        print(f"Research workflow failed: {e}")
+
+    print("=== Example: Research with Structured Topic ===")
+    research_topic = ResearchTopic(
+        focus_areas=[
+            "Machine Learning",
+            "Natural Language Processing",
+            "Computer Vision",
+            "AI Ethics",
+        ],
+        target_audience="Tech professionals and business leaders",
+        sources_required=8,
+    )
+    content_creation_workflow.print_response(
+        message="AI trends in 2024",
+        message_data=research_topic,
+        markdown=True,
+    )

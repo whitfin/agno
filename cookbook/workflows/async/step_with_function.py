@@ -75,7 +75,7 @@ async def custom_content_planning_function(
         response_iterator = await content_planner.arun(
             planning_prompt, stream=True, stream_intermediate_steps=True
         )
-        for event in response_iterator:
+        async for event in response_iterator:
             yield event
 
         response = content_planner.run_response
@@ -129,18 +129,12 @@ async def main():
         ),
         steps=[research_step, content_planning_step],
     )
-    print("=== Custom Sequence (Custom Execution Functions) ===")
-    try:
-        await content_creation_workflow.aprint_response(
-            message="AI agent frameworks 2025",
-            markdown=True,
-            stream=True,
-            stream_intermediate_steps=True,
-        )
-    except Exception as e:
-        print(f"Custom workflow failed: {e}")
-
-    print("\n" + "=" * 60 + "\n")
+    await content_creation_workflow.aprint_response(
+        message="AI agent frameworks 2025",
+        markdown=True,
+        stream=True,
+        stream_intermediate_steps=True,
+    )
 
 
 if __name__ == "__main__":

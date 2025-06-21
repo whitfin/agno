@@ -35,7 +35,6 @@ class BaseWorkflowRunResponseEvent:
     # Workflow-specific fields
     workflow_id: Optional[str] = None
     workflow_name: Optional[str] = None
-    pipeline_name: Optional[str] = None
     session_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -179,9 +178,6 @@ class WorkflowRunResponse:
     # Workflow-specific fields
     workflow_id: Optional[str] = None
     workflow_name: Optional[str] = None
-    pipeline_name: Optional[str] = None
-    step_name: Optional[str] = None
-    step_index: Optional[int] = None
 
     run_id: Optional[str] = None
     session_id: Optional[str] = None
@@ -193,7 +189,7 @@ class WorkflowRunResponse:
     response_audio: Optional[AudioResponse] = None
 
     # Store actual step execution results as StepOutput objects
-    step_responses: List["StepOutput"] = field(default_factory=list)
+    step_responses: List[Union["StepOutput", List["StepOutput"]]] = field(default_factory=list)
 
     extra_data: Optional[Dict[str, Any]] = None
     created_at: int = field(default_factory=lambda: int(time()))

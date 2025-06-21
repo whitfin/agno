@@ -133,15 +133,9 @@ if __name__ == "__main__":
         ],
     )
 
-    print("=== Streaming Custom Functions Workflow ===")
-    try:
-        streaming_content_workflow.print_response(
-            message="AI trends in 2024",
-            markdown=True,
-            stream=True,
-            stream_intermediate_steps=True,
-        )
-    except Exception as e:
-        print(f"Streaming workflow failed: {e}")
-
-    print("\n" + "=" * 60 + "\n")
+    streaming_content_workflow.print_response(
+        message="AI trends in 2024",
+        markdown=True,
+        stream=True,
+        stream_intermediate_steps=True,
+    )

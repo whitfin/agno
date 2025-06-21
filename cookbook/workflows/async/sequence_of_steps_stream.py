@@ -1,7 +1,7 @@
 """
-This example shows a basic sequential pipeline of steps that run agents and teams.
+This example shows a basic sequential sequence of steps that run agents and teams.
 
-It is for a content writer that creates posts about tech trends from Hackernews and the web.
+This shows how to stream the response from the steps.
 """
 
 import asyncio
@@ -36,7 +36,6 @@ research_team = Team(
     members=[hackernews_agent, web_agent],
     instructions="Research tech topics from Hackernews and the web",
 )
-
 content_planner = Agent(
     name="Content Planner",
     model=OpenAIChat(id="gpt-4o"),
@@ -70,14 +69,12 @@ async def main():
         ),
         steps=[research_step, content_planning_step],
     )
-    print("=== Research Pipeline (Rich Display) ===")
-    try:
-        await content_creation_workflow.aprint_response(
-            message="AI agent frameworks 2025",
-            markdown=True,
-        )
-    except Exception as e:
-        print(f"Research workflow failed: {e}")
+    await content_creation_workflow.aprint_response(
+        message="AI agent frameworks 2025",
+        markdown=True,
+        stream=True,
+        stream_intermediate_steps=True,
+    )
 
 
 if __name__ == "__main__":

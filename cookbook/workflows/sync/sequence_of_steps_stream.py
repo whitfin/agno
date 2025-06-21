@@ -61,13 +61,9 @@ if __name__ == "__main__":
         ),
         steps=[research_step, content_planning_step],
     )
-    print("=== Research Sequence (Rich Display) ===")
-    try:
-        content_creation_workflow.print_response(
-            message="AI trends in 2024",
-            markdown=True,
-            stream=True,
-            stream_intermediate_steps=True,
-        )
-    except Exception as e:
-        print(f"Research workflow failed: {e}")
+    content_creation_workflow.print_response(
+        message="AI trends in 2024",
+        markdown=True,
+        stream=True,
+        stream_intermediate_steps=True,
+    )

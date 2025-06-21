@@ -1,12 +1,14 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
 from agno.tools.models.gemini import GeminiTools
 from agno.tools.openai import OpenAITools
-from agno.workflow.v2.pipeline import Pipeline
+from agno.workflow.v2.condition import Condition
 from agno.workflow.v2.step import Step
+from agno.workflow.v2.steps import Steps
+from agno.workflow.v2.types import StepInput
 from agno.workflow.v2.workflow import Workflow
 from pydantic import BaseModel
 
@@ -100,22 +102,20 @@ describe_video_step = Step(
 )
 
 # Define the two distinct pipelines
-image_pipeline = Pipeline(
+image_sequence = Steps(
     name="image_generation",
     description="Complete image generation and analysis workflow",
     steps=[generate_image_step, describe_image_step],
 )
 
-video_pipeline = Pipeline(
+video_sequence = Steps(
     name="video_generation",
     description="Complete video production and analysis workflow",
     steps=[generate_video_step, describe_video_step],
 )
 
 
-def media_pipeline_selector(
-    message: str, message_data: Optional[Dict[str, Any]] = None, **kwargs
-) -> str:
+def media_sequence_selector(step_input: StepInput, steps: List[Steps], **kwargs) -> str:
     """
     Smart pipeline selector based on message_data fields.
 
@@ -127,18 +127,21 @@ def media_pipeline_selector(
     Returns:
         Pipeline name to execute
     """
+    image_sequence = steps[0]
+    video_sequence = steps[1]
+
     # Default to image if no structured data provided
-    if not message_data:
-        return "image_generation"
+    if not step_input.message:
+        return image_sequence
 
     # Select pipeline based on content type
-    if message_data.content_type.lower() == "video":
-        return "video_generation"
-    elif message_data.content_type.lower() == "image":
-        return "image_generation"
+    if step_input.message_data.content_type.lower() == "video":
+        return video_sequence
+    elif step_input.message_data.content_type.lower() == "image":
+        return image_sequence
     else:
         # Default to image for unknown types
-        return "image_generation"
+        return image_sequence
 
 
 # Usage examples
@@ -152,47 +155,39 @@ if __name__ == "__main__":
             db_file="tmp/media_workflow_data_v2.db",
             mode="workflow_v2",
         ),
-        pipelines=[image_pipeline, video_pipeline],
+        steps=[
+            Condition(
+                evaluator=media_sequence_selector,
+                steps=[image_sequence, video_sequence],
+            )
+        ],
     )
 
     print("=== Example 1: Image Generation (using message_data) ===")
-    try:
-        image_request = MediaRequest(
-            content_type="image",
-            prompt="A mystical forest with glowing mushrooms",
-            style="fantasy art",
-            resolution="1920x1080",
-        )
+    image_request = MediaRequest(
+        content_type="image",
+        prompt="A mystical forest with glowing mushrooms",
+        style="fantasy art",
+        resolution="1920x1080",
+    )
 
-        media_workflow.print_response(
-            message="Create a magical forest scene",
-            message_data=image_request,
-            # Alternatively supply just the pipeline name string
-            selector=media_pipeline_selector,
-            markdown=True,
-        )
-    except Exception as e:
-        print(f"Image generation failed: {e}")
-
-    print("\n" + "=" * 60 + "\n")
+    media_workflow.print_response(
+        message="Create a magical forest scene",
+        message_data=image_request,
+        markdown=True,
+    )
 
     # print("=== Example 2: Video Generation (using message_data) ===")
-    # try:
-    #     video_request = MediaRequest(
-    #         content_type="video",
-    #         prompt="A time-lapse of a city skyline from day to night",
-    #         style="cinematic",
-    #         duration=30,
-    #         resolution="4K"
-    #     )
+    # video_request = MediaRequest(
+    #     content_type="video",
+    #     prompt="A time-lapse of a city skyline from day to night",
+    #     style="cinematic",
+    #     duration=30,
+    #     resolution="4K"
+    # )
 
-    #     media_workflow.print_response(
-    #         message="Create a cinematic video city timelapse",
-    #         message_data=video_request,
-    #         selector=media_pipeline_selector,
-    #         markdown=True,
-    #     )
-    # except Exception as e:
-    #     print(f"Video generation failed: {e}")
-
-    # print("\n" + "="*60 + "\n")
+    # media_workflow.print_response(
+    #     message="Create a cinematic video city timelapse",
+    #     message_data=video_request,
+    #     markdown=True,
+    # )

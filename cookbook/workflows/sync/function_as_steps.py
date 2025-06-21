@@ -1,18 +1,11 @@
-"""
-This example shows a basic sequential pipeline of steps that run agents and teams.
-
-This shows how to stream the response from the pipeline.
-"""
-
-import asyncio
-
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.storage.sqlite import SqliteStorage
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
-from agno.workflow.v2.step import Step
+from agno.utils.pprint import pprint_run_response
+from agno.workflow.v2.types import WorkflowExecutionInput
 from agno.workflow.v2.workflow import Workflow
 
 # Define agents
@@ -36,6 +29,7 @@ research_team = Team(
     members=[hackernews_agent, web_agent],
     instructions="Research tech topics from Hackernews and the web",
 )
+
 content_planner = Agent(
     name="Content Planner",
     model=OpenAIChat(id="gpt-4o"),
@@ -45,20 +39,41 @@ content_planner = Agent(
     ],
 )
 
-# Define steps
-research_step = Step(
-    name="Research Step",
-    team=research_team,
-)
 
-content_planning_step = Step(
-    name="Content Planning Step",
-    agent=content_planner,
-)
+def custom_execution_function(
+    workflow: Workflow, execution_input: WorkflowExecutionInput
+):
+    print(f"Executing workflow: {workflow.name}")
+
+    # Run the research team
+    run_response = research_team.run(execution_input.message)
+    research_content = run_response.content
+
+    # Create intelligent planning prompt
+    planning_prompt = f"""
+        STRATEGIC CONTENT PLANNING REQUEST:
+
+        Core Topic: {execution_input.message}
+
+        Research Results: {research_content[:500]}
+
+        Planning Requirements:
+        1. Create a comprehensive content strategy based on the research
+        2. Leverage the research findings effectively
+        3. Identify content formats and channels
+        4. Provide timeline and priority recommendations
+        5. Include engagement and distribution strategies
+
+        Please create a detailed, actionable content plan.
+    """
+    content_plan = content_planner.run(planning_prompt)
+
+    # Return the content plan
+    return content_plan.content
 
 
 # Create and use workflow
-async def main():
+if __name__ == "__main__":
     content_creation_workflow = Workflow(
         name="Content Creation Workflow",
         description="Automated content creation from blog posts to social media",
@@ -67,19 +82,8 @@ async def main():
             db_file="tmp/workflow_v2.db",
             mode="workflow_v2",
         ),
-        steps=[research_step, content_planning_step],
+        steps=custom_execution_function,
     )
-    print("=== Research Pipeline (Rich Display) ===")
-    try:
-        await content_creation_workflow.aprint_response(
-            message="AI agent frameworks 2025",
-            markdown=True,
-            stream=True,
-            stream_intermediate_steps=True,
-        )
-    except Exception as e:
-        print(f"Research workflow failed: {e}")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    response = content_creation_workflow.print_response(
+        message="AI trends in 2024",
+    )

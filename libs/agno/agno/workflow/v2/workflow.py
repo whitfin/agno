@@ -1,40 +1,49 @@
-from dataclasses import dataclass, field
+import inspect
+from dataclasses import dataclass
 from datetime import datetime
 from os import getenv
 from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Literal, Optional, Union, overload
 from uuid import uuid4
 
 from pydantic import BaseModel
-from typing_extensions import get_args
 
 from agno.media import Audio, Image, Video
 from agno.run.base import RunStatus
-from agno.run.response import RunResponseEvent
-from agno.run.team import TeamRunResponseEvent
 from agno.run.v2.workflow import (
     StepCompletedEvent,
     StepStartedEvent,
     WorkflowCompletedEvent,
-    WorkflowRunEvent,
     WorkflowRunResponse,
     WorkflowRunResponseEvent,
     WorkflowStartedEvent,
 )
 from agno.storage.base import Storage
 from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
-from agno.utils.log import log_debug, log_info, logger, set_log_level_to_debug, set_log_level_to_info
-from agno.utils.merge_dict import merge_dictionaries
-from agno.workflow.v2.pipeline import Pipeline
+from agno.utils.log import log_debug, logger, set_log_level_to_debug, set_log_level_to_info
+from agno.workflow.v2.condition import Condition
+from agno.workflow.v2.loop import Loop
+from agno.workflow.v2.parallel import Parallel
 from agno.workflow.v2.step import Step
-from agno.workflow.v2.types import WorkflowExecutionInput
+from agno.workflow.v2.steps import Steps
+from agno.workflow.v2.types import StepInput, StepOutput, WorkflowExecutionInput
 
-WorkflowExecutor = Callable[
-    ["Workflow", WorkflowExecutionInput],
-    Union[
-        Any,
-        Iterator[Any],
-        Awaitable[Any],
-        AsyncIterator[Any],
+WorkflowSteps = Union[
+    Callable[
+        ["Workflow", WorkflowExecutionInput],
+        Union[StepOutput, Awaitable[StepOutput], Iterator[StepOutput], AsyncIterator[StepOutput], Any],
+    ],
+    Steps,
+    List[
+        Union[
+            Callable[
+                [StepInput], Union[StepOutput, Awaitable[StepOutput], Iterator[StepOutput], AsyncIterator[StepOutput]]
+            ],
+            Step,
+            Steps,
+            Loop,
+            Parallel,
+            Condition,
+        ]
     ],
 ]
 
@@ -49,11 +58,7 @@ class Workflow:
     description: Optional[str] = None
 
     # Workflow configuration
-    pipelines: List[Pipeline] = field(default_factory=list)
-    steps: Optional[List[Step]] = field(default_factory=list)
-
-    # Custom executor for the workflow
-    executor: Optional[WorkflowExecutor] = None
+    steps: Optional[WorkflowSteps] = None
 
     storage: Optional[Storage] = None
 
@@ -77,9 +82,7 @@ class Workflow:
         name: Optional[str] = None,
         description: Optional[str] = None,
         storage: Optional[Storage] = None,
-        pipelines: Optional[List[Pipeline]] = None,
-        steps: Optional[List[Step]] = None,
-        executor: Optional[WorkflowExecutor] = None,
+        steps: Optional[WorkflowSteps] = None,
         session_id: Optional[str] = None,
         workflow_session_state: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
@@ -89,9 +92,7 @@ class Workflow:
         self.name = name
         self.description = description
         self.storage = storage
-        self.pipelines = pipelines
         self.steps = steps
-        self.executor = executor
         self.session_id = session_id
         self.workflow_session_state = workflow_session_state
         self.user_id = user_id
@@ -112,43 +113,17 @@ class Workflow:
 
         self._update_workflow_session_state()
 
-        # Initialize pipelines/steps
-        for pipeline in self.pipelines or []:
-            pipeline.initialize()
-            for step in pipeline.steps:
-                active_executor = step.active_executor
-
-                if hasattr(active_executor, "workflow_session_id"):
-                    active_executor.workflow_session_id = self.session_id
-                if hasattr(active_executor, "workflow_id"):
-                    active_executor.workflow_id = self.workflow_id
-
-                if self.workflow_session_state is not None:
-                    # Initialize session_state if it doesn't exist
-                    if hasattr(active_executor, "workflow_session_state"):
-                        if active_executor.workflow_session_state is None:
-                            active_executor.workflow_session_state = {}
-
-                # If it's a team, update all members
-                if hasattr(active_executor, "members"):
-                    for member in active_executor.members:
-                        member.workflow_session_id = self.session_id
-                        member.workflow_id = self.workflow_id
-
-                        # Initialize session_state if it doesn't exist
-                        if member.workflow_session_state is None:
-                            member.workflow_session_state = {}
-
     def _set_debug(self) -> None:
         """Set debug mode and configure logging"""
         if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
             self.debug_mode = True
             set_log_level_to_debug()
 
-            # Propagate to pipelines
-            for pipeline in self.pipelines:
-                # Propagate to steps in pipeline
-                for step in pipeline.steps:
+            # Propagate to steps - only if steps is iterable (not callable)
+            if self.steps and not isinstance(self.steps, Callable):
+                for step in self.steps:
+                    # TODO: Handle properly steps inside other primitives
+
                     # Propagate to step executors (agents/teams)
                     if hasattr(step, "active_executor") and step.active_executor:  # Fixed: removed underscore
                         executor = step.active_executor
@@ -163,151 +138,193 @@ class Workflow:
         else:
             set_log_level_to_info()
 
-    def _auto_create_pipeline_from_steps(self):
-        """Auto-create a pipeline from steps for manual triggers"""
-        # Only auto-create for manual triggers and when steps are provided but no pipelines
-        if self.steps and not self.pipelines:
-            # Create a default pipeline_name
-            pipeline_name = "Default Pipeline"
+    def _get_step_count(self) -> int:
+        """Get the number of steps in the workflow"""
+        if self.steps is None:
+            return 0
+        elif isinstance(self.steps, Callable):
+            return 1  # Callable function counts as 1 step
+        else:
+            return len(self.steps)
 
-            # Create pipeline from steps
-            auto_pipeline = Pipeline(
-                name=pipeline_name,
-                description=f"Auto-generated pipeline for workflow {self.name}",
-                steps=self.steps.copy(),
-            )
-
-            # Add to pipelines
-            self.pipelines = [auto_pipeline]
-
-            log_info(f"Auto-created pipeline for workflow {self.name} with {len(self.steps)} steps")
-
-    def execute(
-        self, pipeline: Pipeline, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
+    def _execute(
+        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
     ) -> WorkflowRunResponse:
         """Execute a specific pipeline by name synchronously"""
-        self._set_debug()
 
-        log_debug(f"Starting workflow execution: {self.run_id}")
         workflow_run_response.status = RunStatus.running
 
-        if self.executor:
-            # Execute the workflow with the custom executor
-            workflow_run_response.content = self.executor(self, execution_input)
-            workflow_run_response.status = RunStatus.completed
+        if isinstance(self.steps, Callable):
+            if inspect.iscoroutinefunction(self.steps) or inspect.isasyncgenfunction(self.steps):
+                raise ValueError("Cannot use async function with synchronous execution")
+            elif inspect.isgeneratorfunction(self.steps):
+                content = ""
+                for chunk in self.steps(self, execution_input):
+                    if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
+                        content += chunk.content
+                    else:
+                        content += str(chunk)
+                workflow_run_response.content = content
+            else:
+                # Execute the workflow with the custom executor
+                workflow_run_response.content = self.steps(self, execution_input)
 
+            workflow_run_response.status = RunStatus.completed
         else:
             try:
-                # Execute the pipeline synchronously - pass WorkflowRunResponse instead of context
-                pipeline.execute(
-                    pipeline_input=execution_input,
-                    workflow_run_response=workflow_run_response,
-                    session_id=self.session_id,
-                    user_id=self.user_id,
-                )
+                # Track outputs from each step for chaining
+                collected_step_outputs: List[Union[StepOutput, List[StepOutput]]] = []
 
-                # Collect updated workflow_session_state from agents after execution
-                self._collect_workflow_session_state_from_agents_and_teams()
+                shared_images = execution_input.images or []
+                output_images = []
+                shared_videos = execution_input.videos or []
+                output_videos = []
+                shared_audio = execution_input.audio or []
+                output_audio = []
+                previous_step_content = None
+
+                for i, step in enumerate(self.steps):
+                    log_debug(f"Executing step {i + 1}/{self._get_step_count()}: {step.name}")
+                    step_input = StepInput(
+                        message=execution_input.message,
+                        message_data=execution_input.message_data,
+                        previous_step_content=previous_step_content,
+                        images=shared_images,
+                        videos=shared_videos,
+                        audio=shared_audio,
+                    )
+
+                    # Execute the step (non-streaming)
+                    step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)
+
+                    self._collect_workflow_session_state_from_agents_and_teams()
+
+                    previous_step_content = step_output.content
+                    shared_images.extend(step_output.images or [])
+                    output_images.extend(step_output.images or [])
+                    shared_videos.extend(step_output.videos or [])
+                    output_videos.extend(step_output.videos or [])
+                    shared_audio.extend(step_output.audio or [])
+                    output_audio.extend(step_output.audio or [])
+
+                    # Collect the StepOutput for storage
+                    collected_step_outputs.append(step_output)
+
+                # Update the workflow_run_response with completion data
+                workflow_run_response.content = collected_step_outputs[
+                    -1
+                ].content  # Final workflow response output is the last step's output
+                workflow_run_response.step_responses = collected_step_outputs
+                workflow_run_response.images = output_images
+                workflow_run_response.videos = output_videos
+                workflow_run_response.audio = output_audio
+                workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
                 logger.error(f"Workflow execution failed: {e}")
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Workflow execution failed: {e}"
 
-        # Store error response
-        if self.workflow_session:
-            self.workflow_session.add_run(workflow_run_response)
-        self.write_to_storage()
+            # Store error response
+            if self.workflow_session:
+                self.workflow_session.add_run(workflow_run_response)
+            self.write_to_storage()
 
         return workflow_run_response
 
-    def execute_stream(
+    def _execute_stream(
         self,
-        pipeline: Pipeline,
         execution_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
     ) -> Iterator[WorkflowRunResponseEvent]:
         """Execute a specific pipeline by name with event streaming"""
-        self._set_debug()
 
-        log_debug(f"Starting workflow execution with streaming: {self.run_id}")
         workflow_run_response.status = RunStatus.running
+        yield WorkflowStartedEvent(
+            run_id=workflow_run_response.run_id or "",
+            workflow_name=workflow_run_response.workflow_name,
+            workflow_id=workflow_run_response.workflow_id,
+            session_id=workflow_run_response.session_id,
+        )
 
-        if self.executor:
-            yield WorkflowStartedEvent(
-                run_id=workflow_run_response.run_id or "",
-                workflow_name=workflow_run_response.workflow_name,
-                workflow_id=workflow_run_response.workflow_id,
-                session_id=workflow_run_response.session_id,
-            )
-
-            import inspect
-
-            # Execute the workflow with the custom executor
-            if inspect.isgeneratorfunction(self.executor):
+        if isinstance(self.steps, Callable):
+            if inspect.iscoroutinefunction(self.steps) or inspect.isasyncgenfunction(self.steps):
+                raise ValueError("Cannot use async function with synchronous execution")
+            elif inspect.isgeneratorfunction(self.steps):
                 content = ""
-                for chunk in self.executor(self, execution_input):
-                    if (
-                        isinstance(chunk, tuple(get_args(RunResponseEvent)))
-                        or isinstance(chunk, tuple(get_args(TeamRunResponseEvent)))
-                        or isinstance(chunk, tuple(get_args(WorkflowRunResponseEvent)))
-                    ):
-                        # Update the run_response with the content from the result
-                        if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
-                            content += chunk.content
-                    yield chunk
+                for chunk in self.steps(self, execution_input):
+                    # Update the run_response with the content from the result
+                    if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
+                        content += chunk.content
+                        yield chunk
+                    else:
+                        content += str(chunk)
                 workflow_run_response.content = content
             else:
-                workflow_run_response.content = self.executor(self, execution_input)
-
+                workflow_run_response.content = self.steps(self, execution_input)
             workflow_run_response.status = RunStatus.completed
-            yield WorkflowCompletedEvent(
-                run_id=workflow_run_response.run_id or "",
-                content=workflow_run_response.content,
-                workflow_name=workflow_run_response.workflow_name,
-                workflow_id=workflow_run_response.workflow_id,
-                session_id=workflow_run_response.session_id,
-            )
+
         else:
             try:
-                # Update pipeline info in the response
-                workflow_run_response.pipeline_name = pipeline.name
+                # Track outputs from each step for chaining
+                collected_step_outputs: List[Union[StepOutput, List[StepOutput]]] = []
 
-                log_debug("Yielding WorkflowStartedEvent")
-                yield WorkflowStartedEvent(
-                    run_id=workflow_run_response.run_id or "",
-                    workflow_name=workflow_run_response.workflow_name,
-                    pipeline_name=pipeline.name,
-                    workflow_id=workflow_run_response.workflow_id,
-                    session_id=workflow_run_response.session_id,
-                )
+                shared_images = execution_input.images or []
+                output_images = []
+                shared_videos = execution_input.videos or []
+                output_videos = []
+                shared_audio = execution_input.audio or []
+                output_audio = []
+                previous_step_content = None
 
-                # Execute the pipeline with streaming and yield all events
-                for event in pipeline.execute_stream(
-                    pipeline_input=execution_input,
-                    workflow_run_response=workflow_run_response,
-                    session_id=self.session_id,
-                    user_id=self.user_id,
-                    stream_intermediate_steps=stream_intermediate_steps,
-                ):
-                    yield event
+                for i, step in enumerate(self.steps):
+                    log_debug(f"Streaming step {i + 1}/{self._get_step_count()}: {step.name}")
 
-                log_debug("Yielding WorkflowCompletedEvent")
-                # Yield workflow completed event
-                yield WorkflowCompletedEvent(
-                    run_id=workflow_run_response.run_id or "",
-                    content=workflow_run_response.content,
-                    workflow_name=workflow_run_response.workflow_name,
-                    pipeline_name=pipeline.name,
-                    workflow_id=workflow_run_response.workflow_id,
-                    session_id=workflow_run_response.session_id,
-                    step_responses=workflow_run_response.step_responses,
-                    extra_data=workflow_run_response.extra_data,
-                )
+                    # Create StepInput for this step
+                    step_input = StepInput(
+                        message=execution_input.message,
+                        message_data=execution_input.message_data,
+                        previous_step_content=previous_step_content,
+                        images=shared_images,
+                        videos=shared_videos,
+                        audio=shared_audio,
+                    )
 
-                # Collect updated workflow_session_state from agents after execution
-                self._collect_workflow_session_state_from_agents_and_teams()
+                    # Execute step with streaming and yield all events
+                    for event in step.execute_stream(
+                        step_input,
+                        session_id=self.session_id,
+                        user_id=self.user_id,
+                        stream_intermediate_steps=stream_intermediate_steps,
+                        workflow_run_response=workflow_run_response,
+                        step_index=i,
+                    ):
+                        if isinstance(event, StepOutput):
+                            collected_step_outputs.append(event)
+
+                            previous_step_content = event.content
+                            shared_images.extend(event.images or [])
+                            output_images.extend(event.images or [])
+                            shared_videos.extend(event.videos or [])
+                            output_videos.extend(event.videos or [])
+                            shared_audio.extend(event.audio or [])
+                            output_audio.extend(event.audio or [])
+                        else:
+                            # Yield other internal events
+                            yield event
+
+                    self._collect_workflow_session_state_from_agents_and_teams()
+
+                # Update the workflow_run_response with completion data
+                workflow_run_response.content = collected_step_outputs[
+                    -1
+                ].content  # Final workflow response output is the last step's output
+                workflow_run_response.step_responses = collected_step_outputs
+                workflow_run_response.images = output_images
+                workflow_run_response.videos = output_videos
+                workflow_run_response.audio = output_audio
+                workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
                 logger.error(f"Workflow execution failed: {e}")
@@ -318,7 +335,6 @@ class Workflow:
                     run_id=self.run_id or "",
                     workflow_id=self.workflow_id,
                     workflow_name=self.name,
-                    pipeline_name=pipeline.name,
                     session_id=self.session_id,
                     error=str(e),
                 )
@@ -328,6 +344,17 @@ class Workflow:
                 # Update workflow_run_response with error
                 workflow_run_response.content = error_event.error
                 workflow_run_response.status = RunStatus.error
+
+        # Yield workflow completed event
+        yield WorkflowCompletedEvent(
+            run_id=workflow_run_response.run_id or "",
+            content=workflow_run_response.content,
+            workflow_name=workflow_run_response.workflow_name,
+            workflow_id=workflow_run_response.workflow_id,
+            session_id=workflow_run_response.session_id,
+            step_responses=workflow_run_response.step_responses,
+            extra_data=workflow_run_response.extra_data,
+        )
 
         # Store the completed workflow response
         if self.workflow_session:
@@ -336,34 +363,89 @@ class Workflow:
         # Save to storage after complete execution
         self.write_to_storage()
 
-    async def aexecute(
-        self, pipeline: Pipeline, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
+    async def _aexecute(
+        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
     ) -> WorkflowRunResponse:
         """Execute a specific pipeline by name synchronously"""
-        log_debug(f"Starting async workflow execution: {self.run_id}")
+
         workflow_run_response.status = RunStatus.running
 
-        if self.executor:
+        if isinstance(self.steps, Callable):
             # Execute the workflow with the custom executor
-            workflow_run_response.content = self.executor(self, execution_input)
+            content = ""
+
+            if inspect.iscoroutinefunction(self.steps):
+                workflow_run_response.content = await self.steps(self, execution_input)
+            elif inspect.isgeneratorfunction(self.steps):
+                for chunk in self.steps(self, execution_input):
+                    if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
+                        content += chunk.content
+                    else:
+                        content += str(chunk)
+                workflow_run_response.content = content
+            elif inspect.isasyncgenfunction(self.steps):
+                async for chunk in self.steps(self, execution_input):
+                    if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
+                        content += chunk.content
+                    else:
+                        content += str(chunk)
+                workflow_run_response.content = content
+            else:
+                workflow_run_response.content = self.steps(self, execution_input)
             workflow_run_response.status = RunStatus.completed
 
         else:
             try:
-                # Execute the pipeline asynchronously - pass WorkflowRunResponse instead of context
-                await pipeline.aexecute(
-                    pipeline_input=execution_input,
-                    workflow_run_response=workflow_run_response,
-                    session_id=self.session_id,
-                    user_id=self.user_id,
-                )
+                # Track outputs from each step for chaining
+                collected_step_outputs: List[Union[StepOutput, List[StepOutput]]] = []
 
-                # Collect updated workflow_session_state from agents after execution
-                self._collect_workflow_session_state_from_agents_and_teams()
+                shared_images = execution_input.images or []
+                output_images = []
+                shared_videos = execution_input.videos or []
+                output_videos = []
+                shared_audio = execution_input.audio or []
+                output_audio = []
+                previous_step_content = None
+
+                for i, step in enumerate(self.steps):
+                    log_debug(f"Executing step {i + 1}/{self._get_step_count()}: {step.name}")
+                    step_input = StepInput(
+                        message=execution_input.message,
+                        message_data=execution_input.message_data,
+                        previous_step_content=previous_step_content,
+                        images=shared_images,
+                        videos=shared_videos,
+                        audio=shared_audio,
+                    )
+
+                    # Execute the step (non-streaming)
+                    step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)
+
+                    self._collect_workflow_session_state_from_agents_and_teams()
+
+                    previous_step_content = step_output.content
+                    shared_images.extend(step_output.images or [])
+                    output_images.extend(step_output.images or [])
+                    shared_videos.extend(step_output.videos or [])
+                    output_videos.extend(step_output.videos or [])
+                    shared_audio.extend(step_output.audio or [])
+                    output_audio.extend(step_output.audio or [])
+
+                    # Collect the StepOutput for storage
+                    collected_step_outputs.append(step_output)
+
+                # Update the workflow_run_response with completion data
+                workflow_run_response.content = collected_step_outputs[
+                    -1
+                ].content  # Final workflow response output is the last step's output
+                workflow_run_response.step_responses = collected_step_outputs
+                workflow_run_response.images = output_images
+                workflow_run_response.videos = output_videos
+                workflow_run_response.audio = output_audio
+                workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
                 logger.error(f"Workflow execution failed: {e}")
-
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Workflow execution failed: {e}"
 
@@ -374,98 +456,107 @@ class Workflow:
 
         return workflow_run_response
 
-    async def aexecute_stream(
+    async def _aexecute_stream(
         self,
-        pipeline: Pipeline,
         execution_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
         """Execute a specific pipeline by name with event streaming"""
-        log_debug(f"Starting async workflow execution with streaming: {self.run_id}")
+
         workflow_run_response.status = RunStatus.running
+        yield WorkflowStartedEvent(
+            run_id=workflow_run_response.run_id or "",
+            workflow_name=workflow_run_response.workflow_name,
+            workflow_id=workflow_run_response.workflow_id,
+            session_id=workflow_run_response.session_id,
+        )
 
-        if self.executor:
-            yield WorkflowStartedEvent(
-                run_id=workflow_run_response.run_id or "",
-                workflow_name=workflow_run_response.workflow_name,
-                workflow_id=workflow_run_response.workflow_id,
-                session_id=workflow_run_response.session_id,
-            )
-
-            import inspect
-
-            # Execute the workflow with the custom executor
-            if inspect.isasyncgenfunction(self.executor):
+        if isinstance(self.steps, Callable):
+            if inspect.iscoroutinefunction(self.steps):
+                workflow_run_response.content = await self.steps(self, execution_input)
+            elif inspect.isgeneratorfunction(self.steps):
                 content = ""
-                async for chunk in self.executor(self, execution_input):
-                    content += chunk
-                    yield chunk
+                for chunk in self.steps(self, execution_input):
+                    if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
+                        content += chunk.content
+                        yield chunk
+                    else:
+                        content += str(chunk)
                 workflow_run_response.content = content
-            elif inspect.isgeneratorfunction(self.executor):
+            elif inspect.isasyncgenfunction(self.steps):
                 content = ""
-                for chunk in self.executor(self, execution_input):
-                    if (
-                        isinstance(chunk, tuple(get_args(RunResponseEvent)))
-                        or isinstance(chunk, tuple(get_args(TeamRunResponseEvent)))
-                        or isinstance(chunk, tuple(get_args(WorkflowRunResponseEvent)))
-                    ):
-                        # Update the run_response with the content from the result
-                        if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
-                            content += chunk.content
-                    yield chunk
+                async for chunk in self.steps(self, execution_input):
+                    if hasattr(chunk, "content") and chunk.content is not None and isinstance(chunk.content, str):
+                        content += chunk.content
+                        yield chunk
+                    else:
+                        content += str(chunk)
                 workflow_run_response.content = content
             else:
-                workflow_run_response.content = self.executor(self, execution_input)
-
+                workflow_run_response.content = self.steps(self, execution_input)
             workflow_run_response.status = RunStatus.completed
 
-            yield WorkflowCompletedEvent(
-                run_id=workflow_run_response.run_id or "",
-                content=workflow_run_response.content,
-                workflow_name=workflow_run_response.workflow_name,
-                workflow_id=workflow_run_response.workflow_id,
-                session_id=workflow_run_response.session_id,
-            )
         else:
             try:
-                # Update pipeline info in the response
-                workflow_run_response.pipeline_name = pipeline.name
+                # Track outputs from each step for chaining
+                collected_step_outputs: List[Union[StepOutput, List[StepOutput]]] = []
 
-                log_debug("Yielding WorkflowStartedEvent")
-                yield WorkflowStartedEvent(
-                    run_id=workflow_run_response.run_id or "",
-                    workflow_name=workflow_run_response.workflow_name,
-                    pipeline_name=pipeline.name,
-                    workflow_id=workflow_run_response.workflow_id,
-                    session_id=workflow_run_response.session_id,
-                )
+                shared_images = execution_input.images or []
+                output_images = []
+                shared_videos = execution_input.videos or []
+                output_videos = []
+                shared_audio = execution_input.audio or []
+                output_audio = []
+                previous_step_content = None
 
-                # Execute the pipeline with streaming and yield all events
-                async for event in pipeline.aexecute_stream(
-                    pipeline_input=execution_input,
-                    workflow_run_response=workflow_run_response,
-                    session_id=self.session_id,
-                    user_id=self.user_id,
-                    stream_intermediate_steps=stream_intermediate_steps,
-                ):
-                    yield event
+                for i, step in enumerate(self.steps):
+                    log_debug(f"Streaming step {i + 1}/{self._get_step_count()}: {step.name}")
 
-                log_debug("Yielding WorkflowCompletedEvent")
-                # Yield workflow completed event
-                yield WorkflowCompletedEvent(
-                    run_id=workflow_run_response.run_id or "",
-                    content=workflow_run_response.content,
-                    workflow_name=workflow_run_response.workflow_name,
-                    pipeline_name=pipeline.name,
-                    workflow_id=workflow_run_response.workflow_id,
-                    session_id=workflow_run_response.session_id,
-                    step_responses=workflow_run_response.step_responses,
-                    extra_data=workflow_run_response.extra_data,
-                )
+                    # Create StepInput for this step
+                    step_input = StepInput(
+                        message=execution_input.message,
+                        message_data=execution_input.message_data,
+                        previous_step_content=previous_step_content,
+                        images=shared_images,
+                        videos=shared_videos,
+                        audio=shared_audio,
+                    )
 
-                # Collect updated workflow_session_state from agents after execution
-                self._collect_workflow_session_state_from_agents_and_teams()
+                    # Execute step with streaming and yield all events
+                    async for event in step.aexecute_stream(
+                        step_input,
+                        session_id=self.session_id,
+                        user_id=self.user_id,
+                        stream_intermediate_steps=stream_intermediate_steps,
+                        workflow_run_response=workflow_run_response,
+                        step_index=i,
+                    ):
+                        if isinstance(event, StepOutput):
+                            collected_step_outputs.append(event)
+
+                            previous_step_content = event.content
+                            shared_images.extend(event.images or [])
+                            output_images.extend(event.images or [])
+                            shared_videos.extend(event.videos or [])
+                            output_videos.extend(event.videos or [])
+                            shared_audio.extend(event.audio or [])
+                            output_audio.extend(event.audio or [])
+                        else:
+                            # Yield other internal events
+                            yield event
+
+                    self._collect_workflow_session_state_from_agents_and_teams()
+
+                # Update the workflow_run_response with completion data
+                workflow_run_response.content = collected_step_outputs[
+                    -1
+                ].content  # Final workflow response output is the last step's output
+                workflow_run_response.step_responses = collected_step_outputs
+                workflow_run_response.images = output_images
+                workflow_run_response.videos = output_videos
+                workflow_run_response.audio = output_audio
+                workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
                 logger.error(f"Workflow execution failed: {e}")
@@ -476,18 +567,32 @@ class Workflow:
                     run_id=self.run_id or "",
                     workflow_id=self.workflow_id,
                     workflow_name=self.name,
-                    pipeline_name=pipeline.name,
                     session_id=self.session_id,
                     error=str(e),
                 )
+
                 yield error_event
+
                 # Update workflow_run_response with error
                 workflow_run_response.content = error_event.error
-                workflow_run_response.event = WorkflowRunEvent.workflow_error
+                workflow_run_response.status = RunStatus.error
 
-        # Store error response
+        # Yield workflow completed event
+        yield WorkflowCompletedEvent(
+            run_id=workflow_run_response.run_id or "",
+            content=workflow_run_response.content,
+            workflow_name=workflow_run_response.workflow_name,
+            workflow_id=workflow_run_response.workflow_id,
+            session_id=workflow_run_response.session_id,
+            step_responses=workflow_run_response.step_responses,
+            extra_data=workflow_run_response.extra_data,
+        )
+
+        # Store the completed workflow response
         if self.workflow_session:
             self.workflow_session.add_run(workflow_run_response)
+
+        # Save to storage after complete execution
         self.write_to_storage()
 
     def _update_workflow_session_state(self):
@@ -511,7 +616,6 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -526,7 +630,6 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -540,7 +643,6 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -550,8 +652,11 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = None,
     ) -> Union[WorkflowRunResponse, Iterator[WorkflowRunResponseEvent]]:
         """Execute the workflow synchronously with optional streaming"""
+        self._set_debug()
+
         log_debug(f"Workflow Run Start: {self.name}", center=True)
         log_debug(f"Stream: {stream}")
+        log_debug(f"Total steps: {self._get_step_count()}")
 
         if user_id is not None:
             self.user_id = user_id
@@ -560,7 +665,6 @@ class Workflow:
             self.session_id = session_id
             log_debug(f"Session ID: {session_id}")
 
-        self._auto_create_pipeline_from_steps()
         self.run_id = str(uuid4())
 
         self.initialize_workflow()
@@ -568,26 +672,12 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        if self.pipelines:
-            selected_pipeline_name = self._get_pipeline_name(
-                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-            )
-
-            pipeline = self.get_pipeline(selected_pipeline_name)
-            log_debug(f"Pipeline found with {len(pipeline.steps)} steps")
-            if not pipeline:
-                raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
-        else:
-            pipeline = None
-            selected_pipeline_name = "Custom Executor"
-
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
             run_id=self.run_id,
             session_id=self.session_id,
             workflow_id=self.workflow_id,
             workflow_name=self.name,
-            pipeline_name=selected_pipeline_name,
             created_at=int(datetime.now().timestamp()),
         )
         self.run_response = workflow_run_response
@@ -603,22 +693,22 @@ class Workflow:
             f"Created pipeline input with session state keys: {list(self.workflow_session_state.keys()) if self.workflow_session_state else 'None'}"
         )
 
+        self.update_agents_and_teams_session_info()
+
         if stream:
-            return self.execute_stream(
-                pipeline=pipeline,
+            return self._execute_stream(
                 execution_input=inputs,
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
         else:
-            return self.execute(pipeline=pipeline, execution_input=inputs, workflow_run_response=workflow_run_response)
+            return self._execute(execution_input=inputs, workflow_run_response=workflow_run_response)
 
     @overload
     async def arun(
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -633,7 +723,6 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -647,7 +736,6 @@ class Workflow:
         self,
         message: str = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -668,7 +756,6 @@ class Workflow:
             self.session_id = session_id
             log_debug(f"Session ID: {session_id}")
 
-        self._auto_create_pipeline_from_steps()
         self.run_id = str(uuid4())
 
         self.initialize_workflow()
@@ -676,26 +763,12 @@ class Workflow:
         # Load or create session
         self.load_session()
 
-        if self.pipelines:
-            selected_pipeline_name = self._get_pipeline_name(
-                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-            )
-
-            pipeline = self.get_pipeline(selected_pipeline_name)
-            log_debug(f"Pipeline found with {len(pipeline.steps)} steps")
-            if not pipeline:
-                raise ValueError(f"Pipeline '{selected_pipeline_name}' not found")
-        else:
-            pipeline = None
-            selected_pipeline_name = "Custom Executor"
-
         # Create workflow run response that will be updated by reference
         workflow_run_response = WorkflowRunResponse(
             run_id=self.run_id,
             session_id=self.session_id,
             workflow_id=self.workflow_id,
             workflow_name=self.name,
-            pipeline_name=selected_pipeline_name,
             created_at=int(datetime.now().timestamp()),
         )
         self.run_response = workflow_run_response
@@ -711,87 +784,36 @@ class Workflow:
             f"Created async pipeline input with session state keys: {list(self.workflow_session_state.keys()) if self.workflow_session_state else 'None'}"
         )
 
+        self.update_agents_and_teams_session_info()
+
         if stream:
-            return self.aexecute_stream(
-                pipeline=pipeline,
+            return self._aexecute_stream(
                 execution_input=inputs,
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
         else:
-            return await self.aexecute(
-                pipeline=pipeline, execution_input=inputs, workflow_run_response=workflow_run_response
-            )
-
-    def _get_pipeline_name(
-        self,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
-        message: Optional[str] = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        user_id: Optional[str] = None,
-        session_id: Optional[str] = None,
-    ) -> str:
-        """Get pipeline name from selector or default to first pipeline"""
-        if selector:
-            if isinstance(selector, str):
-                # String selector - direct pipeline name
-                selected_name = selector
-                log_debug(f"Using string selector: {selected_name}")
-            elif callable(selector):
-                # Callable selector - call with context
-                try:
-                    selected_name = selector(
-                        message=message,
-                        message_data=message_data,
-                        user_id=user_id,
-                        session_id=session_id,
-                        pipelines=[p.name for p in self.pipelines],
-                        workflow=self,
-                    )
-                    log_debug(f"Callable selector returned: {selected_name}")
-                except Exception as e:
-                    log_debug(f"Selector function failed: {e}")
-                    raise ValueError(f"Pipeline selector function failed: {e}")
-            else:
-                raise ValueError(f"Invalid selector type: {type(selector)}. Must be string or callable.")
-
-            # Validate selected pipeline exists
-            target_pipeline = self.get_pipeline(selected_name)
-            if not target_pipeline:
-                available_pipelines = [seq.name for seq in self.pipelines]
-                raise ValueError(
-                    f"Selector returned invalid pipeline '{selected_name}'. Available pipelines: {available_pipelines}"
-                )
-            return selected_name
-        else:
-            # Default to first pipeline if no selector provided
-            if not self.pipelines:
-                raise ValueError("No pipelines available in workflow")
-            selected_pipeline_name = self.pipelines[0].name
-            log_debug(f"No selector provided, defaulting to first pipeline: {selected_pipeline_name}")
-            return selected_pipeline_name
+            return await self._aexecute(execution_input=inputs, workflow_run_response=workflow_run_response)
 
     def get_workflow_session(self) -> WorkflowSessionV2:
         """Get a WorkflowSessionV2 object for storage"""
         workflow_data = {}
-        if self.pipelines:
-            workflow_data["pipelines"] = [
+        # TODO: Handle recursive
+        if self.steps and not isinstance(self.steps, Callable):
+            workflow_data["steps"] = [
                 {
-                    "name": pipeline.name,
-                    "description": pipeline.description,
-                    "steps": [
-                        {
-                            "name": step.name,
-                            "description": step.description,
-                            "executor_type": step.executor_type,
-                        }
-                        for step in pipeline.steps
-                    ],
+                    "name": step.name,
+                    "description": step.description,
                 }
-                for pipeline in self.pipelines
+                for step in self.steps
             ]
-        elif self.executor:
-            workflow_data["executor"] = self.executor.__name__
+        elif isinstance(self.steps, Callable):
+            workflow_data["steps"] = [
+                {
+                    "name": "Custom Function",
+                    "description": "User-defined callable workflow",
+                }
+            ]
 
         return WorkflowSessionV2(
             session_id=self.session_id,
@@ -880,7 +902,6 @@ class Workflow:
         self,
         message: Optional[str] = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -898,7 +919,6 @@ class Workflow:
         Args:
             message: The main query/input for the workflow
             message_data: Attached message data to the input
-            selector: Either callable or string. If string, it will be used as the pipeline name. If callable, it will be used to select the pipeline.
             user_id: User ID
             session_id: Session ID
             audio: Audio input
@@ -912,13 +932,10 @@ class Workflow:
             console: Rich console instance (optional)
         """
 
-        self._auto_create_pipeline_from_steps()
-
         if stream:
             self._print_response_stream(
                 message=message,
                 message_data=message_data,
-                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -934,7 +951,6 @@ class Workflow:
             self._print_response(
                 message=message,
                 message_data=message_data,
-                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -950,7 +966,6 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -973,24 +988,6 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        # Validate pipeline configuration based on trigger type
-        if not self.pipelines and not self.executor:
-            console.print("[red]No pipelines available in this workflow[/red]")
-            return
-
-        if self.pipelines:
-            pipeline_name = self._get_pipeline_name(
-                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-            )
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
-                return
-        else:
-            # For workflows with custom executor but no pipelines
-            pipeline_name = "Custom Executor"
-            pipeline = None
-
         # Show workflow info
         media_info = []
         if audio:
@@ -1003,10 +1000,7 @@ class Workflow:
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
-        if pipeline:
-            if pipeline_name and pipeline_name != "Default Pipeline":
-                workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-            workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
+        workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1044,7 +1038,6 @@ class Workflow:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunResponse = self.run(
                     message=message,
-                    selector=selector,
                     message_data=message_data,
                     user_id=user_id,
                     session_id=session_id,
@@ -1055,7 +1048,6 @@ class Workflow:
 
                 response_timer.stop()
 
-                # Show individual step responses if available
                 if show_step_details and workflow_response.step_responses:
                     for i, step_output in enumerate(workflow_response.step_responses):
                         if step_output.content:
@@ -1065,6 +1057,15 @@ class Workflow:
                                 border_style="green",
                             )
                             console.print(step_panel)
+
+                # For callable functions, show the content directly since there are no step_responses
+                elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
+                    step_panel = create_panel(
+                        content=Markdown(workflow_response.content) if markdown else workflow_response.content,
+                        title="Custom Function (Completed)",
+                        border_style="green",
+                    )
+                    console.print(step_panel)
 
                 # Show final summary
                 if workflow_response.extra_data:
@@ -1100,7 +1101,6 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1125,23 +1125,6 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        if not self.pipelines and not self.executor:
-            console.print("[red]No pipelines available in this workflow[/red]")
-            return
-
-        if self.pipelines:
-            pipeline_name = self._get_pipeline_name(
-                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-            )
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
-                return
-        else:
-            # For workflows with custom executor but no pipelines
-            pipeline_name = "Custom Executor"
-            pipeline = None
-
         # Show workflow info (same as before)
         media_info = []
         if audio:
@@ -1154,10 +1137,7 @@ class Workflow:
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
-        if pipeline:
-            if pipeline_name and pipeline_name != "Default Pipeline":
-                workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-            workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
+        workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1193,6 +1173,7 @@ class Workflow:
         current_step_index = 0
         step_responses = []
         step_started_printed = False
+        is_callable_function = isinstance(self.steps, Callable)
 
         with Live(console=console, refresh_per_second=10) as live_log:
             status = Status("Starting workflow...", spinner="dots")
@@ -1202,7 +1183,6 @@ class Workflow:
                 for response in self.run(
                     message=message,
                     message_data=message_data,
-                    selector=selector,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1214,6 +1194,9 @@ class Workflow:
                     # Handle the new event types
                     if isinstance(response, WorkflowStartedEvent):
                         status.update("Workflow started...")
+                        if is_callable_function:
+                            current_step_name = "Custom Function"
+                            current_step_index = 0
                         live_log.update(status)
 
                     elif isinstance(response, StepStartedEvent):
@@ -1254,14 +1237,28 @@ class Workflow:
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
+
+                        # For callable functions, print the final content block here since there are no step events
+                        if (
+                            is_callable_function
+                            and show_step_details
+                            and current_step_content
+                            and not step_started_printed
+                        ):
+                            final_step_panel = create_panel(
+                                content=Markdown(current_step_content) if markdown else current_step_content,
+                                title="Custom Function (Completed)",
+                                border_style="green",
+                            )
+                            console.print(final_step_panel)
+                            step_started_printed = True
+
                         live_log.update(status, refresh=True)
 
                         # Show final summary
                         if response.extra_data:
                             status = response.status
                             summary_content = ""
-                            if pipeline_name != "Default Pipeline":
-                                summary_content += f"""\n\n**Pipeline:** {pipeline_name}"""
                             summary_content += f"""\n\n**Status:** {status}"""
                             summary_content += f"""\n\n**Steps Completed:** {len(response.step_responses) if response.step_responses else 0}"""
                             summary_content = summary_content.strip()
@@ -1295,10 +1292,15 @@ class Workflow:
 
                             # Live update the step panel with streaming content
                             if show_step_details and not step_started_printed:
+                                # For callable functions, show different title during streaming
+                                title = f"Step {current_step_index + 1}: {current_step_name} (Streaming...)"
+                                if is_callable_function:
+                                    title = "Custom Function (Streaming...)"
+
                                 # Show the streaming content live in green panel
                                 live_step_panel = create_panel(
                                     content=Markdown(current_step_content) if markdown else current_step_content,
-                                    title=f"Step {current_step_index + 1}: {current_step_name} (Streaming...)",
+                                    title=title,
                                     border_style="green",
                                 )
 
@@ -1324,7 +1326,6 @@ class Workflow:
         self,
         message: Optional[str] = None,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1342,7 +1343,6 @@ class Workflow:
         Args:
             message: The main message/input for the workflow
             message_data: Attached message data to the input
-            selector: Either callable or string. If string, it will be used as the pipeline name. If callable, it will be used to select the pipeline.
             user_id: User ID
             session_id: Session ID
             audio: Audio input
@@ -1355,12 +1355,10 @@ class Workflow:
             show_step_details: Whether to show individual step outputs
             console: Rich console instance (optional)
         """
-        self._auto_create_pipeline_from_steps()
         if stream:
             await self._aprint_response_stream(
                 message=message,
                 message_data=message_data,
-                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1376,7 +1374,6 @@ class Workflow:
             await self._aprint_response(
                 message=message,
                 message_data=message_data,
-                selector=selector,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1392,7 +1389,6 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1415,24 +1411,6 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        # Validate pipeline configuration based on trigger type
-        if not self.pipelines and not self.executor:
-            console.print("[red]No pipelines available in this workflow[/red]")
-            return
-
-        if self.pipelines:
-            pipeline_name = self._get_pipeline_name(
-                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-            )
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
-                return
-        else:
-            # For workflows with custom executor but no pipelines
-            pipeline_name = "Custom Executor"
-            pipeline = None
-
         # Show workflow info
         media_info = []
         if audio:
@@ -1445,9 +1423,7 @@ class Workflow:
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
-        if pipeline_name != "Default Pipeline":
-            workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-        workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
+        workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1486,7 +1462,6 @@ class Workflow:
                 workflow_response: WorkflowRunResponse = await self.arun(
                     message=message,
                     message_data=message_data,
-                    selector=selector,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1507,12 +1482,19 @@ class Workflow:
                             )
                             console.print(step_panel)
 
+                # For callable functions, show the content directly since there are no step_responses
+                elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
+                    step_panel = create_panel(
+                        content=Markdown(workflow_response.content) if markdown else workflow_response.content,
+                        title="Custom Function (Completed)",
+                        border_style="green",
+                    )
+                    console.print(step_panel)
+
                 # Show final summary
                 if workflow_response.extra_data:
                     status = workflow_response.status.value
                     summary_content = ""
-                    if pipeline_name != "Default Pipeline":
-                        summary_content += f"""\n\n**Pipeline:** {pipeline_name}"""
                     summary_content += f"""\n\n**Status:** {status}"""
                     summary_content += f"""\n\n**Steps Completed:** {len(workflow_response.step_responses) if workflow_response.step_responses else 0}"""
                     summary_content = summary_content.strip()
@@ -1540,7 +1522,6 @@ class Workflow:
         self,
         message: str,
         message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
-        selector: Optional[Union[str, Callable[..., str]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1565,23 +1546,6 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        if not self.pipelines and not self.executor:
-            console.print("[red]No pipelines available in this workflow[/red]")
-            return
-
-        if self.pipelines:
-            pipeline_name = self._get_pipeline_name(
-                selector=selector, message=message, message_data=message_data, user_id=user_id, session_id=session_id
-            )
-            pipeline = self.get_pipeline(pipeline_name)
-            if not pipeline:
-                console.print(f"[red]Pipeline '{pipeline_name}' not found[/red]")
-                return
-        else:
-            # For workflows with custom executor but no pipelines
-            pipeline_name = "Custom Executor"
-            pipeline = None
-
         # Show workflow info (same as before)
         media_info = []
         if audio:
@@ -1594,9 +1558,7 @@ class Workflow:
         workflow_info = f"""**Workflow:** {self.name}"""
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
-        if pipeline_name != "Default Pipeline":
-            workflow_info += f"""\n\n**Pipeline:** {pipeline_name}"""
-        workflow_info += f"""\n\n**Steps:** {len(pipeline.steps)} steps"""
+        workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
             workflow_info += f"""\n\n**Message:** {message}"""
         if message_data:
@@ -1632,6 +1594,7 @@ class Workflow:
         current_step_index = 0
         step_responses = []
         step_started_printed = False
+        is_callable_function = isinstance(self.steps, Callable)
 
         with Live(console=console, refresh_per_second=10) as live_log:
             status = Status("Starting async workflow...", spinner="dots")
@@ -1641,7 +1604,6 @@ class Workflow:
                 async for response in await self.arun(
                     message=message,
                     message_data=message_data,
-                    selector=selector,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1653,6 +1615,9 @@ class Workflow:
                     # Handle the new event types
                     if isinstance(response, WorkflowStartedEvent):
                         status.update("Workflow started...")
+                        if is_callable_function:
+                            current_step_name = "Custom Function"
+                            current_step_index = 0
                         live_log.update(status)
 
                     elif isinstance(response, StepStartedEvent):
@@ -1693,14 +1658,28 @@ class Workflow:
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
+
+                        # For callable functions, print the final content block here since there are no step events
+                        if (
+                            is_callable_function
+                            and show_step_details
+                            and current_step_content
+                            and not step_started_printed
+                        ):
+                            final_step_panel = create_panel(
+                                content=Markdown(current_step_content) if markdown else current_step_content,
+                                title="Custom Function (Completed)",
+                                border_style="green",
+                            )
+                            console.print(final_step_panel)
+                            step_started_printed = True
+
                         live_log.update(status, refresh=True)
 
                         # Show final summary
                         if response.extra_data:
                             status = response.status
                             summary_content = ""
-                            if pipeline_name != "Default Pipeline":
-                                summary_content += f"""\n\n**Pipeline:** {pipeline_name}"""
                             summary_content += f"""\n\n**Status:** {status}"""
                             summary_content += f"""\n\n**Steps Completed:** {len(response.step_responses) if response.step_responses else 0}"""
                             summary_content = summary_content.strip()
@@ -1713,8 +1692,6 @@ class Workflow:
                             console.print(summary_panel)
 
                     else:
-                        response_str = None
-
                         if isinstance(response, str):
                             response_str = response
                         else:
@@ -1736,10 +1713,15 @@ class Workflow:
 
                             # Live update the step panel with streaming content
                             if show_step_details and not step_started_printed:
+                                # For callable functions, show different title during streaming
+                                title = f"Step {current_step_index + 1}: {current_step_name} (Streaming...)"
+                                if is_callable_function:
+                                    title = "Custom Function (Streaming...)"
+
                                 # Show the streaming content live in green panel
                                 live_step_panel = create_panel(
                                     content=Markdown(current_step_content) if markdown else current_step_content,
-                                    title=f"Step {current_step_index + 1}: {current_step_name} (Streaming...)",
+                                    title=title,
                                     border_style="green",
                                 )
 
@@ -1761,77 +1743,75 @@ class Workflow:
                 )
                 console.print(error_panel)
 
-    def add_pipeline(self, pipeline: Pipeline) -> None:
-        """Add a pipeline to the workflow"""
-        self.pipelines.append(pipeline)
-
-    def remove_pipelines(self, pipeline_name: str) -> bool:
-        """Remove a pipeline by name"""
-        for i, pipeline in enumerate(self.pipelines):
-            if pipeline.name == pipeline_name:
-                del self.pipelines[i]
-                return True
-        return False
-
-    def get_pipeline(self, pipeline_name: str) -> Optional[Pipeline]:
-        """Get a pipeline by name"""
-        for pipeline in self.pipelines:
-            if pipeline.name == pipeline_name:
-                return pipeline
-        return None
-
-    def list_pipelines(self) -> List[str]:
-        """List all pipeline names"""
-        return [pipeline.name for pipeline in self.pipelines]
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert workflow to dictionary representation"""
+        # TODO: Handle nested
         return {
             "name": self.name,
             "workflow_id": self.workflow_id,
             "description": self.description,
-            "pipelines": [
+            "steps": [
                 {
-                    "name": p.name,
-                    "description": p.description,
-                    "steps": [
-                        {
-                            "name": t.name,
-                            "description": t.description,
-                            "executor_type": t.executor_type,
-                        }
-                        for t in p.steps
-                    ],
+                    "name": s.name,
+                    "description": s.description,
                 }
-                for p in self.pipelines
+                for s in self.steps
             ],
             "session_id": self.session_id,
         }
 
     def _collect_workflow_session_state_from_agents_and_teams(self):
         """Collect updated workflow_session_state from agents after step execution"""
-        log_debug("Collecting workflow session state from agents and teams")
-
         if self.workflow_session_state is None:
             self.workflow_session_state = {}
-            log_debug("Initialized empty workflow session state")
 
-        # Collect state from all agents in all pipelines
-        for pipeline in self.pipelines:
-            log_debug(f"Collecting state from pipeline: {pipeline.name}")
-            for step in pipeline.steps:
-                executor = step.active_executor
-                if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
-                    merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
-                    log_debug("Merged executor session state into workflow")
+        # Collect state from all agents in all steps
+        if self.steps and not isinstance(self.steps, Callable):
+            for step in self.steps:
+                if isinstance(step, Step):
+                    executor = step.active_executor
+                    if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
+                        # Merge the agent's session state back into workflow session state
+                        from agno.utils.merge_dict import merge_dictionaries
 
-                # If it's a team, collect from all members
-                if hasattr(executor, "members"):
-                    log_debug(f"Collecting state from {len(executor.members)} team members")
-                    for member in executor.members:
-                        if hasattr(member, "workflow_session_state") and member.workflow_session_state:
-                            log_debug(
-                                f"Found session state in team member {type(member).__name__}: {list(member.workflow_session_state.keys())}"
-                            )
-                            merge_dictionaries(self.workflow_session_state, member.workflow_session_state)
-                            log_debug("Merged team member session state into workflow")
+                        merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
+
+                    # If it's a team, collect from all members
+                    if hasattr(executor, "members"):
+                        for member in executor.members:
+                            if hasattr(member, "workflow_session_state") and member.workflow_session_state:
+                                merge_dictionaries(self.workflow_session_state, member.workflow_session_state)
+
+    def _update_executor_workflow_session_state(self, executor) -> None:
+        """Update executor with workflow_session_state"""
+        if self.workflow_session_state is not None:
+            # Update session_state with workflow_session_state
+            executor.workflow_session_state = self.workflow_session_state
+
+    def update_agents_and_teams_session_info(self):
+        """Update agents and teams with workflow session information"""
+        # Initialize steps - only if steps is iterable (not callable)
+        if self.steps and not isinstance(self.steps, Callable):
+            for step in self.steps:
+                # TODO: Handle properly steps inside other primitives
+                if isinstance(step, Step):
+                    active_executor = step.active_executor
+
+                    if hasattr(active_executor, "workflow_session_id"):
+                        active_executor.workflow_session_id = self.session_id
+                    if hasattr(active_executor, "workflow_id"):
+                        active_executor.workflow_id = self.workflow_id
+
+                    # Set workflow_session_state on agents and teams
+                    self._update_executor_workflow_session_state(active_executor)
+
+                    # If it's a team, update all members
+                    if hasattr(active_executor, "members"):
+                        for member in active_executor.members:
+                            if hasattr(member, "workflow_session_id"):
+                                member.workflow_session_id = self.session_id
+                            if hasattr(member, "workflow_id"):
+                                member.workflow_id = self.workflow_id
+
+                            # Set workflow_session_state on team members
+                            self._update_executor_workflow_session_state(member)

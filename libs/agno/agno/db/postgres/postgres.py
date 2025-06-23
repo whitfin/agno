@@ -312,13 +312,9 @@ class PostgresDb(BaseDb):
         Returns:
             The modified statement with sorting applied
         """
-        if sort_by is None:
+        if sort_by is None or not hasattr(table.c, sort_by):
+            log_debug(f"Invalid sort field '{sort_by}', will not apply any sorting")
             return stmt
-
-        # Validate the field to sort by exists in the given table
-        if not hasattr(table.c, sort_by):
-            log_debug(f"Invalid sort field '{sort_by}', will fall back to default sorting")
-            return stmt.order_by(table.c.last_updated.desc())
 
         # Apply the given sorting
         sort_column = getattr(table.c, sort_by)
@@ -880,6 +876,8 @@ class PostgresDb(BaseDb):
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
+        topics: Optional[List[str]] = None,
+        search_content: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_by: Optional[str] = None,
@@ -893,6 +891,8 @@ class PostgresDb(BaseDb):
             agent_id (Optional[str]): The ID of the agent to filter by.
             team_id (Optional[str]): The ID of the team to filter by.
             workflow_id (Optional[str]): The ID of the workflow to filter by.
+            topics (Optional[List[str]]): The topics to filter by.
+            search_content (Optional[str]): The content to search for.
             limit (Optional[int]): The maximum number of memories to return.
             offset (Optional[int]): The number of memories to skip.
             table (Optional[Table]): The table to read from.
@@ -916,6 +916,10 @@ class PostgresDb(BaseDb):
                     stmt = stmt.where(table.c.team_id == team_id)
                 if workflow_id is not None:
                     stmt = stmt.where(table.c.workflow_id == workflow_id)
+                if topics is not None:
+                    stmt = stmt.where(table.c.topics.contains(topics))
+                if search_content is not None:
+                    stmt = stmt.where(table.c.memory.ilike(f"%{search_content}%"))
                 # Sorting
                 stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
                 # Paginating
@@ -940,6 +944,8 @@ class PostgresDb(BaseDb):
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
+        topics: Optional[List[str]] = None,
+        search_content: Optional[str] = None,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_by: Optional[str] = None,
@@ -953,8 +959,12 @@ class PostgresDb(BaseDb):
             agent_id (Optional[str]): The ID of the agent to filter by.
             team_id (Optional[str]): The ID of the team to filter by.
             workflow_id (Optional[str]): The ID of the workflow to filter by.
+            topics (Optional[List[str]]): The topics to filter by.
+            search_content (Optional[str]): The content to search for.
             limit (Optional[int]): The maximum number of memories to return.
             offset (Optional[int]): The number of memories to skip.
+            sort_by (Optional[str]): The column to sort by.
+            sort_order (Optional[str]): The order to sort by.
             table (Optional[Table]): The table to read from.
 
         Returns:
@@ -969,6 +979,8 @@ class PostgresDb(BaseDb):
                 agent_id=agent_id,
                 team_id=team_id,
                 workflow_id=workflow_id,
+                topics=topics,
+                search_content=search_content,
                 limit=limit,
                 offset=offset,
                 sort_by=sort_by,

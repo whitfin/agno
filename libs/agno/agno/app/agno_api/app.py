@@ -13,6 +13,7 @@ from starlette.requests import Request
 from agno.agent.agent import Agent
 from agno.api.playground import PlaygroundEndpointCreate
 from agno.app.agno_api.interfaces.base import BaseInterface
+from agno.app.agno_api.managers.base import BaseManager
 from agno.app.agno_api.router import get_base_async_router, get_base_sync_router
 from agno.app.agno_api.settings import AgnoAPISettings
 from agno.app.utils import generate_id
@@ -33,7 +34,7 @@ class AgnoAPI:
         teams: Optional[List[Team]] = None,
         workflows: Optional[List[Workflow]] = None,
         interfaces: Optional[List[BaseInterface]] = None,
-        managers: Optional[List[BaseInterface]] = None,
+        managers: Optional[List[BaseManager]] = None,
         settings: Optional[AgnoAPISettings] = None,
         api_app: Optional[FastAPI] = None,
         monitoring: bool = True,

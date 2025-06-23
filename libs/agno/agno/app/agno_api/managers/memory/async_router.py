@@ -16,10 +16,12 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
         agent_id: Optional[str] = Query(default=None, description="Filter memories by agent ID"),
         team_id: Optional[str] = Query(default=None, description="Filter memories by team ID"),
         workflow_id: Optional[str] = Query(default=None, description="Filter memories by workflow ID"),
+        topics: Optional[List[str]] = Query(default=None, description="Filter memories by topics"),
+        search_content: Optional[str] = Query(default=None, description="Fuzzy search memory content"),
         limit: Optional[int] = Query(default=20, description="Number of memories to return"),
         offset: Optional[int] = Query(default=0, description="Number of memories to skip"),
-        sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
-        sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
+        sort_by: Optional[str] = Query(default="updated_at", description="Field to sort by"),
+        sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> List[UserMemorySchema]:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
@@ -31,6 +33,8 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
             agent_id=agent_id,
             team_id=team_id,
             workflow_id=workflow_id,
+            topics=topics,
+            search_content=search_content,
             sort_by=sort_by,
             sort_order=sort_order,
         )
@@ -78,11 +82,13 @@ def attach_async_routes(router: APIRouter, memory: Memory) -> APIRouter:
 
         return UserMemorySchema.from_dict(user_memory)
 
-    @router.delete("/memories/{memory_id}", status_code=204)
-    async def delete_memory(memory_id: str = Path()) -> None:
+    @router.delete("/memories", status_code=204)
+    async def delete_memories(memory_ids: List[str]) -> None:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        memory.db.delete_user_memory(memory_id=memory_id)
+        # TODO: optimize
+        for memory_id in memory_ids:
+            memory.db.delete_user_memory(memory_id=memory_id)
 
     return router

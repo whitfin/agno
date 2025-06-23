@@ -23,6 +23,11 @@ class WorkflowRunEvent(str, Enum):
     step_completed = "StepCompleted"
     step_error = "StepError"
 
+    loop_started = "LoopStarted"
+    loop_iteration_started = "LoopIterationStarted"
+    loop_iteration_completed = "LoopIterationCompleted"
+    loop_completed = "LoopCompleted"
+
 
 @dataclass
 class BaseWorkflowRunResponseEvent:
@@ -155,6 +160,52 @@ class StepErrorEvent(BaseWorkflowRunResponseEvent):
     error: Optional[str] = None
 
 
+@dataclass
+class LoopStartedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when loop execution starts"""
+
+    event: str = WorkflowRunEvent.loop_started.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
+    max_iterations: Optional[int] = None
+
+
+@dataclass
+class LoopIterationStartedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when loop iteration starts"""
+
+    event: str = WorkflowRunEvent.loop_iteration_started.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
+    iteration: int = 0
+    max_iterations: Optional[int] = None
+
+
+@dataclass
+class LoopIterationCompletedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when loop iteration completes"""
+
+    event: str = WorkflowRunEvent.loop_iteration_completed.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
+    iteration: int = 0
+    max_iterations: Optional[int] = None
+    iteration_results: List["StepOutput"] = field(default_factory=list)  # noqa: F821
+    should_continue: bool = True
+
+
+@dataclass
+class LoopCompletedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when loop execution completes"""
+
+    event: str = WorkflowRunEvent.loop_completed.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
+    total_iterations: int = 0
+    max_iterations: Optional[int] = None
+    all_results: List[List["StepOutput"]] = field(default_factory=list)  # noqa: F821
+
+
 # Union type for all workflow run response events
 WorkflowRunResponseEvent = Union[
     WorkflowStartedEvent,
@@ -163,6 +214,10 @@ WorkflowRunResponseEvent = Union[
     StepStartedEvent,
     StepCompletedEvent,
     StepErrorEvent,
+    LoopStartedEvent,
+    LoopIterationStartedEvent,
+    LoopIterationCompletedEvent,
+    LoopCompletedEvent,
 ]
 
 

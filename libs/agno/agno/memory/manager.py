@@ -350,7 +350,7 @@ class MemoryManager:
             try:
                 last_updated = datetime.now()
                 memory_id = str(uuid4())
-                db.upsert_user_memory(
+                db.upsert_memory(
                     MemoryRow(
                         id=memory_id,
                         user_id=user_id,

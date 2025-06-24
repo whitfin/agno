@@ -11,6 +11,8 @@ from agno.agent.agent import Agent
 from agno.media import Audio, Image, Video
 from agno.run.base import RunStatus
 from agno.run.v2.workflow import (
+    ParallelExecutionCompletedEvent,
+    ParallelExecutionStartedEvent,
     StepCompletedEvent,
     StepStartedEvent,
     WorkflowCompletedEvent,
@@ -200,23 +202,48 @@ class Workflow:
                     # Execute the step (non-streaming)
                     step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)
 
+                    # Handle both single StepOutput and List[StepOutput] (from Loop/Condition steps)
+                    if isinstance(step_output, list):
+                        # This is a step that returns multiple outputs (Loop, Condition etc.)
+                        for output in step_output:
+                            shared_images.extend(output.images or [])
+                            output_images.extend(output.images or [])
+                            shared_videos.extend(output.videos or [])
+                            output_videos.extend(output.videos or [])
+                            shared_audio.extend(output.audio or [])
+                            output_audio.extend(output.audio or [])
+
+                        # Use the last output's content as previous content for chaining
+                        if step_output:
+                            previous_step_content = step_output[-1].content
+
+                        collected_step_outputs.append(step_output)
+                    else:
+                        # This is a regular single step
+                        previous_step_content = step_output.content
+                        shared_images.extend(step_output.images or [])
+                        output_images.extend(step_output.images or [])
+                        shared_videos.extend(step_output.videos or [])
+                        output_videos.extend(step_output.videos or [])
+                        shared_audio.extend(step_output.audio or [])
+                        output_audio.extend(step_output.audio or [])
+
+                        collected_step_outputs.append(step_output)
+
                     self._collect_workflow_session_state_from_agents_and_teams()
 
-                    previous_step_content = step_output.content
-                    shared_images.extend(step_output.images or [])
-                    output_images.extend(step_output.images or [])
-                    shared_videos.extend(step_output.videos or [])
-                    output_videos.extend(step_output.videos or [])
-                    shared_audio.extend(step_output.audio or [])
-                    output_audio.extend(step_output.audio or [])
-
-                    # Collect the StepOutput for storage
-                    collected_step_outputs.append(step_output)
-
                 # Update the workflow_run_response with completion data
-                workflow_run_response.content = collected_step_outputs[
-                    -1
-                ].content  # Final workflow response output is the last step's output
+                if collected_step_outputs:
+                    last_output = collected_step_outputs[-1]
+                    if isinstance(last_output, list) and last_output:
+                        # If it's a list (from Condition/Loop/etc.), use the last one
+                        workflow_run_response.content = last_output[-1].content
+                    else:
+                        # Single StepOutput
+                        workflow_run_response.content = last_output.content
+                else:
+                    workflow_run_response.content = "No steps executed"
+
                 workflow_run_response.step_responses = collected_step_outputs
                 workflow_run_response.images = output_images
                 workflow_run_response.videos = output_videos
@@ -228,10 +255,11 @@ class Workflow:
 
                 traceback.print_exc()
                 logger.error(f"Workflow execution failed: {e}")
+                # Store error response
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Workflow execution failed: {e}"
+
             finally:
-                # Store error response
                 if self.workflow_session:
                     self.workflow_session.add_run(workflow_run_response)
                 self.write_to_storage()
@@ -320,7 +348,7 @@ class Workflow:
                             output_audio.extend(event.audio or [])
 
                             # Only yield StepOutput for generator functions, not for agents/teams
-                            if step.executor_type == "function":
+                            if getattr(step, "executor_type", None) == "function":
                                 yield event
                         else:
                             # Yield other internal events
@@ -378,7 +406,7 @@ class Workflow:
     async def _aexecute(
         self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
     ) -> WorkflowRunResponse:
-        """Execute a specific pipeline by name synchronously"""
+        """Execute a specific pipeline by name asynchronously"""
 
         workflow_run_response.status = RunStatus.running
 
@@ -421,7 +449,7 @@ class Workflow:
 
                 for i, step in enumerate(self.steps):
                     log_debug(
-                        f"Executing step {i + 1}/{self._get_step_count()}: {step.name if hasattr(step, 'name') else step.__name__}"
+                        f"Async Executing step {i + 1}/{self._get_step_count()}: {step.name if hasattr(step, 'name') else step.__name__}"
                     )
                     step_input = StepInput(
                         message=execution_input.message,
@@ -432,26 +460,48 @@ class Workflow:
                         audio=shared_audio,
                     )
 
-                    # Execute the step (non-streaming)
                     step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)
+
+                    # Handle both single StepOutput and List[StepOutput] (from Loop/Condition steps)
+                    if isinstance(step_output, list):
+                        # This is a step that returns multiple outputs (Loop, Condition etc.)
+                        for output in step_output:
+                            shared_images.extend(output.images or [])
+                            output_images.extend(output.images or [])
+                            shared_videos.extend(output.videos or [])
+                            output_videos.extend(output.videos or [])
+                            shared_audio.extend(output.audio or [])
+                            output_audio.extend(output.audio or [])
+
+                        # Use the last output's content as previous content for chaining
+                        if step_output:
+                            previous_step_content = step_output[-1].content
+
+                        collected_step_outputs.append(step_output)
+                    else:
+                        # This is a regular single step
+                        previous_step_content = step_output.content
+                        shared_images.extend(step_output.images or [])
+                        output_images.extend(step_output.images or [])
+                        shared_videos.extend(step_output.videos or [])
+                        output_videos.extend(step_output.videos or [])
+                        shared_audio.extend(step_output.audio or [])
+                        output_audio.extend(step_output.audio or [])
+
+                        collected_step_outputs.append(step_output)
 
                     self._collect_workflow_session_state_from_agents_and_teams()
 
-                    previous_step_content = step_output.content
-                    shared_images.extend(step_output.images or [])
-                    output_images.extend(step_output.images or [])
-                    shared_videos.extend(step_output.videos or [])
-                    output_videos.extend(step_output.videos or [])
-                    shared_audio.extend(step_output.audio or [])
-                    output_audio.extend(step_output.audio or [])
-
-                    # Collect the StepOutput for storage
-                    collected_step_outputs.append(step_output)
-
                 # Update the workflow_run_response with completion data
-                workflow_run_response.content = collected_step_outputs[
-                    -1
-                ].content  # Final workflow response output is the last step's output
+                if collected_step_outputs:
+                    last_output = collected_step_outputs[-1]
+                    if isinstance(last_output, list) and last_output:
+                        # If it's a list (from Condition/Loop/etc.), use the last one
+                        workflow_run_response.content = last_output[-1].content
+                    else:
+                        # Single StepOutput
+                        workflow_run_response.content = last_output.content
+
                 workflow_run_response.step_responses = collected_step_outputs
                 workflow_run_response.images = output_images
                 workflow_run_response.videos = output_videos
@@ -560,7 +610,7 @@ class Workflow:
                             output_audio.extend(event.audio or [])
 
                             # Only yield StepOutput for generator functions, not for agents/teams
-                            if step.executor_type == "function":
+                            if getattr(step, "executor_type", None) == "function":
                                 yield event
                         else:
                             # Yield other internal events
@@ -834,7 +884,7 @@ class Workflow:
                     prepared_steps.append(Step(name=step.name, description=step.description, agent=step))
                 elif isinstance(step, Team):
                     prepared_steps.append(Step(name=step.name, description=step.description, team=step))
-                elif isinstance(step, Step):
+                elif isinstance(step, (Step, Loop, Parallel, Condition)):
                     prepared_steps.append(step)
                 else:
                     raise ValueError(f"Invalid step type: {type(step).__name__}")
@@ -1096,13 +1146,28 @@ class Workflow:
 
                 if show_step_details and workflow_response.step_responses:
                     for i, step_output in enumerate(workflow_response.step_responses):
-                        if step_output.content:
-                            step_panel = create_panel(
-                                content=Markdown(step_output.content) if markdown else step_output.content,
-                                title=f"Step {i + 1}: {step_output.step_name} (Completed)",
-                                border_style="green",
-                            )
-                            console.print(step_panel)
+                        # Handle both single StepOutput and List[StepOutput] (from loop/parallel steps)
+                        if isinstance(step_output, list):
+                            # This is a loop or parallel step with multiple outputs
+                            for j, sub_step_output in enumerate(step_output):
+                                if sub_step_output.content:
+                                    step_panel = create_panel(
+                                        content=Markdown(sub_step_output.content)
+                                        if markdown
+                                        else sub_step_output.content,
+                                        title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
+                                        border_style="green",
+                                    )
+                                    console.print(step_panel)
+                        else:
+                            # This is a regular single step
+                            if step_output.content:
+                                step_panel = create_panel(
+                                    content=Markdown(step_output.content) if markdown else step_output.content,
+                                    title=f"Step {i + 1}: {step_output.step_name} (Completed)",
+                                    border_style="green",
+                                )
+                                console.print(step_panel)
 
                 # For callable functions, show the content directly since there are no step_responses
                 elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
@@ -1281,6 +1346,34 @@ class Workflow:
                             console.print(final_step_panel)
                             step_started_printed = True
 
+                    elif isinstance(response, ParallelExecutionCompletedEvent):
+                        current_step_name = response.step_name or "Parallel Steps"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        status.update(
+                            f"Starting parallel execution: {current_step_name} ({response.parallel_step_count} steps)..."
+                        )
+                        live_log.update(status)
+
+                    elif isinstance(response, ParallelExecutionCompletedEvent):
+                        step_name = response.step_name or "Parallel Steps"
+                        step_index = response.step_index or 0
+
+                        status.update(f"Completed parallel execution: {step_name}")
+
+                        # Add results from all parallel steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}.{i + 1}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "ParallelStepResult",
+                                    }
+                                )
+
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
 
@@ -1329,6 +1422,8 @@ class Workflow:
                             if isinstance(
                                 response,
                                 (RunResponseContentEvent, WorkflowRunResponseEvent),
+                            ) and not isinstance(
+                                response, (ParallelExecutionCompletedEvent, ParallelExecutionStartedEvent)
                             ):
                                 # Extract the content from the streaming event
                                 response_str = response.content
@@ -1526,13 +1621,28 @@ class Workflow:
                 # Show individual step responses if available
                 if show_step_details and workflow_response.step_responses:
                     for i, step_output in enumerate(workflow_response.step_responses):
-                        if step_output.content:
-                            step_panel = create_panel(
-                                content=Markdown(step_output.content) if markdown else step_output.content,
-                                title=f"Step {i + 1}: {step_output.step_name} (Completed)",
-                                border_style="green",
-                            )
-                            console.print(step_panel)
+                        # Handle both single StepOutput and List[StepOutput] (from loop/parallel steps)
+                        if isinstance(step_output, list):
+                            # This is a loop or parallel step with multiple outputs
+                            for j, sub_step_output in enumerate(step_output):
+                                if sub_step_output.content:
+                                    step_panel = create_panel(
+                                        content=Markdown(sub_step_output.content)
+                                        if markdown
+                                        else sub_step_output.content,
+                                        title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
+                                        border_style="green",
+                                    )
+                                    console.print(step_panel)
+                        else:
+                            # This is a regular single step
+                            if step_output.content:
+                                step_panel = create_panel(
+                                    content=Markdown(step_output.content) if markdown else step_output.content,
+                                    title=f"Step {i + 1}: {step_output.step_name} (Completed)",
+                                    border_style="green",
+                                )
+                                console.print(step_panel)
 
                 # For callable functions, show the content directly since there are no step_responses
                 elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
@@ -1711,6 +1821,34 @@ class Workflow:
                             console.print(final_step_panel)
                             step_started_printed = True
 
+                    elif isinstance(response, ParallelExecutionStartedEvent):
+                        current_step_name = response.step_name or "Parallel Steps"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        status.update(
+                            f"Starting parallel execution: {current_step_name} ({response.parallel_step_count} steps)..."
+                        )
+                        live_log.update(status)
+
+                    elif isinstance(response, ParallelExecutionCompletedEvent):
+                        step_name = response.step_name or "Parallel Steps"
+                        step_index = response.step_index or 0
+
+                        status.update(f"Completed parallel execution: {step_name}")
+
+                        # Add results from all parallel steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}.{i + 1}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "ParallelStepResult",
+                                    }
+                                )
+
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
 
@@ -1759,6 +1897,8 @@ class Workflow:
                             if isinstance(
                                 response,
                                 (RunResponseContentEvent, WorkflowRunResponseEvent),
+                            ) and not isinstance(
+                                response, (ParallelExecutionCompletedEvent, ParallelExecutionStartedEvent)
                             ):
                                 # Extract the content from the streaming event
                                 response_str = response.content

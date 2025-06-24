@@ -11,12 +11,12 @@ from agno.app.agno_api.managers.session.schemas import (
     WorkflowRunSchema,
     WorkflowSessionDetailSchema,
 )
-from agno.app.agno_api.managers.utils import SortOrder
+from agno.app.agno_api.managers.utils import PaginatedResponse, PaginationInfo, SortOrder
 from agno.db.base import BaseDb, SessionType
 
 
 def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
-    @router.get("/sessions", response_model=List[SessionSchema], status_code=200)
+    @router.get("/sessions", response_model=PaginatedResponse[SessionSchema], status_code=200)
     async def get_sessions(
         session_type: SessionType = Query(default=SessionType.AGENT, alias="type"),
         component_id: Optional[str] = Query(default=None, description="Filter sessions by component ID"),
@@ -24,7 +24,7 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         page: Optional[int] = Query(default=0, description="Page number"),
         sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
         sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
-    ) -> List[SessionSchema]:
+    ) -> PaginatedResponse[SessionSchema]:
         sessions = db.get_sessions(
             session_type=session_type,
             component_id=component_id,
@@ -33,7 +33,10 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
             sort_by=sort_by,
             sort_order=sort_order,
         )
-        return [SessionSchema.from_session(session) for session in sessions]
+        return PaginatedResponse(
+            data=[SessionSchema.from_session(session) for session in sessions],
+            meta=PaginationInfo(page=page, limit=limit),
+        )
 
     @router.get(
         "/sessions/{session_id}",

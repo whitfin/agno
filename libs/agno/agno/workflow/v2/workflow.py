@@ -1346,7 +1346,7 @@ class Workflow:
                             console.print(final_step_panel)
                             step_started_printed = True
 
-                    elif isinstance(response, ParallelExecutionCompletedEvent):
+                    elif isinstance(response, ParallelExecutionStartedEvent):
                         current_step_name = response.step_name or "Parallel Steps"
                         current_step_index = response.step_index or 0
                         current_step_content = ""
@@ -1422,8 +1422,6 @@ class Workflow:
                             if isinstance(
                                 response,
                                 (RunResponseContentEvent, WorkflowRunResponseEvent),
-                            ) and not isinstance(
-                                response, (ParallelExecutionCompletedEvent, ParallelExecutionStartedEvent)
                             ):
                                 # Extract the content from the streaming event
                                 response_str = response.content
@@ -1897,8 +1895,6 @@ class Workflow:
                             if isinstance(
                                 response,
                                 (RunResponseContentEvent, WorkflowRunResponseEvent),
-                            ) and not isinstance(
-                                response, (ParallelExecutionCompletedEvent, ParallelExecutionStartedEvent)
                             ):
                                 # Extract the content from the streaming event
                                 response_str = response.content

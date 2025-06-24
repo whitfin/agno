@@ -267,6 +267,9 @@ class Model(ABC):
         _dict = {field: getattr(self, field) for field in fields if getattr(self, field) is not None}
         return _dict
 
+    def to_string(self) -> str:
+        return f"{self.provider}({self.id})"
+
     def get_provider(self) -> str:
         return self.provider or self.name or self.__class__.__name__
 

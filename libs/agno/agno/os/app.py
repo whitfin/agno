@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 from rich import box
 from rich.panel import Panel
 from starlette.middleware.cors import CORSMiddleware
@@ -17,9 +18,10 @@ from agno.cli.settings import agno_cli_settings
 from agno.os.connectors.base import BaseConnector
 from agno.os.console import Console
 from agno.os.interfaces.base import BaseInterface
-from agno.os.router import get_base_router
+from agno.os.router import get_base_router, get_console_router
 from agno.os.settings import AgnoAPISettings
 from agno.team.team import Team
+from agno.tools.function import Function
 from agno.utils.log import log_info, log_warning
 from agno.workflow.workflow import Workflow
 
@@ -125,9 +127,6 @@ class AgentOS:
                 openapi_url="/openapi.json" if self.settings.docs_enabled else None,
             )
             
-        if self.console:
-            self.console.initialize()
-
         if not self.api_app:
             raise Exception("API App could not be created.")
 
@@ -176,6 +175,16 @@ class AgentOS:
             allow_headers=["*"],
             expose_headers=["*"],
         )
+        
+        if self.console:
+            # Get all endpoint functions from app (includes router endpoints)
+            all_api_functions = []
+            for route in self.api_app.routes:
+                if isinstance(route, APIRoute):
+                    all_api_functions.append(Function.from_callable(route.endpoint, description=route.description))
+            self.console.initialize(all_api_functions)
+            
+            self.api_app.include_router(get_console_router(self.console))
 
         return self.api_app
 
@@ -238,18 +247,17 @@ class AgentOS:
                 )
 
         apps_panel_text = ""
-        for app_type, app_prefix in self.apps_loaded:
-            encoded_endpoint = f"{full_host}:{port}{app_prefix}"
-            if app_type == "knowledge":
-                apps_panel_text += f"[bold green]Knowledge Connector:[/bold green] {encoded_endpoint}\n"
-            elif app_type == "memory":
-                apps_panel_text += f"[bold green]Memory Connector:[/bold green] {encoded_endpoint}\n"
-            elif app_type == "eval":
-                apps_panel_text += f"[bold green]Evals Connector:[/bold green] {encoded_endpoint}\n"
-            elif app_type == "session":
-                apps_panel_text += f"[bold green]Sessions Connector:[/bold green] {encoded_endpoint}\n"
+        for loaded_app in self.apps:
+            if loaded_app.type == "knowledge":
+                apps_panel_text += f"[bold]Knowledge Connector:[/bold] {loaded_app.name}\n"
+            elif loaded_app.type == "memory":
+                apps_panel_text += f"[bold]Memory Connector:[/bold] {loaded_app.name}\n"
+            elif loaded_app.type == "eval":
+                apps_panel_text += f"[bold]Evals Connector:[/bold] {loaded_app.name}\n"
+            elif loaded_app.type == "session":
+                apps_panel_text += f"[bold]Sessions Connector:[/bold] {loaded_app.name}\n"
             else:
-                log_warning(f"Unknown app type: {app_type}")
+                log_warning(f"Unknown app type: {loaded_app.type}")
 
         if apps_panel_text:
             apps_panel_text = apps_panel_text.strip()
@@ -258,7 +266,19 @@ class AgentOS:
                     apps_panel_text,
                     title="Configured Apps",
                     expand=False,
-                    border_style="bright_cyan",
+                    border_style="sea_green2",
+                    box=box.HEAVY,
+                    padding=(2, 2),
+                )
+            )
+        
+        if self.console:
+            panels.append(
+                Panel(
+                    f"[bold]Console model:[/bold] {self.console.model.to_string()}",
+                    title="Console",
+                    expand=False,
+                    border_style="orange_red1",
                     box=box.HEAVY,
                     padding=(2, 2),
                 )
@@ -269,3 +289,26 @@ class AgentOS:
             console.print(panel)
 
         uvicorn.run(app=app, host=host, port=port, reload=reload, **kwargs)
+
+    
+    async def cli(
+        self,
+        user: str = "User",
+        emoji: str = ":sunglasses:",
+        stream: bool = False,
+        markdown: bool = False,
+        exit_on: Optional[List[str]] = None,
+    ) -> None:
+        """Run an interactive command-line interface to interact with the agent."""
+        from rich.prompt import Prompt
+        
+        if not self.console:
+            raise ValueError("Console is not initialized. Please initialize the console first.")
+        
+        _exit_on = exit_on or ["exit", "quit", "bye"]
+        while True:
+            message = Prompt.ask(f"[bold] {emoji} {user} [/bold]")
+            if message in _exit_on:
+                break
+            
+            await self.console.print(message)

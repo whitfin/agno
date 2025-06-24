@@ -4,6 +4,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.agent import Agent
+from agno.models.response import ToolExecution
 from agno.os.utils import format_team_tools, format_tools
 from agno.team.team import Team
 
@@ -76,8 +77,6 @@ class AgentResponse(BaseModel):
                     model=agent.memory.model.id,
                     provider=agent.memory.model.provider,
                 )
-            if agent.memory.db is not None:
-                memory_dict["db"] = agent.memory.db.__dict__()  # type: ignore
 
         return AgentResponse(
             agent_id=agent.agent_id,
@@ -144,8 +143,6 @@ class TeamResponse(BaseModel):
                     model=team.memory.model.id,
                     provider=team.memory.model.provider,
                 )
-            if team.memory.db is not None:
-                memory_dict["db"] = team.memory.db.__dict__()  # type: ignore
 
         return TeamResponse(
             team_id=team.team_id,
@@ -182,3 +179,14 @@ class WorkflowResponse(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
 
+
+class ConsolePrompt(BaseModel):
+    message: str
+
+class ConsolePromptToolResponse(BaseModel):
+    name: str
+    args: Dict[str, Any]
+
+class ConsolePromptResponse(BaseModel):
+    content: Optional[Any] = None
+    tools: Optional[List[ConsolePromptToolResponse]] = None

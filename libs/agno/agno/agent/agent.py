@@ -1163,9 +1163,6 @@ class Agent:
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
-
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)
 
@@ -1243,9 +1240,6 @@ class Agent:
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -2164,9 +2158,6 @@ class Agent:
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
-
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)
 
@@ -2245,9 +2236,6 @@ class Agent:
 
         # 6. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 

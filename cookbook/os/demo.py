@@ -1,14 +1,17 @@
 """Simple example creating a session and using the AgentOS with a SessionConnector to expose it"""
 
+import asyncio
 from agno.agent import Agent
 from agno.db.postgres.postgres import PostgresDb
 from agno.document.base import Document
 from agno.document.local_document_store import LocalDocumentStore
+from agno.embedder.openai import OpenAIEmbedder
 from agno.knowledge.knowledge_base import KnowledgeBase
 from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
 from agno.os.connectors import KnowledgeConnector, MemoryConnector, SessionConnector
+from agno.os.console import Console
 from agno.os.interfaces import Whatsapp
 from agno.vectordb.pgvector.pgvector import PgVector
 
@@ -34,6 +37,7 @@ vector_store = PgVector(
     table_name="pdf_documents",
     # Can inspect database via psql e.g. "psql -h localhost -p 5432 -U ai -d ai"
     db_url=db_url,
+    embedder=OpenAIEmbedder(id="text-embedding-3-small"),
 )
 
 # Create knowledge base
@@ -96,4 +100,6 @@ app = agent_os.get_app()
 
 if __name__ == "__main__":
     # Simple run to generate and record a session
-    agent_os.serve(app="demo:app", reload=True)
+    # agent_os.serve(app="demo:app", reload=True)
+    
+    asyncio.run(agent_os.cli())

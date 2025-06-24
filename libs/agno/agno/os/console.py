@@ -1,39 +1,29 @@
-from typing import Iterator, List, Optional
+from typing import AsyncIterator, Callable, Iterator, List, Optional
+from agno.agent.agent import Agent
 from agno.models.base import Model
-from agno.run.response import RunResponseEvent
+from agno.run.response import RunResponse, RunResponseEvent
 from agno.tools.function import Function
-from agno.utils.log import log_error, log_exception, log_info
 
 
-class Console:
+class Console(Agent):
     model: Optional[Model] = None
     
-    _tools: Optional[List[Function]] = None
-    
-
     def __init__(self, model: Optional[Model] = None):
-        self.model = model
-        if self.model is None:
-            try:
-                from agno.models.openai import OpenAIChat
-            except ModuleNotFoundError as e:
-                log_exception(e)
-                log_error(
-                    "Agno agents use `openai` as the default model provider. "
-                    "Please provide a `model` or install `openai`."
-                )
-                exit(1)
-
-            log_info("Setting Consoledefault model to OpenAI Chat")
-            self.model = OpenAIChat(id="gpt-4o")
-    
-    def initialize(self):
-        pass
+        super().__init__(model=model, 
+                         name="Console",
+                         instructions=[
+                             "You are a helpful assistant for the AgentOS application.",
+                             "You can answer questions and help with tasks.",
+                             "When asked to run an agent, team or workflow, make sure you have enough information to do so.",
+                         ])
         
     
+    def initialize(self, api_functions: List[Function]):
+        self.tools = api_functions
+        
+    async def execute(self, message: str) -> RunResponse:
+        response = await self.arun(message)
+        return response
     
-        
-        
-        
-    def run(self, message: str) -> Iterator[RunResponseEvent]:
-        
+    async def print(self, message: str):
+        await self.aprint_response(message, show_message=False)

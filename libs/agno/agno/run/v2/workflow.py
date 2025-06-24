@@ -28,6 +28,9 @@ class WorkflowRunEvent(str, Enum):
     loop_iteration_completed = "LoopIterationCompleted"
     loop_completed = "LoopCompleted"
 
+    parallel_execution_started = "ParallelExecutionStarted"
+    parallel_execution_completed = "ParallelExecutionCompleted"
+
 
 @dataclass
 class BaseWorkflowRunResponseEvent:
@@ -169,7 +172,6 @@ class LoopStartedEvent(BaseWorkflowRunResponseEvent):
     step_index: Optional[int] = None
     max_iterations: Optional[int] = None
 
-
 @dataclass
 class LoopIterationStartedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when loop iteration starts"""
@@ -179,7 +181,6 @@ class LoopIterationStartedEvent(BaseWorkflowRunResponseEvent):
     step_index: Optional[int] = None
     iteration: int = 0
     max_iterations: Optional[int] = None
-
 
 @dataclass
 class LoopIterationCompletedEvent(BaseWorkflowRunResponseEvent):
@@ -193,7 +194,6 @@ class LoopIterationCompletedEvent(BaseWorkflowRunResponseEvent):
     iteration_results: List["StepOutput"] = field(default_factory=list)  # noqa: F821
     should_continue: bool = True
 
-
 @dataclass
 class LoopCompletedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when loop execution completes"""
@@ -204,6 +204,29 @@ class LoopCompletedEvent(BaseWorkflowRunResponseEvent):
     total_iterations: int = 0
     max_iterations: Optional[int] = None
     all_results: List[List["StepOutput"]] = field(default_factory=list)  # noqa: F821
+
+
+@dataclass
+class ParallelExecutionStartedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when parallel step execution starts"""
+
+    event: str = WorkflowRunEvent.parallel_execution_started.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
+    parallel_step_count: Optional[int] = None
+
+
+@dataclass
+class ParallelExecutionCompletedEvent(BaseWorkflowRunResponseEvent):
+    """Event sent when parallel step execution completes"""
+
+    event: str = WorkflowRunEvent.parallel_execution_completed.value
+    step_name: Optional[str] = None
+    step_index: Optional[int] = None
+    parallel_step_count: Optional[int] = None
+
+    # Results from all parallel steps
+    step_results: List["StepOutput"] = field(default_factory=list)  # noqa: F821
 
 
 # Union type for all workflow run response events
@@ -218,8 +241,9 @@ WorkflowRunResponseEvent = Union[
     LoopIterationStartedEvent,
     LoopIterationCompletedEvent,
     LoopCompletedEvent,
+    ParallelExecutionStartedEvent,
+    ParallelExecutionCompletedEvent,
 ]
-
 
 @dataclass
 class WorkflowRunResponse:

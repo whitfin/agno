@@ -15,6 +15,8 @@ from agno.run.v2.workflow import (
     LoopIterationCompletedEvent,
     LoopIterationStartedEvent,
     LoopStartedEvent,
+    ParallelExecutionCompletedEvent,
+    ParallelExecutionStartedEvent,
     StepCompletedEvent,
     StepStartedEvent,
     WorkflowCompletedEvent,
@@ -204,9 +206,9 @@ class Workflow:
 
                     step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)
 
-                    # Handle both single StepOutput and List[StepOutput] (from Parallel/Loop steps)
+                    # Handle both single StepOutput and List[StepOutput] (from Loop/Condition steps)
                     if isinstance(step_output, list):
-                        # This is a step that returns multiple outputs (Parallel, Loop, etc.)
+                        # This is a step that returns multiple outputs (Loop, Condition etc.)
                         for output in step_output:
                             shared_images.extend(output.images or [])
                             output_images.extend(output.images or [])
@@ -238,7 +240,7 @@ class Workflow:
                 if collected_step_outputs:
                     last_output = collected_step_outputs[-1]
                     if isinstance(last_output, list) and last_output:
-                        # If it's a list (from Parallel/Loop/etc.), use the last one
+                        # If it's a list (from Condition/Loop/etc.), use the last one
                         workflow_run_response.content = last_output[-1].content
                     else:
                         # Single StepOutput
@@ -257,10 +259,11 @@ class Workflow:
 
                 traceback.print_exc()
                 logger.error(f"Workflow execution failed: {e}")
+                # Store error response
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Workflow execution failed: {e}"
+
             finally:
-                # Store error response
                 if self.workflow_session:
                     self.workflow_session.add_run(workflow_run_response)
                 self.write_to_storage()
@@ -349,7 +352,7 @@ class Workflow:
                             output_audio.extend(event.audio or [])
 
                             # Only yield StepOutput for generator functions, not for agents/teams
-                            if step.executor_type == "function":
+                            if getattr(step, "executor_type", None) == "function":
                                 yield event
                         else:
                             # Yield other internal events
@@ -407,7 +410,7 @@ class Workflow:
     async def _aexecute(
         self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
     ) -> WorkflowRunResponse:
-        """Execute a specific pipeline by name synchronously"""
+        """Execute a specific pipeline by name asynchronously"""
 
         workflow_run_response.status = RunStatus.running
 
@@ -450,7 +453,7 @@ class Workflow:
 
                 for i, step in enumerate(self.steps):
                     log_debug(
-                        f"Executing step {i + 1}/{self._get_step_count()}: {step.name if hasattr(step, 'name') else step.__name__}"
+                        f"Async Executing step {i + 1}/{self._get_step_count()}: {step.name if hasattr(step, 'name') else step.__name__}"
                     )
                     step_input = StepInput(
                         message=execution_input.message,
@@ -463,9 +466,9 @@ class Workflow:
 
                     step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)
 
-                    # Handle both single StepOutput and List[StepOutput] (from Parallel/Loop steps)
+                    # Handle both single StepOutput and List[StepOutput] (from Loop/Condition steps)
                     if isinstance(step_output, list):
-                        # This is a step that returns multiple outputs (Parallel, Loop, etc.)
+                        # This is a step that returns multiple outputs (Loop, Condition etc.)
                         for output in step_output:
                             shared_images.extend(output.images or [])
                             output_images.extend(output.images or [])
@@ -497,7 +500,7 @@ class Workflow:
                 if collected_step_outputs:
                     last_output = collected_step_outputs[-1]
                     if isinstance(last_output, list) and last_output:
-                        # If it's a list (from Parallel/Loop/etc.), use the last one
+                        # If it's a list (from Condition/Loop/etc.), use the last one
                         workflow_run_response.content = last_output[-1].content
                     else:
                         # Single StepOutput
@@ -613,7 +616,7 @@ class Workflow:
                             output_audio.extend(event.audio or [])
 
                             # Only yield StepOutput for generator functions, not for agents/teams
-                            if step.executor_type == "function":
+                            if getattr(step, "executor_type", None) == "function":
                                 yield event
                         else:
                             # Yield other internal events
@@ -887,7 +890,7 @@ class Workflow:
                     prepared_steps.append(Step(name=step.name, description=step.description, agent=step))
                 elif isinstance(step, Team):
                     prepared_steps.append(Step(name=step.name, description=step.description, team=step))
-                elif isinstance(step, Step):
+                elif isinstance(step, (Step, Loop, Parallel, Condition)):
                     prepared_steps.append(step)
                 elif isinstance(step, (Loop, Parallel)):
                     prepared_steps.append(step)
@@ -1409,6 +1412,35 @@ class Workflow:
                             console.print(loop_summary_panel)
 
                         step_started_printed = True
+                        
+                    elif isinstance(response, ParallelExecutionStartedEvent):
+                        current_step_name = response.step_name or "Parallel Steps"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        status.update(
+                            f"Starting parallel execution: {current_step_name} ({response.parallel_step_count} steps)..."
+                        )
+                        live_log.update(status)
+
+                    elif isinstance(response, ParallelExecutionCompletedEvent):
+                        step_name = response.step_name or "Parallel Steps"
+                        step_index = response.step_index or 0
+
+                        status.update(
+                            f"Completed parallel execution: {step_name}")
+
+                        # Add results from all parallel steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}.{i + 1}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "ParallelStepResult",
+                                    }
+                                )
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
@@ -1913,6 +1945,35 @@ class Workflow:
                             console.print(loop_summary_panel)
 
                         step_started_printed = True
+                        
+                    elif isinstance(response, ParallelExecutionStartedEvent):
+                        current_step_name = response.step_name or "Parallel Steps"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        status.update(
+                            f"Starting parallel execution: {current_step_name} ({response.parallel_step_count} steps)..."
+                        )
+                        live_log.update(status)
+
+                    elif isinstance(response, ParallelExecutionCompletedEvent):
+                        step_name = response.step_name or "Parallel Steps"
+                        step_index = response.step_index or 0
+
+                        status.update(
+                            f"Completed parallel execution: {step_name}")
+
+                        # Add results from all parallel steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}.{i + 1}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "ParallelStepResult",
+                                    }
+                                )
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")

@@ -56,14 +56,71 @@ class Loop:
         self.max_iterations = max_iterations
         self.end_condition = end_condition
 
+    def _prepare_steps(self):
+        """Prepare the steps for execution - mirrors workflow logic"""
+        from agno.agent.agent import Agent
+        from agno.team.team import Team
+        from agno.workflow.v2.condition import Condition
+        from agno.workflow.v2.parallel import Parallel
+        from agno.workflow.v2.step import Step
+
+        prepared_steps = []
+        for step in self.steps:
+            if isinstance(step, Callable):
+                prepared_steps.append(Step(name=step.__name__, description="User-defined callable step", executor=step))
+            elif isinstance(step, Agent):
+                prepared_steps.append(Step(name=step.name, description=step.description, agent=step))
+            elif isinstance(step, Team):
+                prepared_steps.append(Step(name=step.name, description=step.description, team=step))
+            elif isinstance(step, (Step, Loop, Parallel, Condition)):
+                prepared_steps.append(step)
+            else:
+                raise ValueError(f"Invalid step type: {type(step).__name__}")
+
+        self.steps = prepared_steps
+
+    def _update_step_input_from_outputs(
+        self, step_input: StepInput, step_outputs: Union[StepOutput, List[StepOutput]]
+    ) -> StepInput:
+        """Helper to update step input from step outputs (handles both single and multiple outputs)"""
+        current_images = step_input.images or []
+        current_videos = step_input.videos or []
+        current_audio = step_input.audio or []
+
+        if isinstance(step_outputs, list):
+            all_images = sum([out.images or [] for out in step_outputs], [])
+            all_videos = sum([out.videos or [] for out in step_outputs], [])
+            all_audio = sum([out.audio or [] for out in step_outputs], [])
+
+            # Use the last output's content for chaining
+            previous_step_content = step_outputs[-1].content if step_outputs else None
+        else:
+            # Single output
+            all_images = step_outputs.images or []
+            all_videos = step_outputs.videos or []
+            all_audio = step_outputs.audio or []
+            previous_step_content = step_outputs.content
+
+        return StepInput(
+            message=step_input.message,
+            message_data=step_input.message_data,
+            previous_step_content=previous_step_content,
+            images=current_images + all_images,
+            videos=current_videos + all_videos,
+            audio=current_audio + all_audio,
+        )
+
     def execute(
         self,
         step_input: StepInput,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> List[StepOutput]:
-        """Execute loop steps with iteration control"""
+        """Execute loop steps with iteration control - mirrors workflow execution logic"""
         logger.info(f"Executing loop: {self.name} (max_iterations: {self.max_iterations})")
+
+        # Prepare steps first
+        self._prepare_steps()
 
         all_results = []
         iteration = 0
@@ -71,34 +128,29 @@ class Loop:
         while iteration < self.max_iterations:
             log_debug(f"Loop iteration {iteration + 1}/{self.max_iterations}")
 
-            # Execute all steps in this iteration
+            # Execute all steps in this iteration - mirroring workflow logic
             iteration_results = []
             current_step_input = step_input
 
             for step in self.steps:
-                if isinstance(step, Step):
-                    step_output = step.execute(current_step_input, session_id=session_id, user_id=user_id)
+                step_output = step.execute(current_step_input, session_id=session_id, user_id=user_id)
+
+                # Handle both single StepOutput and List[StepOutput] (from Loop/Condition steps)
+                if isinstance(step_output, list):
+                    # This is a step that returns multiple outputs (Loop, Condition etc.)
+                    iteration_results.extend(step_output)
+                else:
+                    # Single StepOutput
                     iteration_results.append(step_output)
 
-                    # Update step input for next step with previous step's content
-                    current_step_input = StepInput(
-                        message=step_input.message,
-                        message_data=step_input.message_data,
-                        previous_step_content=step_output.content,
-                        images=current_step_input.images + (step_output.images or []),
-                        videos=current_step_input.videos + (step_output.videos or []),
-                        audio=current_step_input.audio + (step_output.audio or []),
-                    )
-                else:
-                    raise ValueError(f"Invalid step type in loop: {type(step)}")
+                # Update step input for next step
+                current_step_input = self._update_step_input_from_outputs(current_step_input, step_output)
 
             all_results.append(iteration_results)
             iteration += 1
 
-            import inspect
-
             # Check end condition
-            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
+            if self.end_condition and callable(self.end_condition):
                 try:
                     should_break = self.end_condition(iteration_results)
                     log_debug(f"End condition returned: {should_break}")
@@ -127,8 +179,11 @@ class Loop:
         workflow_run_response: Optional[WorkflowRunResponse] = None,
         step_index: Optional[int] = None,
     ) -> Iterator[Union[WorkflowRunResponseEvent, StepOutput]]:
-        """Execute loop steps with streaming support"""
+        """Execute loop steps with streaming support - mirrors workflow execution logic"""
         log_debug(f"Streaming loop: {self.name} (max_iterations: {self.max_iterations})")
+
+        # Prepare steps first
+        self._prepare_steps()
 
         # Yield loop started event
         yield LoopExecutionStartedEvent(
@@ -159,46 +214,44 @@ class Loop:
                 max_iterations=self.max_iterations,
             )
 
-            # Execute all steps in this iteration
+            # Execute all steps in this iteration - mirroring workflow logic
             iteration_results = []
             current_step_input = step_input
 
             for i, step in enumerate(self.steps):
-                if isinstance(step, Step):
-                    # Stream step execution
-                    for event in step.execute_stream(
-                        current_step_input,
-                        session_id=session_id,
-                        user_id=user_id,
-                        stream_intermediate_steps=stream_intermediate_steps,
-                        workflow_run_response=workflow_run_response,
-                        step_index=step_index,
-                    ):
-                        if isinstance(event, StepOutput):
-                            iteration_results.append(event)
+                step_outputs_for_iteration = []
+                # Stream step execution
+                for event in step.execute_stream(
+                    current_step_input,
+                    session_id=session_id,
+                    user_id=user_id,
+                    stream_intermediate_steps=stream_intermediate_steps,
+                    workflow_run_response=workflow_run_response,
+                    step_index=step_index,
+                ):
+                    if isinstance(event, StepOutput):
+                        step_outputs_for_iteration.append(event)
+                        iteration_results.append(event)
+                    else:
+                        # Yield other events (streaming content, step events, etc.)
+                        yield event
 
-                            # Update step input for next step
-                            current_step_input = StepInput(
-                                message=step_input.message,
-                                message_data=step_input.message_data,
-                                previous_step_content=event.content,
-                                images=current_step_input.images + (event.images or []),
-                                videos=current_step_input.videos + (event.videos or []),
-                                audio=current_step_input.audio + (event.audio or []),
-                            )
-                        else:
-                            # Yield other events (streaming content, step events, etc.)
-                            yield event
-                else:
-                    raise ValueError(f"Invalid step type in loop: {type(step)}")
+                # Update step input for next step using all outputs from this step
+                if step_outputs_for_iteration:
+                    if len(step_outputs_for_iteration) == 1:
+                        current_step_input = self._update_step_input_from_outputs(
+                            current_step_input, step_outputs_for_iteration[0]
+                        )
+                    else:
+                        current_step_input = self._update_step_input_from_outputs(
+                            current_step_input, step_outputs_for_iteration
+                        )
 
             all_results.append(iteration_results)
 
-            import inspect
-
             # Check end condition
             should_continue = True
-            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
+            if self.end_condition and callable(self.end_condition):
                 try:
                     should_break = self.end_condition(iteration_results)
                     should_continue = not should_break
@@ -245,8 +298,11 @@ class Loop:
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> List[StepOutput]:
-        """Execute loop steps asynchronously with iteration control"""
+        """Execute loop steps asynchronously with iteration control - mirrors workflow execution logic"""
         logger.info(f"Async executing loop: {self.name} (max_iterations: {self.max_iterations})")
+
+        # Prepare steps first
+        self._prepare_steps()
 
         all_results = []
         iteration = 0
@@ -254,34 +310,29 @@ class Loop:
         while iteration < self.max_iterations:
             log_debug(f"Async loop iteration {iteration + 1}/{self.max_iterations}")
 
-            # Execute all steps in this iteration
+            # Execute all steps in this iteration - mirroring workflow logic
             iteration_results = []
             current_step_input = step_input
 
             for step in self.steps:
-                if isinstance(step, Step):
-                    step_output = await step.aexecute(current_step_input, session_id=session_id, user_id=user_id)
+                step_output = await step.aexecute(current_step_input, session_id=session_id, user_id=user_id)
+
+                # Handle both single StepOutput and List[StepOutput] (from Loop/Condition steps)
+                if isinstance(step_output, list):
+                    # This is a step that returns multiple outputs (Loop, Condition etc.)
+                    iteration_results.extend(step_output)
+                else:
+                    # Single StepOutput
                     iteration_results.append(step_output)
 
-                    # Update step input for next step with previous step's content
-                    current_step_input = StepInput(
-                        message=step_input.message,
-                        message_data=step_input.message_data,
-                        previous_step_content=step_output.content,
-                        images=current_step_input.images + (step_output.images or []),
-                        videos=current_step_input.videos + (step_output.videos or []),
-                        audio=current_step_input.audio + (step_output.audio or []),
-                    )
-                else:
-                    raise ValueError(f"Invalid step type in loop: {type(step)}")
+                # Update step input for next step
+                current_step_input = self._update_step_input_from_outputs(current_step_input, step_output)
 
             all_results.append(iteration_results)
             iteration += 1
 
-            import inspect
-
             # Check end condition
-            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
+            if self.end_condition and callable(self.end_condition):
                 try:
                     if inspect.iscoroutinefunction(self.end_condition):
                         should_break = await self.end_condition(iteration_results)
@@ -312,8 +363,11 @@ class Loop:
         workflow_run_response: Optional[WorkflowRunResponse] = None,
         step_index: Optional[int] = None,
     ) -> AsyncIterator[Union[WorkflowRunResponseEvent, TeamRunResponseEvent, RunResponseEvent, StepOutput]]:
-        """Execute loop steps with async streaming support"""
+        """Execute loop steps with async streaming support - mirrors workflow execution logic"""
         log_debug(f"Async streaming loop: {self.name} (max_iterations: {self.max_iterations})")
+
+        # Prepare steps first
+        self._prepare_steps()
 
         # Yield loop started event
         yield LoopExecutionStartedEvent(
@@ -344,46 +398,45 @@ class Loop:
                 max_iterations=self.max_iterations,
             )
 
-            # Execute all steps in this iteration
+            # Execute all steps in this iteration - mirroring workflow logic
             iteration_results = []
             current_step_input = step_input
 
             for i, step in enumerate(self.steps):
-                if isinstance(step, Step):
-                    # Stream step execution
-                    async for event in step.aexecute_stream(
-                        current_step_input,
-                        session_id=session_id,
-                        user_id=user_id,
-                        stream_intermediate_steps=stream_intermediate_steps,
-                        workflow_run_response=workflow_run_response,
-                        step_index=step_index,
-                    ):
-                        if isinstance(event, StepOutput):
-                            iteration_results.append(event)
+                step_outputs_for_iteration = []
 
-                            # Update step input for next step
-                            current_step_input = StepInput(
-                                message=step_input.message,
-                                message_data=step_input.message_data,
-                                previous_step_content=event.content,
-                                images=current_step_input.images + (event.images or []),
-                                videos=current_step_input.videos + (event.videos or []),
-                                audio=current_step_input.audio + (event.audio or []),
-                            )
-                        else:
-                            # Yield other events (streaming content, step events, etc.)
-                            yield event
-                else:
-                    raise ValueError(f"Invalid step type in loop: {type(step)}")
+                # Stream step execution - mirroring workflow logic
+                async for event in step.aexecute_stream(
+                    current_step_input,
+                    session_id=session_id,
+                    user_id=user_id,
+                    stream_intermediate_steps=stream_intermediate_steps,
+                    workflow_run_response=workflow_run_response,
+                    step_index=step_index,
+                ):
+                    if isinstance(event, StepOutput):
+                        step_outputs_for_iteration.append(event)
+                        iteration_results.append(event)
+                    else:
+                        # Yield other events (streaming content, step events, etc.)
+                        yield event
+
+                # Update step input for next step using all outputs from this step
+                if step_outputs_for_iteration:
+                    if len(step_outputs_for_iteration) == 1:
+                        current_step_input = self._update_step_input_from_outputs(
+                            current_step_input, step_outputs_for_iteration[0]
+                        )
+                    else:
+                        current_step_input = self._update_step_input_from_outputs(
+                            current_step_input, step_outputs_for_iteration
+                        )
 
             all_results.append(iteration_results)
 
-            import inspect
-
             # Check end condition
             should_continue = True
-            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
+            if self.end_condition and callable(self.end_condition):
                 try:
                     if inspect.iscoroutinefunction(self.end_condition):
                         should_break = await self.end_condition(iteration_results)

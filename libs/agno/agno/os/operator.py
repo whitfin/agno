@@ -10,15 +10,6 @@ from agno.workflow.workflow import Workflow
 
 
 
-def get_agent_by_id(agent_id: str, agents: Optional[List[Agent]] = None) -> Optional[Agent]:
-    if agent_id is None or agents is None:
-        return None
-
-    for agent in agents:
-        if agent.agent_id == agent_id:
-            return agent
-    return None
-
 
 def get_session_title(session: Union[AgentSession, TeamSession]) -> str:
     if session is None:
@@ -88,26 +79,6 @@ def get_session_title_from_workflow_session(workflow_session: WorkflowSession) -
             except Exception as e:
                 logger.error(f"Error parsing workflow session: {e}")
     return "Unnamed session"
-
-
-def get_workflow_by_id(workflow_id: str, workflows: Optional[List[Workflow]] = None) -> Optional[Workflow]:
-    if workflows is None or workflow_id is None:
-        return None
-
-    for workflow in workflows:
-        if workflow.workflow_id == workflow_id:
-            return workflow
-    return None
-
-
-def get_team_by_id(team_id: str, teams: Optional[List[Team]] = None) -> Optional[Team]:
-    if teams is None or team_id is None:
-        return None
-
-    for team in teams:
-        if team.team_id == team_id:
-            return team
-    return None
 
 
 def get_session_title_from_team_session(team_session: TeamSession) -> str:

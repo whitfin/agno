@@ -727,6 +727,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         # 6. Save session to short-term memory
         self.save_session(user_id=user_id, session_id=session_id)
@@ -800,6 +802,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+
+        self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(from_run_response=run_response), run_response)
@@ -1157,6 +1161,8 @@ class Agent:
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
 
+        self.run_response.status = RunStatus.completed
+        
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 
@@ -1231,6 +1237,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(from_run_response=run_response), run_response)
@@ -1777,6 +1785,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -1848,6 +1858,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(run_response), run_response)
@@ -2151,6 +2163,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -2228,9 +2242,11 @@ class Agent:
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
 
+        self.run_response.status = RunStatus.completed
+        
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(run_response), run_response)
-
+            
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 

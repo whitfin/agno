@@ -294,7 +294,7 @@ class AgentOS:
     async def cli(
         self,
         user: str = "User",
-        emoji: str = ":sunglasses:",
+        emoji: str = ":point_right: :point_right: :sunglasses:",
         stream: bool = False,
         markdown: bool = False,
         exit_on: Optional[List[str]] = None,

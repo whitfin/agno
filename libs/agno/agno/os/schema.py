@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
+from fastapi import UploadFile
 from pydantic import BaseModel
 
 from agno.agent import Agent

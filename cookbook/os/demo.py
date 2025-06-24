@@ -64,6 +64,7 @@ knowledge_base_2.add_document(doc_2)
 # Setup the agent
 agent = Agent(
     name="Basic Agent",
+    agent_id="basic-agent",
     model=OpenAIChat(id="gpt-4o-mini"),
     memory=memory,
     enable_user_memories=True,
@@ -73,6 +74,7 @@ agent = Agent(
 
 agent_2 = Agent(
     name="Basic Agent 2",
+    agent_id="basic-agent-2",
     model=OpenAIChat(id="gpt-4o-mini"),
     memory=memory,
     enable_user_memories=True,

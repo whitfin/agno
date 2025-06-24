@@ -17,6 +17,7 @@ class PaginationInfo(BaseModel):
     page: Optional[int] = 0
     limit: Optional[int] = 20
     total_pages: Optional[int] = 0
+    total_count: Optional[int] = 0
 
 
 class PaginatedResponse(BaseModel, Generic[T]):

@@ -25,7 +25,7 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
         sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[SessionSchema]:
-        sessions = db.get_sessions(
+        sessions, total_count = db.get_sessions_raw(
             session_type=session_type,
             component_id=component_id,
             limit=limit,
@@ -33,9 +33,15 @@ def attach_async_routes(router: APIRouter, db: BaseDb) -> APIRouter:
             sort_by=sort_by,
             sort_order=sort_order,
         )
+
         return PaginatedResponse(
-            data=[SessionSchema.from_session(session) for session in sessions],
-            meta=PaginationInfo(page=page, limit=limit),
+            data=[SessionSchema.from_dict(session) for session in sessions],
+            meta=PaginationInfo(
+                page=page,
+                limit=limit,
+                total_count=total_count,
+                total_pages=total_count // limit if limit is not None and limit > 0 else 0,
+            ),
         )
 
     @router.get(

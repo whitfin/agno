@@ -18,7 +18,7 @@ def attach_sync_routes(router: APIRouter, memory: Memory) -> APIRouter:
         team_id: Optional[str] = Query(default=None, description="Filter memories by team ID"),
         workflow_id: Optional[str] = Query(default=None, description="Filter memories by workflow ID"),
         limit: Optional[int] = Query(default=20, description="Number of memories to return"),
-        offset: Optional[int] = Query(default=0, description="Number of memories to skip"),
+        page: Optional[int] = Query(default=0, description="Page number"),
         sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
         sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
     ) -> List[UserMemorySchema]:
@@ -27,7 +27,7 @@ def attach_sync_routes(router: APIRouter, memory: Memory) -> APIRouter:
 
         user_memories = memory.db.get_user_memories_raw(
             limit=limit,
-            offset=offset,
+            page=page,
             user_id=user_id,
             agent_id=agent_id,
             team_id=team_id,

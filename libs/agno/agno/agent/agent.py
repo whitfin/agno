@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections import ChainMap, defaultdict, deque
+from collections import ChainMap, deque
 from dataclasses import asdict, dataclass
 from os import getenv
 from textwrap import dedent
@@ -26,6 +26,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
+from agno.db.base import SessionType
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.agent import AgentKnowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
@@ -43,8 +44,9 @@ from agno.run.response import (
     RunResponseEvent,
     RunResponsePausedEvent,
 )
+from agno.run.team import TeamRunResponseEvent
 from agno.session import AgentSession
-from agno.session.summarizer import SessionSummarizer, SessionSummary
+from agno.session.summarizer import SessionSummarizer
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -1246,7 +1248,7 @@ class Agent:
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
-        
+
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
@@ -2254,7 +2256,7 @@ class Agent:
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
-        
+
         # 6. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
@@ -2314,10 +2316,10 @@ class Agent:
 
         # Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
-        
+
         # Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-        
+
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
 
@@ -3262,7 +3264,7 @@ class Agent:
                 self.summary_manager.model = self.model
             tasks.append(
                 self.agent_session.acreate_session_summary(
-                    session_id=session_id, user_id=user_id, summary_manager=self.summary_manager
+                    session_id=session_id, summary_manager=self.summary_manager
                 )
             )
 
@@ -3704,6 +3706,7 @@ class Agent:
 
         Args:
             session_id: The session_id to load from storage.
+            user_id: The user_id of the user.
 
         Returns:
             AgentSession: The AgentSession loaded from the database or created if it does not exist.
@@ -3840,7 +3843,7 @@ class Agent:
             log_warning(f"Template substitution failed: {e}")
             return msg
 
-    def get_system_message(self, session_id: str, user_id: Optional[str] = None) -> Optional[Message]:
+    def get_system_message(self, user_id: Optional[str] = None) -> Optional[Message]:
         """Return the system message for the Agent.
 
         1. If the system_message is provided, use that.
@@ -4449,7 +4452,7 @@ class Agent:
             Message(role="user", content=model_response.content),
         ]
 
-    def get_agent_session_summary(self, session_id: Optional[str] = None, user_id: Optional[str] = None):
+    def get_agent_session_summary(self, session_id: Optional[str] = None):
         """Get the session summary for the given session ID and user ID."""
         if self.memory is None:
             return None
@@ -4458,12 +4461,9 @@ class Agent:
         if session_id is None:
             raise ValueError("Session ID is required")
 
-        if isinstance(self.memory, Memory):
-            user_id = user_id if user_id is not None else self.user_id
-            if user_id is None:
-                user_id = "default"
-            return self.memory.get_agent_session_summary(session_id=session_id, user_id=user_id)
-        raise ValueError(f"Memory type {type(self.memory)} not supported")
+        self.get_agent_session(session_id=session_id)
+
+        return self.agent_session.get_session_summary()
 
     def get_user_memories(self, user_id: Optional[str] = None) -> Optional[List[UserMemory]]:
         """Get the user memories for the given user ID."""
@@ -5040,19 +5040,15 @@ class Agent:
             return []
 
         if self.memory is None:
+            return []
+        else:
             self.get_agent_session(session_id=_session_id)
 
-        if self.memory is None:
-            return []
-
-        if isinstance(self.memory, Memory):
-            return self.memory.get_messages_from_last_n_runs(
-                session_id=_session_id,
-                # Only filter by agent_id if this is part of a team
-                agent_id=self.agent_id if self.team_session_id is not None else None,
-            )
-        else:
-            return []
+        return self.agent_session.get_messages_from_last_n_runs(
+            session_id=_session_id,
+            # Only filter by agent_id if this is part of a team
+            agent_id=self.agent_id if self.team_session_id is not None else None,
+        )
 
     ###########################################################################
     # Handle images, videos and audio
@@ -7101,12 +7097,11 @@ class Agent:
         return effective_filters
 
     def get_previous_sessions_messages_function(
-        self, num_history_sessions: Optional[int] = 2, user_id: Optional[str] = None
+        self, num_history_sessions: Optional[int] = 2
     ) -> Callable:
         """Factory function to create a get_previous_session_messages function.
 
         Args:
-            user_id: The user ID to get sessions for
             num_history_sessions: The last n sessions to be taken from db
 
         Returns:
@@ -7126,7 +7121,7 @@ class Agent:
             if self.memory.db is None:
                 return "Memory not available"
 
-            selected_sessions = self.memory.db.get_recent_sessions(limit=num_history_sessions, user_id=user_id)
+            selected_sessions = self.memory.db.get_recent_sessions(session_type=SessionType.AGENT, limit=num_history_sessions)
 
             all_messages = []
             seen_message_pairs = set()

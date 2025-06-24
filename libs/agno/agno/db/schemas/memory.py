@@ -10,8 +10,11 @@ class MemoryRow(BaseModel):
     # id for this memory, auto-generated if not provided
     id: Optional[str] = None
     memory: Dict[str, Any]
-    user_id: Optional[str] = None
     last_updated: Optional[datetime] = None
+
+    user_id: Optional[str] = None
+    agent_id: Optional[str] = None
+    team_id: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 

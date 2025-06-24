@@ -1024,6 +1024,8 @@ class PostgresDb(BaseDb):
 
                 stmt = postgresql.insert(table).values(
                     user_id=memory.user_id,
+                    agent_id=memory.agent_id,
+                    team_id=memory.team_id,
                     memory_id=memory.id,
                     memory=memory.memory,
                     last_updated=int(time.time()),
@@ -1064,6 +1066,8 @@ class PostgresDb(BaseDb):
             return MemoryRow(
                 id=user_memory_raw["memory_id"],
                 user_id=user_memory_raw["user_id"],
+                agent_id=user_memory_raw["agent_id"],
+                team_id=user_memory_raw["team_id"],
                 memory=user_memory_raw["memory"],
                 last_updated=user_memory_raw["last_updated"],
             )

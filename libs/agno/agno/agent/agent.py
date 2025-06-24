@@ -3144,6 +3144,7 @@ class Agent:
                         self.memory.create_user_memories,
                         message=run_messages.user_message.get_content_string(),
                         user_id=user_id,
+                        agent_id=self.agent_id,
                     )
                 )
 
@@ -3168,7 +3169,12 @@ class Agent:
 
                 if len(parsed_messages) > 0:
                     futures.append(
-                        executor.submit(self.memory.create_user_memories, messages=parsed_messages, user_id=user_id)
+                        executor.submit(
+                            self.memory.create_user_memories,
+                            messages=parsed_messages,
+                            user_id=user_id,
+                            agent_id=self.agent_id,
+                        )
                     )
                 else:
                     log_warning("Unable to add messages to memory")

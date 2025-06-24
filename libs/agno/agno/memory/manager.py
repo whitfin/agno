@@ -144,6 +144,8 @@ class MemoryManager:
         existing_memories: List[Dict[str, Any]],
         user_id: str,
         db: MemoryDb,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
         delete_memories: bool = True,
         clear_memories: bool = True,
     ) -> str:
@@ -162,7 +164,13 @@ class MemoryManager:
         # Update the Model (set defaults, add logit etc.)
         self.determine_tools_for_model(
             self._get_db_tools(
-                user_id, db, input_string, enable_delete_memory=delete_memories, enable_clear_memory=clear_memories
+                user_id,
+                db,
+                input_string,
+                agent_id=agent_id,
+                team_id=team_id,
+                enable_delete_memory=delete_memories,
+                enable_clear_memory=clear_memories,
             ),
         )
 
@@ -193,6 +201,8 @@ class MemoryManager:
         existing_memories: List[Dict[str, Any]],
         user_id: str,
         db: MemoryDb,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
         delete_memories: bool = True,
         clear_memories: bool = True,
     ) -> str:
@@ -211,7 +221,13 @@ class MemoryManager:
         # Update the Model (set defaults, add logit etc.)
         self.determine_tools_for_model(
             self._get_db_tools(
-                user_id, db, input_string, enable_delete_memory=delete_memories, enable_clear_memory=clear_memories
+                user_id,
+                db,
+                input_string,
+                agent_id=agent_id,
+                team_id=team_id,
+                enable_delete_memory=delete_memories,
+                enable_clear_memory=clear_memories,
             ),
         )
 
@@ -332,6 +348,8 @@ class MemoryManager:
         enable_update_memory: bool = True,
         enable_delete_memory: bool = True,
         enable_clear_memory: bool = True,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
     ) -> List[Callable]:
         from datetime import datetime
 
@@ -354,6 +372,8 @@ class MemoryManager:
                     MemoryRow(
                         id=memory_id,
                         user_id=user_id,
+                        agent_id=agent_id,
+                        team_id=team_id,
                         memory=UserMemory(
                             memory_id=memory_id,
                             memory=memory,

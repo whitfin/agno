@@ -1,6 +1,7 @@
 import json
 from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
+from fastapi import UploadFile
 from pydantic import BaseModel
 
 from agno.agent import Agent
@@ -76,8 +77,6 @@ class AgentResponse(BaseModel):
                     model=agent.memory.model.id,
                     provider=agent.memory.model.provider,
                 )
-            if agent.memory.db is not None:
-                memory_dict["db"] = agent.memory.db.__dict__()  # type: ignore
 
         return AgentResponse(
             agent_id=agent.agent_id,
@@ -144,8 +143,6 @@ class TeamResponse(BaseModel):
                     model=team.memory.model.id,
                     provider=team.memory.model.provider,
                 )
-            if team.memory.db is not None:
-                memory_dict["db"] = team.memory.db.__dict__()  # type: ignore
 
         return TeamResponse(
             team_id=team.team_id,

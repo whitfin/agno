@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from fastapi import HTTPException, UploadFile
 
+from agno.agent.agent import Agent
 from agno.media import Audio, Image, Video
 from agno.media import File as FileMedia
 from agno.tools.function import Function
@@ -70,3 +71,13 @@ def format_tools(agent_tools: List[Union[Dict[str, Any], Toolkit, Function, Call
 
 def format_team_tools(team_tools: List[Function]):
     return [tool.to_dict() for tool in team_tools]
+
+
+def get_agent_by_id(agent_id: str, agents: Optional[List[Agent]] = None) -> Optional[Agent]:
+    if agent_id is None or agents is None:
+        return None
+
+    for agent in agents:
+        if agent.agent_id == agent_id:
+            return agent
+    return None

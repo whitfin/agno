@@ -727,6 +727,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         # 6. Save session to short-term memory
         self.save_session(user_id=user_id, session_id=session_id)
@@ -800,6 +802,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+
+        self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(from_run_response=run_response), run_response)
@@ -1157,14 +1161,13 @@ class Agent:
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
 
+        self.run_response.status = RunStatus.completed
+        
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)
@@ -1234,6 +1237,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(from_run_response=run_response), run_response)
@@ -1243,9 +1248,6 @@ class Agent:
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -1783,6 +1785,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -1854,6 +1858,8 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(run_response), run_response)
@@ -2157,15 +2163,14 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
+        
+        self.run_response.status = RunStatus.completed
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)
@@ -2237,17 +2242,16 @@ class Agent:
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
 
+        self.run_response.status = RunStatus.completed
+        
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(run_response), run_response)
-
+            
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 
         # 6. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
-
-        # Log Agent Run
-        await self._alog_agent_run(user_id=user_id, session_id=session_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 

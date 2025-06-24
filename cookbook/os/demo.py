@@ -81,6 +81,7 @@ agent_os = AgentOS(
     name="Demo App",
     description="Demo app for basic agent with session, knowledge, and memory capabilities",
     os_id="demo",
+    console=Console(model=OpenAIChat(id="gpt-4o-mini")),
     agents=[agent],
     interfaces=[Whatsapp(agent=agent)],
     apps=[

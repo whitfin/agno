@@ -15,6 +15,7 @@ from agno.app.utils import generate_id
 from agno.cli.console import console
 from agno.cli.settings import agno_cli_settings
 from agno.os.connectors.base import BaseConnector
+from agno.os.console import Console
 from agno.os.interfaces.base import BaseInterface
 from agno.os.router import get_base_router
 from agno.os.settings import AgnoAPISettings
@@ -34,6 +35,7 @@ class AgentOS:
         agents: Optional[List[Agent]] = None,
         teams: Optional[List[Team]] = None,
         workflows: Optional[List[Workflow]] = None,
+        console: Optional[Console] = None,
         interfaces: Optional[List[BaseInterface]] = None,
         apps: Optional[List[BaseConnector]] = None,
         settings: Optional[AgnoAPISettings] = None,
@@ -46,6 +48,8 @@ class AgentOS:
         self.agents: Optional[List[Agent]] = agents
         self.workflows: Optional[List[Workflow]] = workflows
         self.teams: Optional[List[Team]] = teams
+        
+        self.console = console
 
         self.settings: AgnoAPISettings = settings or AgnoAPISettings()
         self.api_app: Optional[FastAPI] = api_app
@@ -120,6 +124,9 @@ class AgentOS:
                 redoc_url="/redoc" if self.settings.docs_enabled else None,
                 openapi_url="/openapi.json" if self.settings.docs_enabled else None,
             )
+            
+        if self.console:
+            self.console.initialize()
 
         if not self.api_app:
             raise Exception("API App could not be created.")

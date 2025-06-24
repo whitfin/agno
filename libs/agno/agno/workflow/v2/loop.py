@@ -95,8 +95,10 @@ class Loop:
             all_results.append(iteration_results)
             iteration += 1
 
+            import inspect
+
             # Check end condition
-            if self.end_condition:
+            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
                 try:
                     should_break = self.end_condition(iteration_results)
                     log_debug(f"End condition returned: {should_break}")
@@ -192,9 +194,11 @@ class Loop:
 
             all_results.append(iteration_results)
 
+            import inspect
+
             # Check end condition
             should_continue = True
-            if self.end_condition:
+            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
                 try:
                     should_break = self.end_condition(iteration_results)
                     should_continue = not should_break
@@ -274,8 +278,10 @@ class Loop:
             all_results.append(iteration_results)
             iteration += 1
 
+            import inspect
+
             # Check end condition
-            if self.end_condition:
+            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
                 try:
                     if inspect.iscoroutinefunction(self.end_condition):
                         should_break = await self.end_condition(iteration_results)
@@ -373,9 +379,11 @@ class Loop:
 
             all_results.append(iteration_results)
 
+            import inspect
+
             # Check end condition
             should_continue = True
-            if self.end_condition:
+            if self.end_condition and (inspect.isfunction(self.end_condition) or inspect.ismethod(self.end_condition)):
                 try:
                     if inspect.iscoroutinefunction(self.end_condition):
                         should_break = await self.end_condition(iteration_results)

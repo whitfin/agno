@@ -1,6 +1,7 @@
 from typing import List
 
 from agno.agent import Agent
+from agno.models.openai.chat import OpenAIChat
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.hackernews import HackerNewsTools
 from agno.workflow.v2 import Loop, Parallel, Step, Workflow
@@ -10,6 +11,7 @@ from agno.workflow.v2.types import StepOutput
 research_agent = Agent(
     name="Research Agent",
     role="Research specialist",
+    model=OpenAIChat(id="gpt-4o-mini"),
     tools=[HackerNewsTools(), DuckDuckGoTools()],
     instructions="You are a research specialist. Research the given topic thoroughly.",
     markdown=True,
@@ -18,6 +20,7 @@ research_agent = Agent(
 analysis_agent = Agent(
     name="Analysis Agent",
     role="Data analyst",
+    model=OpenAIChat(id="gpt-4o-mini"),
     instructions="You are a data analyst. Analyze and summarize research findings.",
     markdown=True,
 )
@@ -25,6 +28,7 @@ analysis_agent = Agent(
 content_agent = Agent(
     name="Content Agent",
     role="Content creator",
+    model=OpenAIChat(id="gpt-4o-mini"),
     instructions="You are a content creator. Create engaging content based on research.",
     markdown=True,
 )

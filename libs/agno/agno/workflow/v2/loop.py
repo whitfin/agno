@@ -5,10 +5,10 @@ from typing import AsyncIterator, Awaitable, Callable, Iterator, List, Optional,
 from agno.run.response import RunResponseEvent
 from agno.run.team import TeamRunResponseEvent
 from agno.run.v2.workflow import (
-    LoopCompletedEvent,
+    LoopExecutionCompletedEvent,
+    LoopExecutionStartedEvent,
     LoopIterationCompletedEvent,
     LoopIterationStartedEvent,
-    LoopStartedEvent,
     WorkflowRunResponse,
     WorkflowRunResponseEvent,
 )
@@ -39,7 +39,7 @@ class Loop:
     name: Optional[str] = None
     description: Optional[str] = None
 
-    max_iterations: int = 1  # Default to 1 iteration as requested
+    max_iterations: int = 3  # Default to 3
     end_condition: Optional[Callable[[List[StepOutput]], bool]] = None
 
     def __init__(
@@ -47,7 +47,7 @@ class Loop:
         steps: WorkflowSteps,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        max_iterations: int = 1,
+        max_iterations: int = 3,
         end_condition: Optional[Callable[[List[StepOutput]], bool]] = None,
     ):
         self.steps = steps
@@ -129,7 +129,7 @@ class Loop:
         log_debug(f"Streaming loop: {self.name} (max_iterations: {self.max_iterations})")
 
         # Yield loop started event
-        yield LoopStartedEvent(
+        yield LoopExecutionStartedEvent(
             run_id=workflow_run_response.run_id or "",
             workflow_name=workflow_run_response.workflow_name or "",
             workflow_id=workflow_run_response.workflow_id or "",
@@ -223,7 +223,7 @@ class Loop:
                 break
 
         # Yield loop completed event
-        yield LoopCompletedEvent(
+        yield LoopExecutionCompletedEvent(
             run_id=workflow_run_response.run_id or "",
             workflow_name=workflow_run_response.workflow_name or "",
             workflow_id=workflow_run_response.workflow_id or "",
@@ -310,7 +310,7 @@ class Loop:
         log_debug(f"Async streaming loop: {self.name} (max_iterations: {self.max_iterations})")
 
         # Yield loop started event
-        yield LoopStartedEvent(
+        yield LoopExecutionStartedEvent(
             run_id=workflow_run_response.run_id or "",
             workflow_name=workflow_run_response.workflow_name or "",
             workflow_id=workflow_run_response.workflow_id or "",
@@ -407,7 +407,7 @@ class Loop:
                 break
 
         # Yield loop completed event
-        yield LoopCompletedEvent(
+        yield LoopExecutionCompletedEvent(
             run_id=workflow_run_response.run_id or "",
             workflow_name=workflow_run_response.workflow_name or "",
             workflow_id=workflow_run_response.workflow_id or "",

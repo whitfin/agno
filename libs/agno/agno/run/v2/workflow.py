@@ -23,10 +23,10 @@ class WorkflowRunEvent(str, Enum):
     step_completed = "StepCompleted"
     step_error = "StepError"
 
-    loop_started = "LoopStarted"
+    loop_execution_started = "LoopExecutionStarted"
     loop_iteration_started = "LoopIterationStarted"
     loop_iteration_completed = "LoopIterationCompleted"
-    loop_completed = "LoopCompleted"
+    loop_execution_completed = "LoopExecutionCompleted"
 
     parallel_execution_started = "ParallelExecutionStarted"
     parallel_execution_completed = "ParallelExecutionCompleted"
@@ -164,13 +164,14 @@ class StepErrorEvent(BaseWorkflowRunResponseEvent):
 
 
 @dataclass
-class LoopStartedEvent(BaseWorkflowRunResponseEvent):
+class LoopExecutionStartedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when loop execution starts"""
 
-    event: str = WorkflowRunEvent.loop_started.value
+    event: str = WorkflowRunEvent.loop_execution_started.value
     step_name: Optional[str] = None
     step_index: Optional[int] = None
     max_iterations: Optional[int] = None
+
 
 @dataclass
 class LoopIterationStartedEvent(BaseWorkflowRunResponseEvent):
@@ -181,6 +182,7 @@ class LoopIterationStartedEvent(BaseWorkflowRunResponseEvent):
     step_index: Optional[int] = None
     iteration: int = 0
     max_iterations: Optional[int] = None
+
 
 @dataclass
 class LoopIterationCompletedEvent(BaseWorkflowRunResponseEvent):
@@ -194,11 +196,12 @@ class LoopIterationCompletedEvent(BaseWorkflowRunResponseEvent):
     iteration_results: List["StepOutput"] = field(default_factory=list)  # noqa: F821
     should_continue: bool = True
 
+
 @dataclass
-class LoopCompletedEvent(BaseWorkflowRunResponseEvent):
+class LoopExecutionCompletedEvent(BaseWorkflowRunResponseEvent):
     """Event sent when loop execution completes"""
 
-    event: str = WorkflowRunEvent.loop_completed.value
+    event: str = WorkflowRunEvent.loop_execution_completed.value
     step_name: Optional[str] = None
     step_index: Optional[int] = None
     total_iterations: int = 0
@@ -237,13 +240,14 @@ WorkflowRunResponseEvent = Union[
     StepStartedEvent,
     StepCompletedEvent,
     StepErrorEvent,
-    LoopStartedEvent,
+    LoopExecutionStartedEvent,
     LoopIterationStartedEvent,
     LoopIterationCompletedEvent,
-    LoopCompletedEvent,
+    LoopExecutionCompletedEvent,
     ParallelExecutionStartedEvent,
     ParallelExecutionCompletedEvent,
 ]
+
 
 @dataclass
 class WorkflowRunResponse:

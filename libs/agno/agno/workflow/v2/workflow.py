@@ -11,10 +11,10 @@ from agno.agent.agent import Agent
 from agno.media import Audio, Image, Video
 from agno.run.base import RunStatus
 from agno.run.v2.workflow import (
-    LoopCompletedEvent,
+    LoopExecutionCompletedEvent,
+    LoopExecutionStartedEvent,
     LoopIterationCompletedEvent,
     LoopIterationStartedEvent,
-    LoopStartedEvent,
     ParallelExecutionCompletedEvent,
     ParallelExecutionStartedEvent,
     StepCompletedEvent,
@@ -1354,7 +1354,7 @@ class Workflow:
                             console.print(final_step_panel)
                             step_started_printed = True
 
-                    elif isinstance(response, LoopStartedEvent):
+                    elif isinstance(response, LoopExecutionStartedEvent):
                         current_step_name = response.step_name or "Loop"
                         current_step_index = response.step_index or 0
                         current_step_content = ""
@@ -1387,7 +1387,7 @@ class Workflow:
                                     }
                                 )
 
-                    elif isinstance(response, LoopCompletedEvent):
+                    elif isinstance(response, LoopExecutionCompletedEvent):
                         step_name = response.step_name or "Loop"
                         step_index = response.step_index or 0
 
@@ -1412,7 +1412,7 @@ class Workflow:
                             console.print(loop_summary_panel)
 
                         step_started_printed = True
-                        
+
                     elif isinstance(response, ParallelExecutionStartedEvent):
                         current_step_name = response.step_name or "Parallel Steps"
                         current_step_index = response.step_index or 0
@@ -1427,8 +1427,7 @@ class Workflow:
                         step_name = response.step_name or "Parallel Steps"
                         step_index = response.step_index or 0
 
-                        status.update(
-                            f"Completed parallel execution: {step_name}")
+                        status.update(f"Completed parallel execution: {step_name}")
 
                         # Add results from all parallel steps to step_responses
                         if response.step_results:
@@ -1887,7 +1886,7 @@ class Workflow:
                             console.print(final_step_panel)
                             step_started_printed = True
 
-                    elif isinstance(response, LoopStartedEvent):
+                    elif isinstance(response, LoopExecutionStartedEvent):
                         current_step_name = response.step_name or "Loop"
                         current_step_index = response.step_index or 0
                         current_step_content = ""
@@ -1920,7 +1919,7 @@ class Workflow:
                                     }
                                 )
 
-                    elif isinstance(response, LoopCompletedEvent):
+                    elif isinstance(response, LoopExecutionCompletedEvent):
                         step_name = response.step_name or "Loop"
                         step_index = response.step_index or 0
 
@@ -1945,7 +1944,7 @@ class Workflow:
                             console.print(loop_summary_panel)
 
                         step_started_printed = True
-                        
+
                     elif isinstance(response, ParallelExecutionStartedEvent):
                         current_step_name = response.step_name or "Parallel Steps"
                         current_step_index = response.step_index or 0
@@ -1960,8 +1959,7 @@ class Workflow:
                         step_name = response.step_name or "Parallel Steps"
                         step_index = response.step_index or 0
 
-                        status.update(
-                            f"Completed parallel execution: {step_name}")
+                        status.update(f"Completed parallel execution: {step_name}")
 
                         # Add results from all parallel steps to step_responses
                         if response.step_results:

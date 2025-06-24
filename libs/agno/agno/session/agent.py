@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Mapping, Optional
 
 from agno.models.message import Message
+from agno.run.base import RunStatus
 from agno.run.response import RunResponse
 from agno.session.summarizer import SessionSummarizer, SessionSummary
 from agno.utils.log import log_debug, log_warning
@@ -95,15 +96,21 @@ class AgentSession:
     def get_messages_from_last_n_runs(
         self,
         session_id: str,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
         last_n: Optional[int] = None,
         skip_role: Optional[str] = None,
+        skip_status: Optional[List[RunStatus]] = None,
         skip_history_messages: bool = True,
     ) -> List[Message]:
         """Returns the messages from the last_n runs, excluding previously tagged history messages.
         Args:
             session_id: The session id to get the messages from.
+            agent_id: The id of the agent to get the messages from.
+            team_id: The id of the team to get the messages from.
             last_n: The number of runs to return from the end of the conversation. Defaults to all runs.
             skip_role: Skip messages with this role.
+            skip_status: Skip messages with this status.
             skip_history_messages: Skip messages that were tagged as history in previous runs.
         Returns:
             A list of Messages from the specified runs, excluding history messages.
@@ -111,7 +118,20 @@ class AgentSession:
         if not self.runs:
             return []
 
+        if skip_status is None:
+            skip_status = [RunStatus.paused, RunStatus.cancelled, RunStatus.error]
+
         session_runs = self.runs
+        # Filter by agent_id and team_id
+        if agent_id:
+            session_runs = [run for run in session_runs if hasattr(run, "agent_id") and run.agent_id == agent_id]  # type: ignore
+        if team_id:
+            session_runs = [run for run in session_runs if hasattr(run, "team_id") and run.team_id == team_id]  # type: ignore
+
+        # Filter by status
+        session_runs = [run for run in session_runs if hasattr(run, "status") and run.status not in skip_status]  # type: ignore
+
+        # Filter by last_n
         runs_to_process = session_runs[-last_n:] if last_n is not None else session_runs
         messages_from_history = []
         system_message = None

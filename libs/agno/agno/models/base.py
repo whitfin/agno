@@ -3,7 +3,20 @@ import collections.abc
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from types import AsyncGeneratorType, GeneratorType
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, Iterator, List, Literal, Optional, Tuple, Type, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Dict,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    get_args,
+)
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -13,6 +26,9 @@ from agno.media import AudioResponse, ImageArtifact
 from agno.models.message import Citations, Message
 from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse, ModelResponseEvent, ToolExecution
+from agno.run.response import RunResponseContentEvent, RunResponseEvent
+from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
+from agno.run.team import TeamRunResponseEvent
 from agno.tools.function import Function, FunctionCall, FunctionExecutionResult, UserInputField
 from agno.utils.log import log_debug, log_error, log_warning
 from agno.utils.timer import Timer
@@ -345,24 +361,25 @@ class Model(ABC):
                     current_function_call_count=function_call_count,
                     function_call_limit=tool_call_limit,
                 ):
-                    if (
-                        function_call_response.event
-                        in [
-                            ModelResponseEvent.tool_call_completed.value,
-                            ModelResponseEvent.tool_call_paused.value,
-                        ]
-                        and function_call_response.tool_executions is not None
-                    ):
-                        if model_response.tool_executions is None:
-                            model_response.tool_executions = []
-                        model_response.tool_executions.extend(function_call_response.tool_executions)
+                    if isinstance(function_call_response, ModelResponse):
+                        if (
+                            function_call_response.event
+                            in [
+                                ModelResponseEvent.tool_call_completed.value,
+                                ModelResponseEvent.tool_call_paused.value,
+                            ]
+                            and function_call_response.tool_executions is not None
+                        ):
+                            if model_response.tool_executions is None:
+                                model_response.tool_executions = []
+                            model_response.tool_executions.extend(function_call_response.tool_executions)
 
-                    elif function_call_response.event not in [
-                        ModelResponseEvent.tool_call_started.value,
-                        ModelResponseEvent.tool_call_completed.value,
-                    ]:
-                        if function_call_response.content:
-                            model_response.content += function_call_response.content  # type: ignore
+                        elif function_call_response.event not in [
+                            ModelResponseEvent.tool_call_started.value,
+                            ModelResponseEvent.tool_call_completed.value,
+                        ]:
+                            if function_call_response.content:
+                                model_response.content += function_call_response.content  # type: ignore
 
                 # Add a function call for each successful execution
                 function_call_count += len(function_call_results)
@@ -447,23 +464,24 @@ class Model(ABC):
                     current_function_call_count=function_call_count,
                     function_call_limit=tool_call_limit,
                 ):
-                    if (
-                        function_call_response.event
-                        in [
+                    if isinstance(function_call_response, ModelResponse):
+                        if (
+                            function_call_response.event
+                            in [
+                                ModelResponseEvent.tool_call_completed.value,
+                                ModelResponseEvent.tool_call_paused.value,
+                            ]
+                            and function_call_response.tool_executions is not None
+                        ):
+                            if model_response.tool_executions is None:
+                                model_response.tool_executions = []
+                            model_response.tool_executions.extend(function_call_response.tool_executions)
+                        elif function_call_response.event not in [
+                            ModelResponseEvent.tool_call_started.value,
                             ModelResponseEvent.tool_call_completed.value,
-                            ModelResponseEvent.tool_call_paused.value,
-                        ]
-                        and function_call_response.tool_executions is not None
-                    ):
-                        if model_response.tool_executions is None:
-                            model_response.tool_executions = []
-                        model_response.tool_executions.extend(function_call_response.tool_executions)
-                    elif function_call_response.event not in [
-                        ModelResponseEvent.tool_call_started.value,
-                        ModelResponseEvent.tool_call_completed.value,
-                    ]:
-                        if function_call_response.content:
-                            model_response.content += function_call_response.content  # type: ignore
+                        ]:
+                            if function_call_response.content:
+                                model_response.content += function_call_response.content  # type: ignore
 
                 # Add a function call for each successful execution
                 function_call_count += len(function_call_results)
@@ -726,7 +744,7 @@ class Model(ABC):
         functions: Optional[Dict[str, Function]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         tool_call_limit: Optional[int] = None,
-    ) -> Iterator[ModelResponse]:
+    ) -> Iterator[Union[ModelResponse, RunResponseEvent, TeamRunResponseEvent]]:
         """
         Generate a streaming response from the model.
         """
@@ -861,7 +879,7 @@ class Model(ABC):
         functions: Optional[Dict[str, Function]] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
         tool_call_limit: Optional[int] = None,
-    ) -> AsyncIterator[ModelResponse]:
+    ) -> AsyncIterator[Union[ModelResponse, RunResponseEvent, TeamRunResponseEvent]]:
         """
         Generate an asynchronous streaming response from the model.
         """
@@ -1130,7 +1148,7 @@ class Model(ABC):
         function_call: FunctionCall,
         function_call_results: List[Message],
         additional_messages: Optional[List[Message]] = None,
-    ) -> Iterator[ModelResponse]:
+    ) -> Iterator[Union[ModelResponse, RunResponseEvent, TeamRunResponseEvent]]:
         # Start function call
         function_call_timer = Timer()
         function_call_timer.start()
@@ -1169,9 +1187,25 @@ class Model(ABC):
 
         if isinstance(function_call.result, (GeneratorType, collections.abc.Iterator)):
             for item in function_call.result:
-                function_call_output += str(item)
-                if function_call.function.show_result:
-                    yield ModelResponse(content=str(item))
+                # This function yields agent/team run events
+                if isinstance(item, tuple(get_args(RunResponseEvent))) or isinstance(
+                    item, tuple(get_args(TeamRunResponseEvent))
+                ):
+                    # We only capture content events
+                    if isinstance(item, RunResponseContentEvent) or isinstance(item, TeamRunResponseContentEvent):
+                        # Capture output
+                        function_call_output += item.content or ""
+
+                        if function_call.function.show_result:
+                            yield ModelResponse(content=item.content)
+
+                    # Yield the event itself to bubble it up
+                    yield item
+
+                else:
+                    function_call_output += str(item)
+                    if function_call.function.show_result:
+                        yield ModelResponse(content=str(item))
         else:
             function_call_output = str(function_call.result)
             if function_call.function.show_result:
@@ -1207,7 +1241,7 @@ class Model(ABC):
         additional_messages: Optional[List[Message]] = None,
         current_function_call_count: int = 0,
         function_call_limit: Optional[int] = None,
-    ) -> Iterator[ModelResponse]:
+    ) -> Iterator[Union[ModelResponse, RunResponseEvent, TeamRunResponseEvent]]:
         # Additional messages from function calls that will be added to the function call results
         if additional_messages is None:
             additional_messages = []
@@ -1350,7 +1384,7 @@ class Model(ABC):
         current_function_call_count: int = 0,
         function_call_limit: Optional[int] = None,
         skip_pause_check: bool = False,
-    ) -> AsyncIterator[ModelResponse]:
+    ) -> AsyncIterator[Union[ModelResponse, RunResponseEvent, TeamRunResponseEvent]]:
         # Additional messages from function calls that will be added to the function call results
         if additional_messages is None:
             additional_messages = []
@@ -1500,14 +1534,46 @@ class Model(ABC):
             function_call_output: str = ""
             if isinstance(fc.result, (GeneratorType, collections.abc.Iterator)):
                 for item in fc.result:
-                    function_call_output += str(item)
-                    if fc.function.show_result:
-                        yield ModelResponse(content=str(item))
+                    # This function yields agent/team run events
+                    if isinstance(item, tuple(get_args(RunResponseEvent))) or isinstance(
+                        item, tuple(get_args(TeamRunResponseEvent))
+                    ):
+                        # We only capture content events
+                        if isinstance(item, RunResponseContentEvent) or isinstance(item, TeamRunResponseContentEvent):
+                            # Capture output
+                            function_call_output += item.content or ""
+
+                            if fc.function.show_result:
+                                yield ModelResponse(content=item.content)
+                                continue
+
+                        # Yield the event itself to bubble it up
+                        yield item
+                    else:
+                        function_call_output += str(item)
+                        if fc.function.show_result:
+                            yield ModelResponse(content=str(item))
             elif isinstance(fc.result, (AsyncGeneratorType, collections.abc.AsyncIterator)):
                 async for item in fc.result:
-                    function_call_output += str(item)
-                    if fc.function.show_result:
-                        yield ModelResponse(content=str(item))
+                    # This function yields agent/team run events
+                    if isinstance(item, tuple(get_args(RunResponseEvent))) or isinstance(
+                        item, tuple(get_args(TeamRunResponseEvent))
+                    ):
+                        # We only capture content events
+                        if isinstance(item, RunResponseContentEvent) or isinstance(item, TeamRunResponseContentEvent):
+                            # Capture output
+                            function_call_output += item.content or ""
+
+                            if fc.function.show_result:
+                                yield ModelResponse(content=item.content)
+                                continue
+
+                        # Yield the event itself to bubble it up
+                        yield item
+                    else:
+                        function_call_output += str(item)
+                        if fc.function.show_result:
+                            yield ModelResponse(content=str(item))
             else:
                 function_call_output = str(fc.result)
                 if fc.function.show_result:

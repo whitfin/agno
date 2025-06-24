@@ -81,6 +81,36 @@ def chat_response_streamer(
         return
 
 
+def agent_continue_run_streamer(
+    agent: Agent,
+    run_id: Optional[str] = None,
+    updated_tools: Optional[List] = None,
+    session_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> Generator:
+    try:
+        continue_response = agent.continue_run(
+            run_id=run_id,
+            updated_tools=updated_tools,
+            session_id=session_id,
+            user_id=user_id,
+            stream=True,
+            stream_intermediate_steps=True,
+        )
+        for run_response_chunk in continue_response:
+            run_response_chunk = cast(RunResponseEvent, run_response_chunk)
+            yield run_response_chunk.to_json()
+    except Exception as e:
+        import traceback
+
+        traceback.print_exc(limit=3)
+        error_response = RunResponseErrorEvent(
+            content=str(e),
+        )
+        yield error_response.to_json()
+        return
+
+
 def team_chat_response_streamer(
     team: Team,
     message: str,
@@ -104,7 +134,6 @@ def team_chat_response_streamer(
             stream_intermediate_steps=True,
         )
         for run_response_chunk in run_response:
-            run_response_chunk = cast(TeamRunResponseEvent, run_response_chunk)
             yield run_response_chunk.to_json()
     except Exception as e:
         import traceback
@@ -375,6 +404,69 @@ def attach_sync_routes(
             )
             return run_response.to_dict()
 
+    @router.post("/agents/{agent_id}/runs/{run_id}/continue")
+    def continue_agent_run(
+        agent_id: str,
+        run_id: str,
+        tools: str = Form(...),  # JSON string of tools
+        session_id: Optional[str] = Form(None),
+        user_id: Optional[str] = Form(None),
+        stream: bool = Form(True),
+    ):
+        # Parse the JSON string manually
+        try:
+            tools_data = json.loads(tools) if tools else None
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON in tools field")
+
+        logger.debug(
+            f"AgentContinueRunRequest: run_id={run_id} session_id={session_id} user_id={user_id} agent_id={agent_id}"
+        )
+        agent = get_agent_by_id(agent_id, agents)
+        if agent is None:
+            raise HTTPException(status_code=404, detail="Agent not found")
+
+        if session_id is None or session_id == "":
+            logger.warning(
+                "Continuing run without session_id. This might lead to unexpected behavior if session context is important."
+            )
+        else:
+            logger.debug(f"Continuing run within session: {session_id}")
+
+        # Convert tools dict to ToolExecution objects if provided
+        updated_tools = None
+        if tools_data:
+            try:
+                from agno.models.response import ToolExecution
+
+                updated_tools = [ToolExecution.from_dict(tool) for tool in tools_data]
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid structure or content for tools: {str(e)}")
+
+        if stream and agent.is_streamable:
+            return StreamingResponse(
+                agent_continue_run_streamer(
+                    agent,
+                    run_id=run_id,  # run_id from path
+                    updated_tools=updated_tools,
+                    session_id=session_id,
+                    user_id=user_id,
+                ),
+                media_type="text/event-stream",
+            )
+        else:
+            run_response_obj = cast(
+                RunResponse,
+                agent.continue_run(
+                    run_id=run_id,  # run_id from path
+                    updated_tools=updated_tools,
+                    session_id=session_id,
+                    user_id=user_id,
+                    stream=False,
+                ),
+            )
+            return run_response_obj.to_dict()
+
     @router.get("/agents/{agent_id}/sessions")
     def get_agent_sessions(agent_id: str, user_id: Optional[str] = Query(None, min_length=1)):
         logger.debug(f"AgentSessionsRequest: {agent_id} {user_id}")
@@ -418,7 +510,7 @@ def attach_sync_routes(
             runs = agent_session.memory.get("runs")
             if runs is not None:
                 first_run = runs[0]
-                if "content" in first_run or first_run.get("is_paused", False):
+                if "content" in first_run or first_run.get("is_paused", False) or first_run.get("event") == "RunPaused":
                     agent_session_dict["runs"] = []
                     for run in runs:
                         first_user_message = None
@@ -549,11 +641,11 @@ def attach_sync_routes(
         # Retrieve the workflow by ID
         workflow = get_workflow_by_id(workflow_id, workflows)
         if not workflow:
-            return JSONResponse(status_code=404, content="Workflow not found.")
+            raise HTTPException(status_code=404, detail="Workflow not found")
 
         # Ensure storage is enabled for the workflow
         if not workflow.storage:
-            return JSONResponse(status_code=404, content="Workflow does not have storage enabled.")
+            raise HTTPException(status_code=404, detail="Workflow does not have storage enabled")
 
         # Retrieve all sessions for the given workflow and user
         try:
@@ -561,7 +653,7 @@ def attach_sync_routes(
                 user_id=user_id, entity_id=workflow_id
             )  # type: ignore
         except Exception as e:
-            return JSONResponse(status_code=500, content=f"Error retrieving sessions: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error retrieving sessions: {str(e)}")
 
         # Return the sessions
         workflow_sessions: List[WorkflowSessionResponse] = []
@@ -793,9 +885,12 @@ def attach_sync_routes(
             runs = team_session.memory.get("runs")
             if runs is not None:
                 first_run = runs[0]
-                if "content" in first_run or first_run.get("is_paused", False):
+                if "content" in first_run or first_run.get("is_paused", False) or first_run.get("event") == "RunPaused":
                     team_session_dict["runs"] = []
                     for run in runs:
+                        # We skip runs that are not from the parent team
+                        if run.get("team_session_id") is not None and run.get("team_session_id") == session_id:
+                            continue
                         first_user_message = None
                         for msg in run.get("messages", []):
                             if msg.get("role") == "user" and msg.get("from_history", False) is False:

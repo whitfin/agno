@@ -1,10 +1,10 @@
 from textwrap import dedent
 
 from agno.agent import Agent
-from agno.app.fastapi.app import FastAPIApp
 from agno.db.sqlite import SqliteStorage
 from agno.memory import Memory
 from agno.memory.db.sqlite import SqliteMemoryDb
+from agno.app.fastapi import FastAPIApp
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
@@ -135,6 +135,7 @@ fastapi_app = FastAPIApp(
     app_id="advanced-app",
     name="Advanced FastAPI App",
     description="A FastAPI app for advanced agents",
+    version="0.0.1",
 )
 app = fastapi_app.get_app()
 

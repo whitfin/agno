@@ -926,6 +926,10 @@ class PostgresDb(BaseDb):
                     stmt = stmt.where(or_(*topic_conditions))
                 if search_content is not None:
                     stmt = stmt.where(table.c.memory.ilike(f"%{search_content}%"))
+
+                count_stmt = select(func.count()).select_from(stmt.alias())
+                total_count = sess.execute(count_stmt).scalar()
+
                 # Sorting
                 stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
                 # Paginating
@@ -938,7 +942,7 @@ class PostgresDb(BaseDb):
                 if not result:
                     return [], 0
 
-                return [record._mapping for record in result], len(result)
+                return [record._mapping for record in result], total_count
 
         except Exception as e:
             log_debug(f"Exception reading from table: {e}")

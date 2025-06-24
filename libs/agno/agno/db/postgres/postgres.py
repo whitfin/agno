@@ -10,7 +10,7 @@ from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:
-    from sqlalchemy import func, or_
+    from sqlalchemy import and_, func
     from sqlalchemy.dialects import postgresql
     from sqlalchemy.engine import Engine, create_engine
     from sqlalchemy.inspection import inspect
@@ -808,6 +808,18 @@ class PostgresDb(BaseDb):
 
     # -- Memory methods --
 
+    def get_all_memory_topics(self) -> List[str]:
+        """Get all memory topics from the database."""
+        try:
+            table = self.get_user_memory_table()
+            with self.Session() as sess, sess.begin():
+                stmt = select(func.json_array_elements_text(table.c.topics))
+                result = sess.execute(stmt).fetchall()
+                return [record[0] for record in result]
+        except Exception as e:
+            log_debug(f"Exception reading from table: {e}")
+            return []
+
     def get_user_memory_table(self) -> Table:
         """Get or create the user memory table."""
         if not hasattr(self, "user_memory_table"):
@@ -922,11 +934,12 @@ class PostgresDb(BaseDb):
                 if workflow_id is not None:
                     stmt = stmt.where(table.c.workflow_id == workflow_id)
                 if topics is not None:
-                    topic_conditions = [table.c.topics.contains([topic]) for topic in topics]
-                    stmt = stmt.where(or_(*topic_conditions))
+                    topic_conditions = [text(f"topics::text LIKE '%\"{topic}\"%'") for topic in topics]
+                    stmt = stmt.where(and_(*topic_conditions))
                 if search_content is not None:
                     stmt = stmt.where(table.c.memory.ilike(f"%{search_content}%"))
 
+                # Get total count after applying filtering
                 count_stmt = select(func.count()).select_from(stmt.alias())
                 total_count = sess.execute(count_stmt).scalar()
 

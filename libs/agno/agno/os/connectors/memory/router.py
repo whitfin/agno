@@ -3,13 +3,37 @@ from typing import List, Optional
 from fastapi import HTTPException, Path, Query
 from fastapi.routing import APIRouter
 
-from agno.os.connectors.memory.schemas import UserMemoryCreateSchema, UserMemorySchema, DeleteMemoriesRequest, 
-from agno.os.connectors.utils import PaginatedResponse, PaginationInfo, SortOrder
 from agno.db.schemas import MemoryRow
 from agno.memory import Memory
+from agno.os.connectors.memory.schemas import DeleteMemoriesRequest, UserMemoryCreateSchema, UserMemorySchema
+from agno.os.connectors.utils import PaginatedResponse, PaginationInfo, SortOrder
 
 
 def attach_routes(router: APIRouter, memory: Memory) -> APIRouter:
+    @router.post("/memories", response_model=UserMemorySchema, status_code=200)
+    async def create_memory(payload: UserMemoryCreateSchema) -> UserMemorySchema:
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+
+        user_memory = memory.db.upsert_user_memory_raw(
+            memory=MemoryRow(
+                id=None, memory={"memory": payload.memory, "topics": payload.topics}, user_id=payload.user_id
+            )
+        )
+        if not user_memory:
+            raise HTTPException(status_code=500, detail="Failed to create memory")
+
+        return UserMemorySchema.from_dict(user_memory)
+
+    @router.delete("/memories", status_code=204)
+    async def delete_memories(request: DeleteMemoriesRequest) -> None:
+        if memory.db is None:
+            raise HTTPException(status_code=500, detail="Database not initialized")
+
+        # TODO: optimize
+        for memory_id in request.memory_ids:
+            memory.db.delete_user_memory(memory_id=memory_id)
+
     @router.get("/memories", response_model=PaginatedResponse[UserMemorySchema], status_code=200)
     async def get_memories(
         user_id: Optional[str] = Query(default=None, description="Filter memories by user ID"),
@@ -60,20 +84,12 @@ def attach_routes(router: APIRouter, memory: Memory) -> APIRouter:
 
         return UserMemorySchema.from_dict(user_memory)
 
-    @router.post("/memories", response_model=UserMemorySchema, status_code=200)
-    async def create_memory(payload: UserMemoryCreateSchema) -> UserMemorySchema:
+    @router.get("/topics", response_model=List[str], status_code=200)
+    async def get_topics() -> List[str]:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        user_memory = memory.db.upsert_user_memory_raw(
-            memory=MemoryRow(
-                id=None, memory={"memory": payload.memory, "topics": payload.topics}, user_id=payload.user_id
-            )
-        )
-        if not user_memory:
-            raise HTTPException(status_code=500, detail="Failed to create memory")
-
-        return UserMemorySchema.from_dict(user_memory)
+        return memory.db.get_all_memory_topics()
 
     @router.patch("/memories/{memory_id}", response_model=UserMemorySchema, status_code=200)
     async def update_memory(payload: UserMemoryCreateSchema, memory_id: str = Path()) -> UserMemorySchema:
@@ -89,14 +105,5 @@ def attach_routes(router: APIRouter, memory: Memory) -> APIRouter:
             raise HTTPException(status_code=500, detail="Failed to update memory")
 
         return UserMemorySchema.from_dict(user_memory)
-
-    @router.delete("/memories", status_code=204)
-    async def delete_memories(request: DeleteMemoriesRequest) -> None:
-        if memory.db is None:
-            raise HTTPException(status_code=500, detail="Database not initialized")
-
-        # TODO: optimize
-        for memory_id in request.memory_ids:
-            memory.db.delete_user_memory(memory_id=memory_id)
 
     return router

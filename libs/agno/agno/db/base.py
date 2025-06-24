@@ -136,6 +136,10 @@ class BaseDb(ABC):
     # --- User Memory Table ---
 
     @abstractmethod
+    def get_all_memory_topics(self) -> List[str]:
+        raise NotImplementedError
+
+    @abstractmethod
     def delete_user_memory(self, memory_id: str) -> None:
         raise NotImplementedError
 

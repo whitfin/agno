@@ -15,7 +15,7 @@ from agno.api.playground import PlaygroundEndpointCreate
 from agno.app.utils import generate_id
 from agno.cli.console import console
 from agno.cli.settings import agno_cli_settings
-from agno.os.connectors.base import BaseConnector
+from agno.os.managers.base import BaseManager
 from agno.os.console import Console
 from agno.os.interfaces.base import BaseInterface
 from agno.os.router import get_base_router, get_console_router
@@ -39,7 +39,7 @@ class AgentOS:
         workflows: Optional[List[Workflow]] = None,
         console: Optional[Console] = None,
         interfaces: Optional[List[BaseInterface]] = None,
-        apps: Optional[List[BaseConnector]] = None,
+        apps: Optional[List[BaseManager]] = None,
         settings: Optional[AgnoAPISettings] = None,
         api_app: Optional[FastAPI] = None,
         monitoring: bool = True,
@@ -244,13 +244,13 @@ class AgentOS:
         apps_panel_text = ""
         for loaded_app in self.apps:
             if loaded_app.type == "knowledge":
-                apps_panel_text += f"[bold]Knowledge Connector:[/bold] {loaded_app.name}\n"
+                apps_panel_text += f"[bold]Knowledge Manager:[/bold] {loaded_app.name}\n"
             elif loaded_app.type == "memory":
-                apps_panel_text += f"[bold]Memory Connector:[/bold] {loaded_app.name}\n"
+                apps_panel_text += f"[bold]Memory Manager:[/bold] {loaded_app.name}\n"
             elif loaded_app.type == "eval":
-                apps_panel_text += f"[bold]Evals Connector:[/bold] {loaded_app.name}\n"
+                apps_panel_text += f"[bold]Evals Manager:[/bold] {loaded_app.name}\n"
             elif loaded_app.type == "session":
-                apps_panel_text += f"[bold]Sessions Connector:[/bold] {loaded_app.name}\n"
+                apps_panel_text += f"[bold]Sessions Manager:[/bold] {loaded_app.name}\n"
             else:
                 log_warning(f"Unknown app type: {loaded_app.type}")
 

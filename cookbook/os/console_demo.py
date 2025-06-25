@@ -11,7 +11,9 @@ from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
 from agno.os.connectors import KnowledgeConnector, MemoryConnector, SessionConnector
+from agno.os.console import Console
 from agno.os.interfaces import Whatsapp
+from agno.tools.yfinance import YFinanceTools
 from agno.vectordb.pgvector.pgvector import PgVector
 
 # Setup the database
@@ -61,7 +63,7 @@ doc_2 = Document(content="Hello worlds 2", name="greetings 2")
 knowledge_base_2.add_document(doc_2)
 
 # Setup the agent
-agent = Agent(
+basic_agent = Agent(
     name="Basic Agent",
     agent_id="basic-agent",
     model=OpenAIChat(id="gpt-4o-mini"),
@@ -71,13 +73,25 @@ agent = Agent(
     markdown=True,
 )
 
+finance_agent = Agent(
+    name="Finance Agent",
+    agent_id="finance-agent",
+    model=OpenAIChat(id="gpt-4o-mini"),
+    memory=memory,
+    enable_user_memories=True,
+    knowledge=knowledge_base_2,
+    tools=[YFinanceTools()],
+    markdown=True,
+)
+
 # Setup the Agno API App
 agent_os = AgentOS(
     name="Demo App",
     description="Demo app for basic agent with session, knowledge, and memory capabilities",
     os_id="demo",
-    agents=[agent],
-    interfaces=[Whatsapp(agent=agent)],
+    console=Console(model=OpenAIChat(id="gpt-4o-mini")),
+    agents=[basic_agent, finance_agent],
+    interfaces=[Whatsapp(agent=basic_agent)],
     apps=[
         SessionConnector(db=db, name="Session Connector"),
         KnowledgeConnector(knowledge=knowledge_base, name="Knowledge Connector 1"),
@@ -90,5 +104,6 @@ app = agent_os.get_app()
 
 if __name__ == "__main__":
     # Simple run to generate and record a session
-    agent_os.serve(app="demo:app", reload=True)
+    # agent_os.serve(app="demo:app", reload=True)
     
+    asyncio.run(agent_os.cli())

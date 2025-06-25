@@ -1,16 +1,19 @@
 import json
 from os import getenv
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 
 from agno.tools import Toolkit
 from agno.utils.log import log_debug, logger
 
 try:
     from github import Auth, Github, GithubException
-    from github.GithubObject import NotSet
+    from github.GithubObject import NotSet, _NotSetType
 
 except ImportError:
     raise ImportError("`PyGithub` not installed. Please install using `pip install pygithub`")
+
+# Type alias for parameters that can be None, a string, or NotSet
+OptionalStrOrNotSet = Union[str, None, _NotSetType]
 
 
 class GithubTools(Toolkit):
@@ -428,7 +431,7 @@ class GithubTools(Toolkit):
             logger.error(f"Error getting pull request changes: {e}")
             return json.dumps({"error": str(e)})
 
-    def create_issue(self, repo_name: str, title: str, body: Optional[str] = NotSet) -> str:
+    def create_issue(self, repo_name: str, title: str, body: OptionalStrOrNotSet = NotSet) -> str:
         """Create an issue in a repository.
 
         Args:
@@ -669,8 +672,8 @@ class GithubTools(Toolkit):
         self,
         repo_name: str,
         issue_number: int,
-        title: Optional[str] = NotSet,
-        body: Optional[str] = NotSet,
+        title: OptionalStrOrNotSet = NotSet,
+        body: OptionalStrOrNotSet = NotSet,
     ) -> str:
         """Edit the title or body of an issue.
 
@@ -1296,7 +1299,7 @@ class GithubTools(Toolkit):
         path: str,
         content: str,
         message: str,
-        branch: Optional[str] = NotSet,
+        branch: OptionalStrOrNotSet = NotSet,
     ) -> str:
         """Create a new file in a repository.
 
@@ -1402,7 +1405,7 @@ class GithubTools(Toolkit):
         content: str,
         message: str,
         sha: str,
-        branch: Optional[str] = None,
+        branch: OptionalStrOrNotSet = NotSet,
     ) -> str:
         """Update an existing file in a repository.
 
@@ -1440,13 +1443,15 @@ class GithubTools(Toolkit):
                 "url": result["content"].html_url,
                 "commit": {
                     "sha": result["commit"].sha,
-                    "message": result["commit"].commit.message,
+                    "message": result["commit"].commit.message
+                    if result["commit"].commit
+                    else result["commit"]._rawData["message"],
                     "url": result["commit"].html_url,
                 },
             }
 
             return json.dumps(file_info, indent=2)
-        except GithubException as e:
+        except (GithubException, AssertionError) as e:
             logger.error(f"Error updating file: {e}")
             return json.dumps({"error": str(e)})
 
@@ -1456,7 +1461,7 @@ class GithubTools(Toolkit):
         path: str,
         message: str,
         sha: str,
-        branch: Optional[str] = None,
+        branch: OptionalStrOrNotSet = NotSet,
     ) -> str:
         """Delete a file from a repository.
 
@@ -1482,13 +1487,15 @@ class GithubTools(Toolkit):
                 "message": f"File {path} deleted successfully",
                 "commit": {
                     "sha": result["commit"].sha,
-                    "message": result["commit"].commit.message,
+                    "message": result["commit"].commit.message
+                    if result["commit"].commit
+                    else result["commit"]._rawData["message"],
                     "url": result["commit"].html_url,
                 },
             }
 
             return json.dumps(commit_info, indent=2)
-        except GithubException as e:
+        except (GithubException, AssertionError) as e:
             logger.error(f"Error deleting file: {e}")
             return json.dumps({"error": str(e)})
 

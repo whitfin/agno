@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from github import Github
 from github.GithubException import GithubException
+from github.GithubObject import NotSet
 from github.Issue import Issue
 from github.PullRequest import PullRequest
 from github.Repository import Repository
@@ -1564,3 +1565,234 @@ def test_search_code(mock_github):
 
     assert "error" in result_data
     assert "API rate limit exceeded" in result_data["error"]
+
+
+# ========================================
+# NEW TESTS FOR ISSUE #3636 FIX
+# ========================================
+
+
+def test_file_operations_branch_parameter_consistency():
+    """Test that all file operation methods use NotSet as default for branch parameter."""
+    import inspect
+
+    from github.GithubObject import NotSet
+
+    github_tools = GithubTools(access_token="fake_token")
+
+    # Check create_file signature
+    create_sig = inspect.signature(github_tools.create_file)
+    create_branch_default = create_sig.parameters["branch"].default
+    assert create_branch_default is NotSet, "create_file should use NotSet as branch default"
+
+    # Check update_file signature
+    update_sig = inspect.signature(github_tools.update_file)
+    update_branch_default = update_sig.parameters["branch"].default
+    assert update_branch_default is NotSet, "update_file should use NotSet as branch default"
+
+    # Check delete_file signature
+    delete_sig = inspect.signature(github_tools.delete_file)
+    delete_branch_default = delete_sig.parameters["branch"].default
+    assert delete_branch_default is NotSet, "delete_file should use NotSet as branch default"
+
+
+def test_create_file_with_no_branch_specified(mock_github):
+    """Test creating a file without specifying branch (uses default)."""
+    mock_client, mock_repo = mock_github
+    github_tools = GithubTools()
+
+    # Mock file creation result
+    mock_content = MagicMock()
+    mock_content.path = "test.txt"
+    mock_content.sha = "abc123"
+    mock_content.html_url = "https://github.com/test-org/test-repo/blob/main/test.txt"
+
+    mock_commit = MagicMock()
+    mock_commit.sha = "def456"
+    mock_commit.commit.message = "Add test.txt"
+    mock_commit.html_url = "https://github.com/test-org/test-repo/commit/def456"
+
+    mock_repo.create_file.return_value = {"content": mock_content, "commit": mock_commit}
+
+    # Test creating a file without specifying branch
+    result = github_tools.create_file(
+        repo_name="test-org/test-repo",
+        path="test.txt",
+        content="Test content",
+        message="Add test.txt",
+        # Note: no branch parameter - should use NotSet default
+    )
+    result_data = json.loads(result)
+
+    # Verify that NotSet was passed as branch (not None)
+    args = mock_repo.create_file.call_args
+    assert args[1]["branch"] is NotSet
+
+    assert result_data["path"] == "test.txt"
+    assert result_data["commit"]["message"] == "Add test.txt"
+
+
+def test_update_file_with_no_branch_specified(mock_github):
+    """Test updating a file without specifying branch (uses default)."""
+    mock_client, mock_repo = mock_github
+    github_tools = GithubTools()
+
+    # Mock file update result
+    mock_content = MagicMock()
+    mock_content.path = "test.txt"
+    mock_content.sha = "new-sha"
+    mock_content.html_url = "https://github.com/test-org/test-repo/blob/main/test.txt"
+
+    mock_commit = MagicMock()
+    mock_commit.sha = "commit-sha"
+    mock_commit.commit.message = "Update test.txt"
+    mock_commit.html_url = "https://github.com/test-org/test-repo/commit/commit-sha"
+
+    mock_repo.update_file.return_value = {"content": mock_content, "commit": mock_commit}
+
+    # Test updating a file without specifying branch
+    result = github_tools.update_file(
+        repo_name="test-org/test-repo",
+        path="test.txt",
+        content="Updated content",
+        message="Update test.txt",
+        sha="old-sha",
+        # Note: no branch parameter - should use NotSet default
+    )
+    result_data = json.loads(result)
+
+    # Verify that NotSet was passed as branch (not None)
+    args = mock_repo.update_file.call_args
+    assert args[1]["branch"] is NotSet
+
+    assert result_data["path"] == "test.txt"
+    assert result_data["commit"]["message"] == "Update test.txt"
+
+
+def test_delete_file_with_no_branch_specified(mock_github):
+    """Test deleting a file without specifying branch (uses default)."""
+    mock_client, mock_repo = mock_github
+    github_tools = GithubTools()
+
+    # Mock file deletion result
+    mock_commit = MagicMock()
+    mock_commit.sha = "delete-commit-sha"
+    mock_commit.commit.message = "Delete test.txt"
+    mock_commit.html_url = "https://github.com/test-org/test-repo/commit/delete-commit-sha"
+
+    mock_repo.delete_file.return_value = {"commit": mock_commit}
+
+    # Test deleting a file without specifying branch
+    result = github_tools.delete_file(
+        repo_name="test-org/test-repo",
+        path="test.txt",
+        message="Delete test.txt",
+        sha="file-sha",
+        # Note: no branch parameter - should use NotSet default
+    )
+    result_data = json.loads(result)
+
+    # Verify that NotSet was passed as branch (not None)
+    args = mock_repo.delete_file.call_args
+    assert args[1]["branch"] is NotSet
+
+    assert result_data["commit"]["message"] == "Delete test.txt"
+
+
+def test_commit_message_fallback_logic(mock_github):
+    """Test commit message fallback when commit.commit is None."""
+    mock_client, mock_repo = mock_github
+    github_tools = GithubTools()
+
+    # Test create_file with commit.commit = None
+    mock_content = MagicMock()
+    mock_content.path = "test.txt"
+    mock_content.sha = "abc123"
+    mock_content.html_url = "https://github.com/test-org/test-repo/blob/main/test.txt"
+
+    mock_commit = MagicMock()
+    mock_commit.sha = "def456"
+    mock_commit.commit = None  # This is the edge case
+    mock_commit._rawData = {"message": "Fallback commit message"}
+    mock_commit.html_url = "https://github.com/test-org/test-repo/commit/def456"
+
+    mock_repo.create_file.return_value = {"content": mock_content, "commit": mock_commit}
+
+    result = github_tools.create_file(
+        repo_name="test-org/test-repo", path="test.txt", content="Test content", message="Add test.txt"
+    )
+    result_data = json.loads(result)
+
+    # Should use fallback message from _rawData
+    assert result_data["commit"]["message"] == "Fallback commit message"
+
+    # Test update_file with commit.commit = None
+    mock_repo.update_file.return_value = {"content": mock_content, "commit": mock_commit}
+
+    result = github_tools.update_file(
+        repo_name="test-org/test-repo",
+        path="test.txt",
+        content="Updated content",
+        message="Update test.txt",
+        sha="old-sha",
+    )
+    result_data = json.loads(result)
+
+    # Should use fallback message from _rawData
+    assert result_data["commit"]["message"] == "Fallback commit message"
+
+    # Test delete_file with commit.commit = None
+    mock_repo.delete_file.return_value = {"commit": mock_commit}
+
+    result = github_tools.delete_file(
+        repo_name="test-org/test-repo", path="test.txt", message="Delete test.txt", sha="file-sha"
+    )
+    result_data = json.loads(result)
+
+    # Should use fallback message from _rawData
+    assert result_data["commit"]["message"] == "Fallback commit message"
+
+
+def test_assertion_error_handling(mock_github):
+    """Test that AssertionError is properly caught and handled."""
+    mock_client, mock_repo = mock_github
+    github_tools = GithubTools()
+
+    # Mock AssertionError for create_file
+    mock_repo.create_file.side_effect = AssertionError("assert is_optional(branch, str)")
+
+    result = github_tools.create_file(
+        repo_name="test-org/test-repo", path="test.txt", content="Test content", message="Add test.txt"
+    )
+    result_data = json.loads(result)
+
+    assert "error" in result_data
+    assert "assert is_optional(branch, str)" in result_data["error"]
+
+    # Reset and test update_file
+    mock_repo.create_file.side_effect = None
+    mock_repo.update_file.side_effect = AssertionError("assert is_optional(branch, str)")
+
+    result = github_tools.update_file(
+        repo_name="test-org/test-repo",
+        path="test.txt",
+        content="Updated content",
+        message="Update test.txt",
+        sha="old-sha",
+    )
+    result_data = json.loads(result)
+
+    assert "error" in result_data
+    assert "assert is_optional(branch, str)" in result_data["error"]
+
+    # Reset and test delete_file
+    mock_repo.update_file.side_effect = None
+    mock_repo.delete_file.side_effect = AssertionError("assert is_optional(branch, str)")
+
+    result = github_tools.delete_file(
+        repo_name="test-org/test-repo", path="test.txt", message="Delete test.txt", sha="file-sha"
+    )
+    result_data = json.loads(result)
+
+    assert "error" in result_data
+    assert "assert is_optional(branch, str)" in result_data["error"]

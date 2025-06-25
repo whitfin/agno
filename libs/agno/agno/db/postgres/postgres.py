@@ -515,7 +515,7 @@ class PostgresDb(BaseDb):
                 if limit is not None:
                     stmt = stmt.limit(limit)
                     if page is not None:
-                        stmt = stmt.offset(page * limit)
+                        stmt = stmt.offset((page - 1) * limit)
 
                 records = sess.execute(stmt).fetchall()
                 if records is None:
@@ -949,7 +949,7 @@ class PostgresDb(BaseDb):
                 if limit is not None:
                     stmt = stmt.limit(limit)
                     if page is not None:
-                        stmt = stmt.offset(page * limit)
+                        stmt = stmt.offset((page - 1) * limit)
 
                 result = sess.execute(stmt).fetchall()
                 if not result:
@@ -1273,7 +1273,7 @@ class PostgresDb(BaseDb):
                 if limit is not None:
                     stmt = stmt.limit(limit)
                     if page is not None:
-                        stmt = stmt.offset(page * limit)
+                        stmt = stmt.offset((page - 1) * limit)
 
                 result = sess.execute(stmt).fetchall()
                 if not result:

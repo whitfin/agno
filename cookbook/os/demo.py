@@ -1,6 +1,7 @@
 """Simple example creating a session and using the AgentOS with a SessionConnector to expose it"""
 
 import asyncio
+from textwrap import dedent
 from agno.agent import Agent
 from agno.db.postgres.postgres import PostgresDb
 from agno.document.base import Document
@@ -12,6 +13,8 @@ from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
 from agno.os.connectors import KnowledgeConnector, MemoryConnector, SessionConnector
 from agno.os.interfaces import Whatsapp
+from agno.team.team import Team
+from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.vectordb.pgvector.pgvector import PgVector
 
 # Setup the database
@@ -61,7 +64,7 @@ doc_2 = Document(content="Hello worlds 2", name="greetings 2")
 knowledge_base_2.add_document(doc_2)
 
 # Setup the agent
-agent = Agent(
+basic_agent = Agent(
     name="Basic Agent",
     agent_id="basic-agent",
     model=OpenAIChat(id="gpt-4o-mini"),
@@ -71,13 +74,48 @@ agent = Agent(
     markdown=True,
 )
 
+
+research_agent = Agent(
+    name="Research Agent",
+    role="Research agent",
+    agent_id="research_agent",
+    model=OpenAIChat(id="gpt-4o"),
+    instructions=["You are a research agent"],
+    tools=[DuckDuckGoTools()],
+    memory=memory,
+    enable_user_memories=True,
+)
+
+research_team = Team(
+    name="Research Team",
+    description="A team of agents that research the web",
+    members=[research_agent, basic_agent],
+    model=OpenAIChat(id="gpt-4o"),
+    mode="coordinate",
+    team_id="research_team",
+    success_criteria=dedent("""\
+        A comprehensive research report with clear sections and data-driven insights.
+    """),
+    instructions=[
+        "You are the lead researcher of a research team! 🔍",
+    ],
+    memory=memory,
+    enable_user_memories=True,
+    add_datetime_to_instructions=True,
+    show_tool_calls=True,
+    markdown=True,
+    enable_agentic_context=True,
+)
+
+
 # Setup the Agno API App
 agent_os = AgentOS(
     name="Demo App",
     description="Demo app for basic agent with session, knowledge, and memory capabilities",
     os_id="demo",
-    agents=[agent],
-    interfaces=[Whatsapp(agent=agent)],
+    agents=[basic_agent],
+    teams=[research_team],
+    interfaces=[Whatsapp(agent=basic_agent)],
     apps=[
         SessionConnector(db=db, name="Session Connector"),
         KnowledgeConnector(knowledge=knowledge_base, name="Knowledge Connector 1"),

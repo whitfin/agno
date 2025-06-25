@@ -602,14 +602,12 @@ class Team:
             self.memory = Memory()
         elif not self._memory_deepcopy_done:
             # We store a copy of memory to ensure different team instances reference unique memory copy
-            if isinstance(self.memory, Memory):
-                self.memory = deepcopy(self.memory)
+            # self.memory = deepcopy(self.memory)
             self._memory_deepcopy_done = True
 
         # Default to the team's model if no model is provided
-        if isinstance(self.memory, Memory):
-            if self.memory.model is None and self.model is not None:
-                self.memory.set_model(self.model)
+        if self.memory.model is None and self.model is not None:
+            self.memory.set_model(self.model)
 
         # Initialize formatter
         if self._formatter is None:
@@ -7083,3 +7081,64 @@ class Team:
 
         log_info(f"Filters used by Agent: {search_filters}")
         return search_filters
+    
+    def to_dict(self) -> Dict[str, Any]:
+        
+        self.determine_tools_for_model(
+            model=self.model,
+            session_id=str(uuid4()),
+            async_mode=True,
+        )
+        team_tools = self._functions_for_model.values()
+        formatted_tools = [tool.to_dict() for tool in team_tools]
+
+        model_name = self.model.name or self.model.__class__.__name__ if self.model else None
+        model_provider = self.model.provider or self.model.__class__.__name__ if self.model else ""
+        model_id = self.model.id if self.model else None
+
+        if model_provider and model_id:
+            model_provider = f"{model_provider} {model_id}"
+        elif model_name and model_id:
+            model_provider = f"{model_name} {model_id}"
+        elif model_id:
+            model_provider = model_id
+        else:
+            model_provider = ""
+
+        memory_dict: Optional[Dict[str, Any]] = None
+        if self.memory and self.memory.db:
+            memory_dict = {"name": "Memory"}
+            if self.memory.model is not None:
+                memory_dict["model"] = {
+                    "name":self.memory.model.name,
+                    "model":self.memory.model.id,
+                    "provider":self.memory.model.provider,
+                }
+        
+        knowledge_dict: Optional[Dict[str, Any]] = None
+        if self.knowledge:
+            knowledge_dict = {"name": self.knowledge.__class__.__name__}
+            
+        return {
+            "team_id": self.team_id,
+            "name": self.name,
+            "model": {  
+                "name":model_name,
+                "model":model_id,
+                "provider":model_provider,
+            },
+            "success_criteria": self.success_criteria,
+            "instructions": self.instructions,
+            "description": self.description,
+            "tools": formatted_tools,
+            "expected_output": self.expected_output,
+            "context": json.dumps(self.context) if isinstance(self.context, dict) else self.context,
+            "enable_agentic_context": self.enable_agentic_context,
+            "mode": self.mode,
+            "memory": memory_dict,
+            "knowledge": knowledge_dict,
+            "members": [
+                member.to_dict()
+                for member in self.members
+            ],
+        }

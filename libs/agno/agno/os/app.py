@@ -177,12 +177,7 @@ class AgentOS:
         )
         
         if self.console:
-            # Get all endpoint functions from app (includes router endpoints)
-            all_api_functions = []
-            for route in self.api_app.routes:
-                if isinstance(route, APIRoute):
-                    all_api_functions.append(Function.from_callable(route.endpoint, description=route.description))
-            self.console.initialize(all_api_functions)
+            self.console.initialize(self)
             
             self.api_app.include_router(get_console_router(self.console))
 

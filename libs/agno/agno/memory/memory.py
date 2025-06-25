@@ -158,6 +158,7 @@ class Memory:
         self.debug_mode = debug_mode
 
     def set_model(self, model: Model) -> None:
+        self.model = model
         if self.memory_manager is None:
             self.memory_manager = MemoryManager(model=deepcopy(model))
         if self.memory_manager.model is None:

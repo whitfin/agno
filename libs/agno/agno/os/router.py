@@ -166,7 +166,8 @@ def get_base_router(
         ]
         
     
-    @router.post("/agents/{agent_id}/runs")
+    @router.post("/agents/{agent_id}/runs",
+                 description="Create a run for an agent")
     async def create_agent_run(
         agent_id: str,
         message: str = Form(...),
@@ -265,7 +266,8 @@ def get_base_router(
             return run_response.to_dict()
         
         
-    @router.post("/agents/{agent_id}/runs/{run_id}/continue")
+    @router.post("/agents/{agent_id}/runs/{run_id}/continue",
+                 description="Continue a run for an agent")
     async def continue_agent_run(
         agent_id: str,
         run_id: str,

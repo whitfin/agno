@@ -727,7 +727,7 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
-        
+
         self.run_response.status = RunStatus.completed
 
         # 6. Save session to short-term memory
@@ -1162,7 +1162,7 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         self.run_response.status = RunStatus.completed
-        
+
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 
@@ -1237,7 +1237,7 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
-        
+
         self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
@@ -1785,7 +1785,7 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
-        
+
         self.run_response.status = RunStatus.completed
 
         # 6. Save session to storage
@@ -1858,7 +1858,7 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
-        
+
         self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
@@ -2163,7 +2163,7 @@ class Agent:
 
         # 5. Calculate session metrics
         self.set_session_metrics(run_messages)
-        
+
         self.run_response.status = RunStatus.completed
 
         # 6. Save session to storage
@@ -2243,10 +2243,10 @@ class Agent:
         self.set_session_metrics(run_messages)
 
         self.run_response.status = RunStatus.completed
-        
+
         if stream_intermediate_steps:
             yield self._handle_event(create_run_response_completed_event(run_response), run_response)
-            
+
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
 
@@ -2668,12 +2668,33 @@ class Agent:
         # Update the RunResponse metrics
         run_response.metrics = self.calculate_metrics(messages_for_run_response)
 
-    def add_run_to_session(
-        self,
-        run_response: RunResponse,
-    ):
-        # Add AgentRun to memory
-        self.agent_session.add_run(run=run_response)
+    def _create_run_data(self) -> Dict[str, Any]:
+        """Create and return the run data dictionary."""
+        run_response_format = "text"
+        self.run_response = cast(RunResponse, self.run_response)
+        if self.response_model is not None:
+            run_response_format = "json"
+        elif self.markdown:
+            run_response_format = "markdown"
+
+        functions = {}
+        if self._functions_for_model is not None:
+            functions = {
+                f_name: func.to_dict()
+                for f_name, func in self._functions_for_model.items()
+                if isinstance(func, Function)
+            }
+
+        return {
+            "run_functions": functions,
+            "run_input": self.run_input,
+            "run_response_format": run_response_format,
+        }
+
+    def add_run_to_session(self, run_response: RunResponse):
+        """Add the given RunResponse to memory, together with some calculated data"""
+        run_data = self._create_run_data()
+        self.agent_session.add_run(run=run_response, run_data=run_data)
 
     def set_session_metrics(self, run_messages: RunMessages):
         # Calculate session metrics

@@ -48,4 +48,4 @@ if __name__ == "__main__":
     - http://localhost:8001/memory/{id}/memories?agent_id=123
     - http://localhost:8001/memory/{id}/memories?limit=10&page=0&sort_by=created_at&sort_order=desc
     """
-    agno_client.serve(app="memory_connector:app", reload=True)
+    agno_client.serve(app="memory_manager:app", reload=True)

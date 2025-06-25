@@ -1350,7 +1350,7 @@ class Model(ABC):
         function_call_timer = Timer()
         function_call_timer.start()
         success: Union[bool, AgentRunException] = False
-
+        
         try:
             if (
                 iscoroutinefunction(function_call.function.entrypoint)

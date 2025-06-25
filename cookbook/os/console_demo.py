@@ -10,7 +10,7 @@ from agno.knowledge.knowledge_base import KnowledgeBase
 from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
-from agno.os.connectors import KnowledgeConnector, MemoryConnector, SessionConnector
+from agno.os.managers import KnowledgeManager, MemoryManager, SessionManager
 from agno.os.console import Console
 from agno.os.interfaces import Whatsapp
 from agno.tools.yfinance import YFinanceTools
@@ -93,17 +93,22 @@ agent_os = AgentOS(
     agents=[basic_agent, finance_agent],
     interfaces=[Whatsapp(agent=basic_agent)],
     apps=[
-        SessionConnector(db=db, name="Session Connector"),
-        KnowledgeConnector(knowledge=knowledge_base, name="Knowledge Connector 1"),
-        KnowledgeConnector(knowledge=knowledge_base_2, name="Knowledge Connector 2"),
-        MemoryConnector(memory=memory, name="Memory Connector"),
+        SessionManager(db=db, name="Session Manager"),
+        KnowledgeManager(knowledge=knowledge_base, name="Knowledge Manager 1"),
+        KnowledgeManager(knowledge=knowledge_base_2, name="Knowledge Manager 2"),
+        MemoryManager(memory=memory, name="Memory Manager"),
     ],
 )
 app = agent_os.get_app()
 
 
 if __name__ == "__main__":
-    # Simple run to generate and record a session
-    # agent_os.serve(app="demo:app", reload=True)
-    
     asyncio.run(agent_os.cli())
+    
+    # Sample requests
+    # 1. What agents do I have configured?
+    # 2. Which managers does my OS have?
+    # 3. Which interfaces does my OS have?
+    # 4. What is the current price of AAPL?
+    # 5. Run my basic agent and ask it to tell me a joke
+    

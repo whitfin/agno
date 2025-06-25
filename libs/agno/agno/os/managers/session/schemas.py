@@ -3,7 +3,6 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
-from agno.os.managers.session.utils import get_first_user_message
 from agno.session import AgentSession, TeamSession, WorkflowSession
 
 
@@ -17,7 +16,7 @@ class SessionSchema(BaseModel):
     def from_dict(cls, session: Dict[str, Any]) -> "SessionSchema":
         return cls(
             session_id=session.get("session_id", ""),
-            title=get_first_user_message(session),
+            title=session["runs"][0]["run_data"]["run_input"],
             created_at=datetime.fromtimestamp(session.get("created_at", 0)) if session.get("created_at") else None,
             updated_at=datetime.fromtimestamp(session.get("updated_at", 0)) if session.get("updated_at") else None,
         )
@@ -77,15 +76,22 @@ class RunSchema(BaseModel):
     created_at: Optional[datetime]
 
     @classmethod
-    def from_dict(cls, run_response: Dict[str, Any]) -> "RunSchema":
+    def from_dict(cls, run_dict: Dict[str, Any]) -> "RunSchema":
         return cls(
-            run_id=run_response.get("run_id", ""),
-            agent_session_id=run_response.get("session_id", ""),
+            run_id=run_dict.get("run_id", ""),
+            agent_session_id=run_dict.get("session_id", ""),
             workspace_id=None,
             user_id=None,
-            run_data=run_response,
             run_review=None,
-            created_at=datetime.fromtimestamp(run_response["created_at"]) if run_response["created_at"] else None,
+            created_at=datetime.fromtimestamp(run_dict["run"]["created_at"])
+            if run_dict["run"]["created_at"] is not None
+            else None,
+            run_data={
+                **run_dict["run"],
+                "run_input": run_dict["run_data"].get("run_input", {}),
+                "run_functions": run_dict["run_data"].get("run_functions", {}),
+                "run_response_format": run_dict["run_data"].get("run_response_format", "text"),
+            },
         )
 
 

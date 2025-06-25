@@ -1,6 +1,5 @@
 """Simple example creating a session and using the AgentOS with a SessionManager to expose it"""
 
-import asyncio
 from textwrap import dedent
 from agno.agent import Agent
 from agno.db.postgres.postgres import PostgresDb
@@ -11,10 +10,10 @@ from agno.knowledge.knowledge_base import KnowledgeBase
 from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
-from agno.os.managers import KnowledgeManager, MemoryManager, SessionManager
 from agno.os.interfaces import Whatsapp
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
+from agno.os.managers import KnowledgeManager, MemoryManager, SessionManager
 from agno.vectordb.pgvector.pgvector import PgVector
 
 # Setup the database

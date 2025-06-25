@@ -1567,10 +1567,8 @@ def test_search_code(mock_github):
     assert "API rate limit exceeded" in result_data["error"]
 
 
-# ========================================
-# NEW TESTS FOR ISSUE #3636 FIX
-# ========================================
 
+# test for blank branch parameter
 
 def test_file_operations_branch_parameter_consistency():
     """Test that all file operation methods use NotSet as default for branch parameter."""

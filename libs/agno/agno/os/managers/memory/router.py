@@ -43,7 +43,7 @@ def attach_routes(router: APIRouter, memory: Memory) -> APIRouter:
         topics: Optional[List[str]] = Query(default=None, description="Filter memories by topics"),
         search_content: Optional[str] = Query(default=None, description="Fuzzy search memory content"),
         limit: Optional[int] = Query(default=20, description="Number of memories to return"),
-        page: Optional[int] = Query(default=0, description="Page number"),
+        page: Optional[int] = Query(default=1, description="Page number"),
         sort_by: Optional[str] = Query(default="updated_at", description="Field to sort by"),
         sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[UserMemorySchema]:

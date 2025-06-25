@@ -3,7 +3,8 @@
 from agno.agent import Agent
 from agno.document.base import Document
 from agno.document.local_document_store import LocalDocumentStore
-from agno.knowledge.knowledge_base import KnowledgeBase
+
+from agno.knowledge.knowledge import Knowledge
 from agno.os import AgentOS
 from agno.os.interfaces import Whatsapp
 from agno.os.connectors import SessionConnector, KnowledgeConnector, MemoryConnector
@@ -37,13 +38,13 @@ vector_store = PgVector(
 )
 
 # Create knowledge base
-knowledge_base = KnowledgeBase(
+knowledge_base = Knowledge(
     name="My Knowledge Base",
     description="A simple knowledge base",
     document_store=document_store,
 )
 
-knowledge_base_2 = KnowledgeBase(
+knowledge_base_2 = Knowledge(
     name="My Knowledge Base 2",
     description="A simple knowledge base 2",
     document_store=document_store,

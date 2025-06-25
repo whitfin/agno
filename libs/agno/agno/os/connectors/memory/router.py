@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import HTTPException, Path, Query
 from fastapi.routing import APIRouter
 
-from agno.os.connectors.memory.schemas import UserMemoryCreateSchema, UserMemorySchema, DeleteMemoriesRequest, 
+from agno.os.connectors.memory.schemas import UserMemoryCreateSchema, UserMemorySchema, DeleteMemoriesRequest
 from agno.os.connectors.utils import PaginatedResponse, PaginationInfo, SortOrder
 from agno.db.schemas import MemoryRow
 from agno.memory import Memory

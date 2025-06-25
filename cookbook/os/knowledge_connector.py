@@ -2,7 +2,7 @@ from agno.agent import Agent
 from agno.os import AgentOS
 from agno.os.connectors import KnowledgeConnector
 from agno.document import Document
-from agno.os.interfaces.playground import Playground
+
 from agno.knowledge.knowledge import Knowledge
 from agno.document.local_document_store import LocalDocumentStore
 from agno.models.openai import OpenAIChat
@@ -36,8 +36,8 @@ knowledge = Knowledge(
 )
 
 # Add a document
-doc = Document(content="Hello worlds", name="greetings")
-doc_id = knowledge.add_document(doc)
+# doc = Document(content="Hello worlds", name="greetings")
+# doc_id = knowledge.add_document(doc) 
 
 basic_agent = Agent(
     name="Basic Agent",
@@ -56,7 +56,7 @@ agent_os = AgentOS(
     ],
     apps=[KnowledgeConnector(knowledge=knowledge)],
     interfaces=[
-        Playground(),
+        # Playground(),
     ],
 )
 app = agent_os.get_app()

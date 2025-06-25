@@ -8,8 +8,8 @@ from agno.knowledge.knowledge_base import KnowledgeBase
 from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
-from agno.os.managers import KnowledgeManager, MemoryManager, SessionManager
 from agno.os.interfaces import Whatsapp
+from agno.os.managers import KnowledgeManager, MemoryManager, SessionManager
 from agno.vectordb.pgvector.pgvector import PgVector
 
 # Setup the database

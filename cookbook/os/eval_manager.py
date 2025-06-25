@@ -1,11 +1,11 @@
 """Simple example creating a session and using the AgentOS with a SessionManager to expose it"""
 
 from agno.agent import Agent
-from agno.os import AgentOS
-from agno.os.managers import EvalManager
 from agno.db.postgres.postgres import PostgresDb
 from agno.eval.accuracy import AccuracyEval
 from agno.models.openai import OpenAIChat
+from agno.os import AgentOS
+from agno.os.managers import EvalManager
 
 # Setup the database
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
@@ -53,4 +53,4 @@ if __name__ == "__main__":
     - http://localhost:8001/eval/{id}/evals?agent_id=123
     - http://localhost:8001/eval/{id}/evals?limit=10&page=0&sort_by=created_at&sort_order=desc
     """
-    agent_os.serve(app="eval_connector:app", reload=True)
+    agent_os.serve(app="eval_manager:app", reload=True)

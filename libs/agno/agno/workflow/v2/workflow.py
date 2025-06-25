@@ -11,12 +11,16 @@ from agno.agent.agent import Agent
 from agno.media import Audio, Image, Video
 from agno.run.base import RunStatus
 from agno.run.v2.workflow import (
+    ConditionExecutionCompletedEvent,
+    ConditionExecutionStartedEvent,
     LoopExecutionCompletedEvent,
     LoopExecutionStartedEvent,
     LoopIterationCompletedEvent,
     LoopIterationStartedEvent,
     ParallelExecutionCompletedEvent,
     ParallelExecutionStartedEvent,
+    RouterExecutionCompletedEvent,
+    RouterExecutionStartedEvent,
     StepCompletedEvent,
     StepStartedEvent,
     WorkflowCompletedEvent,
@@ -31,6 +35,7 @@ from agno.utils.log import log_debug, logger, set_log_level_to_debug, set_log_le
 from agno.workflow.v2.condition import Condition
 from agno.workflow.v2.loop import Loop
 from agno.workflow.v2.parallel import Parallel
+from agno.workflow.v2.router import Router
 from agno.workflow.v2.step import Step
 from agno.workflow.v2.steps import Steps
 from agno.workflow.v2.types import StepInput, StepOutput, WorkflowExecutionInput
@@ -51,6 +56,7 @@ WorkflowSteps = Union[
             Loop,
             Parallel,
             Condition,
+            Router,
         ]
     ],
 ]
@@ -890,9 +896,7 @@ class Workflow:
                     prepared_steps.append(Step(name=step.name, description=step.description, agent=step))
                 elif isinstance(step, Team):
                     prepared_steps.append(Step(name=step.name, description=step.description, team=step))
-                elif isinstance(step, (Step, Loop, Parallel, Condition)):
-                    prepared_steps.append(step)
-                elif isinstance(step, (Loop, Parallel)):
+                elif isinstance(step, (Step, Loop, Parallel, Condition, Router)):
                     prepared_steps.append(step)
                 else:
                     raise ValueError(f"Invalid step type: {type(step).__name__}")
@@ -1441,6 +1445,78 @@ class Workflow:
                                     }
                                 )
 
+                    elif isinstance(response, ConditionExecutionStartedEvent):
+                        current_step_name = response.step_name or "Condition"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        condition_text = "met" if response.condition_result else "not met"
+                        status.update(f"Starting condition: {current_step_name} (condition {condition_text})...")
+                        live_log.update(status)
+
+                    elif isinstance(response, ConditionExecutionCompletedEvent):
+                        step_name = response.step_name or "Condition"
+                        step_index = response.step_index or 0
+
+                        status.update(f"Completed condition: {step_name}")
+
+                        # Add results from executed steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "ConditionStepResult",
+                                    }
+                                )
+
+                    elif isinstance(response, RouterExecutionStartedEvent):
+                        current_step_name = response.step_name or "Router"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        selected_steps_text = ", ".join(response.selected_steps) if response.selected_steps else "none"
+                        status.update(f"Starting router: {current_step_name} (selected: {selected_steps_text})...")
+                        live_log.update(status)
+
+                    elif isinstance(response, RouterExecutionCompletedEvent):
+                        step_name = response.step_name or "Router"
+                        step_index = response.step_index or 0
+
+                        status.update(f"Completed router: {step_name}")
+
+                        # Add results from executed steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "RouterStepResult",
+                                    }
+                                )
+
+                        # Print router summary
+                        if show_step_details:
+                            selected_steps_text = (
+                                ", ".join(response.selected_steps) if response.selected_steps else "none"
+                            )
+                            summary_content = f"**Router Summary:**\n\n"
+                            summary_content += f"- Selected steps: {selected_steps_text}\n"
+                            summary_content += f"- Executed steps: {response.executed_steps or 0}\n"
+
+                            router_summary_panel = create_panel(
+                                content=Markdown(summary_content) if markdown else summary_content,
+                                title=f"Router {step_name} (Completed)",
+                                border_style="purple",
+                            )
+                            console.print(router_summary_panel)
+
+                        step_started_printed = True
+
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
 
@@ -1972,6 +2048,51 @@ class Workflow:
                                         "event": "ParallelStepResult",
                                     }
                                 )
+
+                    elif isinstance(response, RouterExecutionStartedEvent):
+                        current_step_name = response.step_name or "Router"
+                        current_step_index = response.step_index or 0
+                        current_step_content = ""
+                        step_started_printed = False
+                        selected_steps_text = ", ".join(response.selected_steps) if response.selected_steps else "none"
+                        status.update(f"Starting router: {current_step_name} (selected: {selected_steps_text})...")
+                        live_log.update(status)
+
+                    elif isinstance(response, RouterExecutionCompletedEvent):
+                        step_name = response.step_name or "Router"
+                        step_index = response.step_index or 0
+
+                        status.update(f"Completed router: {step_name}")
+
+                        # Add results from executed steps to step_responses
+                        if response.step_results:
+                            for i, step_result in enumerate(response.step_results):
+                                step_responses.append(
+                                    {
+                                        "step_name": f"{step_name}: {step_result.step_name}",
+                                        "step_index": step_index,
+                                        "content": step_result.content,
+                                        "event": "RouterStepResult",
+                                    }
+                                )
+
+                        # Print router summary
+                        if show_step_details:
+                            selected_steps_text = (
+                                ", ".join(response.selected_steps) if response.selected_steps else "none"
+                            )
+                            summary_content = f"**Router Summary:**\n\n"
+                            summary_content += f"- Selected steps: {selected_steps_text}\n"
+                            summary_content += f"- Executed steps: {response.executed_steps or 0}\n"
+
+                            router_summary_panel = create_panel(
+                                content=Markdown(summary_content) if markdown else summary_content,
+                                title=f"Router {step_name} (Completed)",
+                                border_style="purple",
+                            )
+                            console.print(router_summary_panel)
+
+                        step_started_printed = True
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")

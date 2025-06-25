@@ -2,6 +2,7 @@ from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
+from agno.db.base import BaseDb, SessionType
 from agno.os.connectors.session.schemas import (
     AgentSessionDetailSchema,
     RunSchema,
@@ -12,7 +13,6 @@ from agno.os.connectors.session.schemas import (
     WorkflowSessionDetailSchema,
 )
 from agno.os.connectors.utils import PaginatedResponse, PaginationInfo, SortOrder
-from agno.db.base import BaseDb, SessionType
 
 
 def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
@@ -21,7 +21,7 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         session_type: SessionType = Query(default=SessionType.AGENT, alias="type"),
         component_id: Optional[str] = Query(default=None, description="Filter sessions by component ID"),
         limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
-        page: Optional[int] = Query(default=0, description="Page number"),
+        page: Optional[int] = Query(default=1, description="Page number"),
         sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
         sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[SessionSchema]:

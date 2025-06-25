@@ -97,9 +97,9 @@ def get_base_router(
     async def status():
         return {"status": "available"}
 
-    @router.get("/config", 
+    @router.get("/config",
                 description="Get the configuration/spec of the running AgentOS",
-                response_model=ConfigResponse, 
+                response_model=ConfigResponse,
                 response_model_exclude_none=True)
     async def config() -> ConfigResponse:
         app_response = AppsResponse(
@@ -122,7 +122,7 @@ def get_base_router(
             apps=app_response,
         )
 
-    @router.get("/agents", 
+    @router.get("/agents",
                 description="Get the list of agents available in the AgentOS",
                 response_model=List[AgentResponse],
                 response_model_exclude_none=True)
@@ -135,7 +135,7 @@ def get_base_router(
             for agent in os.agents
         ]
 
-    @router.get("/teams", 
+    @router.get("/teams",
                 description="Get the list of teams available in the AgentOS",
                 response_model=List[TeamResponse],
                 response_model_exclude_none=True)
@@ -148,7 +148,7 @@ def get_base_router(
             for team in os.teams
         ]
 
-    @router.get("/workflows", 
+    @router.get("/workflows",
                 description="Get the list of workflows available in the AgentOS",
                 response_model=List[WorkflowResponse],
                 response_model_exclude_none=True)
@@ -164,14 +164,14 @@ def get_base_router(
             )
             for workflow in os.workflows
         ]
-        
-    
+
+
     @router.post("/agents/{agent_id}/runs",
                  description="Create a run for an agent")
     async def create_agent_run(
         agent_id: str,
         message: str = Form(...),
-        stream: bool = Form(True),
+        stream: bool = Form(False),
         session_id: Optional[str] = Form(None),
         user_id: Optional[str] = Form(None),
         files: Optional[List[UploadFile]] = File(None),
@@ -181,7 +181,7 @@ def get_base_router(
             raise HTTPException(status_code=404, detail="Agent not found")
 
         if session_id is None or session_id == "":
-            log_debug(f"Creating new session")
+            log_debug("Creating new session")
             session_id = str(uuid4())
 
         base64_images: List[Image] = []
@@ -264,8 +264,8 @@ def get_base_router(
                 ),
             )
             return run_response.to_dict()
-        
-        
+
+
     @router.post("/agents/{agent_id}/runs/{run_id}/continue",
                  description="Continue a run for an agent")
     async def continue_agent_run(
@@ -332,7 +332,7 @@ def get_console_router(
 ) -> APIRouter:
     router = APIRouter(prefix="/console", tags=["Console"])
 
-    @router.post("/prompt", 
+    @router.post("/prompt",
                  description="Send a prompt to the console",
                  response_model=ConsolePromptResponse,
                  response_model_exclude_none=True)

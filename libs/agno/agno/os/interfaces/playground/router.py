@@ -8,41 +8,34 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from agno.agent.agent import Agent, RunResponse
+from agno.media import Audio, Image, Video
+from agno.media import File as FileMedia
+from agno.memory import Memory
+from agno.os.interfaces.playground.schemas import (
+    AgentRenameRequest,
+    AgentSessionsResponse,
+    MemoryResponse,
+    TeamRenameRequest,
+    TeamSessionResponse,
+    WorkflowRenameRequest,
+    WorkflowRunRequest,
+    WorkflowSessionResponse,
+    WorkflowsGetResponse,
+)
 from agno.os.operator import (
-    format_tools,
-    get_agent_by_id,
     get_session_title,
     get_session_title_from_team_session,
     get_session_title_from_workflow_session,
     get_team_by_id,
     get_workflow_by_id,
 )
-from agno.os.interfaces.playground.schemas import (
-    AgentGetResponse,
-    AgentModel,
-    AgentRenameRequest,
-    AgentSessionsResponse,
-    MemoryResponse,
-    TeamGetResponse,
-    TeamRenameRequest,
-    TeamSessionResponse,
-    WorkflowGetResponse,
-    WorkflowRenameRequest,
-    WorkflowRunRequest,
-    WorkflowSessionResponse,
-    WorkflowsGetResponse,
-)
-from agno.os.utils import process_audio, process_document, process_image, process_video
-from agno.media import Audio, Image, Video
-from agno.media import File as FileMedia
-from agno.memory import Memory
+from agno.os.utils import get_agent_by_id, process_audio, process_document, process_image, process_video
 from agno.run.response import RunResponseErrorEvent
 from agno.run.team import RunResponseErrorEvent as TeamRunResponseErrorEvent
 from agno.session import AgentSession, TeamSession, WorkflowSession
 from agno.team.team import Team
 from agno.utils.log import logger
 from agno.workflow.workflow import Workflow
-
 
 
 async def team_chat_response_streamer(
@@ -204,13 +197,13 @@ def attach_routes(
         else:
             return []
 
-    @router.get("/workflows/{workflow_id}", response_model=WorkflowGetResponse)
+    @router.get("/workflows/{workflow_id}", response_model=WorkflowsGetResponse)
     async def get_workflow(workflow_id: str):
         workflow = get_workflow_by_id(workflow_id, workflows)
         if workflow is None:
             raise HTTPException(status_code=404, detail="Workflow not found")
 
-        return WorkflowGetResponse(
+        return WorkflowsGetResponse(
             workflow_id=workflow.workflow_id,
             name=workflow.name,
             description=workflow.description,

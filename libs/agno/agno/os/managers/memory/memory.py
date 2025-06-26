@@ -4,9 +4,9 @@ from uuid import uuid4
 
 from fastapi.routing import APIRouter
 
+from agno.memory import Memory
 from agno.os.managers.base import BaseManager
 from agno.os.managers.memory.router import attach_routes
-from agno.memory import Memory
 
 logger = logging.getLogger(__name__)
 

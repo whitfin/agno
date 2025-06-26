@@ -9,8 +9,6 @@ from agno.utils.log import logger
 from agno.workflow.workflow import Workflow
 
 
-
-
 def get_session_title(session: Union[AgentSession, TeamSession]) -> str:
     if session is None:
         return "Unnamed session"

@@ -51,7 +51,6 @@ def process_document(file: UploadFile) -> Optional[FileMedia]:
         return None
 
 
-
 def get_agent_by_id(agent_id: str, agents: Optional[List[Agent]] = None) -> Optional[Agent]:
     if agent_id is None or agents is None:
         return None

@@ -1,16 +1,13 @@
-
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 from fastapi import APIRouter
 
 
 class BaseManager(ABC):
-
     type: str
     version: str = "1.0"
     router_prefix: str = ""
     name: str = ""
-
 
     router: APIRouter
 

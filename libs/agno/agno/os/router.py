@@ -1,6 +1,7 @@
 import json
 from typing import AsyncGenerator, List, Optional, cast
 from uuid import uuid4
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.params import Form
 from fastapi.responses import StreamingResponse
@@ -9,8 +10,10 @@ from agno.agent.agent import Agent
 from agno.media import Audio, Image, Video
 from agno.media import File as FileMedia
 from agno.os.schema import (
+    AgentResponse,
     AppsResponse,
     ConfigResponse,
+    ManagerResponse,
     AgentResponse,
     ConsolePrompt,
     ConsolePromptResponse,
@@ -18,7 +21,7 @@ from agno.os.schema import (
     InterfaceResponse,
     ManagerResponse,
     TeamResponse,
-    WorkflowResponse
+    WorkflowResponse,
 )
 from agno.os.utils import get_agent_by_id, process_audio, process_image, process_video
 from agno.run.response import RunResponse, RunResponseErrorEvent
@@ -58,6 +61,7 @@ async def agent_response_streamer(
         )
         yield error_response.to_json()
 
+
 async def agent_continue_response_streamer(
     agent: Agent,
     run_id: Optional[str] = None,
@@ -87,7 +91,6 @@ async def agent_continue_response_streamer(
         return
 
 
-
 def get_base_router(
     os: "AgentOS",
 ) -> APIRouter:
@@ -103,11 +106,27 @@ def get_base_router(
                 response_model_exclude_none=True)
     async def config() -> ConfigResponse:
         app_response = AppsResponse(
-                session=[ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix) for app in os.apps if app.type == "session"],
-                knowledge=[ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix) for app in os.apps if app.type == "knowledge"],
-                memory=[ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix) for app in os.apps if app.type == "memory"],
-                eval=[ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix) for app in os.apps if app.type == "eval"],
-            )
+            session=[
+                ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
+                for app in os.apps
+                if app.type == "session"
+            ],
+            knowledge=[
+                ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
+                for app in os.apps
+                if app.type == "knowledge"
+            ],
+            memory=[
+                ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
+                for app in os.apps
+                if app.type == "memory"
+            ],
+            eval=[
+                ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
+                for app in os.apps
+                if app.type == "eval"
+            ],
+        )
 
         app_response.session = app_response.session or None
         app_response.knowledge = app_response.knowledge or None
@@ -118,7 +137,10 @@ def get_base_router(
             os_id=os.os_id,
             name=os.name,
             description=os.description,
-            interfaces=[InterfaceResponse(type=interface.type, version=interface.version, route=interface.router_prefix) for interface in os.interfaces],
+            interfaces=[
+                InterfaceResponse(type=interface.type, version=interface.version, route=interface.router_prefix)
+                for interface in os.interfaces
+            ],
             apps=app_response,
         )
 
@@ -130,10 +152,7 @@ def get_base_router(
         if os.agents is None:
             return []
 
-        return [
-            AgentResponse.from_agent(agent)
-            for agent in os.agents
-        ]
+        return [AgentResponse.from_agent(agent) for agent in os.agents]
 
     @router.get("/teams",
                 description="Get the list of teams available in the AgentOS",
@@ -143,10 +162,7 @@ def get_base_router(
         if os.teams is None:
             return []
 
-        return [
-            TeamResponse.from_team(team)
-            for team in os.teams
-        ]
+        return [TeamResponse.from_team(team) for team in os.teams]
 
     @router.get("/workflows",
                 description="Get the list of workflows available in the AgentOS",
@@ -224,7 +240,13 @@ def get_base_router(
                     except Exception as e:
                         log_error(f"Error processing video {file.filename}: {e}")
                         continue
-                elif file.content_type in ["application/pdf", "text/csv", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "application/json"]:
+                elif file.content_type in [
+                    "application/pdf",
+                    "text/csv",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "text/plain",
+                    "application/json",
+                ]:
                     # Process document files
                     try:
                         file_content = await file.read()
@@ -287,7 +309,9 @@ def get_base_router(
             raise HTTPException(status_code=404, detail="Agent not found")
 
         if session_id is None or session_id == "":
-            log_warning(f"Continuing run without session_id. This might lead to unexpected behavior if session context is important.")
+            log_warning(
+                f"Continuing run without session_id. This might lead to unexpected behavior if session context is important."
+            )
 
         # Convert tools dict to ToolExecution objects if provided
         updated_tools = None
@@ -322,7 +346,6 @@ def get_base_router(
                 ),
             )
             return run_response_obj.to_dict()
-
 
     return router
 

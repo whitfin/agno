@@ -21,7 +21,6 @@ from agno.os.interfaces.base import BaseInterface
 from agno.os.router import get_base_router, get_console_router
 from agno.os.settings import AgnoAPISettings
 from agno.team.team import Team
-from agno.tools.function import Function
 from agno.utils.log import log_info, log_warning
 from agno.workflow.workflow import Workflow
 

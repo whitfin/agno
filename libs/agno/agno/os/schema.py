@@ -1,14 +1,19 @@
 from typing import Any, Dict, List, Optional, Union
+from uuid import uuid4
+
+from fastapi import UploadFile
 from pydantic import BaseModel
 
 from agno.agent import Agent
 from agno.team.team import Team
 from agno.workflow.workflow import Workflow
 
+
 class InterfaceResponse(BaseModel):
     type: str
     version: str
     route: str
+
 
 class ManagerResponse(BaseModel):
     type: str
@@ -16,11 +21,13 @@ class ManagerResponse(BaseModel):
     version: str
     route: str
 
+
 class AppsResponse(BaseModel):
     session: List[ManagerResponse]
     knowledge: List[ManagerResponse]
     memory: List[ManagerResponse]
     eval: List[ManagerResponse]
+
 
 class ConfigResponse(BaseModel):
     os_id: str
@@ -51,6 +58,7 @@ class AgentResponse(BaseModel):
         return AgentResponse(
             **agent.to_dict(),
         )
+
 
 class TeamResponse(BaseModel):
     team_id: Optional[str] = None

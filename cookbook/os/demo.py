@@ -59,7 +59,7 @@ knowledge1.add_documents(
         paths=["tmp/cv_1.pdf"],
         metadata={"user_tag": "Engineering candidates"},
     )
-) 
+)
 
 knowledge2.add_documents(
     DocumentV2(
@@ -67,7 +67,7 @@ knowledge2.add_documents(
         paths=["tmp/cv_2.pdf"],
         metadata={"user_tag": "Engineering candidates"},
     )
-) 
+)
 
 # Setup the agent
 agent = Agent(

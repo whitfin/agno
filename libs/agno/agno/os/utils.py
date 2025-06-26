@@ -68,7 +68,6 @@ def format_tools(agent_tools: List[Union[Dict[str, Any], Toolkit, Function, Call
     return formatted_tools
 
 
-
 def format_team_tools(team_tools: List[Function]):
     return [tool.to_dict() for tool in team_tools]
 

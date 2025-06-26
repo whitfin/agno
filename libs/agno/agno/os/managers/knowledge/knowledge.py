@@ -4,9 +4,9 @@ from uuid import uuid4
 
 from fastapi.routing import APIRouter
 
+from agno.knowledge.knowledge import Knowledge
 from agno.os.managers.base import BaseManager
 from agno.os.managers.knowledge.router import attach_routes
-from agno.knowledge.knowledge import Knowledge
 
 logger = logging.getLogger(__name__)
 
@@ -32,4 +32,3 @@ class KnowledgeManager(BaseManager):
         self.router = attach_routes(router=self.router, knowledge=self.knowledge)
 
         return self.router
-

@@ -18,6 +18,7 @@ from agno.os.schema import (
     ConsolePrompt,
     ConsolePromptResponse,
     ConsolePromptToolResponse,
+    ConsoleResponse,
     InterfaceResponse,
     ManagerResponse,
     TeamResponse,
@@ -132,6 +133,8 @@ def get_base_router(
         app_response.knowledge = app_response.knowledge or None
         app_response.memory = app_response.memory or None
         app_response.eval = app_response.eval or None
+        
+        console = os.console
 
         return ConfigResponse(
             os_id=os.os_id,
@@ -142,6 +145,7 @@ def get_base_router(
                 for interface in os.interfaces
             ],
             apps=app_response,
+            console=ConsoleResponse(available_tags=console.available_tags) if console else None,
         )
 
     @router.get("/agents",

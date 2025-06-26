@@ -412,6 +412,8 @@ class Memory:
         self,
         message: Optional[str] = None,
         messages: Optional[List[Message]] = None,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
         user_id: Optional[str] = None,
         refresh_from_db: bool = True,
     ) -> str:

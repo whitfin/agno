@@ -1337,7 +1337,7 @@ class Agent:
 
         # Read existing session from storage
         if self.context is not None:
-            self.resolve_run_context()
+            await self.aresolve_run_context()
 
         if self.response_model is not None and self.parse_response and stream is True:
             # Disable stream if response_model is set
@@ -1994,7 +1994,7 @@ class Agent:
 
         # Read existing session from storage
         if self.context is not None:
-            self.resolve_run_context()
+            await self.aresolve_run_context()
 
         if self.response_model is not None and self.parse_response and stream is True:
             # Disable stream if response_model is set

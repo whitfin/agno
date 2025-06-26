@@ -27,6 +27,9 @@ class AppsResponse(BaseModel):
     knowledge: List[ManagerResponse]
     memory: List[ManagerResponse]
     eval: List[ManagerResponse]
+    
+class ConsoleResponse(BaseModel):
+    available_tags: List[str]
 
 
 class ConfigResponse(BaseModel):
@@ -35,6 +38,7 @@ class ConfigResponse(BaseModel):
     description: str
     interfaces: List[InterfaceResponse]
     apps: AppsResponse
+    console: Optional[ConsoleResponse] = None
 
 
 class ModelResponse(BaseModel):

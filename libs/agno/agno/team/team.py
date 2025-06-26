@@ -746,7 +746,7 @@ class Team:
 
         # Read existing session from storage
         if self.context is not None:
-            self._resolve_run_context()
+            self.resolve_run_context()
 
         if self.response_model is not None and self.parse_response and stream is True:
             # Disable stream if response_model is set
@@ -1135,7 +1135,7 @@ class Team:
 
         # Read existing session from storage
         if self.context is not None:
-            self._resolve_run_context()
+            await self.aresolve_run_context()
 
         if self.response_model is not None and self.parse_response and stream is True:
             # Disable stream if response_model is set
@@ -4351,28 +4351,51 @@ class Team:
             rr.created_at = created_at
         return rr
 
-    def _resolve_run_context(self) -> None:
+    
+    def resolve_run_context(self) -> None:
         from inspect import signature
 
         log_debug("Resolving context")
-        if self.context is not None:
-            if isinstance(self.context, dict):
-                for ctx_key, ctx_value in self.context.items():
-                    if callable(ctx_value):
-                        try:
-                            sig = signature(ctx_value)
-                            if "agent" in sig.parameters:
-                                resolved_ctx_value = ctx_value(agent=self)
-                            else:
-                                resolved_ctx_value = ctx_value()
-                            if resolved_ctx_value is not None:
-                                self.context[ctx_key] = resolved_ctx_value
-                        except Exception as e:
-                            log_warning(f"Failed to resolve context for {ctx_key}: {e}")
-                    else:
-                        self.context[ctx_key] = ctx_value
+        if not isinstance(self.context, dict):
+            log_warning("Context is not a dict")
+            return
+
+        for key, value in self.context.items():
+            if callable(value):
+                try:
+                    sig = signature(value)
+                    result = value(agent=self) if "agent" in sig.parameters else value()
+                    if result is not None:
+                        self.context[key] = result
+                except Exception as e:
+                    log_warning(f"Failed to resolve context for '{key}': {e}")
             else:
-                log_warning("Context is not a dict")
+                self.context[key] = value
+
+    async def aresolve_run_context(self) -> None:
+        from inspect import iscoroutine, signature
+
+        log_debug("Resolving context (async)")
+        if not isinstance(self.context, dict):
+            log_warning("Context is not a dict")
+            return
+
+        for key, value in self.context.items():
+            if not callable(value):
+                self.context[key] = value
+                continue
+
+            try:
+                sig = signature(value)
+                result = value(agent=self) if "agent" in sig.parameters else value()
+
+                if iscoroutine(result):
+                    result = await result
+
+                self.context[key] = result
+            except Exception as e:
+                log_warning(f"Failed to resolve context for '{key}': {e}")
+
 
     def determine_tools_for_model(
         self,

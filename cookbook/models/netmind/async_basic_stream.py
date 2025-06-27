@@ -4,9 +4,7 @@ from typing import Iterator  # noqa
 from agno.agent import Agent, RunResponseEvent  # noqa
 from agno.models.netmind import NetMind
 
-agent = Agent(
-    model=NetMind(id="Qwen/Qwen3-32B"), markdown=True
-)
+agent = Agent(model=NetMind(id="Qwen/Qwen3-32B"), markdown=True)
 
 # Get the response in a variable
 # run_response: Iterator[RunResponseEvent] = agent.run("Share a 2 sentence horror story", stream=True)

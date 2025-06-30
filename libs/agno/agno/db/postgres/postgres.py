@@ -6,7 +6,7 @@ from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.schemas import MemoryRow
 from agno.db.schemas.knowledge import KnowledgeRow
-from agno.eval.schemas import EvalRunRecord, EvalType
+from agno.eval.schemas import EvalRunRecord, EvalType, EvalFilterType
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
@@ -1348,6 +1348,7 @@ class PostgresDb(BaseDb):
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
         eval_type: Optional[EvalType] = None,
+        filter_type: Optional[EvalFilterType] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Get all eval runs from the database as raw dictionaries.
 
@@ -1362,6 +1363,7 @@ class PostgresDb(BaseDb):
             workflow_id (Optional[str]): The ID of the workflow to filter by.
             model_id (Optional[str]): The ID of the model to filter by.
             eval_type (Optional[EvalType]): The type of eval to filter by.
+            filter_type (Optional[EvalFilterType]): Filter by component type (agent, team, workflow, all).
 
         Returns:
             List[Dict[str, Any]]: The eval runs as raw dictionaries.
@@ -1383,13 +1385,23 @@ class PostgresDb(BaseDb):
                     stmt = stmt.where(table.c.model_id == model_id)
                 if eval_type is not None:
                     stmt = stmt.where(table.c.eval_type == eval_type)
+                if filter_type is not None:
+                    if filter_type == EvalFilterType.AGENT:
+                        stmt = stmt.where(table.c.agent_id.is_not(None))
+                    elif filter_type == EvalFilterType.TEAM:
+                        stmt = stmt.where(table.c.team_id.is_not(None))
+                    elif filter_type == EvalFilterType.WORKFLOW:
+                        stmt = stmt.where(table.c.workflow_id.is_not(None))
 
                 # Get total count after applying filtering
                 count_stmt = select(func.count()).select_from(stmt.alias())
                 total_count = sess.execute(count_stmt).scalar()
 
-                # Sorting
-                stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
+                # Sorting - apply default sort by created_at desc if no sort parameters provided
+                if sort_by is None:
+                    stmt = stmt.order_by(table.c.created_at.desc())
+                else:
+                    stmt = self._apply_sorting(stmt, table, sort_by, sort_order)
                 # Paginating
                 if limit is not None:
                     stmt = stmt.limit(limit)
@@ -1418,6 +1430,7 @@ class PostgresDb(BaseDb):
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
         eval_type: Optional[EvalType] = None,
+        filter_type: Optional[EvalFilterType] = None,
     ) -> List[EvalRunRecord]:
         """Get all eval runs from the database.
 
@@ -1432,6 +1445,7 @@ class PostgresDb(BaseDb):
             workflow_id (Optional[str]): The ID of the workflow to filter by.
             model_id (Optional[str]): The ID of the model to filter by.
             eval_type (Optional[EvalType]): The type of eval to filter by.
+            filter_type (Optional[EvalFilterType]): Filter by component type (agent, team, workflow).
 
         Returns:
             List[EvalRunRecord]: The eval runs.
@@ -1451,6 +1465,7 @@ class PostgresDb(BaseDb):
                 workflow_id=workflow_id,
                 model_id=model_id,
                 eval_type=eval_type,
+                filter_type=filter_type,
             )
             if not eval_runs_raw:
                 return []
@@ -1460,3 +1475,44 @@ class PostgresDb(BaseDb):
         except Exception as e:
             log_debug(f"Exception getting eval runs: {e}")
             return []
+
+    def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
+        """Delete multiple eval runs from the database.
+
+        Args:
+            eval_run_ids (List[str]): List of eval run IDs to delete.
+        """
+        try:
+            table = self.get_eval_table()
+
+            with self.Session() as sess, sess.begin():
+                stmt = table.delete().where(table.c.run_id.in_(eval_run_ids))
+                result = sess.execute(stmt)
+                if result.rowcount == 0:
+                    log_warning(f"No eval runs found with IDs: {eval_run_ids}")
+                else:
+                    log_debug(f"Deleted {result.rowcount} eval runs")
+
+        except Exception as e:
+            log_debug(f"Error deleting eval runs {eval_run_ids}: {e}")
+            raise
+
+    def update_eval_run_name(self, eval_run_id: str, name: str) -> Optional[Dict[str, Any]]:
+        """Upsert the name of an eval run in the database, returning raw dictionary.
+
+        Args:
+            eval_run_id (str): The ID of the eval run to update.
+            name (str): The new name of the eval run.
+        """
+        try:
+            table = self.get_eval_table()   
+            with self.Session() as sess, sess.begin():
+                stmt = table.update().where(table.c.run_id == eval_run_id).values(name=name)
+                sess.execute(stmt)
+                sess.commit()
+
+            return self.get_eval_run_raw(eval_run_id=eval_run_id)
+
+        except Exception as e:
+            log_debug(f"Error upserting eval run name {eval_run_id}: {e}")
+            return None

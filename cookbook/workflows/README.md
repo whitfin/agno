@@ -83,6 +83,8 @@ workflow = Workflow(
 
 **Example**: Multiple research sources, parallel content creation
 
+![Parallel Steps](/cookbook/workflows/assets/parallel_steps.png)
+
 ```python
 from agno.workflow.v2 import Parallel, Step, Workflow
 
@@ -112,6 +114,8 @@ workflow = Workflow(
 **When to use**: Different processing paths based on content analysis or business logic.
 
 **Example**: Topic-specific research strategies, content type routing
+
+![Condition Steps](/cookbook/workflows/assets/condition_steps.png)
 
 ```python
 from agno.workflow.v2 import Condition, Step, Workflow
@@ -146,6 +150,8 @@ workflow = Workflow(
 
 **Example**: Research until sufficient quality, iterative improvement
 
+![Loop Steps](/cookbook/workflows/assets/loop_steps.png)
+
 ```python
 from agno.workflow.v2 import Loop, Step, Workflow
 
@@ -179,6 +185,8 @@ workflow = Workflow(
 **When to use**: Complex decision trees, topic-specific workflows, dynamic routing.
 
 **Example**: Content type detection, expertise routing
+
+![Router Steps](/cookbook/workflows/assets/router_steps.png)
 
 ```python
 from agno.workflow.v2 import Router, Step, Workflow
@@ -249,6 +257,8 @@ workflow = Workflow(
 **When to use**: Custom business logic, API integrations, data transformations.
 
 **Example**: Custom processing with agent integration
+
+![Custom Function Steps](/cookbook/workflows/assets/custom_function_steps.png)
 
 ```python
 from agno.workflow.v2 import Step, Workflow
@@ -384,8 +394,7 @@ class ResearchRequest(BaseModel):
     sources: List[str] = Field(description="Preferred sources")
 
 workflow.run(
-    message="AI trends",
-    message_data=ResearchRequest(
+    message=ResearchRequest(
         topic="AI trends 2024",
         depth=8,
         sources=["academic", "industry"]
@@ -432,42 +441,7 @@ workflow = Workflow(
 1. **Use Parallel** for independent tasks
 2. **Minimize Loop iterations** with good end conditions
 3. **Cache expensive operations** in functions
-4. **Stream long-running processes** for better UX
-5. **Use Conditions** to avoid unnecessary processing
-
-### Error Handling
-
-```python
-# Built-in retry logic
-Loop(
-    steps=[api_call_step],
-    end_condition=lambda outputs: outputs[0].success if outputs else False,
-    max_iterations=3
-)
-
-# Custom error handling in functions
-def safe_processor(step_input) -> StepOutput:
-    try:
-        result = risky_operation(step_input.message)
-        return StepOutput(content=result, success=True)
-    except Exception as e:
-        return StepOutput(content=f"Error: {e}", success=False)
-```
-
-### Testing Workflows
-
-```python
-# Test individual components
-def test_condition():
-    test_input = StepInput(message="AI and machine learning")
-    assert is_tech_topic(test_input) == True
-
-# Test workflow execution
-def test_workflow():
-    result = workflow.run("test message")
-    assert result.content is not None
-    assert len(result.content) > 0
-```
+4. **Use Conditions** to avoid unnecessary processing
 
 ## Migration from Workflows 1.0
 
@@ -514,8 +488,6 @@ def test_workflow():
 - **Pattern**: Sequential + State management
 - **See**: [`shared_session_state_with_agent.py`](sync/shared_session_state_with_agent.py)
 
----
-
 ## Getting Started
 
 1. **Start Simple**: Begin with sequential workflows
@@ -524,8 +496,4 @@ def test_workflow():
 4. **Enable Streaming**: Improve user experience
 5. **Scale Complexity**: Combine patterns as needed
 
-For more examples and advanced patterns, explore the [`sync/`](sync/) directory. Each file demonstrates a specific pattern with detailed comments and real-world use cases.
-
----
-
-**Need Help?** Check out the individual example files for detailed implementations, or refer to the main Agno documentation for API details.
+For more examples and advanced patterns, explore the [`cookbook/workflows/sync/`](sync/) and [`cookbook/workflows/async/`](async/) directory. Each file demonstrates a specific pattern with detailed comments and real-world use cases.

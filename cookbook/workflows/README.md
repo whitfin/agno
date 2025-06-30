@@ -465,7 +465,7 @@ workflow = Workflow(
 ## Examples by Use Case
 
 ### Content Creation Pipeline
-- **Pattern**: Sequential + Parallel
+- **Pattern**: Sequential
 - **See**: [`sequence_of_steps.py`](sync/sequence_of_steps.py)
 
 ### Multi-Source Research

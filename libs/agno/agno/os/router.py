@@ -466,6 +466,7 @@ def get_base_router(
     async def get_team_sessions(
         team_id: str,
         user_id: Optional[str] = Query(default=None, description="Filter sessions by user ID"),
+        session_title: Optional[str] = Query(default=None, description="Filter sessions by title"),
         limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
         page: Optional[int] = Query(default=1, description="Page number"),
         sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
@@ -482,6 +483,7 @@ def get_base_router(
             session_type=SessionType.TEAM,
             component_id=team_id,
             user_id=user_id,
+            session_title=session_title,
             limit=limit,
             page=page,
             sort_by=sort_by,

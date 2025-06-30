@@ -64,12 +64,9 @@ async def demonstrate_team_cancellation():
         )
     )
     
-    # Let the team start, then cancel quickly
     await asyncio.sleep(0.1)
     
     print("⏹️ Deciding to cancel the team collaboration...")
-    
-    # Cancel the team run
     cancelled = research_team.cancel_run(reason="Priorities changed")
     print(f"Team cancellation requested: {cancelled}")
     
@@ -85,14 +82,10 @@ async def demonstrate_team_cancellation():
         else:
             print(f"Unexpected error: {e}")
     
-    # Show a demonstration of the team cancellation mechanism working
     print("\n🔬 Demonstrating team cancellation mechanism:")
-    
-    # Manually trigger the cancellation check to show it works
     from agno.utils.events import create_team_run_response_cancelled_event
     from agno.run.team import TeamRunResponse
     
-    # Create a mock team run response for testing
     mock_response = TeamRunResponse(run_id="test-123")
     research_team._cancellation_event = create_team_run_response_cancelled_event(
         mock_response, "Manual test of team cancellation"

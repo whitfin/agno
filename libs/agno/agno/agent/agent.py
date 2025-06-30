@@ -1552,13 +1552,12 @@ class Agent:
         return True
     
     def _check_if_cancelled(self) -> None:
-        """Check if cancellation has been requested and raise StopAgentRun if so."""
+        """Check if cancellation has been requested and raise RunCancelledException if so."""
         if hasattr(self, '_cancel_requested') and self._cancel_requested:
-            # Clear the cancellation flag
             self._cancel_requested = False
             reason = getattr(self, '_cancel_reason', 'Run cancelled')
-            # Use Agno's standard cancellation exception
-            raise StopAgentRun(reason, agent_message=f"Agent run cancelled: {reason}")
+            from agno.exceptions import RunCancelledException
+            raise RunCancelledException(f"Agent run cancelled: {reason}")
 
     @overload
     def continue_run(

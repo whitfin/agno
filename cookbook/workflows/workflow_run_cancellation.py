@@ -38,9 +38,7 @@ class DataAnalysisWorkflow(Workflow):
     async def arun(self, dataset: str = "sales_data.csv") -> str:
         """Multi-step workflow that can be cancelled between stages"""
         
-        # Step 1: Data validation
         print(f"📊 Step 1: Validating {dataset}...")
-        # Check if cancellation has been requested before each step
         self._check_if_cancelled()
             
         validation = await self.analyst.arun(
@@ -48,7 +46,6 @@ class DataAnalysisWorkflow(Workflow):
             "Check for missing values, outliers, and data consistency issues."
         )
         
-        # Step 2: Data preprocessing  
         print("🔧 Step 2: Preprocessing data...")
         self._check_if_cancelled()
             
@@ -57,7 +54,6 @@ class DataAnalysisWorkflow(Workflow):
             "normalization, feature engineering, and transformation steps."
         )
         
-        # Step 3: Statistical analysis
         print("📈 Step 3: Performing statistical analysis...")
         self._check_if_cancelled()
             
@@ -81,12 +77,9 @@ async def demonstrate_workflow_cancellation():
         workflow.arun(dataset="large_customer_dataset.csv")
     )
     
-    # Let it run through the first step
     await asyncio.sleep(2)
     
     print("⏹️ Deciding to cancel the workflow...")
-    
-    # Cancel the workflow
     cancelled = workflow.cancel_run(reason="New priority dataset arrived")
     print(f"Workflow cancellation requested: {cancelled}")
     
@@ -102,10 +95,7 @@ async def demonstrate_workflow_cancellation():
         else:
             print(f"Unexpected error: {e}")
     
-    # Show a demonstration of the workflow cancellation mechanism working
     print("\n🔬 Demonstrating workflow cancellation mechanism:")
-    
-    # Manually trigger the cancellation check to show it works
     workflow._cancel_requested = True
     workflow._cancel_reason = "Manual test of workflow cancellation"
     

@@ -40,12 +40,9 @@ async def demonstrate_cancellation():
         )
     )
     
-    # Let it start, then cancel very quickly to catch it
     await asyncio.sleep(0.1)
     
     print("⏹️ Deciding to cancel the task...")
-    
-    # Cancel the run
     cancelled = research_agent.cancel_run(reason="User decided to stop")
     print(f"Cancellation requested: {cancelled}")
     
@@ -55,16 +52,13 @@ async def demonstrate_cancellation():
         print("Note: Task completed before cancellation could take effect")
         print("      (This is normal for fast-completing tasks)")
     except Exception as e:
-        from agno.exceptions import StopAgentRun
-        if isinstance(e, StopAgentRun):
+        from agno.exceptions import RunCancelledException
+        if isinstance(e, RunCancelledException):
             print("✅ Task was successfully cancelled!")
         else:
             print(f"Unexpected error: {e}")
     
-    # Show a demonstration of the cancellation mechanism working
     print("\n🔬 Demonstrating cancellation mechanism:")
-    
-    # Manually trigger the cancellation check to show it works
     research_agent._cancel_requested = True
     research_agent._cancel_reason = "Manual test of cancellation"
     
@@ -72,8 +66,8 @@ async def demonstrate_cancellation():
         research_agent._check_if_cancelled()
         print("❌ Cancellation check failed")
     except Exception as e:
-        from agno.exceptions import StopAgentRun
-        if isinstance(e, StopAgentRun):
+        from agno.exceptions import RunCancelledException
+        if isinstance(e, RunCancelledException):
             print("✅ Cancellation mechanism working correctly!")
         else:
             print(f"Unexpected error: {e}")

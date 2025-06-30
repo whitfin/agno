@@ -379,9 +379,7 @@ class Workflow:
         if not target_run_id:
             return False
         
-        # If this is the current run, set cancellation flag
         if hasattr(self, 'run_response') and self.run_response and self.run_response.run_id == target_run_id:
-            # Set cancellation flag that will be checked during execution
             self._cancel_requested = True
             self._cancel_reason = reason
         

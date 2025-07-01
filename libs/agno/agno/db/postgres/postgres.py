@@ -6,7 +6,7 @@ from agno.db.base import BaseDb, SessionType
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.schemas import MemoryRow
 from agno.db.schemas.knowledge import KnowledgeRow
-from agno.eval.schemas import EvalRunRecord, EvalType, EvalFilterType
+from agno.eval.schemas import EvalFilterType, EvalRunRecord, EvalType
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
@@ -690,7 +690,9 @@ class PostgresDb(BaseDb):
                     session_data=session.session_data,
                     summary=session.summary,
                     extra_data=session.extra_data,
+                    chat_history=session.chat_history,
                     created_at=session.created_at,
+                    updated_at=session.created_at,
                 )
 
                 # TODO: Review the conflict params
@@ -736,8 +738,9 @@ class PostgresDb(BaseDb):
                     session_data=session.session_data,
                     summary=session.summary,
                     extra_data=session.extra_data,
-                    created_at=session.created_at,
                     chat_history=session.chat_history,
+                    created_at=session.created_at,
+                    updated_at=session.created_at,
                 )
                 # TODO: Review the conflict params
                 stmt = stmt.on_conflict_do_update(
@@ -782,8 +785,9 @@ class PostgresDb(BaseDb):
                     session_data=session.session_data,
                     summary=session.summary,
                     extra_data=session.extra_data,
-                    created_at=session.created_at,
                     chat_history=session.chat_history,
+                    created_at=session.created_at,
+                    updated_at=session.created_at,
                 )
                 # TODO: Review the conflict params
                 stmt = stmt.on_conflict_do_update(
@@ -1277,7 +1281,10 @@ class PostgresDb(BaseDb):
             table = self.get_eval_table()
 
             with self.Session() as sess, sess.begin():
-                stmt = postgresql.insert(table).values({"created_at": int(time.time()), **eval_run.model_dump()})
+                current_time = int(time.time())
+                stmt = postgresql.insert(table).values(
+                    {"created_at": current_time, "updated_at": current_time, **eval_run.model_dump()}
+                )
                 sess.execute(stmt)
                 sess.commit()
 
@@ -1505,7 +1512,7 @@ class PostgresDb(BaseDb):
             name (str): The new name of the eval run.
         """
         try:
-            table = self.get_eval_table()   
+            table = self.get_eval_table()
             with self.Session() as sess, sess.begin():
                 stmt = table.update().where(table.c.run_id == eval_run_id).values(name=name)
                 sess.execute(stmt)

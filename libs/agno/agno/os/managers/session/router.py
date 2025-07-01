@@ -1,4 +1,3 @@
-from math import ceil
 from typing import List, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Path, Query
@@ -46,7 +45,7 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
                 page=page,
                 limit=limit,
                 total_count=total_count,
-                total_pages=ceil(total_count / limit) if limit is not None and limit > 0 else 0,
+                total_pages=(total_count + limit - 1) // limit if limit is not None and limit > 0 else 0,
             ),
         )
 

@@ -52,7 +52,7 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
             raise HTTPException(status_code=404, detail=f"Eval run with id '{eval_run_id}' not found")
 
         return EvalSchema.from_dict(eval_run)
-    
+
     @router.delete("/evals", status_code=204)
     async def delete_eval_runs(request: DeleteEvalRunsRequest) -> None:
         try:
@@ -69,6 +69,4 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
 
         return EvalSchema.from_dict(eval_run)
 
-
     return router
-

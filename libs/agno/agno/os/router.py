@@ -235,7 +235,7 @@ def get_base_router(
                 page=page,
                 limit=limit,
                 total_count=total_count,
-                total_pages=total_count // limit if limit is not None and limit > 0 else 0,
+                total_pages=(total_count + limit - 1) // limit if limit is not None and limit > 0 else 0,
             ),
         )
 
@@ -496,7 +496,7 @@ def get_base_router(
                 page=page,
                 limit=limit,
                 total_count=total_count,
-                total_pages=total_count // limit if limit is not None and limit > 0 else 0,
+                total_pages=(total_count + limit - 1) // limit if limit is not None and limit > 0 else 0,
             ),
         )
 

@@ -1,6 +1,6 @@
 import inspect
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Optional, Union
+from typing import AsyncIterator, Awaitable, Callable, Dict, Iterator, List, Optional, Union
 
 from agno.run.response import RunResponseEvent
 from agno.run.team import TeamRunResponseEvent
@@ -10,7 +10,7 @@ from agno.run.v2.workflow import (
     WorkflowRunResponse,
     WorkflowRunResponseEvent,
 )
-from agno.utils.log import log_debug, logger
+from agno.utils.log import logger
 from agno.workflow.v2.step import Step
 from agno.workflow.v2.types import StepInput, StepOutput
 
@@ -48,11 +48,11 @@ class Condition:
         """Prepare the steps for execution - mirrors workflow logic"""
         from agno.agent.agent import Agent
         from agno.team.team import Team
-        from agno.workflow.v2.parallel import Parallel
-        from agno.workflow.v2.step import Step
         from agno.workflow.v2.loop import Loop
-        from agno.workflow.v2.steps import Steps
+        from agno.workflow.v2.parallel import Parallel
         from agno.workflow.v2.router import Router
+        from agno.workflow.v2.step import Step
+        from agno.workflow.v2.steps import Steps
 
         prepared_steps = []
         for step in self.steps:

@@ -19,8 +19,8 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         filter_type: Optional[EvalFilterType] = Query(default=None, description="Filter type"),
         limit: Optional[int] = Query(default=20, description="Number of eval runs to return"),
         page: Optional[int] = Query(default=1, description="Page number"),
-        sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
-        sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
+        sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+        sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[EvalSchema]:
         eval_runs, total_count = db.get_eval_runs_raw(
             limit=limit,

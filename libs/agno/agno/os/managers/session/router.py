@@ -25,8 +25,8 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         session_title: Optional[str] = Query(default=None, description="Filter sessions by title"),
         limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
         page: Optional[int] = Query(default=1, description="Page number"),
-        sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
-        sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
+        sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+        sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[SessionSchema]:
         sessions, total_count = db.get_sessions_raw(
             session_type=session_type,

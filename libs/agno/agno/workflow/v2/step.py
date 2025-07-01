@@ -149,6 +149,7 @@ class Step:
     ) -> StepOutput:
         """Execute the step with StepInput, returning final StepOutput (non-streaming)"""
         logger.info(f"Executing step (non-streaming): {self.name}")
+        log_debug(f"Step Starting: {self.name}")
 
         log_debug(f"Executor type: {self._executor_type}")
 
@@ -211,20 +212,67 @@ class Step:
 
                     # Execute agent or team with media
                     if self._executor_type in ["agent", "team"]:
-                        images = (
-                            self._convert_image_artifacts_to_images(step_input.images) if step_input.images else None
-                        )
-                        videos = (
-                            self._convert_video_artifacts_to_videos(step_input.videos) if step_input.videos else None
-                        )
-                        response = self.active_executor.run(
-                            message=message,
-                            images=images,
-                            videos=videos,
-                            audio=step_input.audio,
-                            session_id=session_id,
-                            user_id=user_id,
-                        )
+                        log_debug(f"Switching to {self._executor_type} logger for execution")
+                        # Switch to appropriate logger before execution
+                        if self._executor_type == "agent":
+                            from agno.utils.log import use_agent_logger
+
+                            use_agent_logger()
+                        elif self._executor_type == "team":
+                            from agno.utils.log import use_team_logger
+
+                            use_team_logger()
+
+                        # Temporarily disable debug mode on the executor to prevent interrupting workflow display
+                        original_debug_mode = None
+                        original_member_debug_modes = {}
+
+                        if hasattr(self.active_executor, "debug_mode"):
+                            original_debug_mode = self.active_executor.debug_mode
+                            self.active_executor.debug_mode = False
+
+                        # If it's a team, also disable debug mode on all members
+                        if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                            for i, member in enumerate(self.active_executor.members):
+                                if hasattr(member, "debug_mode"):
+                                    original_member_debug_modes[i] = member.debug_mode
+                                    member.debug_mode = False
+
+                        try:
+                            images = (
+                                self._convert_image_artifacts_to_images(step_input.images)
+                                if step_input.images
+                                else None
+                            )
+                            videos = (
+                                self._convert_video_artifacts_to_videos(step_input.videos)
+                                if step_input.videos
+                                else None
+                            )
+                            response = self.active_executor.run(
+                                message=message,
+                                images=images,
+                                videos=videos,
+                                audio=step_input.audio,
+                                session_id=session_id,
+                                user_id=user_id,
+                            )
+                        finally:
+                            # Restore original debug modes
+                            if original_debug_mode is not None:
+                                self.active_executor.debug_mode = original_debug_mode
+
+                            # Restore team member debug modes
+                            if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                                for i, member in enumerate(self.active_executor.members):
+                                    if i in original_member_debug_modes:
+                                        member.debug_mode = original_member_debug_modes[i]
+
+                        # Switch back to workflow logger after execution
+                        from agno.utils.log import use_workflow_logger
+
+                        use_workflow_logger()
+                        log_debug(f"Switched back to workflow logger after {self._executor_type} execution")
                     else:
                         raise ValueError(f"Unsupported executor type: {self._executor_type}")
 
@@ -232,6 +280,7 @@ class Step:
                 step_output = self._process_step_output(response)
 
                 log_debug(f"Step {self.name} completed successfully on attempt {attempt + 1}")
+                log_debug(f"Step Ending: {self.name} (success)")
                 log_debug(f"Step Execute End: {self.name}", center=True, symbol="*")
 
                 return step_output
@@ -243,9 +292,11 @@ class Step:
                 if attempt == self.max_retries:
                     if self.skip_on_failure:
                         logger.info(f"Step {self.name} failed but continuing due to skip_on_failure=True")
+                        log_debug(f"Step Ending: {self.name} (skipped due to failure)")
                         # Create empty StepOutput for skipped step
                         return StepOutput(content=f"Step {self.name} failed but skipped", success=False, error=str(e))
                     else:
+                        log_debug(f"Step Ending: {self.name} (failed)")
                         raise e
 
     def execute_stream(
@@ -258,6 +309,8 @@ class Step:
         step_index: Optional[int] = None,
     ) -> Iterator[Union[WorkflowRunResponseEvent, StepOutput]]:
         """Execute the step with event-driven streaming support"""
+
+        log_debug(f"Step Starting: {self.name} (executor: {self._executor_type})")
 
         if step_input.previous_steps_outputs:
             step_input.previous_step_content = step_input.get_last_step_content()
@@ -330,27 +383,74 @@ class Step:
                     )
 
                     if self._executor_type in ["agent", "team"]:
-                        images = (
-                            self._convert_image_artifacts_to_images(step_input.images) if step_input.images else None
-                        )
-                        videos = (
-                            self._convert_video_artifacts_to_videos(step_input.videos) if step_input.videos else None
-                        )
-                        response_stream = self.active_executor.run(
-                            message=message,
-                            images=images,
-                            videos=videos,
-                            audio=step_input.audio,
-                            session_id=session_id,
-                            user_id=user_id,
-                            stream=True,
-                            stream_intermediate_steps=stream_intermediate_steps,
-                        )
+                        log_debug(f"Switching to {self._executor_type} logger for execution")
+                        # Switch to appropriate logger before execution
+                        if self._executor_type == "agent":
+                            from agno.utils.log import use_agent_logger
 
-                        for event in response_stream:
-                            log_debug(f"Received event from agent: {type(event).__name__}")
-                            yield event
-                        final_response = self._process_step_output(self.active_executor.run_response)
+                            use_agent_logger()
+                        elif self._executor_type == "team":
+                            from agno.utils.log import use_team_logger
+
+                            use_team_logger()
+
+                        # Temporarily disable debug mode on the executor to prevent interrupting workflow display
+                        original_debug_mode = None
+                        original_member_debug_modes = {}
+
+                        if hasattr(self.active_executor, "debug_mode"):
+                            original_debug_mode = self.active_executor.debug_mode
+                            self.active_executor.debug_mode = False
+
+                        # If it's a team, also disable debug mode on all members
+                        if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                            for i, member in enumerate(self.active_executor.members):
+                                if hasattr(member, "debug_mode"):
+                                    original_member_debug_modes[i] = member.debug_mode
+                                    member.debug_mode = False
+
+                        try:
+                            images = (
+                                self._convert_image_artifacts_to_images(step_input.images)
+                                if step_input.images
+                                else None
+                            )
+                            videos = (
+                                self._convert_video_artifacts_to_videos(step_input.videos)
+                                if step_input.videos
+                                else None
+                            )
+                            response_stream = self.active_executor.run(
+                                message=message,
+                                images=images,
+                                videos=videos,
+                                audio=step_input.audio,
+                                session_id=session_id,
+                                user_id=user_id,
+                                stream=True,
+                                stream_intermediate_steps=stream_intermediate_steps,
+                            )
+
+                            for event in response_stream:
+                                yield event
+                            final_response = self._process_step_output(self.active_executor.run_response)
+
+                        finally:
+                            # Restore original debug modes
+                            if original_debug_mode is not None:
+                                self.active_executor.debug_mode = original_debug_mode
+
+                            # Restore team member debug modes
+                            if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                                for i, member in enumerate(self.active_executor.members):
+                                    if i in original_member_debug_modes:
+                                        member.debug_mode = original_member_debug_modes[i]
+
+                        # Switch back to workflow logger after execution
+                        from agno.utils.log import use_workflow_logger
+
+                        use_workflow_logger()
+                        log_debug(f"Switched back to workflow logger after {self._executor_type} execution")
 
                     else:
                         raise ValueError(f"Unsupported executor type: {self._executor_type}")
@@ -362,6 +462,8 @@ class Step:
 
                 # Yield the step output
                 yield final_response
+
+                log_debug(f"Step Ending: {self.name} (success)")
 
                 # Emit StepCompletedEvent
                 yield StepCompletedEvent(
@@ -383,6 +485,7 @@ class Step:
                 if attempt == self.max_retries:
                     if self.skip_on_failure:
                         logger.info(f"Step {self.name} failed but continuing due to skip_on_failure=True")
+                        log_debug(f"Step Ending: {self.name} (skipped due to failure)")
                         # Create empty StepOutput for skipped step
                         step_output = StepOutput(
                             content=f"Step {self.name} failed but skipped", success=False, error=str(e)
@@ -390,6 +493,7 @@ class Step:
                         yield step_output
                         return
                     else:
+                        log_debug(f"Step Ending: {self.name} (failed)")
                         raise e
 
     async def aexecute(
@@ -397,6 +501,7 @@ class Step:
     ) -> StepOutput:
         """Execute the step with StepInput, returning final StepOutput (non-streaming)"""
         logger.info(f"Executing async step (non-streaming): {self.name}")
+        log_debug(f"Async Step Starting: {self.name}")
         log_debug(f"Executor type: {self._executor_type}")
 
         if step_input.previous_steps_outputs:
@@ -475,20 +580,67 @@ class Step:
 
                     # Execute agent or team with media
                     if self._executor_type in ["agent", "team"]:
-                        images = (
-                            self._convert_image_artifacts_to_images(step_input.images) if step_input.images else None
-                        )
-                        videos = (
-                            self._convert_video_artifacts_to_videos(step_input.videos) if step_input.videos else None
-                        )
-                        response = await self.active_executor.arun(
-                            message=message,
-                            images=images,
-                            videos=videos,
-                            audio=step_input.audio,
-                            session_id=session_id,
-                            user_id=user_id,
-                        )
+                        log_debug(f"Switching to {self._executor_type} logger for async execution")
+                        # Switch to appropriate logger before execution
+                        if self._executor_type == "agent":
+                            from agno.utils.log import use_agent_logger
+
+                            use_agent_logger()
+                        elif self._executor_type == "team":
+                            from agno.utils.log import use_team_logger
+
+                            use_team_logger()
+
+                        # Temporarily disable debug mode on the executor to prevent interrupting workflow display
+                        original_debug_mode = None
+                        original_member_debug_modes = {}
+
+                        if hasattr(self.active_executor, "debug_mode"):
+                            original_debug_mode = self.active_executor.debug_mode
+                            self.active_executor.debug_mode = False
+
+                        # If it's a team, also disable debug mode on all members
+                        if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                            for i, member in enumerate(self.active_executor.members):
+                                if hasattr(member, "debug_mode"):
+                                    original_member_debug_modes[i] = member.debug_mode
+                                    member.debug_mode = False
+
+                        try:
+                            images = (
+                                self._convert_image_artifacts_to_images(step_input.images)
+                                if step_input.images
+                                else None
+                            )
+                            videos = (
+                                self._convert_video_artifacts_to_videos(step_input.videos)
+                                if step_input.videos
+                                else None
+                            )
+                            response = await self.active_executor.arun(
+                                message=message,
+                                images=images,
+                                videos=videos,
+                                audio=step_input.audio,
+                                session_id=session_id,
+                                user_id=user_id,
+                            )
+                        finally:
+                            # Restore original debug modes
+                            if original_debug_mode is not None:
+                                self.active_executor.debug_mode = original_debug_mode
+
+                            # Restore team member debug modes
+                            if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                                for i, member in enumerate(self.active_executor.members):
+                                    if i in original_member_debug_modes:
+                                        member.debug_mode = original_member_debug_modes[i]
+
+                        # Switch back to workflow logger after execution
+                        from agno.utils.log import use_workflow_logger
+
+                        use_workflow_logger()
+                        log_debug(f"Switched back to workflow logger after async {self._executor_type} execution")
                     else:
                         raise ValueError(f"Unsupported executor type: {self._executor_type}")
 
@@ -496,6 +648,7 @@ class Step:
                 step_output = self._process_step_output(response)
 
                 logger.info(f"Async Step {self.name} completed successfully")
+                log_debug(f"Async Step Ending: {self.name} (success)")
                 return step_output
 
             except Exception as e:
@@ -505,9 +658,11 @@ class Step:
                 if attempt == self.max_retries:
                     if self.skip_on_failure:
                         logger.info(f"Step {self.name} failed but continuing due to skip_on_failure=True")
+                        log_debug(f"Async Step Ending: {self.name} (skipped due to failure)")
                         # Create empty StepOutput for skipped step
                         return StepOutput(content=f"Step {self.name} failed but skipped", success=False, error=str(e))
                     else:
+                        log_debug(f"Async Step Ending: {self.name} (failed)")
                         raise e
 
     async def aexecute_stream(
@@ -520,6 +675,8 @@ class Step:
         step_index: Optional[int] = None,
     ) -> AsyncIterator[Union[WorkflowRunResponseEvent, StepOutput]]:
         """Execute the step with event-driven streaming support"""
+
+        log_debug(f"Async Step Starting: {self.name} (executor: {self._executor_type})")
 
         if step_input.previous_steps_outputs:
             step_input.previous_step_content = step_input.get_last_step_content()
@@ -606,27 +763,75 @@ class Step:
                     )
 
                     if self._executor_type in ["agent", "team"]:
-                        images = (
-                            self._convert_image_artifacts_to_images(step_input.images) if step_input.images else None
-                        )
-                        videos = (
-                            self._convert_video_artifacts_to_videos(step_input.videos) if step_input.videos else None
-                        )
-                        response_stream = await self.active_executor.arun(  # type: ignore
-                            message=message,
-                            images=images,
-                            videos=videos,
-                            audio=step_input.audio,
-                            session_id=session_id,
-                            user_id=user_id,
-                            stream=True,
-                            stream_intermediate_steps=stream_intermediate_steps,
-                        )
+                        log_debug(f"Switching to {self._executor_type} logger for async execution")
+                        # Switch to appropriate logger before execution
+                        if self._executor_type == "agent":
+                            from agno.utils.log import use_agent_logger
 
-                        async for event in response_stream:
-                            log_debug(f"Received async event from agent: {type(event).__name__}")
-                            yield event
-                        final_response = self._process_step_output(self.active_executor.run_response)  # type: ignore
+                            use_agent_logger()
+                        elif self._executor_type == "team":
+                            from agno.utils.log import use_team_logger
+
+                            use_team_logger()
+
+                        # Temporarily disable debug mode on the executor to prevent interrupting workflow display
+                        original_debug_mode = None
+                        original_member_debug_modes = {}
+
+                        if hasattr(self.active_executor, "debug_mode"):
+                            original_debug_mode = self.active_executor.debug_mode
+                            self.active_executor.debug_mode = False
+
+                        # If it's a team, also disable debug mode on all members
+                        if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                            for i, member in enumerate(self.active_executor.members):
+                                if hasattr(member, "debug_mode"):
+                                    original_member_debug_modes[i] = member.debug_mode
+                                    member.debug_mode = False
+
+                        try:
+                            images = (
+                                self._convert_image_artifacts_to_images(step_input.images)
+                                if step_input.images
+                                else None
+                            )
+                            videos = (
+                                self._convert_video_artifacts_to_videos(step_input.videos)
+                                if step_input.videos
+                                else None
+                            )
+                            response_stream = await self.active_executor.arun(  # type: ignore
+                                message=message,
+                                images=images,
+                                videos=videos,
+                                audio=step_input.audio,
+                                session_id=session_id,
+                                user_id=user_id,
+                                stream=True,
+                                stream_intermediate_steps=stream_intermediate_steps,
+                            )
+
+                            async for event in response_stream:
+                                yield event
+                            final_response = self._process_step_output(self.active_executor.run_response)  # type: ignore
+
+                        finally:
+                            # Restore original debug modes
+                            if original_debug_mode is not None:
+                                self.active_executor.debug_mode = original_debug_mode
+
+                            # Restore team member debug modes
+                            if self._executor_type == "team" and hasattr(self.active_executor, "members"):
+                                for i, member in enumerate(self.active_executor.members):
+                                    if i in original_member_debug_modes:
+                                        member.debug_mode = original_member_debug_modes[i]
+
+                        # Switch back to workflow logger after execution
+                        from agno.utils.log import use_workflow_logger
+
+                        use_workflow_logger()
+                        log_debug(f"Switched back to workflow logger after async {self._executor_type} execution")
+
                     else:
                         raise ValueError(f"Unsupported executor type: {self._executor_type}")
 
@@ -636,6 +841,8 @@ class Step:
 
                 # Yield the final response
                 yield final_response
+
+                log_debug(f"Async Step Ending: {self.name} (success)")
 
                 # Emit StepCompletedEvent
                 # if workflow_run_response:
@@ -658,12 +865,14 @@ class Step:
                 if attempt == self.max_retries:
                     if self.skip_on_failure:
                         logger.info(f"Step {self.name} failed but continuing due to skip_on_failure=True")
+                        log_debug(f"Async Step Ending: {self.name} (skipped due to failure)")
                         # Create empty StepOutput for skipped step
                         step_output = StepOutput(
                             content=f"Step {self.name} failed but skipped", success=False, error=str(e)
                         )
                         yield step_output
                     else:
+                        log_debug(f"Async Step Ending: {self.name} (failed)")
                         raise e
 
     def _parse_message_data(self, message_data: Optional[Union[BaseModel, Dict[str, Any]]]) -> Optional[str]:

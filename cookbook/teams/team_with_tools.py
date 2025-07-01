@@ -3,17 +3,20 @@ from uuid import uuid4
 
 from agno.agent.agent import Agent
 from agno.models.anthropic.claude import Claude
-from agno.models.mistral.mistral import MistralChat
+
+# from agno.models.mistral.mistral import MistralChat
 from agno.models.openai.chat import OpenAIChat
 from agno.team import Team
-from agno.tools.agentql import AgentQLTools
 from agno.tools.duckduckgo import DuckDuckGoTools
+
+# from agno.tools.agentql import AgentQLTools
+from agno.tools.firecrawl import FirecrawlTools
 from agno.tools.wikipedia import WikipediaTools
 
 wikipedia_agent = Agent(
     name="Wikipedia Agent",
     role="Search wikipedia for information",
-    model=MistralChat(id="mistral-large-latest"),
+    model=OpenAIChat(id="gpt-4o"),
     tools=[WikipediaTools()],
     instructions=[
         "Find information about the company in the wikipedia",
@@ -46,7 +49,7 @@ company_info_team = Team(
     team_id=team_id,
     user_id=user_id,
     model=Claude(id="claude-3-7-sonnet-latest"),
-    tools=[AgentQLTools(agentql_query=custom_query)],
+    tools=[FirecrawlTools()],
     members=[
         wikipedia_agent,
         website_agent,

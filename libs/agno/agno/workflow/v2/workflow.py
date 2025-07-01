@@ -31,7 +31,7 @@ from agno.run.v2.workflow import (
 from agno.storage.base import Storage
 from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV2
 from agno.team.team import Team
-from agno.utils.log import log_debug, logger, set_log_level_to_debug, set_log_level_to_info
+from agno.utils.log import log_debug, logger, set_log_level_to_debug, set_log_level_to_info, use_workflow_logger
 from agno.workflow.v2.condition import Condition
 from agno.workflow.v2.loop import Loop
 from agno.workflow.v2.parallel import Parallel
@@ -89,6 +89,7 @@ class Workflow:
     # Workflow session for storage
     workflow_session: Optional[WorkflowSessionV2] = None
     debug_mode: Optional[bool] = False
+    debug_level: Optional[int] = 1
 
     def __init__(
         self,
@@ -101,6 +102,7 @@ class Workflow:
         workflow_session_state: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         debug_mode: Optional[bool] = False,
+        debug_level: Optional[int] = 1,
     ):
         self.workflow_id = workflow_id
         self.name = name
@@ -111,15 +113,14 @@ class Workflow:
         self.workflow_session_state = workflow_session_state
         self.user_id = user_id
         self.debug_mode = debug_mode
+        self.debug_level = debug_level
 
     def initialize_workflow(self):
         if self.workflow_id is None:
             self.workflow_id = str(uuid4())
-            log_debug(f"Generated new workflow_id: {self.workflow_id}")
 
         if self.session_id is None:
             self.session_id = str(uuid4())
-            log_debug(f"Generated new session_id: {self.session_id}")
 
         # Set storage mode to workflow_v2
         if self.storage is not None:
@@ -131,7 +132,10 @@ class Workflow:
         """Set debug mode and configure logging"""
         if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
             self.debug_mode = True
-            set_log_level_to_debug()
+            set_log_level_to_debug(source_type="workflow", level=self.debug_level)
+            
+            # Make sure we're using the workflow logger
+            use_workflow_logger()
 
             # Propagate to steps - only if steps is iterable (not callable)
             if self.steps and not isinstance(self.steps, Callable):
@@ -143,14 +147,18 @@ class Workflow:
                         executor = step.active_executor
                         if hasattr(executor, "debug_mode"):
                             executor.debug_mode = True
+                            if hasattr(executor, "debug_level"):
+                                executor.debug_level = self.debug_level
 
                         # If it's a team, propagate to all members
                         if hasattr(executor, "members"):
                             for member in executor.members:
                                 if hasattr(member, "debug_mode"):
                                     member.debug_mode = True
+                                    if hasattr(member, "debug_level"):
+                                        member.debug_level = self.debug_level
         else:
-            set_log_level_to_info()
+            set_log_level_to_info(source_type="workflow")
 
     def _create_step_input(
         self,
@@ -225,7 +233,10 @@ class Workflow:
 
                 for i, step in enumerate(self.steps):
                     step_name = getattr(step, "name", f"step_{i + 1}")
-                    log_debug(f"Executing step {i + 1}/{self._get_step_count()}: {step_name}")
+
+                    # Add workflow-level debug logs for step progression
+                    if self.debug_mode:
+                        log_debug(f"Starting step {i + 1}: {step_name}")
 
                     # Create enhanced StepInput
                     step_input = self._create_step_input(
@@ -236,7 +247,13 @@ class Workflow:
                         shared_audio=shared_audio,
                     )
 
+                    # Execute step (logger switching happens inside step execution)
                     step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)
+                    
+                    # Ensure we're back to workflow logger after step execution
+                    if self.debug_mode:
+                        use_workflow_logger()
+                        log_debug(f"Completed step {i + 1}: {step_name}")
 
                     # Update the workflow-level previous_steps_outputs dictionary
                     if isinstance(step_output, list):
@@ -350,7 +367,10 @@ class Workflow:
 
                 for i, step in enumerate(self.steps):
                     step_name = getattr(step, "name", f"step_{i + 1}")
-                    log_debug(f"Streaming step {i + 1}/{self._get_step_count()}: {step_name}")
+
+                    # Add workflow-level debug logs for step progression
+                    if self.debug_mode:
+                        log_debug(f"Starting step {i + 1}: {step_name}")
 
                     # Create enhanced StepInput
                     step_input = self._create_step_input(
@@ -391,6 +411,11 @@ class Workflow:
                         else:
                             # Yield other internal events
                             yield event
+
+                    # Add workflow-level debug log for step completion
+                    if self.debug_mode:
+                        use_workflow_logger()
+                        log_debug(f"Completed step {i + 1}: {step_name}")
 
                     self._collect_workflow_session_state_from_agents_and_teams()
 
@@ -495,7 +520,10 @@ class Workflow:
 
                 for i, step in enumerate(self.steps):
                     step_name = getattr(step, "name", f"step_{i + 1}")
-                    log_debug(f"Async Executing step {i + 1}/{self._get_step_count()}: {step_name}")
+
+                    # Add workflow-level debug logs for step progression
+                    if self.debug_mode:
+                        log_debug(f"Starting step {i + 1}: {step_name}")
 
                     # Create enhanced StepInput
                     step_input = self._create_step_input(
@@ -507,6 +535,11 @@ class Workflow:
                     )
 
                     step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)
+                    
+                    # Ensure we're back to workflow logger after step execution
+                    if self.debug_mode:
+                        use_workflow_logger()
+                        log_debug(f"Completed step {i + 1}: {step_name}")
 
                     # Update the workflow-level previous_steps_outputs dictionary
                     if isinstance(step_output, list):
@@ -624,7 +657,10 @@ class Workflow:
 
                 for i, step in enumerate(self.steps):
                     step_name = getattr(step, "name", f"step_{i + 1}")
-                    log_debug(f"Async streaming step {i + 1}/{self._get_step_count()}: {step_name}")
+
+                    # Add workflow-level debug logs for step progression
+                    if self.debug_mode:
+                        log_debug(f"Starting step {i + 1}: {step_name}")
 
                     # Create enhanced StepInput
                     step_input = self._create_step_input(
@@ -665,6 +701,11 @@ class Workflow:
                         else:
                             # Yield other internal events
                             yield event
+
+                    # Add workflow-level debug log for step completion
+                    if self.debug_mode:
+                        use_workflow_logger()
+                        log_debug(f"Completed step {i + 1}: {step_name}")
 
                     self._collect_workflow_session_state_from_agents_and_teams()
 
@@ -782,16 +823,12 @@ class Workflow:
         """Execute the workflow synchronously with optional streaming"""
         self._set_debug()
 
-        log_debug(f"Workflow Run Start: {self.name}", center=True)
-        log_debug(f"Stream: {stream}")
-        log_debug(f"Total steps: {self._get_step_count()}")
+        log_debug(f"Workflow Run Start: {self.name or 'Unknown'}", center=True)
 
         if user_id is not None:
             self.user_id = user_id
-            log_debug(f"User ID: {user_id}")
         if session_id is not None:
             self.session_id = session_id
-            log_debug(f"Session ID: {session_id}")
 
         self.run_id = str(uuid4())
 
@@ -820,20 +857,22 @@ class Workflow:
             images=images,
             videos=videos,
         )
-        log_debug(
-            f"Created pipeline input with session state keys: {list(self.workflow_session_state.keys()) if self.workflow_session_state else 'None'}"
-        )
+
 
         self.update_agents_and_teams_session_info()
 
         if stream:
-            return self._execute_stream(
+            result = self._execute_stream(
                 execution_input=inputs,
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
+            log_debug(f"Workflow Run End: {self.name or 'Unknown'}", center=True, symbol="*")
+            return result
         else:
-            return self._execute(execution_input=inputs, workflow_run_response=workflow_run_response)
+            result = self._execute(execution_input=inputs, workflow_run_response=workflow_run_response)
+            log_debug(f"Workflow Run End: {self.name or 'Unknown'}", center=True, symbol="*")
+            return result
 
     @overload
     async def arun(
@@ -875,17 +914,16 @@ class Workflow:
         stream: bool = False,
         stream_intermediate_steps: bool = False,
     ) -> Union[WorkflowRunResponse, AsyncIterator[WorkflowRunResponseEvent]]:
-        """Execute the workflow synchronously with optional streaming"""
-        log_debug(f"Async Workflow Run Start: {self.name}", center=True)
-        log_debug(f"Stream: {stream}")
+        """Execute the workflow asynchronously with optional streaming"""
+        self._set_debug()
+
+        log_debug(f"Async Workflow Run Start: {self.name or 'Unknown'}", center=True)
 
         # Set user_id and session_id if provided
         if user_id is not None:
             self.user_id = user_id
-            log_debug(f"User ID: {user_id}")
         if session_id is not None:
             self.session_id = session_id
-            log_debug(f"Session ID: {session_id}")
 
         self.run_id = str(uuid4())
 
@@ -914,20 +952,22 @@ class Workflow:
             images=images,
             videos=videos,
         )
-        log_debug(
-            f"Created async pipeline input with session state keys: {list(self.workflow_session_state.keys()) if self.workflow_session_state else 'None'}"
-        )
+
 
         self.update_agents_and_teams_session_info()
 
         if stream:
-            return self._aexecute_stream(
+            result = self._aexecute_stream(
                 execution_input=inputs,
                 workflow_run_response=workflow_run_response,
                 stream_intermediate_steps=stream_intermediate_steps,
             )
+            log_debug(f"Async Workflow Run End: {self.name or 'Unknown'}", center=True, symbol="*")
+            return result
         else:
-            return await self._aexecute(execution_input=inputs, workflow_run_response=workflow_run_response)
+            result = await self._aexecute(execution_input=inputs, workflow_run_response=workflow_run_response)
+            log_debug(f"Async Workflow Run End: {self.name or 'Unknown'}", center=True, symbol="*")
+            return result
 
     def _prepare_steps(self):
         """Prepare the steps for execution"""
@@ -991,7 +1031,6 @@ class Workflow:
             self.name = session.workflow_name
 
         self.workflow_session = session
-        log_debug(f"Loaded WorkflowSessionV2: {session.session_id}")
 
     def read_from_storage(self) -> Optional[WorkflowSessionV2]:
         """Load the WorkflowSessionV2 from storage"""
@@ -1014,21 +1053,16 @@ class Workflow:
 
     def load_session(self, force: bool = False) -> Optional[str]:
         """Load an existing session from storage or create a new one"""
-        log_debug(f"Current session_id: {self.session_id}")
-
         if self.workflow_session is not None and not force:
             if self.session_id is not None and self.workflow_session.session_id == self.session_id:
-                log_debug("Using existing workflow session")
                 return self.workflow_session.session_id
 
         if self.storage is not None:
             # Try to load existing session
-            log_debug(f"Reading WorkflowSessionV2: {self.session_id}")
             existing_session = self.read_from_storage()
 
             # Create new session if it doesn't exist
             if existing_session is None:
-                log_debug("Creating new WorkflowSessionV2")
                 self.workflow_session = WorkflowSessionV2(
                     session_id=self.session_id,  # type: ignore
                     user_id=self.user_id,
@@ -1038,18 +1072,15 @@ class Workflow:
                 saved_session = self.write_to_storage()
                 if saved_session is None:
                     raise Exception("Failed to create new WorkflowSessionV2 in storage")
-                log_debug(f"Created WorkflowSessionV2: {saved_session.session_id}")
 
         return self.session_id
 
+
+
     def new_session(self) -> None:
         """Create a new workflow session"""
-        log_debug("Creating new workflow session")
-
         self.workflow_session = None
         self.session_id = str(uuid4())
-
-        log_debug(f"New session ID: {self.session_id}")
         self.load_session(force=True)
 
     def print_response(
@@ -1085,6 +1116,8 @@ class Workflow:
             show_step_details: Whether to show individual step outputs
             console: Rich console instance (optional)
         """
+        # Set debug mode from environment if needed
+        self._set_debug()
 
         if stream:
             self._print_response_stream(
@@ -1176,17 +1209,22 @@ class Workflow:
         workflow_panel = create_panel(
             content=Markdown(workflow_info) if markdown else workflow_info,
             title="Workflow Information",
-            border_style="cyan",
+            border_style="orange3",
         )
-        console.print(workflow_panel)
+        
+        # Don't print workflow panel here - it will be shown in Live context
 
         # Start timer
         response_timer = Timer()
         response_timer.start()
 
         with Live(console=console) as live_log:
+            from rich.console import Group
+            
             status = Status("Starting workflow...", spinner="dots")
-            live_log.update(status)
+            
+            # Always show workflow panel and status together during execution
+            live_log.update(Group(workflow_panel, status))
 
             try:
                 # Execute workflow and get the response directly
@@ -1201,38 +1239,36 @@ class Workflow:
                 )
 
                 response_timer.stop()
-
                 if show_step_details and workflow_response.step_responses:
                     for i, step_output in enumerate(workflow_response.step_responses):
-                        # Handle both single StepOutput and List[StepOutput] (from loop/parallel steps)
                         if isinstance(step_output, list):
                             # This is a loop or parallel step with multiple outputs
                             for j, sub_step_output in enumerate(step_output):
                                 if sub_step_output.content:
                                     step_panel = create_panel(
-                                        content=Markdown(sub_step_output.content)
+                                        content=Markdown        (sub_step_output.content)
                                         if markdown
                                         else sub_step_output.content,
-                                        title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
-                                        border_style="green",
+                                        title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name}(Completed)",
+                                        border_style="orange3",
                                     )
                                     console.print(step_panel)
                         else:
-                            # This is a regular single step
                             if step_output.content:
                                 step_panel = create_panel(
-                                    content=Markdown(step_output.content) if markdown else step_output.content,
-                                    title=f"Step {i + 1}: {step_output.step_name} (Completed)",
-                                    border_style="green",
+                                    content=Markdown(step_output.content) if  markdown else step_output.content,
+                                    title=f"Step {i + 1}: {step_output.         step_name} (Completed)",
+                                        border_style="orange3",
                                 )
                                 console.print(step_panel)
 
                 # For callable functions, show the content directly since there are no step_responses
                 elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
+                  
                     step_panel = create_panel(
                         content=Markdown(workflow_response.content) if markdown else workflow_response.content,
                         title="Custom Function (Completed)",
-                        border_style="green",
+                        border_style="orange3",
                     )
                     console.print(step_panel)
 
@@ -1253,7 +1289,7 @@ class Workflow:
 
                 # Final completion message
                 if show_time:
-                    completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
+                    completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold orange3")
                     console.print(completion_text)
 
             except Exception as e:
@@ -1328,9 +1364,10 @@ class Workflow:
         workflow_panel = create_panel(
             content=Markdown(workflow_info) if markdown else workflow_info,
             title="Workflow Information",
-            border_style="cyan",
+            border_style="orange3",
         )
-        console.print(workflow_panel)
+        
+        # Don't print workflow panel here - it will be shown in Live context
 
         # Start timer
         response_timer = Timer()
@@ -1343,10 +1380,29 @@ class Workflow:
         step_responses = []
         step_started_printed = False
         is_callable_function = isinstance(self.steps, Callable)
+        
+        # Track streaming panels for display
+        streaming_panels = []
 
         with Live(console=console, refresh_per_second=10) as live_log:
             status = Status("Starting workflow...", spinner="dots")
-            live_log.update(status)
+            
+            # Helper function to update display with workflow panel pinned and status below
+            def update_display():
+                # Always rebuild panels from scratch like teams do
+                panels = []
+                
+                # Always add workflow panel at bottom (regardless of debug mode)
+                panels.append(workflow_panel)
+                
+                # Status spinner goes below the workflow panel
+                panels.append(status)
+                
+                # Update the live display
+                live_log.update(Group(*panels))
+            
+            # Initial display
+            update_display()
 
             try:
                 for response in self.run(
@@ -1366,7 +1422,7 @@ class Workflow:
                         if is_callable_function:
                             current_step_name = "Custom Function"
                             current_step_index = 0
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, StepStartedEvent):
                         current_step_name = response.step_name or "Unknown"
@@ -1374,7 +1430,7 @@ class Workflow:
                         current_step_content = ""
                         step_started_printed = False
                         status.update(f"Starting step {current_step_index + 1}: {current_step_name}...")
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, StepCompletedEvent):
                         step_name = response.step_name or "Unknown"
@@ -1392,17 +1448,9 @@ class Workflow:
                                 }
                             )
 
-                        # Print the final step result in green (only once)
-                        if show_step_details and current_step_content and not step_started_printed:
-                            live_log.update(status, refresh=True)
-
-                            final_step_panel = create_panel(
-                                content=Markdown(current_step_content) if markdown else current_step_content,
-                                title=f"Step {step_index + 1}: {step_name} (Completed)",
-                                border_style="green",
-                            )
-                            console.print(final_step_panel)
-                            step_started_printed = True
+                        # Clear any streaming content when step completes
+                        step_started_printed = True
+                        update_display()
 
                     elif isinstance(response, LoopExecutionStartedEvent):
                         current_step_name = response.step_name or "Loop"
@@ -1412,13 +1460,13 @@ class Workflow:
                         status.update(
                             f"Starting loop: {current_step_name} (max {response.max_iterations} iterations)..."
                         )
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, LoopIterationStartedEvent):
                         status.update(
                             f"Loop iteration {response.iteration}/{response.max_iterations}: {response.step_name}..."
                         )
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, LoopIterationCompletedEvent):
                         status.update(
@@ -1442,26 +1490,10 @@ class Workflow:
                         step_index = response.step_index or 0
 
                         status.update(f"Completed loop: {step_name} ({response.total_iterations} iterations)")
-                        live_log.update(status, refresh=True)
-
-                        # Print loop summary
-                        if show_step_details:
-                            summary_content = f"**Loop Summary:**\n\n"
-                            summary_content += (
-                                f"- Total iterations: {response.total_iterations}/{response.max_iterations}\n"
-                            )
-                            summary_content += (
-                                f"- Total steps executed: {sum(len(iteration) for iteration in response.all_results)}\n"
-                            )
-
-                            loop_summary_panel = create_panel(
-                                content=Markdown(summary_content) if markdown else summary_content,
-                                title=f"Loop {step_name} (Completed)",
-                                border_style="yellow",
-                            )
-                            console.print(loop_summary_panel)
-
+                        
+                        # Clear any streaming content when loop completes
                         step_started_printed = True
+                        update_display()
 
                     elif isinstance(response, ParallelExecutionStartedEvent):
                         current_step_name = response.step_name or "Parallel Steps"
@@ -1471,7 +1503,7 @@ class Workflow:
                         status.update(
                             f"Starting parallel execution: {current_step_name} ({response.parallel_step_count} steps)..."
                         )
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, ParallelExecutionCompletedEvent):
                         step_name = response.step_name or "Parallel Steps"
@@ -1498,7 +1530,7 @@ class Workflow:
                         step_started_printed = False
                         condition_text = "met" if response.condition_result else "not met"
                         status.update(f"Starting condition: {current_step_name} (condition {condition_text})...")
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, ConditionExecutionCompletedEvent):
                         step_name = response.step_name or "Condition"
@@ -1525,7 +1557,7 @@ class Workflow:
                         step_started_printed = False
                         selected_steps_text = ", ".join(response.selected_steps) if response.selected_steps else "none"
                         status.update(f"Starting router: {current_step_name} (selected: {selected_steps_text})...")
-                        live_log.update(status)
+                        update_display()
 
                     elif isinstance(response, RouterExecutionCompletedEvent):
                         step_name = response.step_name or "Router"
@@ -1545,23 +1577,9 @@ class Workflow:
                                     }
                                 )
 
-                        # Print router summary
-                        if show_step_details:
-                            selected_steps_text = (
-                                ", ".join(response.selected_steps) if response.selected_steps else "none"
-                            )
-                            summary_content = f"**Router Summary:**\n\n"
-                            summary_content += f"- Selected steps: {selected_steps_text}\n"
-                            summary_content += f"- Executed steps: {response.executed_steps or 0}\n"
-
-                            router_summary_panel = create_panel(
-                                content=Markdown(summary_content) if markdown else summary_content,
-                                title=f"Router {step_name} (Completed)",
-                                border_style="purple",
-                            )
-                            console.print(router_summary_panel)
-
+                        # Clear any streaming content when router completes
                         step_started_printed = True
+                        update_display()
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
@@ -1573,30 +1591,16 @@ class Workflow:
                             and current_step_content
                             and not step_started_printed
                         ):
-                            final_step_panel = create_panel(
-                                content=Markdown(current_step_content) if markdown else current_step_content,
-                                title="Custom Function (Completed)",
-                                border_style="green",
-                            )
-                            console.print(final_step_panel)
+                            step_responses.append({
+                                "step_name": "Custom Function",
+                                "step_index": 0,
+                                "content": current_step_content,
+                                "event": "CustomFunction",
+                            })
                             step_started_printed = True
 
-                        live_log.update(status, refresh=True)
-
-                        # Show final summary
-                        if response.extra_data:
-                            status = response.status
-                            summary_content = ""
-                            summary_content += f"""\n\n**Status:** {status}"""
-                            summary_content += f"""\n\n**Steps Completed:** {len(response.step_responses) if response.step_responses else 0}"""
-                            summary_content = summary_content.strip()
-
-                            summary_panel = create_panel(
-                                content=Markdown(summary_content) if markdown else summary_content,
-                                title="Execution Summary",
-                                border_style="blue",
-                            )
-                            console.print(summary_panel)
+                        # Final status update
+                        update_display()
 
                     else:
                         if isinstance(response, str):
@@ -1621,30 +1625,10 @@ class Workflow:
                         if response_str and response_str.strip():
                             current_step_content += response_str
 
-                            # Live update the step panel with streaming content
-                            if show_step_details and not step_started_printed:
-                                # For callable functions, show different title during streaming
-                                title = f"Step {current_step_index + 1}: {current_step_name} (Streaming...)"
-                                if is_callable_function:
-                                    title = "Custom Function (Streaming...)"
-
-                                # Show the streaming content live in green panel
-                                live_step_panel = create_panel(
-                                    content=Markdown(current_step_content) if markdown else current_step_content,
-                                    title=title,
-                                    border_style="green",
-                                )
-
-                                # Create group with status and current step content
-                                group = Group(status, live_step_panel)
-                                live_log.update(group)
+                            # Don't update Live context during streaming to avoid interfering with debug logs
+                            # Just collect the content for final display
 
                 response_timer.stop()
-
-                # Final completion message
-                if show_time:
-                    completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
-                    console.print(completion_text)
 
             except Exception as e:
                 import traceback
@@ -1655,6 +1639,40 @@ class Workflow:
                     content=f"Workflow execution failed: {str(e)}", title="Execution Error", border_style="red"
                 )
                 console.print(error_panel)
+
+        # Final panels display OUTSIDE the Live context - this is critical!
+        
+        # Always show workflow panel at the TOP first
+        console.print(workflow_panel)
+        
+        # Create final panels for completed steps with appropriate styling - ALL workflow panels should be orange3
+        if show_step_details and step_responses:
+            for step_resp in step_responses:
+                # Set border style based on event type
+                if step_resp["event"] == "LoopIterationResult":
+                    border_style = "yellow"
+                elif step_resp["event"] == "ParallelStepResult":
+                    border_style = "cyan"
+                elif step_resp["event"] == "RouterStepResult":
+                    border_style = "purple"
+                elif step_resp["event"] == "ConditionStepResult":
+                    border_style = "magenta"
+                elif step_resp["event"] == "CustomFunction":
+                    border_style = "orange3"
+                else:
+                    border_style = "orange3"
+                
+                final_step_panel = create_panel(
+                    content=Markdown(step_resp["content"]) if markdown else step_resp["content"],
+                    title=f"Step {step_resp['step_index'] + 1}: {step_resp['step_name']} (Completed)",
+                    border_style=border_style,
+                )
+                console.print(final_step_panel)
+
+        # Final completion message with orange3 color for workflow
+        if show_time:
+            completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold orange3")
+            console.print(completion_text)
 
     async def aprint_response(
         self,
@@ -1689,6 +1707,9 @@ class Workflow:
             show_step_details: Whether to show individual step outputs
             console: Rich console instance (optional)
         """
+        # Set debug mode from environment if needed
+        self._set_debug()
+        
         if stream:
             await self._aprint_response_stream(
                 message=message,
@@ -1779,17 +1800,22 @@ class Workflow:
         workflow_panel = create_panel(
             content=Markdown(workflow_info) if markdown else workflow_info,
             title="Workflow Information",
-            border_style="cyan",
+            border_style="orange3",
         )
-        console.print(workflow_panel)
+        
+        # Don't print workflow panel here - it will be shown in Live context
 
         # Start timer
         response_timer = Timer()
         response_timer.start()
 
         with Live(console=console) as live_log:
-            status = Status("Starting async workflow...\n", spinner="dots")
-            live_log.update(status)
+            from rich.console import Group
+            
+            status = Status("Starting async workflow...", spinner="dots")
+            
+            # Always show workflow panel and status together during execution
+            live_log.update(Group(workflow_panel, status))
 
             try:
                 # Execute workflow and get the response directly
@@ -1805,61 +1831,6 @@ class Workflow:
 
                 response_timer.stop()
 
-                # Show individual step responses if available
-                if show_step_details and workflow_response.step_responses:
-                    for i, step_output in enumerate(workflow_response.step_responses):
-                        # Handle both single StepOutput and List[StepOutput] (from loop/parallel steps)
-                        if isinstance(step_output, list):
-                            # This is a loop or parallel step with multiple outputs
-                            for j, sub_step_output in enumerate(step_output):
-                                if sub_step_output.content:
-                                    step_panel = create_panel(
-                                        content=Markdown(sub_step_output.content)
-                                        if markdown
-                                        else sub_step_output.content,
-                                        title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
-                                        border_style="green",
-                                    )
-                                    console.print(step_panel)
-                        else:
-                            # This is a regular single step
-                            if step_output.content:
-                                step_panel = create_panel(
-                                    content=Markdown(step_output.content) if markdown else step_output.content,
-                                    title=f"Step {i + 1}: {step_output.step_name} (Completed)",
-                                    border_style="green",
-                                )
-                                console.print(step_panel)
-
-                # For callable functions, show the content directly since there are no step_responses
-                elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
-                    step_panel = create_panel(
-                        content=Markdown(workflow_response.content) if markdown else workflow_response.content,
-                        title="Custom Function (Completed)",
-                        border_style="green",
-                    )
-                    console.print(step_panel)
-
-                # Show final summary
-                if workflow_response.extra_data:
-                    status = workflow_response.status.value
-                    summary_content = ""
-                    summary_content += f"""\n\n**Status:** {status}"""
-                    summary_content += f"""\n\n**Steps Completed:** {len(workflow_response.step_responses) if workflow_response.step_responses else 0}"""
-                    summary_content = summary_content.strip()
-
-                    summary_panel = create_panel(
-                        content=Markdown(summary_content) if markdown else summary_content,
-                        title="Execution Summary",
-                        border_style="blue",
-                    )
-                    console.print(summary_panel)
-
-                # Final completion message
-                if show_time:
-                    completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
-                    console.print(completion_text)
-
             except Exception as e:
                 import traceback
 
@@ -1869,6 +1840,66 @@ class Workflow:
                     content=f"Workflow execution failed: {str(e)}", title="Execution Error", border_style="red"
                 )
                 console.print(error_panel)
+                return  # Exit early on error
+
+        # After Live context ends, show final panels
+        
+        # Don't print workflow panel again - it was already shown during Live context
+
+        # Show individual step responses if available
+        if show_step_details and workflow_response.step_responses:
+            for i, step_output in enumerate(workflow_response.step_responses):
+                # Handle both single StepOutput and List[StepOutput] (from loop/parallel steps)
+                if isinstance(step_output, list):
+                    # This is a loop or parallel step with multiple outputs
+                    for j, sub_step_output in enumerate(step_output):
+                        if sub_step_output.content:
+                            step_panel = create_panel(
+                                content=Markdown(sub_step_output.content)
+                                if markdown
+                                else sub_step_output.content,
+                                title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
+                                border_style="orange3",
+                            )
+                            console.print(step_panel)
+                else:
+                    # This is a regular single step
+                    if step_output.content:
+                        step_panel = create_panel(
+                            content=Markdown(step_output.content) if markdown else step_output.content,
+                            title=f"Step {i + 1}: {step_output.step_name} (Completed)",
+                            border_style="orange3",
+                        )
+                        console.print(step_panel)
+
+        # For callable functions, show the content directly since there are no step_responses
+        elif show_step_details and isinstance(self.steps, Callable) and workflow_response.content:
+            step_panel = create_panel(
+                content=Markdown(workflow_response.content) if markdown else workflow_response.content,
+                title="Custom Function (Completed)",
+                border_style="orange3",
+            )
+            console.print(step_panel)
+
+        # Show final summary
+        if workflow_response.extra_data:
+            status = workflow_response.status.value
+            summary_content = ""
+            summary_content += f"""\n\n**Status:** {status}"""
+            summary_content += f"""\n\n**Steps Completed:** {len(workflow_response.step_responses) if workflow_response.step_responses else 0}"""
+            summary_content = summary_content.strip()
+
+            summary_panel = create_panel(
+                content=Markdown(summary_content) if markdown else summary_content,
+                title="Execution Summary",
+                border_style="blue",
+            )
+            console.print(summary_panel)
+
+        # Final completion message
+        if show_time:
+            completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold orange3")
+            console.print(completion_text)
 
     async def _aprint_response_stream(
         self,
@@ -1885,7 +1916,7 @@ class Workflow:
         show_step_details: bool = True,
         console: Optional[Any] = None,
     ) -> None:
-        """Print workflow execution with clean streaming - green step blocks displayed once"""
+        """Print workflow execution with clean streaming - async version with real-time content display"""
         from rich.console import Group
         from rich.live import Live
         from rich.markdown import Markdown
@@ -1898,7 +1929,7 @@ class Workflow:
         if console is None:
             from agno.cli.console import console
 
-        # Show workflow info (same as before)
+        # Prepare workflow info
         media_info = []
         if audio:
             media_info.append(f"Audio files: {len(audio)}")
@@ -1932,9 +1963,10 @@ class Workflow:
         workflow_panel = create_panel(
             content=Markdown(workflow_info) if markdown else workflow_info,
             title="Workflow Information",
-            border_style="cyan",
+            border_style="orange3",
         )
-        console.print(workflow_panel)
+        
+        # Don't print workflow panel here - it will be shown in Live context
 
         # Start timer
         response_timer = Timer()
@@ -1947,10 +1979,29 @@ class Workflow:
         step_responses = []
         step_started_printed = False
         is_callable_function = isinstance(self.steps, Callable)
+        
+        # Track streaming panels for display
+        streaming_panels = []
 
-        with Live(console=console, refresh_per_second=10) as live_log:
-            status = Status("Starting async workflow...", spinner="dots")
-            live_log.update(status)
+        with Live(console=console, refresh_per_second=4) as live_log:
+            status = Status("Starting workflow...", spinner="dots")
+            
+            # Helper function to update display with workflow panel pinned and status below
+            def update_display():
+                # Always rebuild panels from scratch like teams do
+                panels = []
+                
+                # Always add workflow panel at bottom (regardless of debug mode)
+                panels.append(workflow_panel)
+                
+                # Status spinner goes below the workflow panel
+                panels.append(status)
+                
+                # Update the live display
+                live_log.update(Group(*panels))
+            
+            # Initial display
+            update_display()
 
             try:
                 async for response in await self.arun(
@@ -1970,7 +2021,6 @@ class Workflow:
                         if is_callable_function:
                             current_step_name = "Custom Function"
                             current_step_index = 0
-                        live_log.update(status)
 
                     elif isinstance(response, StepStartedEvent):
                         current_step_name = response.step_name or "Unknown"
@@ -1978,7 +2028,6 @@ class Workflow:
                         current_step_content = ""
                         step_started_printed = False
                         status.update(f"Starting step {current_step_index + 1}: {current_step_name}...")
-                        live_log.update(status)
 
                     elif isinstance(response, StepCompletedEvent):
                         step_name = response.step_name or "Unknown"
@@ -1996,17 +2045,8 @@ class Workflow:
                                 }
                             )
 
-                        # Print the final step result in green (only once)
-                        if show_step_details and current_step_content and not step_started_printed:
-                            live_log.update(status, refresh=True)
-
-                            final_step_panel = create_panel(
-                                content=Markdown(current_step_content) if markdown else current_step_content,
-                                title=f"Step {step_index + 1}: {step_name} (Completed)",
-                                border_style="green",
-                            )
-                            console.print(final_step_panel)
-                            step_started_printed = True
+                        # Clear any streaming content when step completes
+                        step_started_printed = True
 
                     elif isinstance(response, LoopExecutionStartedEvent):
                         current_step_name = response.step_name or "Loop"
@@ -2016,13 +2056,11 @@ class Workflow:
                         status.update(
                             f"Starting loop: {current_step_name} (max {response.max_iterations} iterations)..."
                         )
-                        live_log.update(status)
 
                     elif isinstance(response, LoopIterationStartedEvent):
                         status.update(
                             f"Loop iteration {response.iteration}/{response.max_iterations}: {response.step_name}..."
                         )
-                        live_log.update(status)
 
                     elif isinstance(response, LoopIterationCompletedEvent):
                         status.update(
@@ -2046,25 +2084,8 @@ class Workflow:
                         step_index = response.step_index or 0
 
                         status.update(f"Completed loop: {step_name} ({response.total_iterations} iterations)")
-                        live_log.update(status, refresh=True)
-
-                        # Print loop summary
-                        if show_step_details:
-                            summary_content = f"**Loop Summary:**\n\n"
-                            summary_content += (
-                                f"- Total iterations: {response.total_iterations}/{response.max_iterations}\n"
-                            )
-                            summary_content += (
-                                f"- Total steps executed: {sum(len(iteration) for iteration in response.all_results)}\n"
-                            )
-
-                            loop_summary_panel = create_panel(
-                                content=Markdown(summary_content) if markdown else summary_content,
-                                title=f"Loop {step_name} (Completed)",
-                                border_style="yellow",
-                            )
-                            console.print(loop_summary_panel)
-
+                        
+                        # Clear any streaming content when loop completes
                         step_started_printed = True
 
                     elif isinstance(response, ParallelExecutionStartedEvent):
@@ -2075,7 +2096,6 @@ class Workflow:
                         status.update(
                             f"Starting parallel execution: {current_step_name} ({response.parallel_step_count} steps)..."
                         )
-                        live_log.update(status)
 
                     elif isinstance(response, ParallelExecutionCompletedEvent):
                         step_name = response.step_name or "Parallel Steps"
@@ -2102,7 +2122,6 @@ class Workflow:
                         step_started_printed = False
                         selected_steps_text = ", ".join(response.selected_steps) if response.selected_steps else "none"
                         status.update(f"Starting router: {current_step_name} (selected: {selected_steps_text})...")
-                        live_log.update(status)
 
                     elif isinstance(response, RouterExecutionCompletedEvent):
                         step_name = response.step_name or "Router"
@@ -2122,58 +2141,25 @@ class Workflow:
                                     }
                                 )
 
-                        # Print router summary
-                        if show_step_details:
-                            selected_steps_text = (
-                                ", ".join(response.selected_steps) if response.selected_steps else "none"
-                            )
-                            summary_content = f"**Router Summary:**\n\n"
-                            summary_content += f"- Selected steps: {selected_steps_text}\n"
-                            summary_content += f"- Executed steps: {response.executed_steps or 0}\n"
-
-                            router_summary_panel = create_panel(
-                                content=Markdown(summary_content) if markdown else summary_content,
-                                title=f"Router {step_name} (Completed)",
-                                border_style="purple",
-                            )
-                            console.print(router_summary_panel)
-
                         step_started_printed = True
 
                     elif isinstance(response, WorkflowCompletedEvent):
                         status.update("Workflow completed!")
 
-                        # For callable functions, print the final content block here since there are no step events
+                        # Store custom function content for final display (original logic)
                         if (
                             is_callable_function
                             and show_step_details
                             and current_step_content
                             and not step_started_printed
                         ):
-                            final_step_panel = create_panel(
-                                content=Markdown(current_step_content) if markdown else current_step_content,
-                                title="Custom Function (Completed)",
-                                border_style="green",
-                            )
-                            console.print(final_step_panel)
+                            step_responses.append({
+                                "step_name": "Custom Function",
+                                "step_index": 0,
+                                "content": current_step_content,
+                                "event": "CustomFunction",
+                            })
                             step_started_printed = True
-
-                        live_log.update(status, refresh=True)
-
-                        # Show final summary
-                        if response.extra_data:
-                            status = response.status
-                            summary_content = ""
-                            summary_content += f"""\n\n**Status:** {status}"""
-                            summary_content += f"""\n\n**Steps Completed:** {len(response.step_responses) if response.step_responses else 0}"""
-                            summary_content = summary_content.strip()
-
-                            summary_panel = create_panel(
-                                content=Markdown(summary_content) if markdown else summary_content,
-                                title="Execution Summary",
-                                border_style="blue",
-                            )
-                            console.print(summary_panel)
 
                     else:
                         if isinstance(response, str):
@@ -2198,30 +2184,10 @@ class Workflow:
                         if response_str and response_str.strip():
                             current_step_content += response_str
 
-                            # Live update the step panel with streaming content
-                            if show_step_details and not step_started_printed:
-                                # For callable functions, show different title during streaming
-                                title = f"Step {current_step_index + 1}: {current_step_name} (Streaming...)"
-                                if is_callable_function:
-                                    title = "Custom Function (Streaming...)"
-
-                                # Show the streaming content live in green panel
-                                live_step_panel = create_panel(
-                                    content=Markdown(current_step_content) if markdown else current_step_content,
-                                    title=title,
-                                    border_style="green",
-                                )
-
-                                # Create group with status and current step content
-                                group = Group(status, live_step_panel)
-                                live_log.update(group)
+                            # Don't update Live context during streaming to avoid interfering with debug logs
+                            # Just collect the content for final display
 
                 response_timer.stop()
-
-                # Final completion message
-                if show_time:
-                    completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold green")
-                    console.print(completion_text)
 
             except Exception as e:
                 import traceback
@@ -2232,6 +2198,40 @@ class Workflow:
                     content=f"Workflow execution failed: {str(e)}", title="Execution Error", border_style="red"
                 )
                 console.print(error_panel)
+
+        # Final panels display OUTSIDE the Live context - this is critical!
+        
+        # Always show workflow panel at the TOP first
+        console.print(workflow_panel)
+        
+        # Create final panels for completed steps with appropriate styling - ALL workflow panels should be orange3
+        if show_step_details and step_responses:
+            for step_resp in step_responses:
+                # Set border style based on event type
+                if step_resp["event"] == "LoopIterationResult":
+                    border_style = "yellow"
+                elif step_resp["event"] == "ParallelStepResult":
+                    border_style = "cyan"
+                elif step_resp["event"] == "RouterStepResult":
+                    border_style = "purple"
+                elif step_resp["event"] == "ConditionStepResult":
+                    border_style = "magenta"
+                elif step_resp["event"] == "CustomFunction":
+                    border_style = "orange3"
+                else:
+                    border_style = "orange3"
+                
+                final_step_panel = create_panel(
+                    content=Markdown(step_resp["content"]) if markdown else step_resp["content"],
+                    title=f"Step {step_resp['step_index'] + 1}: {step_resp['step_name']} (Completed)",
+                    border_style=border_style,
+                )
+                console.print(final_step_panel)
+
+        # Final completion message with orange3 color for workflow
+        if show_time:
+            completion_text = Text(f"Completed in {response_timer.elapsed:.1f}s", style="bold orange3")
+            console.print(completion_text)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert workflow to dictionary representation"""

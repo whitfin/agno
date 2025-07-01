@@ -264,6 +264,7 @@ class RunSchema(BaseModel):
     run_data: dict
     run_review: Optional[dict]
     created_at: Optional[datetime]
+    events: Optional[List[Dict[str, Any]]]
 
     @classmethod
     def from_dict(cls, run_dict: Dict[str, Any]) -> "RunSchema":
@@ -273,6 +274,7 @@ class RunSchema(BaseModel):
             workspace_id=None,
             user_id=None,
             run_review=None,
+            events=run_dict["run"].get("events", []),
             created_at=datetime.fromtimestamp(run_dict["run"]["created_at"])
             if run_dict["run"]["created_at"] is not None
             else None,

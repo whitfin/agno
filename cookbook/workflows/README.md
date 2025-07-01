@@ -4,20 +4,40 @@ Welcome to **Agno Workflows 2.0** - the next generation of intelligent, flexible
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Core Concepts](#core-concepts)
-- [Workflow Patterns](#workflow-patterns)
-  - [1. Sequential Workflows](#1-sequential-workflows)
-  - [2. Parallel Execution](#2-parallel-execution)
-  - [3. Conditional Workflows](#3-conditional-workflows)
-  - [4. Loop/Iteration Workflows](#4-loopiteration-workflows)
-  - [5. Router-Based Branching](#5-router-based-branching)
-  - [6. Mixed Execution Types](#6-mixed-execution-types)
-  - [7. Function-Based Steps](#7-function-based-steps)
-  - [8. Complex Combinations](#8-complex-combinations)
-- [Advanced Features](#advanced-features)
-- [Best Practices](#best-practices)
-- [Migration from Workflows 1.0](#migration-from-workflows-10)
+- [Agno Workflows 2.0 - Developer Guide](#agno-workflows-20---developer-guide)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [Key Features](#key-features)
+  - [Core Concepts](#core-concepts)
+    - [Building Blocks](#building-blocks)
+  - [Workflow Patterns](#workflow-patterns)
+    - [1. Sequential Workflows](#1-sequential-workflows)
+    - [2. Parallel Execution](#2-parallel-execution)
+    - [3. Conditional Workflows](#3-conditional-workflows)
+    - [4. Loop/Iteration Workflows](#4-loopiteration-workflows)
+    - [5. Router-Based Branching](#5-router-based-branching)
+    - [6. Mixed Execution Types](#6-mixed-execution-types)
+    - [7. Function-Based Steps](#7-function-based-steps)
+    - [8. Complex Combinations](#8-complex-combinations)
+  - [Advanced Features](#advanced-features)
+    - [Streaming Support](#streaming-support)
+    - [Session State Management](#session-state-management)
+    - [Structured Inputs](#structured-inputs)
+    - [Function-Only Workflows](#function-only-workflows)
+  - [Best Practices](#best-practices)
+    - [When to Use Each Pattern](#when-to-use-each-pattern)
+    - [Performance Optimization](#performance-optimization)
+  - [Migration from Workflows 1.0](#migration-from-workflows-10)
+    - [Key Differences](#key-differences)
+    - [Migration Steps](#migration-steps)
+  - [Examples by Use Case](#examples-by-use-case)
+    - [Content Creation Pipeline](#content-creation-pipeline)
+    - [Multi-Source Research](#multi-source-research)
+    - [Quality-Driven Processing](#quality-driven-processing)
+    - [Dynamic Expert Routing](#dynamic-expert-routing)
+    - [Custom Business Logic](#custom-business-logic)
+    - [Stateful Multi-Step Process](#stateful-multi-step-process)
+  - [Getting Started](#getting-started)
 
 ## Overview
 
@@ -27,7 +47,7 @@ Agno Workflows 2.0 provides a powerful, declarative way to orchestrate multi-ste
 
 - 🔄 **Flexible Execution**: Sequential, parallel, conditional, and loop-based execution
 - 🎯 **Smart Routing**: Dynamic step selection based on content analysis
-- 🔧 **Mixed Components**: Combine agents, teams, and functions seamlessly
+- 🔧 **Mixed Components**: Combine agents, teams, and python functions seamlessly
 - 💾 **State Management**: Share data across steps with session state
 - 🌊 **Streaming Support**: Real-time processing with streaming capabilities
 - 📝 **Structured Inputs**: Type-safe inputs with Pydantic models

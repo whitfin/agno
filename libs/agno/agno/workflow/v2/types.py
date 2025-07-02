@@ -141,8 +141,6 @@ class StepOutput:
     success: bool = True
     error: Optional[str] = None
 
-    stop: bool = False
-
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
         return {
@@ -151,9 +149,6 @@ class StepOutput:
             "images": [img.to_dict() for img in self.images] if self.images else None,
             "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
             "audio": [aud.to_dict() for aud in self.audio] if self.audio else None,
-            "success": self.success,
-            "error": self.error,
-            "stop": self.stop,
         }
 
     @classmethod
@@ -193,5 +188,4 @@ class StepOutput:
             audio=audio,
             success=data.get("success", True),
             error=data.get("error"),
-            stop=data.get("stop", False),
         )

@@ -75,6 +75,10 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def delete_sessions(self, session_types: List[SessionType], session_ids: List[str]) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_runs_raw(self, session_id: str, session_type: SessionType) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
@@ -129,7 +133,7 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def rename_session(self, session_id: str, session_type: SessionType, session_name: str) -> None:
+    def rename_session(self, session_id: str, session_type: SessionType, session_name: str) -> Optional[Session]:
         raise NotImplementedError
 
     @abstractmethod
@@ -148,6 +152,10 @@ class BaseDb(ABC):
 
     @abstractmethod
     def delete_user_memory(self, memory_id: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_user_memories(self, memory_ids: List[str]) -> None:
         raise NotImplementedError
 
     @abstractmethod

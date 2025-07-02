@@ -36,9 +36,7 @@ def attach_routes(router: APIRouter, memory: Memory) -> APIRouter:
         if memory.db is None:
             raise HTTPException(status_code=500, detail="Database not initialized")
 
-        # TODO: optimize
-        for memory_id in request.memory_ids:
-            memory.db.delete_user_memory(memory_id=memory_id)
+        memory.db.delete_user_memories(memory_ids=request.memory_ids)
 
     @router.get("/memories", response_model=PaginatedResponse[UserMemorySchema], status_code=200)
     async def get_memories(

@@ -360,6 +360,45 @@ class PostgresDb(BaseDb):
         except Exception as e:
             log_error(f"Error deleting session: {e}")
 
+    def delete_sessions(self, session_types: List[SessionType], session_ids: List[str]) -> None:
+        """Delete all given sessions from the database.
+        Can handle multiple session types in the same run.
+
+        Args:
+            session_types (List[SessionType]): The types of sessions to delete.
+            session_ids (List[str]): The IDs of the sessions to delete.
+        """
+        if len(session_types) != len(session_ids):
+            raise ValueError("session_types and session_ids lists must have the same length")
+
+        try:
+            # Group session_ids by their corresponding table
+            table_to_session_ids = {}
+            for session_type, session_id in zip(session_types, session_ids):
+                table = self.get_table_for_session_type(session_type)
+                if table is None:
+                    raise ValueError(f"Table not found for session type: {session_type}")
+
+                if table not in table_to_session_ids:
+                    table_to_session_ids[table] = []
+                table_to_session_ids[table].append(session_id)
+
+            # Execute all deletes in a single transaction
+            total_deleted = 0
+            with self.Session() as sess, sess.begin():
+                for table, ids in table_to_session_ids.items():
+                    delete_stmt = table.delete().where(table.c.session_id.in_(ids))
+                    result = sess.execute(delete_stmt)
+                    total_deleted += result.rowcount
+
+                    if result.rowcount == 0:
+                        log_debug(f"No sessions found with session_ids: {ids} in table {table.name}")
+
+            log_debug(f"Successfully deleted {total_deleted} sessions across {len(table_to_session_ids)} tables")
+
+        except Exception as e:
+            log_error(f"Error deleting sessions: {e}")
+
     def get_runs_raw(self, session_id: str, session_type: SessionType) -> Optional[List[Dict[str, Any]]]:
         """
         Get all runs for the given session, as raw dictionaries.
@@ -1174,6 +1213,19 @@ class PostgresDb(BaseDb):
         except Exception as e:
             log_error(f"Error deleting user memory: {e}")
             return False
+
+    def delete_user_memories(self, memory_ids: List[str]) -> None:
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                delete_stmt = table.delete().where(table.c.memory_id.in_(memory_ids))
+                result = sess.execute(delete_stmt)
+                if result.rowcount == 0:
+                    log_debug(f"No user memories found with ids: {memory_ids}")
+
+        except Exception as e:
+            log_error(f"Error deleting user memories: {e}")
 
     def get_user_memory_stats(
         self,

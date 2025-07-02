@@ -210,8 +210,8 @@ def get_base_router(
         user_id: Optional[str] = Query(default=None, description="Filter sessions by user ID"),
         limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
         page: Optional[int] = Query(default=1, description="Page number"),
-        sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
-        sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
+        sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+        sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[SessionSchema]:
         agent = get_agent_by_id(agent_id, os.agents)
         if agent is None:
@@ -469,8 +469,8 @@ def get_base_router(
         session_title: Optional[str] = Query(default=None, description="Filter sessions by title"),
         limit: Optional[int] = Query(default=20, description="Number of sessions to return"),
         page: Optional[int] = Query(default=1, description="Page number"),
-        sort_by: Optional[str] = Query(default=None, description="Field to sort by"),
-        sort_order: Optional[SortOrder] = Query(default=None, description="Sort order (asc or desc)"),
+        sort_by: Optional[str] = Query(default="created_at", description="Field to sort by"),
+        sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[SessionSchema]:
         team = get_team_by_id(team_id, os.teams)
         if team is None:

@@ -115,7 +115,6 @@ class Loop:
 
         return StepInput(
             message=step_input.message,
-            message_data=step_input.message_data,
             previous_step_content=previous_step_content,
             previous_steps_outputs=updated_previous_steps_outputs,
             workflow_message=step_input.workflow_message,
@@ -228,6 +227,7 @@ class Loop:
 
         all_results = []
         iteration = 0
+        early_termination = False
 
         while iteration < self.max_iterations:
             log_debug(f"Loop iteration {iteration + 1}/{self.max_iterations}")
@@ -453,6 +453,7 @@ class Loop:
 
         all_results = []
         iteration = 0
+        early_termination = False
 
         while iteration < self.max_iterations:
             log_debug(f"Async loop iteration {iteration + 1}/{self.max_iterations}")

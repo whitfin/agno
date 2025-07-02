@@ -78,9 +78,9 @@ class Workflow:
 
     # Session management
     session_id: Optional[str] = None
+    user_id: Optional[str] = None
     workflow_session_id: Optional[str] = None
     workflow_session_state: Optional[Dict[str, Any]] = None
-    user_id: Optional[str] = None
 
     # Runtime state
     run_id: Optional[str] = None
@@ -169,7 +169,6 @@ class Workflow:
 
         return StepInput(
             message=execution_input.message,
-            message_data=execution_input.message_data,
             previous_step_content=previous_step_content,
             previous_steps_outputs=previous_steps_outputs,
             workflow_message=execution_input.message,
@@ -802,8 +801,7 @@ class Workflow:
     @overload
     def run(
         self,
-        message: str = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -816,8 +814,7 @@ class Workflow:
     @overload
     def run(
         self,
-        message: str = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -829,8 +826,7 @@ class Workflow:
 
     def run(
         self,
-        message: str = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -875,7 +871,6 @@ class Workflow:
 
         inputs = WorkflowExecutionInput(
             message=message,
-            message_data=message_data,
             audio=audio,
             images=images,
             videos=videos,
@@ -898,8 +893,7 @@ class Workflow:
     @overload
     async def arun(
         self,
-        message: str = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -912,8 +906,7 @@ class Workflow:
     @overload
     async def arun(
         self,
-        message: str = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -925,8 +918,7 @@ class Workflow:
 
     async def arun(
         self,
-        message: str = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -969,7 +961,6 @@ class Workflow:
 
         inputs = WorkflowExecutionInput(
             message=message,
-            message_data=message_data,
             audio=audio,
             images=images,
             videos=videos,
@@ -1112,10 +1103,37 @@ class Workflow:
         log_debug(f"New session ID: {self.session_id}")
         self.load_session(force=True)
 
+    def _format_step_content_for_display(self, step_output: StepOutput) -> str:
+        """Format content for display, handling structured outputs. Works for both raw content and StepOutput objects."""
+        # If it's a StepOutput, extract the content
+        if hasattr(step_output, "content"):
+            actual_content = step_output.content
+        else:
+            actual_content = step_output
+
+        if not actual_content:
+            return ""
+
+        # If it's already a string, return as-is
+        if isinstance(actual_content, str):
+            return actual_content
+
+        # If it's a structured output (BaseModel or dict), format it nicely
+        if isinstance(actual_content, BaseModel):
+            return (
+                f"**Structured Output:**\n\n```json\n{actual_content.model_dump_json(indent=2, exclude_none=True)}\n```"
+            )
+        elif isinstance(actual_content, (dict, list)):
+            import json
+
+            return f"**Structured Output:**\n\n```json\n{json.dumps(actual_content, indent=2, default=str)}\n```"
+        else:
+            # Fallback to string conversion
+            return str(actual_content)
+
     def print_response(
         self,
-        message: Optional[str] = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1149,7 +1167,6 @@ class Workflow:
         if stream:
             self._print_response_stream(
                 message=message,
-                message_data=message_data,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1164,7 +1181,6 @@ class Workflow:
         else:
             self._print_response(
                 message=message,
-                message_data=message_data,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1178,8 +1194,7 @@ class Workflow:
 
     def _print_response(
         self,
-        message: str,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1216,17 +1231,19 @@ class Workflow:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
-            workflow_info += f"""\n\n**Message:** {message}"""
-        if message_data:
-            if isinstance(message_data, BaseModel):
-                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
-            elif isinstance(message_data, dict):
-                import json
-
-                data_display = json.dumps(message_data, indent=2, default=str)
+            if isinstance(message, str):
+                workflow_info += f"""\n\n**Message:** {message}"""
             else:
-                data_display = str(message_data)
-            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
+                # Handle structured input message
+                if isinstance(message, BaseModel):
+                    data_display = message.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(message, (dict, list)):
+                    import json
+
+                    data_display = json.dumps(message, indent=2, default=str)
+                else:
+                    data_display = str(message)
+                workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -1252,7 +1269,6 @@ class Workflow:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunResponse = self.run(
                     message=message,
-                    message_data=message_data,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1269,10 +1285,9 @@ class Workflow:
                             # This is a loop or parallel step with multiple outputs
                             for j, sub_step_output in enumerate(step_output):
                                 if sub_step_output.content:
+                                    formatted_content = self._format_step_content_for_display(sub_step_output)
                                     step_panel = create_panel(
-                                        content=Markdown(sub_step_output.content)
-                                        if markdown
-                                        else sub_step_output.content,
+                                        content=Markdown(formatted_content) if markdown else formatted_content,
                                         title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
                                         border_style="green",
                                     )
@@ -1280,8 +1295,9 @@ class Workflow:
                         else:
                             # This is a regular single step
                             if step_output.content:
+                                formatted_content = self._format_step_content_for_display(step_output)
                                 step_panel = create_panel(
-                                    content=Markdown(step_output.content) if markdown else step_output.content,
+                                    content=Markdown(formatted_content) if markdown else formatted_content,
                                     title=f"Step {i + 1}: {step_output.step_name} (Completed)",
                                     border_style="green",
                                 )
@@ -1328,8 +1344,7 @@ class Workflow:
 
     def _print_response_stream(
         self,
-        message: str,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1368,17 +1383,19 @@ class Workflow:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
-            workflow_info += f"""\n\n**Message:** {message}"""
-        if message_data:
-            if isinstance(message_data, BaseModel):
-                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
-            elif isinstance(message_data, dict):
-                import json
-
-                data_display = json.dumps(message_data, indent=2, default=str)
+            if isinstance(message, str):
+                workflow_info += f"""\n\n**Message:** {message}"""
             else:
-                data_display = str(message_data)
-            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
+                # Handle structured input message
+                if isinstance(message, BaseModel):
+                    data_display = message.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(message, (dict, list)):
+                    import json
+
+                    data_display = json.dumps(message, indent=2, default=str)
+                else:
+                    data_display = str(message)
+                workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -1411,7 +1428,6 @@ class Workflow:
             try:
                 for response in self.run(
                     message=message,
-                    message_data=message_data,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1666,20 +1682,44 @@ class Workflow:
                             response_str = response.content or ""
                         else:
                             from agno.run.response import RunResponseContentEvent
+                            from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
+
+                            current_step_executor_type = None
+                            if not is_callable_function and self.steps and current_step_index < len(self.steps):
+                                step = self.steps[current_step_index]
+                                if hasattr(step, "executor_type"):
+                                    current_step_executor_type = step.executor_type
 
                             # Check if this is a streaming content event from agent or team
                             if isinstance(
                                 response,
-                                (RunResponseContentEvent, WorkflowRunResponseEvent),
+                                (TeamRunResponseContentEvent, WorkflowRunResponseEvent),
                             ):
+                                # Check if this is a team's final structured output
+                                is_structured_output = (
+                                    isinstance(response, TeamRunResponseContentEvent)
+                                    and hasattr(response, "content_type")
+                                    and response.content_type != "str"
+                                    and response.content_type != ""
+                                )
+
                                 # Extract the content from the streaming event
+                                response_str = response.content
+                            elif isinstance(response, RunResponseContentEvent) and current_step_executor_type != "team":
                                 response_str = response.content
                             else:
                                 continue
 
+                        # Use the unified formatting function for consistency
+                        response_str = self._format_step_content_for_display(response_str)
+
                         # Filter out empty responses and add to current step content
                         if response_str and response_str.strip():
-                            current_step_content += response_str
+                            # If it's a structured output from a team, replace the content instead of appending
+                            if "is_structured_output" in locals() and is_structured_output:
+                                current_step_content = response_str
+                            else:
+                                current_step_content += response_str
 
                             # Live update the step panel with streaming content
                             if show_step_details and not step_started_printed:
@@ -1718,8 +1758,7 @@ class Workflow:
 
     async def aprint_response(
         self,
-        message: Optional[str] = None,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1752,7 +1791,6 @@ class Workflow:
         if stream:
             await self._aprint_response_stream(
                 message=message,
-                message_data=message_data,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1767,7 +1805,6 @@ class Workflow:
         else:
             await self._aprint_response(
                 message=message,
-                message_data=message_data,
                 user_id=user_id,
                 session_id=session_id,
                 audio=audio,
@@ -1781,8 +1818,7 @@ class Workflow:
 
     async def _aprint_response(
         self,
-        message: str,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1819,17 +1855,19 @@ class Workflow:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
-            workflow_info += f"""\n\n**Message:** {message}"""
-        if message_data:
-            if isinstance(message_data, BaseModel):
-                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
-            elif isinstance(message_data, dict):
-                import json
-
-                data_display = json.dumps(message_data, indent=2, default=str)
+            if isinstance(message, str):
+                workflow_info += f"""\n\n**Message:** {message}"""
             else:
-                data_display = str(message_data)
-            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
+                # Handle structured input message
+                if isinstance(message, BaseModel):
+                    data_display = message.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(message, (dict, list)):
+                    import json
+
+                    data_display = json.dumps(message, indent=2, default=str)
+                else:
+                    data_display = str(message)
+                workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -1855,7 +1893,6 @@ class Workflow:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunResponse = await self.arun(
                     message=message,
-                    message_data=message_data,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -1873,10 +1910,9 @@ class Workflow:
                             # This is a loop or parallel step with multiple outputs
                             for j, sub_step_output in enumerate(step_output):
                                 if sub_step_output.content:
+                                    formatted_content = self._format_step_content_for_display(sub_step_output)
                                     step_panel = create_panel(
-                                        content=Markdown(sub_step_output.content)
-                                        if markdown
-                                        else sub_step_output.content,
+                                        content=Markdown(formatted_content) if markdown else formatted_content,
                                         title=f"Step {i + 1}.{j + 1}: {sub_step_output.step_name} (Completed)",
                                         border_style="green",
                                     )
@@ -1884,8 +1920,9 @@ class Workflow:
                         else:
                             # This is a regular single step
                             if step_output.content:
+                                formatted_content = self._format_step_content_for_display(sub_step_output)
                                 step_panel = create_panel(
-                                    content=Markdown(step_output.content) if markdown else step_output.content,
+                                    content=Markdown(formatted_content) if markdown else formatted_content,
                                     title=f"Step {i + 1}: {step_output.step_name} (Completed)",
                                     border_style="green",
                                 )
@@ -1932,8 +1969,7 @@ class Workflow:
 
     async def _aprint_response_stream(
         self,
-        message: str,
-        message_data: Optional[Union[BaseModel, Dict[str, Any]]] = None,
+        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         audio: Optional[List[Audio]] = None,
@@ -1972,17 +2008,19 @@ class Workflow:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
         if message:
-            workflow_info += f"""\n\n**Message:** {message}"""
-        if message_data:
-            if isinstance(message_data, BaseModel):
-                data_display = message_data.model_dump_json(indent=2, exclude_none=True)
-            elif isinstance(message_data, dict):
-                import json
-
-                data_display = json.dumps(message_data, indent=2, default=str)
+            if isinstance(message, str):
+                workflow_info += f"""\n\n**Message:** {message}"""
             else:
-                data_display = str(message_data)
-            workflow_info += f"""\n\n**Structured Data:**\n```json\n{data_display}\n```"""
+                # Handle structured input message
+                if isinstance(message, BaseModel):
+                    data_display = message.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(message, (dict, list)):
+                    import json
+
+                    data_display = json.dumps(message, indent=2, default=str)
+                else:
+                    data_display = str(message)
+                workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
         if session_id:
@@ -2015,7 +2053,6 @@ class Workflow:
             try:
                 async for response in await self.arun(
                     message=message,
-                    message_data=message_data,
                     user_id=user_id,
                     session_id=session_id,
                     audio=audio,
@@ -2243,20 +2280,44 @@ class Workflow:
                             response_str = response.content or ""
                         else:
                             from agno.run.response import RunResponseContentEvent
+                            from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
+
+                            current_step_executor_type = None
+                            if not is_callable_function and self.steps and current_step_index < len(self.steps):
+                                step = self.steps[current_step_index]
+                                if hasattr(step, "executor_type"):
+                                    current_step_executor_type = step.executor_type
 
                             # Check if this is a streaming content event from agent or team
                             if isinstance(
                                 response,
-                                (RunResponseContentEvent, WorkflowRunResponseEvent),
+                                (RunResponseContentEvent, TeamRunResponseContentEvent, WorkflowRunResponseEvent),
                             ):
                                 # Extract the content from the streaming event
+                                response_str = response.content
+
+                                # Check if this is a team's final structured output
+                                is_structured_output = (
+                                    isinstance(response, TeamRunResponseContentEvent)
+                                    and hasattr(response, "content_type")
+                                    and response.content_type != "str"
+                                    and response.content_type != ""
+                                )
+                            elif isinstance(response, RunResponseContentEvent) and current_step_executor_type != "team":
                                 response_str = response.content
                             else:
                                 continue
 
+                        # Use the unified formatting function for consistency
+                        response_str = self._format_step_content_for_display(response_str)
+
                         # Filter out empty responses and add to current step content
                         if response_str and response_str.strip():
-                            current_step_content += response_str
+                            # If it's a structured output from a team, replace the content instead of appending
+                            if "is_structured_output" in locals() and is_structured_output:
+                                current_step_content = response_str
+                            else:
+                                current_step_content += response_str
 
                             # Live update the step panel with streaming content
                             if show_step_details and not step_started_printed:

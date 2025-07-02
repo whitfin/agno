@@ -820,8 +820,11 @@ class PostgresDb(BaseDb):
                 if table is None:
                     raise ValueError("Agent session table not found")
 
-            # TODO: runs should always be a list of RunResponse. Remove the type check once that's implemented.
-            runs = [run.to_dict() for run in session.runs if isinstance(run, RunResponse)] if session.runs else None
+            # TODO: runs should always be a list of RunResponse. Remove this once that's implemented.
+            if session.runs and isinstance(session.runs[0], RunResponse):
+                runs = [run.to_dict() for run in session.runs if isinstance(run, RunResponse)]
+            else:
+                runs = session.runs
 
             with self.Session() as sess, sess.begin():
                 stmt = postgresql.insert(table).values(

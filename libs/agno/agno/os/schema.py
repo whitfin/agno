@@ -212,6 +212,10 @@ class DeleteSessionRequest(BaseModel):
     session_types: List[SessionType]
 
 
+class DeleteAgentSessionRequest(BaseModel):
+    session_ids: List[str]
+
+
 class AgentSessionDetailSchema(BaseModel):
     user_id: Optional[str]
     agent_session_id: str

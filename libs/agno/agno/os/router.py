@@ -14,6 +14,7 @@ from agno.os.managers.utils import PaginatedResponse, PaginationInfo, SortOrder
 from agno.os.schema import (
     AgentResponse,
     AgentSessionDetailSchema,
+    AgentSummaryResponse,
     AppsResponse,
     ConfigResponse,
     InterfaceResponse,
@@ -22,8 +23,10 @@ from agno.os.schema import (
     SessionSchema,
     TeamResponse,
     TeamSessionDetailSchema,
+    TeamSummaryResponse,
     WorkflowResponse,
     WorkflowRunRequest,
+    WorkflowSummaryResponse,
 )
 from agno.os.utils import (
     get_agent_by_id,
@@ -195,6 +198,16 @@ def get_base_router(
                 for interface in os.interfaces
             ],
             apps=app_response,
+            agents=[AgentSummaryResponse(agent_id=agent.agent_id, name=agent.name) for agent in os.agents]
+            if os.agents
+            else [],
+            teams=[TeamSummaryResponse(team_id=team.team_id, name=team.name) for team in os.teams] if os.teams else [],
+            workflows=[
+                WorkflowSummaryResponse(workflow_id=workflow.workflow_id, name=workflow.name)
+                for workflow in os.workflows
+            ]
+            if os.workflows
+            else [],
         )
 
     # -- Agent routes ---

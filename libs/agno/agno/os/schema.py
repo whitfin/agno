@@ -33,12 +33,30 @@ class AppsResponse(BaseModel):
     metrics: Optional[List[ManagerResponse]] = None
 
 
+class AgentSummaryResponse(BaseModel):
+    agent_id: Optional[str] = None
+    name: Optional[str] = None
+
+
+class TeamSummaryResponse(BaseModel):
+    team_id: Optional[str] = None
+    name: Optional[str] = None
+
+
+class WorkflowSummaryResponse(BaseModel):
+    workflow_id: Optional[str] = None
+    name: Optional[str] = None
+
+
 class ConfigResponse(BaseModel):
     os_id: str
-    name: str
-    description: str
+    name: Optional[str] = None
+    description: Optional[str] = None
     interfaces: List[InterfaceResponse]
     apps: AppsResponse
+    agents: List[AgentSummaryResponse]
+    teams: List[TeamSummaryResponse]
+    workflows: List[WorkflowSummaryResponse]
 
 
 class ModelResponse(BaseModel):

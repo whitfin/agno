@@ -215,19 +215,16 @@ class WorkflowRunRequest(BaseModel):
 
 class SessionSchema(BaseModel):
     session_id: str
-    title: str
+    session_name: str
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
     @classmethod
     def from_dict(cls, session: Dict[str, Any]) -> "SessionSchema":
-        title = session.get("session_data", {}).get("session_name", "")
-        if not title:
-            title = session["runs"][0].get("run_data", {}).get("run_input", "")
-
         return cls(
             session_id=session.get("session_id", ""),
-            title=title,
+            session_name=session.get("session_data", {}).get("session_name", "")
+            or session["runs"][0].get("run_data", {}).get("run_input", ""),
             created_at=datetime.fromtimestamp(session.get("created_at", 0), tz=timezone.utc)
             if session.get("created_at")
             else None,
@@ -247,12 +244,12 @@ class AgentSessionDetailSchema(BaseModel):
     agent_session_id: str
     workspace_id: Optional[str]
     session_id: str
+    session_name: str
     agent_id: Optional[str]
     agent_data: Optional[dict]
     agent_sessions: list
     response_latency_avg: Optional[float]
     total_tokens: Optional[int]
-    session_name: Optional[str]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -263,6 +260,11 @@ class AgentSessionDetailSchema(BaseModel):
             agent_session_id=session.session_id,
             workspace_id=None,
             session_id=session.session_id,
+            session_name=session.session_data.get("session_name", "")
+            if session.session_data
+            else session.runs[0].get("run_data", {}).get("run_input", "")
+            if session.runs
+            else "",
             agent_id=session.agent_id if session.agent_id else None,
             agent_data=session.agent_data,
             agent_sessions=[],
@@ -270,7 +272,6 @@ class AgentSessionDetailSchema(BaseModel):
             total_tokens=session.session_data.get("session_metrics", {}).get("total_tokens")
             if session.session_data
             else None,
-            session_name=session.session_data.get("session_name", None) if session.session_data else None,
             created_at=datetime.fromtimestamp(session.created_at, tz=timezone.utc) if session.created_at else None,
             updated_at=datetime.fromtimestamp(session.updated_at, tz=timezone.utc) if session.updated_at else None,
         )

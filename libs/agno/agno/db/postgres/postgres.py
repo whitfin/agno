@@ -1874,7 +1874,7 @@ class PostgresDb(BaseDb):
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
-        eval_type: Optional[EvalType] = None,
+        eval_type: Optional[List[EvalType]] = None,
         filter_type: Optional[EvalFilterType] = None,
     ) -> Tuple[List[Dict[str, Any]], int]:
         """Get all eval runs from the database as raw dictionaries.
@@ -1889,7 +1889,7 @@ class PostgresDb(BaseDb):
             team_id (Optional[str]): The ID of the team to filter by.
             workflow_id (Optional[str]): The ID of the workflow to filter by.
             model_id (Optional[str]): The ID of the model to filter by.
-            eval_type (Optional[EvalType]): The type of eval to filter by.
+            eval_type (Optional[List[EvalType]]): The type(s) of eval to filter by.
             filter_type (Optional[EvalFilterType]): Filter by component type (agent, team, workflow, all).
 
         Returns:
@@ -1910,8 +1910,8 @@ class PostgresDb(BaseDb):
                     stmt = stmt.where(table.c.workflow_id == workflow_id)
                 if model_id is not None:
                     stmt = stmt.where(table.c.model_id == model_id)
-                if eval_type is not None:
-                    stmt = stmt.where(table.c.eval_type == eval_type)
+                if eval_type is not None and len(eval_type) > 0:
+                    stmt = stmt.where(table.c.eval_type.in_(eval_type))
                 if filter_type is not None:
                     if filter_type == EvalFilterType.AGENT:
                         stmt = stmt.where(table.c.agent_id.is_not(None))
@@ -1956,7 +1956,7 @@ class PostgresDb(BaseDb):
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
-        eval_type: Optional[EvalType] = None,
+        eval_type: Optional[List[EvalType]] = None,
         filter_type: Optional[EvalFilterType] = None,
     ) -> List[EvalRunRecord]:
         """Get all eval runs from the database.
@@ -1971,7 +1971,7 @@ class PostgresDb(BaseDb):
             team_id (Optional[str]): The ID of the team to filter by.
             workflow_id (Optional[str]): The ID of the workflow to filter by.
             model_id (Optional[str]): The ID of the model to filter by.
-            eval_type (Optional[EvalType]): The type of eval to filter by.
+            eval_type (Optional[List[EvalType]]): The type(s) of eval to filter by.
             filter_type (Optional[EvalFilterType]): Filter by component type (agent, team, workflow).
 
         Returns:
@@ -2034,7 +2034,9 @@ class PostgresDb(BaseDb):
         try:
             table = self.get_eval_table()
             with self.Session() as sess, sess.begin():
-                stmt = table.update().where(table.c.run_id == eval_run_id).values(name=name)
+                stmt = (
+                    table.update().where(table.c.run_id == eval_run_id).values(name=name, updated_at=int(time.time()))
+                )
                 sess.execute(stmt)
                 sess.commit()
 

@@ -36,16 +36,19 @@ class AppsResponse(BaseModel):
 class AgentSummaryResponse(BaseModel):
     agent_id: Optional[str] = None
     name: Optional[str] = None
+    description: Optional[str] = None
 
 
 class TeamSummaryResponse(BaseModel):
     team_id: Optional[str] = None
     name: Optional[str] = None
+    description: Optional[str] = None
 
 
 class WorkflowSummaryResponse(BaseModel):
     workflow_id: Optional[str] = None
     name: Optional[str] = None
+    description: Optional[str] = None
 
 
 class ConfigResponse(BaseModel):

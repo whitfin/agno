@@ -477,9 +477,8 @@ def get_base_router(
         if agent.memory is None or agent.memory.db is None:
             raise HTTPException(status_code=404, detail="Agent has no memory. Sessions are unavailable.")
 
-        session = agent.memory.db.rename_session(
-            session_id=session_id, session_type=SessionType.AGENT, session_name=session_name
-        )
+        agent.rename_session(session_id=session_id, session_name=session_name)
+        session = agent.memory.db.get_session(session_type=SessionType.AGENT, session_id=session_id)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with id {session_id} not found")
 

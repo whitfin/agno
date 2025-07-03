@@ -1,9 +1,9 @@
 import json
 from dataclasses import asdict
-from typing import AsyncGenerator, List, Optional
+from typing import AsyncGenerator, List, Optional, cast
 from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 
 from agno.agent.agent import Agent
@@ -482,7 +482,7 @@ def get_base_router(
     async def rename_agent_session(
         agent_id: str,
         session_id: str,
-        session_name: str = Query(default=None, description="Session name"),
+        session_name: str = Body(embed=True),
     ):
         agent = get_agent_by_id(agent_id, os.agents)
         if agent is None:
@@ -490,8 +490,7 @@ def get_base_router(
         if agent.memory is None or agent.memory.db is None:
             raise HTTPException(status_code=404, detail="Agent has no memory. Sessions are unavailable.")
 
-        agent.rename_session(session_id=session_id, session_name=session_name)
-        session = agent.memory.db.get_session(session_type=SessionType.AGENT, session_id=session_id)
+        session = agent.rename_session(session_id=session_id, session_name=session_name)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with id {session_id} not found")
 

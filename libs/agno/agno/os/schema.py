@@ -218,9 +218,13 @@ class SessionSchema(BaseModel):
 
     @classmethod
     def from_dict(cls, session: Dict[str, Any]) -> "SessionSchema":
+        title = session.get("session_data", {}).get("session_name", "")
+        if not title:
+            title = session["runs"][0].get("run_data", {}).get("run_input", "")
+
         return cls(
             session_id=session.get("session_id", ""),
-            title=session["runs"][0].get("run_data", {}).get("run_input", ""),
+            title=title,
             created_at=datetime.fromtimestamp(session.get("created_at", 0), tz=timezone.utc)
             if session.get("created_at")
             else None,
@@ -245,6 +249,7 @@ class AgentSessionDetailSchema(BaseModel):
     agent_sessions: list
     response_latency_avg: Optional[float]
     total_tokens: Optional[int]
+    session_name: Optional[str]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -262,6 +267,7 @@ class AgentSessionDetailSchema(BaseModel):
             total_tokens=session.session_data.get("session_metrics", {}).get("total_tokens")
             if session.session_data
             else None,
+            session_name=session.session_data.get("session_name", None) if session.session_data else None,
             created_at=datetime.fromtimestamp(session.created_at, tz=timezone.utc) if session.created_at else None,
             updated_at=datetime.fromtimestamp(session.updated_at, tz=timezone.utc) if session.updated_at else None,
         )

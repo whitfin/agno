@@ -18,7 +18,7 @@ gmail_app = GmailAPI(
     app_id="basic_agent",
     description="A basic agent that can answer questions and help with tasks.",
 )
-#runsetup(topic_name='projects/agnotest-464115/topics/mail',cred_path="D:\\Work\\agnoagi\\agno\\libs\\agno\\agno\\app\\email\\gmail\\credentials.json")
+#runsetup(topic_name=,cred_path=)
 app = gmail_app.get_app()
 
 if __name__ == "__main__":

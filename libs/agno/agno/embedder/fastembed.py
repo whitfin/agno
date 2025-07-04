@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
+
 from agno.embedder.base import Embedder
 from agno.utils.log import logger
 
@@ -7,7 +8,7 @@ try:
     import numpy as np
 
 except ImportError:
-    raise ImportError("numpy not installed, use pip install numpy")
+    raise ImportError("numpy not installed, use `pip install numpy`")
 
 
 try:

@@ -1328,6 +1328,85 @@ class PostgresDb(BaseDb):
             log_error(f"Error deleting user memory: {e}")
             return False
 
+    def delete_user_memories(self, memory_ids: List[str]) -> None:
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                delete_stmt = table.delete().where(table.c.memory_id.in_(memory_ids))
+                result = sess.execute(delete_stmt)
+                if result.rowcount == 0:
+                    log_debug(f"No user memories found with ids: {memory_ids}")
+
+        except Exception as e:
+            log_error(f"Error deleting user memories: {e}")
+
+    def get_user_memory_stats(
+        self,
+        limit: Optional[int] = None,
+        page: Optional[int] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Get user memories stats.
+
+        Args:
+            limit (Optional[int]): The maximum number of user stats to return.
+            page (Optional[int]): The page number.
+
+        Returns:
+            Tuple[List[Dict[str, Any]], int]: A list of dictionaries containing user stats and total count.
+
+        Example:
+        (
+            [
+                {
+                    "user_id": "123",
+                    "total_memories": 10,
+                    "last_memory_updated_at": 1714560000,
+                },
+            ],
+            total_count: 1,
+        )
+        """
+        try:
+            table = self.get_user_memory_table()
+
+            with self.Session() as sess, sess.begin():
+                stmt = (
+                    select(
+                        table.c.user_id,
+                        func.count(table.c.memory_id).label("total_memories"),
+                        func.max(table.c.last_updated).label("last_memory_updated_at"),
+                    )
+                    .where(table.c.user_id.is_not(None))
+                    .group_by(table.c.user_id)
+                    .order_by(func.max(table.c.last_updated).desc())
+                )
+
+                count_stmt = select(func.count()).select_from(stmt.alias())
+                total_count = sess.execute(count_stmt).scalar()
+
+                # Pagination
+                if limit is not None:
+                    stmt = stmt.limit(limit)
+                    if page is not None:
+                        stmt = stmt.offset((page - 1) * limit)
+
+                result = sess.execute(stmt).fetchall()
+                if not result:
+                    return [], 0
+
+                return [
+                    {
+                        "user_id": record.user_id,  # type: ignore
+                        "total_memories": record.total_memories,
+                        "last_memory_updated_at": record.last_memory_updated_at,
+                    }
+                    for record in result
+                ], total_count
+
+        except Exception as e:
+            log_debug(f"Exception getting user memory stats: {e}")
+            return [], 0
     # -- Metrics methods --
 
     def _bulk_upsert_metrics(self, table: Table, metrics_records: list[dict]) -> list[dict]:
@@ -1586,88 +1665,9 @@ class PostgresDb(BaseDb):
             log_error(f"Exception getting metrics: {e}")
             return [], None
 
-    def delete_user_memories(self, memory_ids: List[str]) -> None:
-        try:
-            table = self.get_user_memory_table()
 
-            with self.Session() as sess, sess.begin():
-                delete_stmt = table.delete().where(table.c.memory_id.in_(memory_ids))
-                result = sess.execute(delete_stmt)
-                if result.rowcount == 0:
-                    log_debug(f"No user memories found with ids: {memory_ids}")
-
-        except Exception as e:
-            log_error(f"Error deleting user memories: {e}")
-
-    def get_user_memory_stats(
-        self,
-        limit: Optional[int] = None,
-        page: Optional[int] = None,
-    ) -> Tuple[List[Dict[str, Any]], int]:
-        """Get user memories stats.
-
-        Args:
-            limit (Optional[int]): The maximum number of user stats to return.
-            page (Optional[int]): The page number.
-
-        Returns:
-            Tuple[List[Dict[str, Any]], int]: A list of dictionaries containing user stats and total count.
-
-        Example:
-        (
-            [
-                {
-                    "user_id": "123",
-                    "total_memories": 10,
-                    "last_memory_updated_at": 1714560000,
-                },
-            ],
-            total_count: 1,
-        )
-        """
-        try:
-            table = self.get_user_memory_table()
-
-            with self.Session() as sess, sess.begin():
-                stmt = (
-                    select(
-                        table.c.user_id,
-                        func.count(table.c.memory_id).label("total_memories"),
-                        func.max(table.c.last_updated).label("last_memory_updated_at"),
-                    )
-                    .where(table.c.user_id.is_not(None))
-                    .group_by(table.c.user_id)
-                    .order_by(func.max(table.c.last_updated).desc())
-                )
-
-                count_stmt = select(func.count()).select_from(stmt.alias())
-                total_count = sess.execute(count_stmt).scalar()
-
-                # Pagination
-                if limit is not None:
-                    stmt = stmt.limit(limit)
-                    if page is not None:
-                        stmt = stmt.offset((page - 1) * limit)
-
-                result = sess.execute(stmt).fetchall()
-                if not result:
-                    return [], 0
-
-                return [
-                    {
-                        "user_id": record.user_id,  # type: ignore
-                        "total_memories": record.total_memories,
-                        "last_memory_updated_at": record.last_memory_updated_at,
-                    }
-                    for record in result
-                ], total_count
-
-        except Exception as e:
-            log_debug(f"Exception getting user memory stats: {e}")
-            return [], 0
 
     # -- Knowledge methods --
-
     def get_knowledge_table(self) -> Table:
         """Get or create the knowledge table."""
         if not hasattr(self, "knowledge_table"):

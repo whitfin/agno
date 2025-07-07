@@ -189,17 +189,14 @@ def get_base_router(
         apps_response.eval = apps_response.eval or None
         apps_response.metrics = apps_response.metrics or None
 
-        interfaces_response = [
-            InterfaceResponse(type=interface.type, version=interface.version, route=interface.router_prefix)
-            for interface in os.interfaces
-        ]
-        interfaces_response.append(InterfaceResponse(type="chat"))
-
         return ConfigResponse(
             os_id=os.os_id,
             name=os.name,
             description=os.description,
-            interfaces=interfaces_response,
+            interfaces=[
+                InterfaceResponse(type=interface.type, version=interface.version, route=interface.router_prefix)
+                for interface in os.interfaces
+            ],
             apps=apps_response,
             agents=[
                 AgentSummaryResponse(agent_id=agent.agent_id, name=agent.name, description=agent.description)

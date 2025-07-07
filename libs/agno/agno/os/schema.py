@@ -14,8 +14,8 @@ from agno.team.team import Team
 
 class InterfaceResponse(BaseModel):
     type: str
-    version: Optional[str] = None
-    route: Optional[str] = None
+    version: str
+    route: str
 
 
 class ManagerResponse(BaseModel):

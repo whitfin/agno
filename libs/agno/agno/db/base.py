@@ -53,24 +53,16 @@ class BaseDb(ABC):
     # --- Base ---
 
     @abstractmethod
-    def create_schema(self, db_schema: str) -> None:
+    def _create_table(self) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def create_table(self) -> None:
+    def _get_table_for_session_type(self, session_type: SessionType) -> Optional[Table]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Optional[Table]:
+    def _get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Optional[Table]:
         raise NotImplementedError
-
-    @abstractmethod
-    def table_exists(self, table_name: str, db_schema: str) -> bool:
-        raise NotImplementedError
-
-    # @abstractmethod
-    # def upgrade_schema(self) -> None:
-    #     raise NotImplementedError
 
     # --- Sessions Table ---
 
@@ -80,10 +72,6 @@ class BaseDb(ABC):
 
     @abstractmethod
     def delete_sessions(self, session_types: List[SessionType], session_ids: List[str]) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_runs_raw(self, session_id: str, session_type: SessionType) -> List[Dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -127,21 +115,7 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_recent_sessions(
-        self, session_type: SessionType, component_id: Optional[str] = None, limit: Optional[int] = None
-    ) -> List[str]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def get_all_session_ids(self, session_type: SessionType, entity_id: Optional[str] = None) -> List[str]:
-        raise NotImplementedError
-
-    @abstractmethod
     def rename_session(self, session_id: str, session_type: SessionType, session_name: str) -> Optional[Session]:
-        raise NotImplementedError
-
-    @abstractmethod
-    def upsert_session_raw(self, session: Session) -> Optional[Session]:
         raise NotImplementedError
 
     @abstractmethod
@@ -151,15 +125,15 @@ class BaseDb(ABC):
     # --- User Memory Table ---
 
     @abstractmethod
-    def get_all_memory_topics(self) -> List[str]:
-        raise NotImplementedError
-
-    @abstractmethod
     def delete_user_memory(self, memory_id: str) -> None:
         raise NotImplementedError
 
     @abstractmethod
     def delete_user_memories(self, memory_ids: List[str]) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_all_memory_topics(self) -> List[str]:
         raise NotImplementedError
 
     @abstractmethod
@@ -221,13 +195,13 @@ class BaseDb(ABC):
     # --- Metrics Table ---
 
     @abstractmethod
-    def get_metrics_raw(
-        self, starting_date: Optional[date] = None, ending_date: Optional[date] = None
-    ) -> Tuple[List[Any], Optional[int]]:
+    def calculate_metrics(self) -> Optional[Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def calculate_metrics(self) -> Optional[Any]:
+    def get_metrics_raw(
+        self, starting_date: Optional[date] = None, ending_date: Optional[date] = None
+    ) -> Tuple[List[Any], Optional[int]]:
         raise NotImplementedError
 
     # --- Knowledge Table ---
@@ -264,6 +238,14 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     # --- Eval Table ---
+
+    @abstractmethod
+    def create_eval_run(self, eval_run: EvalRunRecord) -> Optional[Dict[str, Any]]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
+        raise NotImplementedError
 
     @abstractmethod
     def get_eval_run_raw(self, eval_run_id: str, table: Optional[Table] = None) -> Optional[Dict[str, Any]]:
@@ -307,9 +289,5 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def update_eval_run_name(self, eval_run_id: str, name: str) -> Optional[Dict[str, Any]]:
+    def rename_eval_run(self, eval_run_id: str, name: str) -> Optional[Dict[str, Any]]:
         raise NotImplementedError

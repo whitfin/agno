@@ -411,10 +411,15 @@ class TeamRunSchema(BaseModel):
     run_review: Optional[dict]
     metrics: Optional[dict]
     tools: Optional[List[dict]]
+    messages: Optional[List[dict]]
+    events: Optional[List[dict]]
+    member_responses: Optional[List[dict]]
     created_at: Optional[datetime]
 
     @classmethod
     def from_dict(cls, run_response: Dict[str, Any]) -> "TeamRunSchema":
+        run_input = get_run_input(run_response)
+        run_response_format = "text" if run_response.get("content_type", "str") == "str" else "json"
         return cls(
             run_id=run_response.get("run_id", ""),
             team_session_id=run_response.get("session_id", ""),
@@ -422,11 +427,18 @@ class TeamRunSchema(BaseModel):
             user_id=None,
             content=run_response.get("content", ""),
             reasoning_content=run_response.get("reasoning_content", ""),
-            run_input="",
-            run_response_format="",
+            run_input=run_input,
+            run_response_format=run_response_format,
             run_review=None,
+            messages=[message for message in run_response.get("messages", [])]
+            if run_response.get("messages")
+            else None,
+            events=[event for event in run_response.get("events", [])] if run_response.get("events") else None,
             metrics=run_response.get("metrics", {}),
             tools=[tool for tool in run_response.get("tools", [])] if run_response.get("tools") else None,
+            member_responses=[
+                member_response for member_response in run_response.get("member_responses", []) if member_response
+            ],
             created_at=datetime.fromtimestamp(run_response["created_at"], tz=timezone.utc)
             if run_response["created_at"]
             else None,

@@ -1096,7 +1096,6 @@ class Team:
 
         # 6. Parse team response model
         self._convert_response_to_structured_format(run_response=run_response)
-        
         # 7. Save session to storage
         self.save_session(session_id=session_id, user_id=user_id)
 
@@ -4042,7 +4041,7 @@ class Team:
         current_session_metrics = self.session_metrics or self._calculate_session_metrics(messages)
         current_session_metrics = replace(current_session_metrics)
         assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
-        
+
         # Get metrics of the team-agent's messages
         for member in self.members:
             # Only members with memory
@@ -4056,6 +4055,23 @@ class Team:
                                         current_session_metrics += m.metrics
 
         return current_session_metrics
+
+    def calculate_metrics(self, messages: List[Message], for_session: bool = False) -> Metrics:
+        metrics = Metrics()
+        assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
+        for m in messages:
+            if m.role == assistant_message_role and m.metrics is not None and m.from_history is False:
+                metrics += m.metrics
+        return metrics if for_session else metrics._to_dict()
+
+    def set_session_metrics(self, run_messages: RunMessages):
+        """Calculate session metrics"""
+        # Calculate initial metrics
+        if self.session_metrics is None:
+            self.session_metrics = self.calculate_metrics(run_messages.messages, for_session=True)
+        # Update metrics
+        else:
+            self.session_metrics += self.calculate_metrics(run_messages.messages, for_session=True)
 
     def update_session_metrics(self, run_messages: RunMessages):
         """Calculate session metrics"""
@@ -7382,7 +7398,6 @@ class Team:
         log_info(f"Filters used by Agent: {search_filters}")
         return search_filters
 
-
     ###########################################################################
     # Api functions
     ###########################################################################
@@ -7414,7 +7429,7 @@ class Team:
         if not self.telemetry and not self.monitoring:
             return
 
-        from agno.api.team import TeamRunCreate, acreate_team_run
+        from agno.api.team import TeamRunCreate
 
         try:
             team_session: TeamSession = self.team_session or self._get_team_session(

@@ -721,7 +721,7 @@ class Agent:
 
         # Convert the response to the structured format if needed
         self._convert_response_to_structured_format(run_response)
-        
+
         # 6. Save session to memory
         self.save_session(user_id=user_id, session_id=session_id)
 
@@ -4987,7 +4987,7 @@ class Agent:
         for m in messages:
             if m.role == assistant_message_role and m.metrics is not None and m.from_history is False:
                 metrics += m.metrics
-        return metrics if for_session else metrics._to_dict()
+        return metrics if for_session else metrics.to_dict()
 
     def rename(self, name: str, session_id: Optional[str] = None) -> None:
         """Rename the Agent and save to storage"""

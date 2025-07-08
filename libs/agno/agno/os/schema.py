@@ -347,8 +347,8 @@ class RunSchema(BaseModel):
             messages=[message for message in run_dict.get("messages", [])] if run_dict.get("messages") else None,
             tools=[tool for tool in run_dict.get("tools", [])] if run_dict.get("tools") else None,
             events=[event for event in run_dict["events"]] if run_dict.get("events") else None,
-            created_at=datetime.fromtimestamp(run_dict.get("run", {}).get("created_at", 0), tz=timezone.utc)
-            if run_dict.get("run", {}).get("created_at") is not None
+            created_at=datetime.fromtimestamp(run_dict.get("created_at", 0), tz=timezone.utc)
+            if run_dict.get("created_at") is not None
             else None,
         )
 

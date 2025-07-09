@@ -24,12 +24,12 @@ from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:
-    from sqlalchemy import and_, func, literal, update
+    from sqlalchemy import and_, func, update
     from sqlalchemy.dialects import postgresql
     from sqlalchemy.engine import Engine, create_engine
     from sqlalchemy.orm import scoped_session, sessionmaker
     from sqlalchemy.schema import Column, MetaData, Table
-    from sqlalchemy.sql.expression import select, text, union_all
+    from sqlalchemy.sql.expression import select, text
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
@@ -1275,10 +1275,10 @@ class PostgresDb(BaseDb):
             # 2. No metrics records. Return the date of the first recorded session.
             else:
                 first_session = self.get_sessions(sort_by="created_at", sort_order="asc", limit=1)
-                first_session_date = first_session[0].created_at
+                first_session_date = first_session[0].created_at if first_session else None
 
                 # 3. No metrics records and no sessions records. Return None.
-                if not first_session_date:
+                if first_session_date is None:
                     return None
 
                 return datetime.fromtimestamp(first_session_date, tz=timezone.utc).date()

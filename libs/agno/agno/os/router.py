@@ -157,27 +157,27 @@ def get_base_router(
         apps_response = AppsResponse(
             session=[
                 ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
-                for app in os.apps
+                for app in os.managers
                 if app.type == "session"
             ],
             knowledge=[
                 ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
-                for app in os.apps
+                for app in os.managers
                 if app.type == "knowledge"
             ],
             memory=[
                 ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
-                for app in os.apps
+                for app in os.managers
                 if app.type == "memory"
             ],
             eval=[
                 ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
-                for app in os.apps
+                for app in os.managers
                 if app.type == "eval"
             ],
             metrics=[
                 ManagerResponse(type=app.type, name=app.name, version=app.version, route=app.router_prefix)
-                for app in os.apps
+                for app in os.managers
                 if app.type == "metrics"
             ],
         )
@@ -295,7 +295,7 @@ def get_base_router(
                 else:
                     raise HTTPException(status_code=400, detail="Unsupported file type")
 
-        if stream and agent.is_streamable:
+        if stream:
             return StreamingResponse(
                 agent_response_streamer(
                     agent,
@@ -359,7 +359,7 @@ def get_base_router(
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid structure or content for tools: {str(e)}")
 
-        if stream and agent.is_streamable:
+        if stream:
             return StreamingResponse(
                 agent_continue_response_streamer(
                     agent,

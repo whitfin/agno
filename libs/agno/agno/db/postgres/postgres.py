@@ -192,7 +192,6 @@ class PostgresDb(BaseDb):
                 if self.session_table_name is None:
                     raise ValueError("Session table was not provided on initialization")
 
-                log_info(f"Getting session table: {self.session_table_name}")
                 self.session_table = self._get_or_create_table(
                     table_name=self.session_table_name, table_type="sessions", db_schema=self.db_schema
                 )
@@ -203,11 +202,9 @@ class PostgresDb(BaseDb):
                 if self.user_memory_table_name is None:
                     raise ValueError("User memory table was not provided on initialization")
 
-                log_info(f"Getting user memory table: {self.user_memory_table_name}")
                 self.user_memory_table = self._get_or_create_table(
                     table_name=self.user_memory_table_name, table_type="user_memories", db_schema=self.db_schema
                 )
-
             return self.user_memory_table
 
         if table_type == "metrics":
@@ -215,11 +212,9 @@ class PostgresDb(BaseDb):
                 if self.metrics_table_name is None:
                     raise ValueError("Metrics table was not provided on initialization")
 
-                log_info(f"Getting metrics table: {self.metrics_table_name}")
                 self.metrics_table = self._get_or_create_table(
                     table_name=self.metrics_table_name, table_type="metrics", db_schema=self.db_schema
                 )
-
             return self.metrics_table
 
         if table_type == "evals":
@@ -227,11 +222,9 @@ class PostgresDb(BaseDb):
                 if self.eval_table_name is None:
                     raise ValueError("Eval table was not provided on initialization")
 
-                log_info(f"Getting eval table: {self.eval_table_name}")
                 self.eval_table = self._get_or_create_table(
                     table_name=self.eval_table_name, table_type="evals", db_schema=self.db_schema
                 )
-
             return self.eval_table
 
         raise ValueError(f"Unknown table type: {table_type}")
@@ -1272,16 +1265,15 @@ class PostgresDb(BaseDb):
                 else:
                     return result._mapping["date"]
 
-            # 2. No metrics records. Return the date of the first recorded session.
-            else:
-                first_session = self.get_sessions(sort_by="created_at", sort_order="asc", limit=1)
-                first_session_date = first_session[0].created_at if first_session else None
+        # 2. No metrics records. Return the date of the first recorded session.
+        first_session, _ = self.get_sessions_raw(sort_by="created_at", sort_order="asc", limit=1)
+        first_session_date = first_session[0]["created_at"] if first_session else None
 
-                # 3. No metrics records and no sessions records. Return None.
-                if first_session_date is None:
-                    return None
+        # 3. No metrics records and no sessions records. Return None.
+        if first_session_date is None:
+            return None
 
-                return datetime.fromtimestamp(first_session_date, tz=timezone.utc).date()
+        return datetime.fromtimestamp(first_session_date, tz=timezone.utc).date()
 
     def calculate_metrics(self) -> Optional[list[dict]]:
         """Calculate metrics for all dates without complete metrics.
@@ -1396,41 +1388,37 @@ class PostgresDb(BaseDb):
 
             log_info(f"Getting knowledge table: {self.knowledge_table_name}")
             self.knowledge_table = self._get_or_create_table(
-                table_name=self.knowledge_table_name,
-                table_type="knowledge_documents",
-                db_schema=self.db_schema,
+                table_name=self.knowledge_table_name, table_type="knowledge_sources", db_schema=self.db_schema
             )
 
         return self.knowledge_table
 
-    def delete_knowledge_document(self, document_id: str):
-        """Delete a knowledge document from the database.
-
-        Args:
-            document_id (str): The ID of the document to delete.
-        """
-        table = self._get_knowledge_table()
+    def delete_knowledge_source(self, id: str):
+        table = self.get_knowledge_table()
         with self.Session() as sess, sess.begin():
-            stmt = table.delete().where(table.c.id == document_id)
+            stmt = table.delete().where(table.c.id == id)
             sess.execute(stmt)
             sess.commit()
         return
 
-    def get_document_status(self, document_id: str) -> Optional[str]:
+    def get_source_status(self, id: str) -> Optional[str]:
         table = self._get_knowledge_table()
         with self.Session() as sess, sess.begin():
-            stmt = select(table.c.status).where(table.c.id == document_id)
+            stmt = select(table.c.status).where(table.c.id == id)
             result = sess.execute(stmt).fetchone()
             return result._mapping["status"]
 
-    def get_knowledge_document(self, document_id: str) -> Optional[KnowledgeRow]:
+    def get_knowledge_source(self, id: str) -> Optional[KnowledgeRow]:
         table = self._get_knowledge_table()
+        print(f"Getting knowledge source: {id}, {table}")
         with self.Session() as sess, sess.begin():
-            stmt = select(table).where(table.c.id == document_id)
+            stmt = select(table).where(table.c.id == id)
             result = sess.execute(stmt).fetchone()
+            if result is None:
+                return None
             return KnowledgeRow.model_validate(result._mapping)
 
-    def get_knowledge_documents(
+    def get_knowledge_sources(
         self,
         limit: Optional[int] = None,
         page: Optional[int] = None,
@@ -1469,7 +1457,7 @@ class PostgresDb(BaseDb):
             result = sess.execute(stmt).fetchall()
             return [KnowledgeRow.model_validate(record._mapping) for record in result], total_count
 
-    def upsert_knowledge_document(self, knowledge_row: KnowledgeRow):
+    def upsert_knowledge_source(self, knowledge_row: KnowledgeRow):
         """Upsert a knowledge document in the database.
 
         Args:

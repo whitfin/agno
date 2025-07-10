@@ -325,9 +325,9 @@ class Agent:
     # --- Debug & Monitoring ---
     # Enable debug logs
     debug_mode: bool = False
-    # Debug level: 1 = basic, 2 = detailed
-    debug_level: Literal[1, 2] = 1
 
+    # monitoring=True logs Agent information to agno.com for monitoring
+    monitoring: bool = False
     # telemetry=True logs minimal telemetry for analytics
     # This helps us improve the Agent and provide better support
     telemetry: bool = True
@@ -4835,12 +4835,20 @@ class Agent:
                 return None
 
             if num_documents is None:
-                num_documents = self.knowledge.num_documents
+                if isinstance(self.knowledge, AgentKnowledge):
+                    num_documents = self.knowledge.num_documents
+                elif isinstance(self.knowledge, Knowledge):
+                    num_documents = self.knowledge.max_results
 
             log_debug(f"Searching knowledge base with filters: {filters}")
-            relevant_docs: List[Document] = self.knowledge.search(
-                query=query, num_documents=num_documents, filters=filters
-            )
+            if isinstance(self.knowledge, AgentKnowledge):
+                relevant_docs: List[Document] = self.knowledge.search(
+                    query=query, num_documents=num_documents, filters=filters
+                )
+            elif isinstance(self.knowledge, Knowledge):
+                relevant_docs: List[Document] = self.knowledge.search(
+                    query=query, max_results=num_documents, filters=filters
+                )
 
             if not relevant_docs or len(relevant_docs) == 0:
                 log_debug("No relevant documents found for query")

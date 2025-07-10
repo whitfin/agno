@@ -22,24 +22,15 @@ class BaseDb(ABC):
         self,
         session_table: Optional[str] = None,
         user_memory_table: Optional[str] = None,
-        learning_table: Optional[str] = None,
         metrics_table: Optional[str] = None,
         eval_table: Optional[str] = None,
         knowledge_table: Optional[str] = None,
     ):
-        if (
-            not session_table
-            and not user_memory_table
-            and not learning_table
-            and not metrics_table
-            and not eval_table
-            and not knowledge_table
-        ):
+        if not session_table and not user_memory_table and not metrics_table and not eval_table and not knowledge_table:
             raise ValueError("At least one of the tables must be provided")
 
         self.session_table_name = session_table
         self.user_memory_table_name = user_memory_table
-        self.learning_table_name = learning_table
         self.metrics_table_name = metrics_table
         self.eval_table_name = eval_table
         self.knowledge_table_name = knowledge_table
@@ -201,17 +192,17 @@ class BaseDb(ABC):
     # --- Knowledge Table ---
 
     @abstractmethod
-    def get_document_status(self, document_id: str) -> Optional[str]:
-        """Get the status of a knowledge document by ID."""
+    def get_source_status(self, id: str) -> Optional[str]:
+        """Get the status of a knowledge source by ID."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_knowledge_document(self, document_id: str) -> Optional[KnowledgeRow]:
+    def get_knowledge_source(self, id: str) -> Optional[KnowledgeRow]:
         """Get a knowledge document by ID."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_knowledge_documents(
+    def get_knowledge_sources(
         self,
         limit: Optional[int] = None,
         page: Optional[int] = None,
@@ -222,12 +213,12 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def upsert_knowledge_document(self, knowledge_row: KnowledgeRow):
+    def upsert_knowledge_source(self, knowledge_row: KnowledgeRow):
         """Upsert a knowledge document in the database."""
         raise NotImplementedError
 
     @abstractmethod
-    def delete_knowledge_document(self, document_id: str):
+    def delete_knowledge_source(self, id: str):
         """Delete a knowledge document by ID."""
         raise NotImplementedError
 

@@ -7447,11 +7447,8 @@ class Team:
             team_id=self.team_id,
             user_id=user_id,
             team_session_id=self.team_session_id,
-<<<<<<< HEAD
             workflow_session_id=self.workflow_session_id,
             memory=memory_dict,
-=======
->>>>>>> 5a05babf1f4d78ec38e2547f3c4eb9b856934e90
             team_data=self._get_team_data(),
             session_data=self.get_team_session_data(),
             extra_data=self.extra_data,

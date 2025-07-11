@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable, List, Optional
 from uuid import uuid4
 
 from agno.db.base import BaseDb
-from agno.eval.schemas import EvalType
+from agno.db.schemas.evals import EvalType
 from agno.eval.utils import async_log_eval_run, log_eval_run, store_result_in_file
 from agno.utils.log import log_debug, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.timer import Timer
@@ -196,7 +196,7 @@ class PerformanceEval:
     # Evaluation UUID
     eval_id: str = field(default_factory=lambda: str(uuid4()))
     # Number of warm-up runs (not included in final stats)
-    warmup_runs: int = 10
+    warmup_runs: Optional[int] = 10
     # Number of measured iterations
     num_iterations: int = 50
     # Result of the evaluation

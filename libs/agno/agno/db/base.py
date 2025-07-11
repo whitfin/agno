@@ -33,21 +33,7 @@ class BaseDb(ABC):
         self.eval_table_name = eval_table
         self.knowledge_table_name = knowledge_table
 
-    # --- Base ---
-
-    @abstractmethod
-    def _create_table(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _get_table(self, table_type: str) -> Any:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Optional[Any]:
-        raise NotImplementedError
-
-    # --- Sessions Table ---
+    # --- Sessions ---
 
     @abstractmethod
     def delete_session(self, session_id: Optional[str] = None, session_type: SessionType = SessionType.AGENT):
@@ -105,7 +91,7 @@ class BaseDb(ABC):
     def upsert_session(self, session: Session) -> Optional[Session]:
         raise NotImplementedError
 
-    # --- User Memory Table ---
+    # --- User Memory ---
 
     @abstractmethod
     def delete_user_memory(self, memory_id: str) -> None:
@@ -175,7 +161,7 @@ class BaseDb(ABC):
     def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
         raise NotImplementedError
 
-    # --- Metrics Table ---
+    # --- Metrics ---
 
     @abstractmethod
     def calculate_metrics(self) -> Optional[Any]:
@@ -187,7 +173,7 @@ class BaseDb(ABC):
     ) -> Tuple[List[Any], Optional[int]]:
         raise NotImplementedError
 
-    # --- Knowledge Table ---
+    # --- Knowledge ---
 
     @abstractmethod
     def get_source_status(self, id: str) -> Optional[str]:
@@ -220,7 +206,7 @@ class BaseDb(ABC):
         """Delete a knowledge document by ID."""
         raise NotImplementedError
 
-    # --- Eval Table ---
+    # --- Eval ---
 
     @abstractmethod
     def create_eval_run(self, eval_run: EvalRunRecord) -> Optional[Dict[str, Any]]:

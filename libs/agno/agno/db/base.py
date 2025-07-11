@@ -3,8 +3,6 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import Table
-
 from agno.db.schemas import MemoryRow
 from agno.db.schemas.knowledge import KnowledgeRow
 from agno.eval.schemas import EvalFilterType, EvalRunRecord, EvalType
@@ -35,21 +33,7 @@ class BaseDb(ABC):
         self.eval_table_name = eval_table
         self.knowledge_table_name = knowledge_table
 
-    # --- Base ---
-
-    @abstractmethod
-    def _create_table(self) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _get_table(self, table_type: str) -> Table:
-        raise NotImplementedError
-
-    @abstractmethod
-    def _get_or_create_table(self, table_name: str, table_type: str, db_schema: str) -> Optional[Table]:
-        raise NotImplementedError
-
-    # --- Sessions Table ---
+    # --- Sessions ---
 
     @abstractmethod
     def delete_session(self, session_id: Optional[str] = None, session_type: SessionType = SessionType.AGENT):
@@ -107,7 +91,7 @@ class BaseDb(ABC):
     def upsert_session(self, session: Session) -> Optional[Session]:
         raise NotImplementedError
 
-    # --- User Memory Table ---
+    # --- User Memory ---
 
     @abstractmethod
     def delete_user_memory(self, memory_id: str) -> None:
@@ -177,7 +161,7 @@ class BaseDb(ABC):
     def upsert_user_memory(self, memory: MemoryRow) -> Optional[MemoryRow]:
         raise NotImplementedError
 
-    # --- Metrics Table ---
+    # --- Metrics ---
 
     @abstractmethod
     def calculate_metrics(self) -> Optional[Any]:
@@ -189,7 +173,7 @@ class BaseDb(ABC):
     ) -> Tuple[List[Any], Optional[int]]:
         raise NotImplementedError
 
-    # --- Knowledge Table ---
+    # --- Knowledge ---
 
     @abstractmethod
     def get_source_status(self, id: str) -> Optional[str]:
@@ -222,7 +206,7 @@ class BaseDb(ABC):
         """Delete a knowledge document by ID."""
         raise NotImplementedError
 
-    # --- Eval Table ---
+    # --- Eval ---
 
     @abstractmethod
     def create_eval_run(self, eval_run: EvalRunRecord) -> Optional[Dict[str, Any]]:
@@ -233,11 +217,11 @@ class BaseDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_eval_run_raw(self, eval_run_id: str, table: Optional[Table] = None) -> Optional[Dict[str, Any]]:
+    def get_eval_run_raw(self, eval_run_id: str, table: Optional[Any] = None) -> Optional[Dict[str, Any]]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_eval_run(self, eval_run_id: str, table: Optional[Table] = None) -> Optional[EvalRunRecord]:
+    def get_eval_run(self, eval_run_id: str, table: Optional[Any] = None) -> Optional[EvalRunRecord]:
         raise NotImplementedError
 
     @abstractmethod
@@ -247,7 +231,7 @@ class BaseDb(ABC):
         page: Optional[int] = None,
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
-        table: Optional[Table] = None,
+        table: Optional[Any] = None,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
@@ -264,7 +248,7 @@ class BaseDb(ABC):
         page: Optional[int] = None,
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
-        table: Optional[Table] = None,
+        table: Optional[Any] = None,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,

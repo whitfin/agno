@@ -1,22 +1,16 @@
-"""Utility functions for the Postgres database class."""
-
+import json
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from sqlalchemy import Engine
-
-from agno.db.base import SessionType
-from agno.db.postgres.schemas import get_table_schema_definition
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
-from agno.session.summarizer import SessionSummary
+from agno.db.sqlite.schemas import get_table_schema_definition
 from agno.utils.log import log_debug, log_error, log_warning
 
 try:
     from sqlalchemy import Table
-    from sqlalchemy.dialects import postgresql
+    from sqlalchemy.dialects import sqlite
+    from sqlalchemy.engine import Engine
     from sqlalchemy.inspection import inspect
     from sqlalchemy.orm import Session
     from sqlalchemy.sql.expression import text
@@ -24,41 +18,19 @@ except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
 
-def deserialize_session(session: dict) -> dict:
-    """Deserialize the given session dictionary.
-
-    Args:
-        session (dict): The session dictionary to deserialize.
-    """
-    if session.get("summary") is not None:
-        session["summary"] = SessionSummary.from_dict(session["summary"])
-    if session.get("runs") is not None:
-        if session["session_type"] == SessionType.AGENT.value:
-            session["runs"] = [RunResponse.from_dict(run) for run in session["runs"]]
-        elif session["session_type"] == SessionType.TEAM.value:
-            session["runs"] = [TeamRunResponse.from_dict(run) for run in session["runs"]]
-    return session
-
-
-# -- DB util methods --
-
-
 def apply_sorting(stmt, table: Table, sort_by: Optional[str] = None, sort_order: Optional[str] = None):
     """Apply sorting to the given SQLAlchemy statement.
-
     Args:
         stmt: The SQLAlchemy statement to modify
         table: The table being queried
         sort_by: The field to sort by
         sort_order: The sort order ('asc' or 'desc')
-
     Returns:
         The modified statement with sorting applied
     """
     if sort_by is None or not hasattr(table.c, sort_by):
         log_debug(f"Invalid sort field: '{sort_by}'. Will not apply any sorting.")
         return stmt
-
     # Apply the given sorting
     sort_column = getattr(table.c, sort_by)
     if sort_order and sort_order == "asc":
@@ -67,50 +39,34 @@ def apply_sorting(stmt, table: Table, sort_by: Optional[str] = None, sort_order:
         return stmt.order_by(sort_column.desc())
 
 
-def create_schema(session: Session, db_schema: str) -> None:
-    """Create the database schema if it doesn't exist.
-
-    Args:
-        session: The SQLAlchemy session to use
-        db_schema (str): The definition of the database schema to create
+def is_table_available(session: Session, table_name: str, db_schema: Optional[str] = None) -> bool:
     """
-    try:
-        log_debug(f"Creating schema if not exists: {db_schema}")
-        session.execute(text(f"CREATE SCHEMA IF NOT EXISTS {db_schema};"))
-    except Exception as e:
-        log_warning(f"Could not create schema {db_schema}: {e}")
-
-
-def is_table_available(session: Session, table_name: str, db_schema: str) -> bool:
-    """
-    Check if a table with the given name exists in the given schema.
-
+    Check if a table with the given name exists.
+    Note: db_schema parameter is ignored in SQLite but kept for API compatibility.
     Returns:
         bool: True if the table exists, False otherwise.
     """
     try:
-        exists_query = text(
-            "SELECT 1 FROM information_schema.tables WHERE table_schema = :schema AND table_name = :table"
-        )
-        exists = session.execute(exists_query, {"schema": db_schema, "table": table_name}).scalar() is not None
+        # SQLite uses sqlite_master instead of information_schema
+        exists_query = text("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = :table")
+        exists = session.execute(exists_query, {"table": table_name}).scalar() is not None
         if not exists:
-            log_debug(f"Table {db_schema}.{table_name} {'exists' if exists else 'does not exist'}")
-
+            log_debug(f"Table {table_name} {'exists' if exists else 'does not exist'}")
         return exists
-
     except Exception as e:
         log_error(f"Error checking if table exists: {e}")
         return False
 
 
-def is_valid_table(db_engine: Engine, table_name: str, table_type: str, db_schema: str) -> bool:
+def is_valid_table(db_engine: Engine, table_name: str, table_type: str, db_schema: Optional[str] = None) -> bool:
     """
     Check if the existing table has the expected column names.
-
+    Note: db_schema parameter is ignored in SQLite but kept for API compatibility.
     Args:
+        db_engine (Engine): Database engine
         table_name (str): Name of the table to validate
-        schema (str): Database schema name
-
+        table_type (str): Type of table to get expected schema
+        db_schema (Optional[str]): Database schema name (ignored in SQLite)
     Returns:
         bool: True if table has all expected columns, False otherwise
     """
@@ -118,21 +74,21 @@ def is_valid_table(db_engine: Engine, table_name: str, table_type: str, db_schem
         expected_table_schema = get_table_schema_definition(table_type)
         expected_columns = {col_name for col_name in expected_table_schema.keys() if not col_name.startswith("_")}
 
-        # Get existing columns
+        # Get existing columns (no schema parameter for SQLite)
         inspector = inspect(db_engine)
-        existing_columns_info = inspector.get_columns(table_name, schema=db_schema)
+        existing_columns_info = inspector.get_columns(table_name)  # No schema parameter
         existing_columns = set(col["name"] for col in existing_columns_info)
 
         # Check if all expected columns exist
         missing_columns = expected_columns - existing_columns
         if missing_columns:
-            log_warning(f"Missing columns {missing_columns} in table {db_schema}.{table_name}")
+            log_warning(f"Missing columns {missing_columns} in table {table_name}")
             return False
 
-        log_debug(f"Table {db_schema}.{table_name} has all expected columns")
+        log_debug(f"Table {table_name} has all expected columns")
         return True
     except Exception as e:
-        log_error(f"Error validating table schema for {db_schema}.{table_name}: {e}")
+        log_error(f"Error validating table schema for {table_name}: {e}")
         return False
 
 
@@ -153,7 +109,7 @@ def bulk_upsert_metrics(session: Session, table: Table, metrics_records: list[di
         return []
 
     results = []
-    stmt = postgresql.insert(table)
+    stmt = sqlite.insert(table)
 
     # Columns to update in case of conflict
     update_columns = {
@@ -220,6 +176,7 @@ def calculate_date_metrics(date_to_process: date, sessions_data: dict) -> dict:
                 all_user_ids.add(session["user_id"])
             metrics[runs_count_key] += len(session.get("runs", []))
             if runs := session.get("runs", []):
+                runs = json.loads(runs)
                 for run in runs:
                     if model_id := run.get("model"):
                         model_provider = run.get("model_provider", "")
@@ -227,7 +184,8 @@ def calculate_date_metrics(date_to_process: date, sessions_data: dict) -> dict:
                             model_counts.get(f"{model_id}:{model_provider}", 0) + 1
                         )
 
-            session_metrics = session.get("session_data", {}).get("session_metrics", {})
+            session_data = json.loads(session.get("session_data", {}))
+            session_metrics = session_data.get("session_metrics", {})
             for field in token_metrics:
                 token_metrics[field] += session_metrics.get(field, 0)
 

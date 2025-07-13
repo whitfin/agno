@@ -704,13 +704,12 @@ class Team:
         # 4. Update Team Memory
         response_iterator = self._update_memory(
             run_messages=run_messages,
-            session_id=session_id,
             user_id=user_id,
         )
         deque(response_iterator, maxlen=0)
 
         # 5. Calculate session metrics
-        self.update_session_metrics(run_messages)
+        self.update_session_metrics()
 
         # 5. Save session to storage
         self.save_session(session_id=session_id, user_id=user_id)
@@ -765,7 +764,6 @@ class Team:
         # 4. Update Team Memory
         yield from self._update_memory(
             run_messages=run_messages,
-            session_id=session_id,
             user_id=user_id,
         )
 
@@ -778,7 +776,7 @@ class Team:
             )
 
         # 5. Calculate session metrics
-        self.update_session_metrics(run_messages)
+        self.update_session_metrics()
 
         # 6. Save session to storage
         self.save_session(session_id=session_id, user_id=user_id)
@@ -1108,13 +1106,12 @@ class Team:
         # 4. Update Team Memory
         async for _ in self._aupdate_memory(
             run_messages=run_messages,
-            session_id=session_id,
             user_id=user_id,
         ):
             pass
 
         # 5. Calculate session metrics
-        self.update_session_metrics(run_messages)
+        self.update_session_metrics()
 
         # 6. Parse team response model
         self._convert_response_to_structured_format(run_response=run_response)
@@ -1178,7 +1175,6 @@ class Team:
         # 4. Update Team Memory
         async for event in self._aupdate_memory(
             run_messages=run_messages,
-            session_id=session_id,
             user_id=user_id,
         ):
             yield event
@@ -1189,7 +1185,7 @@ class Team:
             )
 
         # 5. Calculate session metrics
-        self.update_session_metrics(run_messages)
+        self.update_session_metrics()
 
         # 6. Save session to storage
         self.save_session(session_id=session_id, user_id=user_id)
@@ -1526,22 +1522,6 @@ class Team:
         # Add TeamRun to memory
         self.team_session.add_run(run=run_response)
 
-    def _update_memory(
-        self,
-        run_messages: RunMessages,
-        session_id: str,
-        user_id: Optional[str] = None,
-    ) -> Iterator[TeamRunResponseEvent]:
-        yield from self._make_memories_and_summaries(run_messages, session_id, user_id)
-
-    async def _aupdate_memory(
-        self,
-        run_messages: RunMessages,
-        session_id: str,
-        user_id: Optional[str] = None,
-    ):
-        async for event in self._amake_memories_and_summaries(run_messages, session_id, user_id):
-            yield event
 
     def _handle_model_response_stream(
         self,
@@ -1961,8 +1941,8 @@ class Team:
             if self.workflow_session_state is not None:
                 self.workflow_session_state["current_session_id"] = session_id
 
-    def _make_memories_and_summaries(
-        self, run_messages: RunMessages, session_id: str, user_id: Optional[str] = None
+    def _update_memory(
+        self, run_messages: RunMessages, user_id: Optional[str] = None
     ) -> Iterator[TeamRunResponseEvent]:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -2017,8 +1997,8 @@ class Team:
                         self.run_response,
                     )
 
-    async def _amake_memories_and_summaries(
-        self, run_messages: RunMessages, session_id: str, user_id: Optional[str] = None
+    async def _aupdate_memory(
+        self, run_messages: RunMessages, user_id: Optional[str] = None
     ) -> AsyncIterator[TeamRunResponseEvent]:
         self.memory = cast(Memory, self.memory)
         self.run_response = cast(TeamRunResponse, self.run_response)
@@ -4105,11 +4085,20 @@ class Team:
         else:
             self.session_metrics += self.calculate_metrics(run_messages.messages, for_session=True)
 
-    def update_session_metrics(self, run_messages: RunMessages):
+    def update_session_metrics(self):
         """Calculate session metrics"""
+        
+        session_messages: List[Message] = []
+        for run in self.team_session.runs.get(self.session_id, []):  # type: ignore
+            if run.messages is not None:
+                for m in run.messages:
+                    # Skipping messages from history to avoid duplicates
+                    if not m.from_history:
+                        session_messages.append(m)
+
         # Calculate initial metrics
-        self.session_metrics = self._calculate_session_metrics(run_messages.messages)
-        self.full_team_session_metrics = self._calculate_full_team_session_metrics(run_messages.messages)
+        self.session_metrics = self._calculate_session_metrics(session_messages)
+        self.full_team_session_metrics = self._calculate_full_team_session_metrics(session_messages)
 
     def _aggregate_metrics_from_messages(self, messages: List[Message]) -> Dict[str, Any]:
         aggregated_metrics: Dict[str, Any] = defaultdict(list)

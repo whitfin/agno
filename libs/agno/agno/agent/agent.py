@@ -6160,6 +6160,118 @@ class Agent:
         )
         return "Successfully added to knowledge base"
 
+
+    ###########################################################################
+    # Api functions
+    ###########################################################################
+
+    def _log_agent_session(self, session_id: str, user_id: Optional[str] = None):
+        if not (self.telemetry or self.monitoring):
+            return
+
+        from agno.api.agent import AgentSessionCreate, create_agent_session
+
+        try:
+            agent_session: AgentSession = self.agent_session or self.get_agent_session(
+                session_id=session_id, user_id=user_id
+            )
+            create_agent_session(
+                session=AgentSessionCreate(
+                    session_id=agent_session.session_id,
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            log_debug(f"Could not create agent monitor: {e}")
+
+    def _create_run_data(self) -> Dict[str, Any]:
+        """Create and return the run data dictionary."""
+        run_response_format = "text"
+        self.run_response = cast(RunResponse, self.run_response)
+        if self.response_model is not None:
+            run_response_format = "json"
+        elif self.markdown:
+            run_response_format = "markdown"
+
+        functions = {}
+        if self._functions_for_model is not None:
+            functions = {
+                f_name: func.to_dict()
+                for f_name, func in self._functions_for_model.items()
+                if isinstance(func, Function)
+            }
+
+        run_data: Dict[str, Any] = {
+            "functions": functions,
+            "metrics": self.run_response.metrics,
+        }
+
+        if self.monitoring:
+            run_data.update(
+                {
+                    "run_input": self.run_input,
+                    "run_response": self.run_response.to_dict(),
+                    "run_response_format": run_response_format,
+                }
+            )
+
+        return run_data
+
+    def _log_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
+        self.set_monitoring()
+
+        if not self.telemetry and not self.monitoring:
+            return
+
+        from agno.api.agent import AgentRunCreate, create_agent_run
+
+        try:
+            run_data = self._create_run_data()
+            agent_session: AgentSession = self.agent_session or self.get_agent_session(
+                session_id=session_id, user_id=user_id
+            )
+
+            create_agent_run(
+                run=AgentRunCreate(
+                    run_id=self.run_id,
+                    run_data=run_data,
+                    session_id=agent_session.session_id,
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
+                    team_session_id=agent_session.team_session_id,
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            log_debug(f"Could not create agent event: {e}")
+
+    async def _alog_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
+        self.set_monitoring()
+
+        if not self.telemetry and not self.monitoring:
+            return
+
+        from agno.api.agent import AgentRunCreate, acreate_agent_run
+
+        try:
+            run_data = self._create_run_data()
+            agent_session: AgentSession = self.agent_session or self.get_agent_session(
+                session_id=session_id, user_id=user_id
+            )
+
+            await acreate_agent_run(
+                run=AgentRunCreate(
+                    run_id=self.run_id,
+                    run_data=run_data,
+                    session_id=agent_session.session_id,
+                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
+                    team_session_id=agent_session.team_session_id,
+                ),
+                monitor=self.monitoring,
+            )
+        except Exception as e:
+            log_debug(f"Could not create agent event: {e}")
+
     ###########################################################################
     # Print Response
     ###########################################################################
@@ -6279,12 +6391,11 @@ class Agent:
                         ):
                             reasoning_steps = resp.extra_data.reasoning_steps
 
-                    response_content_stream: Union[str, Markdown] = _response_content
-
+                    response_content_stream: str = _response_content
                     # Escape special tags before markdown conversion
                     if self.markdown:
                         escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
-                        response_content_stream = Markdown(escaped_content)
+                        response_content_batch = Markdown(escaped_content)
                     panels = [status]
 
                     if message and show_message:
@@ -6362,26 +6473,30 @@ class Agent:
                             border_style="yellow",
                         )
                         panels.append(tool_calls_panel)
-
-                response_panel = None
-                # Check if we have any response content to display
-                response_content = (
-                    response_content_stream
-                    if response_content_stream
-                    and isinstance(response_content_stream, str)
-                    and len(response_content_stream) > 0
-                    else response_content_batch
-                )
-                if response_content:
-                    render = True
-                    response_panel = create_panel(
-                        content=response_content,
-                        title=f"Response ({response_timer.elapsed:.1f}s)",
-                        border_style="blue",
-                    )
-                    panels.append(response_panel)
-                    if render:
                         live_log.update(Group(*panels))
+
+                    response_panel = None
+                    # Check if we have any response content to display
+                    if response_content_stream and not self.markdown:
+                        response_content = response_content_stream
+                    else:
+                        response_content = response_content_batch  # type: ignore
+
+                    # Sanitize empty Markdown content
+                    if isinstance(response_content, Markdown):
+                        if not (response_content.markup and response_content.markup.strip()):
+                            response_content = None  # type: ignore
+
+                    if response_content:
+                        render = True
+                        response_panel = create_panel(
+                            content=response_content,
+                            title=f"Response ({response_timer.elapsed:.1f}s)",
+                            border_style="blue",
+                        )
+                        panels.append(response_panel)
+                        if render:
+                            live_log.update(Group(*panels))
 
                     if (
                         isinstance(resp, tuple(get_args(RunResponseEvent)))
@@ -6730,11 +6845,11 @@ class Agent:
                         ):
                             reasoning_steps = resp.extra_data.reasoning_steps
 
-                    response_content_stream: Union[str, Markdown] = _response_content
+                    response_content_stream: str = _response_content
                     # Escape special tags before markdown conversion
                     if self.markdown:
                         escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
-                        response_content_stream = Markdown(escaped_content)
+                        response_content_batch = Markdown(escaped_content)
 
                     panels = [status]
 
@@ -6817,13 +6932,16 @@ class Agent:
 
                     response_panel = None
                     # Check if we have any response content to display
-                    response_content = (
-                        response_content_stream
-                        if response_content_stream
-                        and isinstance(response_content_stream, str)
-                        and len(response_content_stream) > 0
-                        else response_content_batch
-                    )
+                    if response_content_stream and not self.markdown:
+                        response_content = response_content_stream
+                    else:
+                        response_content = response_content_batch  # type: ignore
+
+                    # Sanitize empty Markdown content
+                    if isinstance(response_content, Markdown):
+                        if not (response_content.markup and response_content.markup.strip()):
+                            response_content = None  # type: ignore
+
                     if response_content:
                         render = True
                         response_panel = create_panel(

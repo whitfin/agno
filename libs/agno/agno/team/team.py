@@ -1522,7 +1522,6 @@ class Team:
         # Add TeamRun to memory
         self.team_session.add_run(run=run_response)
 
-
     def _handle_model_response_stream(
         self,
         run_response: TeamRunResponse,
@@ -4087,7 +4086,7 @@ class Team:
 
     def update_session_metrics(self):
         """Calculate session metrics"""
-        
+
         session_messages: List[Message] = []
         for run in self.team_session.runs.get(self.session_id, []):  # type: ignore
             if run.messages is not None:

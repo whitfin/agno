@@ -287,37 +287,26 @@ class Agent:
     store_events: bool = False
     events_to_skip: Optional[List[RunEvent]] = None
 
-    # --- Agent Team ---
-    # The team of agents that this agent can transfer tasks to.
-    team: Optional[List[Agent]] = None
-    team_data: Optional[Dict[str, Any]] = None
     # --- If this Agent is part of a team ---
     # If this Agent is part of a team, this is the role of the agent in the team
     role: Optional[str] = None
-    # If this Agent is part of a team, this member agent will respond directly to the user
-    # instead of passing the response to the leader agent
-    respond_directly: bool = False
-    # --- Transfer instructions ---
-    # Add instructions for transferring tasks to team members
-    add_transfer_instructions: bool = True
-    # Separator between responses from the team
-    team_response_separator: str = "\n"
 
     # Optional team session ID, set by the team leader agent.
     team_session_id: Optional[str] = None
     # Optional team ID. Indicates this agent is part of a team.
     team_id: Optional[str] = None
+    # Optional team session state. Set by the team leader agent.
+    team_session_state: Optional[Dict[str, Any]] = None
 
-    # Optional app ID. Indicates this agent is part of an app.
+    # --- If this Agent is part of an OS ---
+    # Optional OS ID. Indicates this agent is part of an OS.
     os_id: Optional[str] = None
 
+    # --- If this Agent is part of a workflow ---
     # Optional workflow ID. Indicates this agent is part of a workflow.
     workflow_id: Optional[str] = None
     # Set when this agent is part of a workflow.
     workflow_session_id: Optional[str] = None
-
-    # Optional team session state. Set by the team leader agent.
-    team_session_state: Optional[Dict[str, Any]] = None
     # Optional workflow session state. Set by the workflow.
     workflow_session_state: Optional[Dict[str, Any]] = None
 
@@ -410,12 +399,7 @@ class Agent:
         stream_intermediate_steps: bool = False,
         store_events: bool = False,
         events_to_skip: Optional[List[RunEvent]] = None,
-        team: Optional[List[Agent]] = None,
-        team_data: Optional[Dict[str, Any]] = None,
         role: Optional[str] = None,
-        respond_directly: bool = False,
-        add_transfer_instructions: bool = True,
-        team_response_separator: str = "\n",
         debug_mode: bool = False,
         debug_level: Literal[1, 2] = 1,
         telemetry: bool = True,
@@ -516,14 +500,6 @@ class Agent:
         self.events_to_skip = events_to_skip
         if self.events_to_skip is None:
             self.events_to_skip = [RunEvent.run_response_content]
-
-        self.team = team
-
-        self.team_data = team_data
-        self.role = role
-        self.respond_directly = respond_directly
-        self.add_transfer_instructions = add_transfer_instructions
-        self.team_response_separator = team_response_separator
 
         self.debug_mode = debug_mode
         if debug_level not in [1, 2]:
@@ -633,10 +609,6 @@ class Agent:
 
         if self._formatter is None:
             self._formatter = SafeFormatter()
-
-    @property
-    def has_team(self) -> bool:
-        return self.team is not None and len(self.team) > 0
 
     @property
     def is_paused(self) -> bool:
@@ -2645,29 +2617,6 @@ class Agent:
         # Update the RunResponse metrics
         run_response.metrics = self.calculate_metrics(messages_for_run_response)
 
-    def _create_run_data(self) -> Dict[str, Any]:
-        """Create and return the run data dictionary."""
-        run_response_format = "text"
-        self.run_response = cast(RunResponse, self.run_response)
-        if self.response_model is not None:
-            run_response_format = "json"
-        elif self.markdown:
-            run_response_format = "markdown"
-
-        functions = {}
-        if self._functions_for_model is not None:
-            functions = {
-                f_name: func.to_dict()
-                for f_name, func in self._functions_for_model.items()
-                if isinstance(func, Function)
-            }
-
-        return {
-            "run_functions": functions,
-            "run_input": self.run_input,
-            "run_response_format": run_response_format,
-        }
-
     def add_run_to_session(self, run_response: RunResponse):
         """Add the given RunResponse to memory, together with some calculated data"""
         if self.agent_session is not None:
@@ -3431,12 +3380,6 @@ class Agent:
             if self.update_knowledge:
                 agent_tools.append(self.add_to_knowledge)
 
-        # Add transfer tools
-        if self.has_team and self.team is not None:
-            for agent_index, agent in enumerate(self.team):
-                agent_tools.append(self.get_transfer_function(agent, agent_index, session_id))
-            self._rebuild_tools = True
-
         return agent_tools
 
     def determine_tools_for_model(
@@ -3637,8 +3580,6 @@ class Agent:
             session_data["workflow_session_state"] = self.workflow_session_state
         if self.session_metrics is not None:
             session_data["session_metrics"] = asdict(self.session_metrics) if self.session_metrics is not None else None
-        if self.team_data is not None:
-            session_data["team_data"] = self.team_data
         if self.images is not None:
             session_data["images"] = [img.to_dict() for img in self.images]  # type: ignore
         if self.videos is not None:
@@ -4055,21 +3996,7 @@ class Agent:
         # 3.3.3 Then add the Agent role if provided
         if self.role is not None:
             system_message_content += f"\n<your_role>\n{self.role}\n</your_role>\n\n"
-        # 3.3.4 Then add instructions for transferring tasks to team members
-        if self.has_team and self.add_transfer_instructions:
-            system_message_content += (
-                "<agent_team>\n"
-                "You are the leader of a team of AI Agents:\n"
-                "- You can either respond directly or transfer tasks to other Agents in your team depending on the tools available to them.\n"
-                "- If you transfer a task to another Agent, make sure to include:\n"
-                "  - task_description (str): A clear description of the task.\n"
-                "  - expected_output (str): The expected output.\n"
-                "  - additional_information (str): Additional information that will help the Agent complete the task.\n"
-                "- You must always validate the output of the other Agents before responding to the user.\n"
-                "- You can re-assign the task if you are not satisfied with the result.\n"
-                "</agent_team>\n\n"
-            )
-        # 3.3.5 Then add instructions for the Agent
+        # 3.3.4 Then add instructions for the Agent
         if len(instructions) > 0:
             system_message_content += "<instructions>"
             if len(instructions) > 1:
@@ -4099,18 +4026,13 @@ class Agent:
         # 3.3.8 Then add additional context
         if self.additional_context is not None:
             system_message_content += f"{self.additional_context}\n"
-        # 3.3.9 Then add information about the team members
-        if self.has_team and self.add_transfer_instructions:
-            system_message_content += (
-                f"<transfer_instructions>\n{self.get_transfer_instructions().strip()}\n</transfer_instructions>\n\n"
-            )
         if self.success_criteria:
             system_message_content += "Your task is successful when the following criteria is met:\n"
             system_message_content += "<success_criteria>\n"
             system_message_content += f"{self.success_criteria}\n"
             system_message_content += "</success_criteria>\n"
             system_message_content += "Stop running when the success_criteria is met.\n\n"
-        # 3.3.10 Then add memories to the system prompt
+        # 3.3.9 Then add memories to the system prompt
         if self.memory:
             if not user_id:
                 user_id = "default"
@@ -4657,122 +4579,6 @@ class Agent:
             # If copy fails, return as is
             return field_value
 
-    def get_transfer_function(self, member_agent: Agent, index: int, session_id: Optional[str] = None) -> Function:
-        def _transfer_task_to_agent(
-            task_description: str, expected_output: str, additional_information: Optional[str] = None
-        ) -> Iterator[str]:
-            if member_agent.team_data is None:
-                member_agent.team_data = {}
-
-            # Update the member agent team_data to include leader_session_id, leader_agent_id and leader_run_id
-            member_agent.team_data["leader_session_id"] = session_id
-            member_agent.team_data["leader_agent_id"] = self.agent_id
-            member_agent.team_data["leader_run_id"] = self.run_id
-
-            # -*- Run the agent
-            member_agent_task = f"{task_description}\n\n<expected_output>\n{expected_output}\n</expected_output>"
-            try:
-                if additional_information is not None and additional_information.strip() != "":
-                    member_agent_task += (
-                        f"\n\n<additional_information>\n{additional_information}\n</additional_information>"
-                    )
-            except Exception as e:
-                log_warning(f"Failed to add additional information to the member agent: {e}")
-
-            member_agent_session_id = member_agent.session_id
-            member_agent_agent_id = member_agent.agent_id
-
-            # Create a dictionary with member_session_id and member_agent_id
-            member_agent_info = {
-                "session_id": member_agent_session_id,
-                "agent_id": member_agent_agent_id,
-            }
-            # Update the leader agent team_data to include member_agent_info
-            if self.team_data is None:
-                self.team_data = {}
-            if "members" not in self.team_data:
-                self.team_data["members"] = [member_agent_info]
-            else:
-                # Check if member_agent_info is already in the list
-                if member_agent_info not in self.team_data["members"]:
-                    self.team_data["members"].append(member_agent_info)
-
-            if self.stream:
-                member_agent_run_response_stream = member_agent.run(member_agent_task, stream=True)
-                for member_agent_run_response_chunk in member_agent_run_response_stream:
-                    yield member_agent_run_response_chunk.content  # type: ignore
-            else:
-                member_agent_run_response: RunResponse = member_agent.run(member_agent_task, stream=False)
-                if member_agent_run_response.content is None:
-                    yield "No response from the member agent."
-                elif isinstance(member_agent_run_response.content, str):
-                    yield member_agent_run_response.content
-                elif issubclass(type(member_agent_run_response.content), BaseModel):
-                    try:
-                        yield member_agent_run_response.content.model_dump_json(indent=2)
-                    except Exception as e:
-                        yield str(e)
-                else:
-                    try:
-                        import json
-
-                        yield json.dumps(member_agent_run_response.content, indent=2)
-                    except Exception as e:
-                        yield str(e)
-            yield self.team_response_separator
-
-        # Give a name to the member agent
-        agent_name = member_agent.name if member_agent.name else f"agent_{index}"
-        # Convert non-ascii characters to ascii equivalents and ensure only alphanumeric, underscore and hyphen
-        agent_name = "".join(c for c in agent_name if c.isalnum() or c in "_- ").strip()
-        agent_name = agent_name.lower().replace(" ", "_")
-
-        if member_agent.name is None:
-            member_agent.name = agent_name
-
-        strict = True if (member_agent.response_model is not None and member_agent.model is not None) else False
-        transfer_function = Function.from_callable(_transfer_task_to_agent, strict=strict)
-        transfer_function.strict = strict
-        transfer_function.name = f"transfer_task_to_{agent_name}"
-        transfer_function.description = dedent(f"""\
-        Use this function to transfer a task to {agent_name}
-        You must provide a clear and concise description of the task the agent should achieve AND the expected output.
-        Args:
-            task_description (str): A clear and concise description of the task the agent should achieve.
-            expected_output (str): The expected output from the agent.
-            additional_information (Optional[str]): Additional information that will help the agent complete the task.
-        Returns:
-            str: The result of the delegated task.
-        """)
-
-        # If the member agent is set to respond directly, show the result of the function call and stop the model execution
-        if member_agent.respond_directly:
-            transfer_function.show_result = True
-            transfer_function.stop_after_tool_call = True
-
-        return transfer_function
-
-    def get_transfer_instructions(self) -> str:
-        if self.team and len(self.team) > 0:
-            transfer_instructions = "You can transfer tasks to the following Agents in your team:\n"
-            for agent_index, agent in enumerate(self.team):
-                transfer_instructions += f"\nAgent {agent_index + 1}:\n"
-                if agent.name:
-                    transfer_instructions += f"Name: {agent.name}\n"
-                if agent.role:
-                    transfer_instructions += f"Role: {agent.role}\n"
-                if agent.tools is not None:
-                    _tools = []
-                    for _tool in agent.tools:
-                        if isinstance(_tool, Toolkit):
-                            _tools.extend(list(_tool.functions.keys()))
-                        elif isinstance(_tool, Function):
-                            _tools.append(_tool.name)
-                        elif callable(_tool):
-                            _tools.append(_tool.__name__)
-                    transfer_instructions += f"Available tools: {', '.join(_tools)}\n"
-            return transfer_instructions
-        return ""
 
     def get_relevant_docs_from_knowledge(
         self, query: str, num_documents: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, **kwargs
@@ -6159,117 +5965,6 @@ class Agent:
             )
         )
         return "Successfully added to knowledge base"
-
-    ###########################################################################
-    # Api functions
-    ###########################################################################
-
-    def _log_agent_session(self, session_id: str, user_id: Optional[str] = None):
-        if not (self.telemetry or self.monitoring):
-            return
-
-        from agno.api.agent import AgentSessionCreate, create_agent_session
-
-        try:
-            agent_session: AgentSession = self.agent_session or self.get_agent_session(
-                session_id=session_id, user_id=user_id
-            )
-            create_agent_session(
-                session=AgentSessionCreate(
-                    session_id=agent_session.session_id,
-                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
-                ),
-                monitor=self.monitoring,
-            )
-        except Exception as e:
-            log_debug(f"Could not create agent monitor: {e}")
-
-    def _create_run_data(self) -> Dict[str, Any]:
-        """Create and return the run data dictionary."""
-        run_response_format = "text"
-        self.run_response = cast(RunResponse, self.run_response)
-        if self.response_model is not None:
-            run_response_format = "json"
-        elif self.markdown:
-            run_response_format = "markdown"
-
-        functions = {}
-        if self._functions_for_model is not None:
-            functions = {
-                f_name: func.to_dict()
-                for f_name, func in self._functions_for_model.items()
-                if isinstance(func, Function)
-            }
-
-        run_data: Dict[str, Any] = {
-            "functions": functions,
-            "metrics": self.run_response.metrics,
-        }
-
-        if self.monitoring:
-            run_data.update(
-                {
-                    "run_input": self.run_input,
-                    "run_response": self.run_response.to_dict(),
-                    "run_response_format": run_response_format,
-                }
-            )
-
-        return run_data
-
-    def _log_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
-        self.set_monitoring()
-
-        if not self.telemetry and not self.monitoring:
-            return
-
-        from agno.api.agent import AgentRunCreate, create_agent_run
-
-        try:
-            run_data = self._create_run_data()
-            agent_session: AgentSession = self.agent_session or self.get_agent_session(
-                session_id=session_id, user_id=user_id
-            )
-
-            create_agent_run(
-                run=AgentRunCreate(
-                    run_id=self.run_id,
-                    run_data=run_data,
-                    session_id=agent_session.session_id,
-                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
-                    team_session_id=agent_session.team_session_id,
-                ),
-                monitor=self.monitoring,
-            )
-        except Exception as e:
-            log_debug(f"Could not create agent event: {e}")
-
-    async def _alog_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
-        self.set_monitoring()
-
-        if not self.telemetry and not self.monitoring:
-            return
-
-        from agno.api.agent import AgentRunCreate, acreate_agent_run
-
-        try:
-            run_data = self._create_run_data()
-            agent_session: AgentSession = self.agent_session or self.get_agent_session(
-                session_id=session_id, user_id=user_id
-            )
-
-            await acreate_agent_run(
-                run=AgentRunCreate(
-                    run_id=self.run_id,
-                    run_data=run_data,
-                    session_id=agent_session.session_id,
-                    agent_data=agent_session.to_dict() if self.monitoring else agent_session.telemetry_data(),
-                    team_session_id=agent_session.team_session_id,
-                ),
-                monitor=self.monitoring,
-            )
-        except Exception as e:
-            log_debug(f"Could not create agent event: {e}")
 
     ###########################################################################
     # Print Response

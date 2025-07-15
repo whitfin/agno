@@ -3761,7 +3761,7 @@ class Agent:
 
             self.memory.upsert_session(session=session)
 
-            log_debug(f"Created new AgentSession record: {session_id}")
+            log_debug(f"Created or updated AgentSession record: {session_id}")
 
         return self.agent_session
 

@@ -4088,7 +4088,7 @@ class Team:
         """Calculate session metrics"""
 
         session_messages: List[Message] = []
-        for run in self.team_session.runs.get(self.session_id, []):  # type: ignore
+        for run in self.team_session.runs:  # type: ignore
             if run.messages is not None:
                 for m in run.messages:
                     # Skipping messages from history to avoid duplicates

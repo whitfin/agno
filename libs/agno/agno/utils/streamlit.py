@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import streamlit as st
+
 from agno.agent import Agent
 from agno.models.anthropic import Claude
 from agno.models.google import Gemini
@@ -10,9 +11,7 @@ from agno.models.openai import OpenAIChat
 from agno.utils.log import logger
 
 
-def add_message(
-    role: str, content: str, tool_calls: Optional[List[Dict[str, Any]]] = None
-) -> None:
+def add_message(role: str, content: str, tool_calls: Optional[List[Dict[str, Any]]] = None) -> None:
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
@@ -85,9 +84,7 @@ def restart_agent_session(**session_keys) -> None:
     st.rerun()
 
 
-def session_selector_widget(
-    agent: Agent, model_id: str, agent_creation_callback: callable
-) -> None:
+def session_selector_widget(agent: Agent, model_id: str, agent_creation_callback: callable) -> None:
     if not agent.memory or not agent.memory.db:
         st.sidebar.info("💡 Memory not configured. Sessions will not be saved.")
         return
@@ -148,11 +145,7 @@ def session_selector_widget(
 
     if current_session_id:
         display_options = session_options
-        selected_index = (
-            session_options.index(current_selection)
-            if current_selection in session_options
-            else 0
-        )
+        selected_index = session_options.index(current_selection) if current_selection in session_options else 0
     else:
         display_options = ["🆕 New Chat"] + session_options
         selected_index = 0
@@ -184,9 +177,7 @@ def session_selector_widget(
                     st.session_state.session_edit_mode = True
                     st.rerun()
         else:
-            new_name = st.sidebar.text_input(
-                "Enter new name:", value=current_name, key="session_name_input"
-            )
+            new_name = st.sidebar.text_input("Enter new name:", value=current_name, key="session_name_input")
 
             col1, col2 = st.sidebar.columns([1, 1])
             with col1:
@@ -208,9 +199,7 @@ def session_selector_widget(
                         st.sidebar.error("Please enter a valid name")
 
             with col2:
-                if st.button(
-                    "❌ Cancel", use_container_width=True, key="cancel_session_rename"
-                ):
+                if st.button("❌ Cancel", use_container_width=True, key="cancel_session_rename"):
                     st.session_state.session_edit_mode = False
                     st.rerun()
 
@@ -231,9 +220,7 @@ def _load_session(session_id: str, model_id: str, agent_creation_callback: calla
                         add_message("user", str(message.content))
                     elif message.role == "assistant":
                         # For stored sessions, get tool executions from agent session
-                        tool_executions = get_tool_executions_for_message(
-                            new_agent, message
-                        )
+                        tool_executions = get_tool_executions_for_message(new_agent, message)
                         add_message("assistant", str(message.content), tool_executions)
         except Exception as e:
             logger.warning(f"Could not load chat history: {e}")
@@ -250,11 +237,7 @@ def get_tool_executions_for_message(agent: Agent, message) -> Optional[List[Any]
         return None
 
     # For stored sessions, find matching tool executions from runs
-    if (
-        hasattr(agent, "agent_session")
-        and agent.agent_session
-        and agent.agent_session.runs
-    ):
+    if hasattr(agent, "agent_session") and agent.agent_session and agent.agent_session.runs:
         # Find tools from runs that match this message's tool calls
         for run in agent.agent_session.runs:
             if hasattr(run, "tools") and run.tools:
@@ -266,8 +249,7 @@ def get_tool_executions_for_message(agent: Agent, message) -> Optional[List[Any]
                             if (
                                 isinstance(tool_call, dict)
                                 and "function" in tool_call
-                                and tool_call["function"].get("name")
-                                == tool_exec.tool_name
+                                and tool_call["function"].get("name") == tool_exec.tool_name
                             ):
                                 # Found matching tools for this message
                                 return run.tools

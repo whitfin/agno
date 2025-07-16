@@ -31,7 +31,7 @@ from typing import Optional
 
 from agno.agent import Agent
 from agno.db.postgres import PostgresDb
-from agno.embedder.openai import OpenAIEmbedder
+from agno.knowledge.embedder.openai import OpenAIEmbedder
 from agno.knowledge.knowledge import Knowledge
 from agno.memory import Memory
 from agno.utils.streamlit import get_model_from_id
@@ -109,7 +109,6 @@ def get_agentic_rag_agent(
             "   - Suggest alternative approaches or questions",
             "   - Be transparent about limitations in available information",
         ],
-        show_tool_calls=True,
         markdown=True,
         add_datetime_to_instructions=True,
         debug_mode=debug_mode,

@@ -5,7 +5,7 @@ import nest_asyncio
 import streamlit as st
 from agentic_rag import get_agentic_rag_agent
 from agno.utils.log import logger
-from streamlit_utils import (
+from agno.utils.streamlit import (
     COMMON_CSS,
     add_message,
     display_tool_calls,

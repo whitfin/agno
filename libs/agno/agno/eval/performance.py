@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Callable, List, Optional
 from uuid import uuid4
 
 from agno.db.base import BaseDb
-from agno.eval.schemas import EvalType
+from agno.db.schemas.evals import EvalType
 from agno.eval.utils import async_log_eval_run, log_eval_run, store_result_in_file
 from agno.utils.log import log_debug, set_log_level_to_debug, set_log_level_to_info
 from agno.utils.timer import Timer
@@ -196,7 +196,7 @@ class PerformanceEval:
     # Evaluation UUID
     eval_id: str = field(default_factory=lambda: str(uuid4()))
     # Number of warm-up runs (not included in final stats)
-    warmup_runs: int = 10
+    warmup_runs: Optional[int] = 10
     # Number of measured iterations
     num_iterations: int = 50
     # Result of the evaluation
@@ -207,8 +207,7 @@ class PerformanceEval:
     # Print detailed results
     print_results: bool = False
     # Print detailed memory growth analysis
-    with_growth_tracking: bool = False
-
+    memory_growth_tracking: bool = False
     # Number of memory allocations to track
     top_n_memory_allocations: int = 5
 
@@ -469,7 +468,7 @@ class PerformanceEval:
         return adjusted_usage, current_snapshot
 
     def run(
-        self, *, print_summary: bool = False, print_results: bool = False, with_growth_tracking: bool = False
+        self, *, print_summary: bool = False, print_results: bool = False, memory_growth_tracking: bool = False
     ) -> PerformanceResult:
         """
         Main method to run the performance evaluation.
@@ -538,7 +537,7 @@ class PerformanceEval:
                     live_log.update(status)
 
                     # Measure memory
-                    if self.with_growth_tracking or with_growth_tracking:
+                    if self.memory_growth_tracking or memory_growth_tracking:
                         usage, current_snapshot = self._measure_memory_with_growth_tracking(
                             memory_baseline, previous_snapshot
                         )
@@ -586,7 +585,7 @@ class PerformanceEval:
         return self.result
 
     async def arun(
-        self, *, print_summary: bool = False, print_results: bool = False, with_growth_tracking: bool = False
+        self, *, print_summary: bool = False, print_results: bool = False, memory_growth_tracking: bool = False
     ) -> PerformanceResult:
         """
         Async method to run the performance evaluation of async functions.
@@ -661,7 +660,7 @@ class PerformanceEval:
                     live_log.update(status)
 
                     # Measure memory
-                    if self.with_growth_tracking or with_growth_tracking:
+                    if self.memory_growth_tracking or memory_growth_tracking:
                         usage, current_snapshot = await self._async_measure_memory_with_growth_tracking(
                             memory_baseline, previous_snapshot
                         )

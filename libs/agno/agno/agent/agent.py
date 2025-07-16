@@ -140,8 +140,6 @@ class Agent:
     add_memory_references: Optional[bool] = None
     # Extra data stored with this agent
     extra_data: Optional[Dict[str, Any]] = None
-    # If True, stores the flat list of messages in the chat_history field of the session
-    store_chat_history: bool = False
 
     # --- Agent History ---
     # add_history_to_messages=true adds messages from the chat history to the messages list sent to the Model.
@@ -351,7 +349,6 @@ class Agent:
         retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None,
         references_format: Literal["json", "yaml"] = "json",
         extra_data: Optional[Dict[str, Any]] = None,
-        store_chat_history: bool = False,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         show_tool_calls: bool = True,
         tool_call_limit: Optional[int] = None,
@@ -429,7 +426,6 @@ class Agent:
 
         self.add_history_to_messages = add_history_to_messages
         self.num_history_runs = num_history_runs
-        self.store_chat_history = store_chat_history
 
         self.knowledge = knowledge
         self.knowledge_filters = knowledge_filters
@@ -3756,8 +3752,6 @@ class Agent:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
             # Update the session_data with the latest data
             session.session_data = self.get_agent_session_data()
-            if self.store_chat_history:
-                session.chat_history = session.get_chat_history()
 
             self.memory.upsert_session(session=session)
 
@@ -4890,7 +4884,7 @@ class Agent:
             raise Exception("Model not set")
 
         gen_session_name_prompt = "Conversation\n"
-        messages_for_generating_session_name = self.memory.get_messages_for_session(session_id=session_id)
+        messages_for_generating_session_name = self.agent_session.get_messages_for_session(session_id=session_id)
 
         for message in messages_for_generating_session_name:
             gen_session_name_prompt += f"{message.role.upper()}: {message.content}\n"
@@ -5710,7 +5704,7 @@ class Agent:
 
             history: List[Dict[str, Any]] = []
             if isinstance(self.memory, Memory):
-                all_chats = self.memory.get_messages_for_session(session_id=session_id)
+                all_chats = self.agent_session.get_messages_for_session(session_id=session_id)
 
                 if len(all_chats) == 0:
                     return ""

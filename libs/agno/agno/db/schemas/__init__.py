@@ -1,3 +1,3 @@
-from agno.db.schemas.memory import MemoryRow, SummaryRow
+from agno.db.schemas.memory import MemoryRow, SummaryRow, UserMemory
 
-__all__ = ["MemoryRow", "SummaryRow"]
+__all__ = ["MemoryRow", "SummaryRow", "UserMemory"]

@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from textwrap import dedent
 from typing import Any, Callable, Dict, List, Optional
 
-from agno.db.schemas import MemoryRow
 from agno.db.base import BaseDb
+from agno.db.schemas import MemoryRow
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.tools.function import Function
@@ -351,8 +351,6 @@ class MemoryManager:
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
     ) -> List[Callable]:
-        from datetime import datetime
-
         def add_memory(memory: str, topics: Optional[List[str]] = None) -> str:
             """Use this function to add a memory to the database.
             Args:
@@ -366,22 +364,16 @@ class MemoryManager:
             from agno.memory.memory import UserMemory
 
             try:
-                last_updated = datetime.now()
                 memory_id = str(uuid4())
                 db.upsert_user_memory(
-                    MemoryRow(
-                        id=memory_id,
+                    UserMemory(
+                        memory_id=memory_id,
                         user_id=user_id,
                         agent_id=agent_id,
                         team_id=team_id,
-                        memory=UserMemory(
-                            memory_id=memory_id,
-                            memory=memory,
-                            topics=topics,
-                            last_updated=last_updated,
-                            input=input_string,
-                        ).to_dict(),
-                        last_updated=last_updated,
+                        memory=memory,
+                        topics=topics,
+                        input=input_string,
                     )
                 )
                 log_debug(f"Memory added: {memory_id}")
@@ -402,19 +394,12 @@ class MemoryManager:
             from agno.memory.memory import UserMemory
 
             try:
-                last_updated = datetime.now()
                 db.upsert_user_memory(
-                    MemoryRow(
-                        id=memory_id,
-                        user_id=user_id,
-                        memory=UserMemory(
-                            memory_id=memory_id,
-                            memory=memory,
-                            topics=topics,
-                            last_updated=last_updated,
-                            input=input_string,
-                        ).to_dict(),
-                        last_updated=last_updated,
+                    UserMemory(
+                        memory_id=memory_id,
+                        memory=memory,
+                        topics=topics,
+                        input=input_string,
                     )
                 )
                 log_debug("Memory updated")

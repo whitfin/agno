@@ -170,7 +170,6 @@ class Memory:
 
     def initialize(self, user_id: Optional[str] = None):
         self.set_log_level()
-        self.read_from_db(user_id=user_id)
 
     def to_dict(self) -> Dict[str, Any]:
         _memory_dict = {}

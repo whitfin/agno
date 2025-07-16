@@ -4,7 +4,7 @@ from textwrap import dedent
 from typing import Any, Callable, Dict, List, Optional
 
 from agno.db.schemas import MemoryRow
-from agno.memory.db.base import MemoryDb
+from agno.db.base import BaseDb
 from agno.models.base import Model
 from agno.models.message import Message
 from agno.tools.function import Function
@@ -143,7 +143,7 @@ class MemoryManager:
         messages: List[Message],
         existing_memories: List[Dict[str, Any]],
         user_id: str,
-        db: MemoryDb,
+        db: BaseDb,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         delete_memories: bool = True,
@@ -200,7 +200,7 @@ class MemoryManager:
         messages: List[Message],
         existing_memories: List[Dict[str, Any]],
         user_id: str,
-        db: MemoryDb,
+        db: BaseDb,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         delete_memories: bool = True,
@@ -257,7 +257,7 @@ class MemoryManager:
         task: str,
         existing_memories: List[Dict[str, Any]],
         user_id: str,
-        db: MemoryDb,
+        db: BaseDb,
         delete_memories: bool = True,
         clear_memories: bool = True,
     ) -> str:
@@ -300,7 +300,7 @@ class MemoryManager:
         task: str,
         existing_memories: List[Dict[str, Any]],
         user_id: str,
-        db: MemoryDb,
+        db: BaseDb,
         delete_memories: bool = True,
         clear_memories: bool = True,
     ) -> str:
@@ -342,7 +342,7 @@ class MemoryManager:
     def _get_db_tools(
         self,
         user_id: str,
-        db: MemoryDb,
+        db: BaseDb,
         input_string: str,
         enable_add_memory: bool = True,
         enable_update_memory: bool = True,

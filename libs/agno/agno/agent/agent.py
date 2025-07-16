@@ -4038,7 +4038,7 @@ class Agent:
                     )
                     system_message_content += "<memories_from_previous_interactions>"
                     for _memory in user_memories:  # type: ignore
-                        system_message_content += f"\n- {_memory.memory}"
+                        system_message_content += f"\n- {_memory}"
                     system_message_content += "\n</memories_from_previous_interactions>\n\n"
                     system_message_content += (
                         "Note: this information is from previous interactions and may be updated in this conversation. "

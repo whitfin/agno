@@ -129,7 +129,7 @@ class Memory:
             memories = {}
             for memory in all_memories:
                 if memory.user_id is not None and memory.memory_id is not None:
-                    memories.setdefault(memory.user_id, {})[memory.memory_id] = memory
+                    memories.setdefault(memory.user_id, {})[memory.memory_id] = memory.memory
             return memories
         return None
 

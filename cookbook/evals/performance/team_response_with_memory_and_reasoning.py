@@ -1110,12 +1110,8 @@ async def run_team():
 
     await asyncio.gather(*tasks)
 
-    # await run_team_for_user(user="user_1")
-
     print("Team memory runs:", sum(len(runs) for runs in team.memory.runs.values()))
     print("Team memory memories:", len(team.memory.memories))
-
-    team.memory.runs["session_1"]
 
     return "Successfully ran team"
 
@@ -1135,19 +1131,3 @@ if __name__ == "__main__":
     asyncio.run(
         team_response_with_memory_impact.arun(print_results=True, print_summary=True)
     )
-
-    # asyncio.run(
-    #     run_team_for_user(user= "user_1", print_responses=True)
-    # )
-
-    # team.cli_app()
-
-    # session_id = f"session_{uuid.uuid4()}"
-    # team.print_response("I like NY", session_id=session_id)
-    # team.print_response("Create a report on the activities and weather in NY", session_id=session_id)
-    # team.print_response("I like San Francisco", session_id="session_2")
-    # team.print_response("Create a report on the activities and weather in San Francisco", session_id="session_2")
-    # team.print_response("I like Denver", session_id="session_3")
-    # team.print_response("Create a report on the activities and weather in Denver", session_id="session_3")
-    # team.print_response("I like Las Vegas", session_id="session_4")
-    # team.print_response("Create a report on the activities and weather in Las Vegas", session_id="session_4")

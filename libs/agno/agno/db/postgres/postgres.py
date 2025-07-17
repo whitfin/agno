@@ -276,7 +276,6 @@ class PostgresDb(BaseDb):
             raise
 
     # -- Session methods --
-
     def delete_session(self, session_id: str) -> bool:
         """
         Delete a session from the database.
@@ -773,18 +772,7 @@ class PostgresDb(BaseDb):
                 memory_raw = result._mapping
                 if not deserialize:
                     return memory_raw
-
-            return UserMemory(
-                memory_id=memory_raw["memory_id"],
-                user_id=memory_raw["user_id"],
-                memory=memory_raw["memory"],
-                input=memory_raw["input"],
-                topics=memory_raw["topics"],
-                agent_id=memory_raw["agent_id"],
-                team_id=memory_raw["team_id"],
-                workflow_id=memory_raw["workflow_id"],
-                last_updated=memory_raw["last_updated"],
-            )
+            return UserMemory.from_dict(memory_raw)
 
         except Exception as e:
             log_debug(f"Exception reading from memory table: {e}")
@@ -868,20 +856,7 @@ class PostgresDb(BaseDb):
                 if not deserialize:
                     return user_memories_raw, total_count
 
-            return [
-                UserMemory(
-                    memory_id=record["memory_id"],
-                    user_id=record["user_id"],
-                    memory=record["memory"],
-                    last_updated=record["last_updated"],
-                    input=record["input"],
-                    topics=record["topics"],
-                    agent_id=record["agent_id"],
-                    team_id=record["team_id"],
-                    workflow_id=record["workflow_id"],
-                )
-                for record in user_memories_raw
-            ]
+            return [UserMemory.from_dict(record) for record in user_memories_raw]
 
         except Exception as e:
             log_debug(f"Exception reading from memory table: {e}")
@@ -1008,16 +983,7 @@ class PostgresDb(BaseDb):
             if not user_memory_raw or not deserialize:
                 return user_memory_raw
 
-            return UserMemory(
-                memory_id=user_memory_raw["memory_id"],
-                user_id=user_memory_raw["user_id"],
-                agent_id=user_memory_raw["agent_id"],
-                team_id=user_memory_raw["team_id"],
-                workflow_id=user_memory_raw["workflow_id"],
-                memory=user_memory_raw["memory"],
-                last_updated=user_memory_raw["last_updated"],
-                input=user_memory_raw["input"],
-            )
+            return UserMemory.from_dict(user_memory_raw)
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")

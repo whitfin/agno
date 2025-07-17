@@ -1001,15 +1001,15 @@ class Agent:
         **kwargs: Any,
     ) -> Union[RunResponse, Iterator[RunResponseEvent]]:
         """Run the Agent and return the response."""
-
+        # Initialize the Agent
+        self.initialize_agent()
+        
         session_id, user_id = self._initialize_session(
             session_id=session_id, user_id=user_id, session_state=session_state
         )
 
         log_debug(f"Session ID: {session_id}", center=True)
 
-        # Initialize the Agent
-        self.initialize_agent()
 
         # Initialize Knowledge Filters
         effective_filters = knowledge_filters
@@ -1378,14 +1378,14 @@ class Agent:
     ) -> Any:
         """Async Run the Agent and return the response."""
 
+        # Initialize the Agent
+        self.initialize_agent()
+
         session_id, user_id = self._initialize_session(
             session_id=session_id, user_id=user_id, session_state=session_state
         )
 
         log_debug(f"Session ID: {session_id}", center=True)
-
-        # Initialize the Agent
-        self.initialize_agent()
 
         effective_filters = knowledge_filters
         # When filters are passed manually
@@ -1611,6 +1611,9 @@ class Agent:
             retries: The number of retries to continue the run for.
             knowledge_filters: The knowledge filters to use for the run.
         """
+        # Initialize the Agent
+        self.initialize_agent()
+
         if session_id is not None:
             self.reset_run_state()
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
@@ -1618,9 +1621,6 @@ class Agent:
             # Only reset session state if the session_id is different from the current session_id
             if self.session_id is not None and session_id != self.session_id:
                 self.session_state = None
-
-        # Initialize the Agent
-        self.initialize_agent()
 
         # Initialize Session
         # Use the default user_id and session_id when necessary
@@ -2001,6 +2001,9 @@ class Agent:
             retries: The number of retries to continue the run for.
             knowledge_filters: The knowledge filters to use for the run.
         """
+        # Initialize the Agent
+        self.initialize_agent()
+
         if session_id is not None:
             self.reset_run_state()
             # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
@@ -2008,9 +2011,6 @@ class Agent:
             # Only reset session state if the session_id is different from the current session_id
             if self.session_id is not None and session_id != self.session_id:
                 self.session_state = None
-
-        # Initialize the Agent
-        self.initialize_agent()
 
         # Initialize Session
         # Use the default user_id and session_id when necessary
@@ -4061,6 +4061,7 @@ class Agent:
                 # Convert dict to Memory
             elif isinstance(self.memory, dict):
                 memory_dict = self.memory
+                
                 memory_dict.pop("runs")
                 self.memory = Memory(**memory_dict)
             else:

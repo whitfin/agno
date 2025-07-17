@@ -26,11 +26,12 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
+from agno.db.base import BaseDb, SessionType, UserMemory
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.agent import AgentKnowledge
 from agno.knowledge.knowledge import Knowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
-from agno.memory.memory import Memory, UserMemory
+from agno.memory import MemoryManager
 from agno.models.base import Model
 from agno.models.message import Citations, Message, MessageReferences
 from agno.models.metrics import Metrics
@@ -45,7 +46,7 @@ from agno.run.response import (
     RunResponsePausedEvent,
 )
 from agno.run.team import TeamRunResponseEvent
-from agno.session import AgentSession
+from agno.session import AgentSession, Session
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -131,7 +132,8 @@ class Agent:
     resolve_context: bool = True
 
     # --- Agent Memory ---
-    memory: Optional[Memory] = None
+    # Memory manager to use for this agent
+    memory_manager: Optional[MemoryManager] = None
     # Enable the agent to manage memories of the user
     enable_agentic_memory: bool = False
     # If True, the agent creates/updates user memories at the end of runs
@@ -140,6 +142,10 @@ class Agent:
     add_memory_references: Optional[bool] = None
     # Extra data stored with this agent
     extra_data: Optional[Dict[str, Any]] = None
+
+    # --- Database ---
+    # Database to use for this agent
+    db: Optional[BaseDb] = None
 
     # --- Agent History ---
     # add_history_to_messages=true adds messages from the chat history to the messages list sent to the Model.
@@ -334,7 +340,8 @@ class Agent:
         context: Optional[Dict[str, Any]] = None,
         add_context: bool = False,
         resolve_context: bool = True,
-        memory: Optional[Memory] = None,
+        db: Optional[BaseDb] = None,
+        memory_manager: Optional[MemoryManager] = None,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
         add_memory_references: Optional[bool] = None,
@@ -417,7 +424,8 @@ class Agent:
         self.add_context = add_context
         self.resolve_context = resolve_context
 
-        self.memory = memory
+        self.db = db
+        self.memory_manager = memory_manager
         self.enable_agentic_memory = enable_agentic_memory
         self.enable_user_memories = enable_user_memories
         self.add_memory_references = add_memory_references
@@ -563,12 +571,15 @@ class Agent:
             log_info("Setting default model to OpenAI Chat")
             self.model = OpenAIChat(id="gpt-4o")
 
-    def set_memory(self) -> None:
-        if self.memory is None:
-            self.memory = Memory()
+    def set_memory_manager(self) -> None:
+        if (self.enable_agentic_memory or self.enable_user_memories) and self.memory_manager is None:
+            if self.db is None:
+                log_warning("Database not provided. Memories will not be stored.")
 
-        if (self.enable_agentic_memory or self.enable_user_memories) and self.memory.model is None:
-            self.memory.set_model(self.model)
+            self.memory_manager = MemoryManager(model=self.model, db=self.db)
+
+        if self.memory_manager is not None and self.memory_manager.model is None:
+            self.memory_manager.model = self.model
 
     def set_defaults(self) -> None:
         if self.add_memory_references is None:
@@ -599,7 +610,7 @@ class Agent:
         self.set_default_model()
         self.set_debug()
         self.set_agent_id()
-        self.set_memory()
+        self.set_memory_manager()
 
         log_debug(f"Agent ID: {self.agent_id}", center=True)
 
@@ -909,14 +920,10 @@ class Agent:
         self.stream = self.stream or stream
         self.stream_intermediate_steps = self.stream_intermediate_steps or (stream_intermediate_steps and self.stream)
 
-        # Read existing session from storage
+        # Read existing session from database
         self.get_agent_session(session_id=session_id, user_id=user_id)
 
-        # TODO: Test and remove this
-        if not isinstance(self.agent_session, AgentSession):
-            raise ValueError("Agent session is not an AgentSession")
-
-        # Read existing session from storage
+        # Resolve context
         if self.context is not None:
             self.resolve_run_context()
 
@@ -2639,7 +2646,6 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
     ) -> Iterator[RunResponseEvent]:
         self.run_response = cast(RunResponse, self.run_response)
-        self.memory = cast(Memory, self.memory)
 
         yield from self._make_memories_and_summaries(run_messages=run_messages, session_id=session_id, user_id=user_id)
 
@@ -2651,7 +2657,6 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
     ) -> AsyncIterator[RunResponseEvent]:
         self.run_response = cast(RunResponse, self.run_response)
-        self.memory = cast(Memory, self.memory)
 
         async for event in self._amake_memories_and_summaries(
             run_messages=run_messages, session_id=session_id, user_id=user_id
@@ -3105,7 +3110,7 @@ class Agent:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         self.run_response = cast(RunResponse, self.run_response)
-        self.memory = cast(Memory, self.memory)
+        self.memory_manager = cast(MemoryManager, self.memory_manager)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
@@ -3118,7 +3123,7 @@ class Agent:
                 log_debug("Creating user memories.")
                 futures.append(
                     executor.submit(
-                        self.memory.create_user_memories,
+                        self.memory_manager.create_user_memories,
                         message=user_message_str,
                         user_id=user_id,
                         agent_id=self.agent_id,
@@ -3147,7 +3152,7 @@ class Agent:
                 if len(parsed_messages) > 0:
                     futures.append(
                         executor.submit(
-                            self.memory.create_user_memories,
+                            self.memory_manager.create_user_memories,
                             messages=parsed_messages,
                             user_id=user_id,
                             agent_id=self.agent_id,
@@ -3195,7 +3200,7 @@ class Agent:
         user_id: Optional[str] = None,
     ) -> AsyncIterator[RunResponseEvent]:
         self.run_response = cast(RunResponse, self.run_response)
-        self.memory = cast(Memory, self.memory)
+        self.memory_manager = cast(MemoryManager, self.memory_manager)
         tasks = []
 
         # Create user memories from single message
@@ -3203,7 +3208,7 @@ class Agent:
             log_debug("Creating user memories.")
 
             tasks.append(
-                self.memory.acreate_user_memories(
+                self.memory_manager.acreate_user_memories(
                     message=run_messages.user_message.get_content_string(), user_id=user_id
                 )
             )
@@ -3228,7 +3233,7 @@ class Agent:
                     continue
 
             if len(parsed_messages) > 0:
-                tasks.append(self.memory.acreate_user_memories(messages=parsed_messages, user_id=user_id))
+                tasks.append(self.memory_manager.acreate_user_memories(messages=parsed_messages, user_id=user_id))
             else:
                 log_warning("Unable to add messages to memory")
 
@@ -3588,6 +3593,33 @@ class Agent:
             session_data["audio"] = [aud.to_dict() for aud in self.audio]  # type: ignore
         return session_data
 
+    # -*- Session Database Functions
+    def read_session(self, session_id: str, session_type: SessionType) -> Optional[Session]:
+        """Get a Session from the database."""
+        try:
+            if not self.db:
+                raise ValueError("Db not initialized")
+            session = self.db.get_session(session_id=session_id, session_type=session_type)
+            return session
+        except Exception as e:
+            log_warning(f"Error getting session from db: {e}")
+            return None
+
+    def upsert_session(self, session: Session) -> Optional[Session]:
+        """Upsert a Session into the database."""
+        from copy import deepcopy
+
+        session_copy = deepcopy(session)
+        session_copy.summary = deepcopy(session.summary)
+
+        try:
+            if not self.db:
+                raise ValueError("Db not initialized")
+            return self.db.upsert_session(session=session_copy)
+        except Exception as e:
+            log_warning(f"Error upserting session into db: {e}")
+            return None
+
     def load_agent_session(self, session: AgentSession):
         """Load the existing Agent from an AgentSession (from the database)"""
 
@@ -3721,11 +3753,9 @@ class Agent:
             return self.agent_session
 
         # Try to load from database
-        if self.memory is not None and self.memory.db is not None:
+        if self.db is not None:
             log_debug(f"Reading AgentSession: {session_id}")
-            self.agent_session = cast(
-                AgentSession, self.memory.read_session(session_id=session_id, session_type="agent")
-            )
+            self.agent_session = cast(AgentSession, self.read_session(session_id=session_id, session_type="agent"))
 
             if self.agent_session is not None:
                 self.load_agent_session(session=self.agent_session)
@@ -3752,12 +3782,12 @@ class Agent:
             Optional[AgentSession]: The saved AgentSession or None if not saved.
         """
 
-        if self.memory is not None and self.memory.db is not None:
+        if self.db is not None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
             # Update the session_data with the latest data
             session.session_data = self.get_agent_session_data()
 
-            self.memory.upsert_session(session=session)
+            self.upsert_session(session=session)
 
             log_debug(f"Created or updated AgentSession record: {session_id}")
 
@@ -3777,7 +3807,7 @@ class Agent:
                 return self.agent_session.session_id
 
         # Load an existing session or create a new session
-        if self.memory.db is not None:
+        if self.db is not None:
             # Load existing session if session_id is provided
             log_debug(f"Reading AgentSession: {self.session_id}")
             self.get_agent_session(session_id=self.session_id)  # type: ignore
@@ -3807,8 +3837,6 @@ class Agent:
         - Load the new session
         """
         self.agent_session = None
-        if self.memory is not None:
-            self.memory.clear()
         self.session_id = str(uuid4())
         self.load_session(force=True)
 
@@ -4027,11 +4055,11 @@ class Agent:
             system_message_content += "</success_criteria>\n"
             system_message_content += "Stop running when the success_criteria is met.\n\n"
         # 3.3.9 Then add memories to the system prompt
-        if self.memory:
+        if self.memory_manager:
             if not user_id:
                 user_id = "default"
             if self.add_memory_references or self.enable_agentic_memory or self.enable_user_memories:
-                user_memories = self.memory.get_user_memories(user_id=user_id)  # type: ignore
+                user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
                 if user_memories and len(user_memories) > 0:
                     system_message_content += (
                         "You have access to memories from previous interactions with the user that you can use:\n\n"
@@ -4468,9 +4496,6 @@ class Agent:
 
     def get_session_summary(self, session_id: Optional[str] = None):
         """Get the session summary for the given session ID and user ID."""
-        if self.memory is None:
-            return None
-
         session_id = session_id if session_id is not None else self.session_id
         if session_id is None:
             raise ValueError("Session ID is required")
@@ -4481,16 +4506,13 @@ class Agent:
 
     def get_user_memories(self, user_id: Optional[str] = None) -> Optional[List[UserMemory]]:
         """Get the user memories for the given user ID."""
-        if self.memory is None:
+        if self.memory_manager is None:
             return None
         user_id = user_id if user_id is not None else self.user_id
         if user_id is None:
             user_id = "default"
 
-        if isinstance(self.memory, Memory):
-            return self.memory.get_user_memories(user_id=user_id)
-
-        raise ValueError(f"Memory type {type(self.memory)} not supported")
+        return self.memory_manager.get_user_memories(user_id=user_id)
 
     def deep_copy(self, *, update: Optional[Dict[str, Any]] = None) -> Agent:
         """Create and return a deep copy of this Agent, optionally updating fields.
@@ -4926,10 +4948,10 @@ class Agent:
 
     def delete_session(self, session_id: str):
         """Delete the current session and save to storage"""
-        if self.memory.db is None:
+        if self.db is None:
             return
         # -*- Delete session
-        self.memory.db.delete_session(session_id=session_id)
+        self.db.delete_session(session_id=session_id)
 
     def get_messages_for_session(self, session_id: Optional[str] = None) -> List[Message]:
         """Get messages for a session"""
@@ -4938,7 +4960,7 @@ class Agent:
             log_warning("Session ID is not set, cannot get messages for session")
             return []
 
-        if self.memory is None:
+        if self.agent_session is None:
             return []
         else:
             self.get_agent_session(session_id=_session_id)
@@ -5655,8 +5677,8 @@ class Agent:
             Returns:
                 str: A string indicating the status of the task.
             """
-            self.memory = cast(Memory, self.memory)
-            response = self.memory.update_memory_task(task=task, user_id=user_id)
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            response = self.memory_manager.update_memory_task(task=task, user_id=user_id)
 
             return response
 
@@ -5671,8 +5693,8 @@ class Agent:
             Returns:
                 str: A string indicating the status of the task.
             """
-            self.memory = cast(Memory, self.memory)
-            response = await self.memory.aupdate_memory_task(task=task, user_id=user_id)
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            response = await self.memory_manager.aupdate_memory_task(task=task, user_id=user_id)
             return response
 
         if async_mode:
@@ -5703,7 +5725,7 @@ class Agent:
             import json
 
             history: List[Dict[str, Any]] = []
-            if isinstance(self.memory, Memory):
+            if self.agent_session:
                 all_chats = self.agent_session.get_messages_for_session(session_id=session_id)
 
                 if len(all_chats) == 0:
@@ -5739,7 +5761,7 @@ class Agent:
             """
             import json
 
-            if isinstance(self.memory, Memory):
+            if self.agent_session:
                 tool_calls = self.agent_session.get_tool_calls(session_id=session_id, num_calls=num_calls)
             else:
                 return ""
@@ -6205,29 +6227,28 @@ class Agent:
                             panels.append(citations_panel)
                             live_log.update(Group(*panels))
 
-                if self.memory is not None:
-                    if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
-                        memory_panel = create_panel(
-                            content=Text("Memories updated"),
-                            title="Memories",
-                            border_style="green",
-                        )
-                        panels.append(memory_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.memory_manager.memories_updated = False
+                if self.memory_manager is not None and self.memory_manager.memories_updated:
+                    memory_panel = create_panel(
+                        content=Text("Memories updated"),
+                        title="Memories",
+                        border_style="green",
+                    )
+                    panels.append(memory_panel)
+                    live_log.update(Group(*panels))
+                    self.memory_manager.memories_updated = False
 
-                    if (
-                        self.agent_session is not None
-                        and self.agent_session.summary is not None
-                        and self.enable_session_summaries
-                    ):
-                        summary_panel = create_panel(
-                            content=Text("Session summary updated"),
-                            title="Session Summary",
-                            border_style="green",
-                        )
-                        panels.append(summary_panel)
-                        live_log.update(Group(*panels))
+                if (
+                    self.agent_session is not None
+                    and self.agent_session.summary is not None
+                    and self.enable_session_summaries
+                ):
+                    summary_panel = create_panel(
+                        content=Text("Session summary updated"),
+                        title="Session Summary",
+                        border_style="green",
+                    )
+                    panels.append(summary_panel)
+                    live_log.update(Group(*panels))
 
                 response_timer.stop()
 
@@ -6387,16 +6408,15 @@ class Agent:
                         panels.append(citations_panel)
                         live_log.update(Group(*panels))
 
-                if self.memory is not None:
-                    if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
-                        memory_panel = create_panel(
-                            content=Text("Memories updated"),
-                            title="Memories",
-                            border_style="green",
-                        )
-                        panels.append(memory_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.memory_manager.memories_updated = False
+                if self.memory_manager is not None and self.memory_manager.memories_updated:
+                    memory_panel = create_panel(
+                        content=Text("Memories updated"),
+                        title="Memories",
+                        border_style="green",
+                    )
+                    panels.append(memory_panel)
+                    live_log.update(Group(*panels))
+                    self.memory_manager.memories_updated = False
 
                 if (
                     self.agent_session is not None
@@ -6660,16 +6680,15 @@ class Agent:
                             panels.append(citations_panel)
                             live_log.update(Group(*panels))
 
-                if self.memory is not None:
-                    if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
-                        memory_panel = create_panel(
-                            content=Text("Memories updated"),
-                            title="Memories",
-                            border_style="green",
-                        )
-                        panels.append(memory_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.memory_manager.memories_updated = False
+                if self.memory_manager is not None and self.memory_manager.memories_updated:
+                    memory_panel = create_panel(
+                        content=Text("Memories updated"),
+                        title="Memories",
+                        border_style="green",
+                    )
+                    panels.append(memory_panel)
+                    live_log.update(Group(*panels))
+                    self.memory_manager.memories_updated = False
 
                 if (
                     self.agent_session is not None
@@ -6839,16 +6858,15 @@ class Agent:
                         panels.append(citations_panel)
                         live_log.update(Group(*panels))
 
-                if self.memory is not None:
-                    if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
-                        memory_panel = create_panel(
-                            content=Text("Memories updated"),
-                            title="Memories",
-                            border_style="green",
-                        )
-                        panels.append(memory_panel)
-                        live_log.update(Group(*panels))
-                        self.memory.memory_manager.memories_updated = False
+                if self.memory_manager is not None and self.memory_manager.memories_updated:
+                    memory_panel = create_panel(
+                        content=Text("Memories updated"),
+                        title="Memories",
+                        border_style="green",
+                    )
+                    panels.append(memory_panel)
+                    live_log.update(Group(*panels))
+                    self.memory_manager.memories_updated = False
 
                 if (
                     self.agent_session is not None
@@ -7052,10 +7070,10 @@ class Agent:
             # TODO: Review and Test this function
             import json
 
-            if self.memory.db is None:
+            if self.db is None:
                 return "Memory not available"
 
-            selected_sessions = self.memory.db.get_sessions(session_type="agent", limit=num_history_sessions)
+            selected_sessions = self.db.get_sessions(session_type="agent", limit=num_history_sessions)
 
             all_messages = []
             seen_message_pairs = set()
@@ -7155,39 +7173,39 @@ class Agent:
         payload = {
             "instructions": self.instructions if self.instructions is not None else [],
             "tools": tools,
-            "memory": (
-                {
-                    "name": self.memory.__class__.__name__,
-                    "model": (
-                        {
-                            "name": self.memory.model.__class__.__name__,
-                            "model": self.memory.model.id,
-                            "provider": self.memory.model.provider,
-                        }
-                        if hasattr(self.memory, "model") and self.memory.model is not None
-                        else (
-                            {
-                                "name": self.model.__class__.__name__,
-                                "model": self.model.id,
-                                "provider": self.model.provider,
-                            }
-                            if self.model is not None
-                            else None
-                        )
-                    ),
-                    "db": (
-                        {
-                            "name": self.memory.db.__class__.__name__,
-                            "table_name": self.memory.db.table_name if hasattr(self.memory.db, "table_name") else None,
-                            "db_url": self.memory.db.db_url if hasattr(self.memory.db, "db_url") else None,
-                        }
-                        if hasattr(self.memory, "db") and self.memory.db is not None
-                        else None
-                    ),
-                }
-                if self.memory is not None and hasattr(self.memory, "db") and self.memory.db is not None
-                else None
-            ),
+            # "memory": (
+            #     {
+            #         "name": self.memory.__class__.__name__,
+            #         "model": (
+            #             {
+            #                 "name": self.memory.model.__class__.__name__,
+            #                 "model": self.memory.model.id,
+            #                 "provider": self.memory.model.provider,
+            #             }
+            #             if hasattr(self.memory, "model") and self.memory.model is not None
+            #             else (
+            #                 {
+            #                     "name": self.model.__class__.__name__,
+            #                     "model": self.model.id,
+            #                     "provider": self.model.provider,
+            #                 }
+            #                 if self.model is not None
+            #                 else None
+            #             )
+            #         ),
+            #         "db": (
+            #             {
+            #                 "name": self.memory.db.__class__.__name__,
+            #                 "table_name": self.memory.db.table_name if hasattr(self.memory.db, "table_name") else None,
+            #                 "db_url": self.memory.db.db_url if hasattr(self.memory.db, "db_url") else None,
+            #             }
+            #             if hasattr(self.memory, "db") and self.memory.db is not None
+            #             else None
+            #         ),
+            #     }
+            #     if self.memory is not None and hasattr(self.memory, "db") and self.memory.db is not None
+            #     else None
+            # ),
             "knowledge": {
                 "name": self.knowledge.__class__.__name__,
             }

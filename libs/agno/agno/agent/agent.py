@@ -578,8 +578,11 @@ class Agent:
 
             self.memory_manager = MemoryManager(model=self.model, db=self.db)
 
-        if self.memory_manager is not None and self.memory_manager.model is None:
-            self.memory_manager.model = self.model
+        if self.memory_manager is not None:
+            if self.memory_manager.model is None:
+                self.memory_manager.model = self.model
+            if self.memory_manager.db is None:
+                self.memory_manager.db = self.db
 
     def set_defaults(self) -> None:
         if self.add_memory_references is None:
@@ -3119,7 +3122,7 @@ class Agent:
             user_message_str = (
                 run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
             )
-            if self.enable_user_memories and user_message_str is not None:
+            if user_message_str is not None and (self.memory_manager is not None or self.enable_user_memories):
                 log_debug("Creating user memories.")
                 futures.append(
                     executor.submit(
@@ -4058,7 +4061,12 @@ class Agent:
         if self.memory_manager:
             if not user_id:
                 user_id = "default"
-            if self.add_memory_references or self.enable_agentic_memory or self.enable_user_memories:
+            if (
+                self.add_memory_references
+                or self.enable_agentic_memory
+                or self.enable_user_memories
+                or self.memory_manager is not None
+            ):
                 user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
                 if user_memories and len(user_memories) > 0:
                     system_message_content += (

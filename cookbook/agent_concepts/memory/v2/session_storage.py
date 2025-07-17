@@ -9,7 +9,7 @@ db = PostgresDb(db_url=db_url, session_table="sessions")
 agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
     db=db,
-    session_id="short_term_memory",
+    session_id="session_storage",
     add_history_to_messages=True,
 )
 

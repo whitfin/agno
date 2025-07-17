@@ -15,20 +15,19 @@ db = PostgresDb(
 agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
     db=db,
-    session_id="long_term_memory",
+    session_id="user_memories",
     enable_user_memories=True,
 )
 
 agent.print_response("I love astronomy, specifically the science behind nebulae")
 
-# 2. Using a custom memory manager by creating your own instance of MemoryManager
-# memory_manager = MemoryManager(model=OpenAIChat(id="gpt-4o-mini"), db=db)
+# 2. Using a custom memory manager by creating an instance of MemoryManager
+# memory_manager = MemoryManager(model=OpenAIChat(id="gpt-4o-mini"))
 
 # agent = Agent(
 #     model=OpenAIChat(id="gpt-4o-mini"),
 #     db=db,
-#     session_id="long_term_memory",
-#     enable_user_memories=True,
+#     session_id="user_memories",
 #     memory_manager=memory_manager,
 # )
 

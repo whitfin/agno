@@ -6855,8 +6855,8 @@ class Team:
 
         # Remove session from memory
         if not self.cache_session:
-            if self.memory is not None and session_id in self.memory.runs:
-                self.memory.runs.pop(session_id)
+            if self.memory is not None and self.memory.runs is not None and session_id in self.memory.runs:
+                self.memory.runs.pop(session_id)  # type: ignore
         return self.team_session
 
     def rename_session(self, session_name: str, session_id: Optional[str] = None) -> None:

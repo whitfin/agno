@@ -1003,13 +1003,12 @@ class Agent:
         """Run the Agent and return the response."""
         # Initialize the Agent
         self.initialize_agent()
-        
+
         session_id, user_id = self._initialize_session(
             session_id=session_id, user_id=user_id, session_state=session_state
         )
 
         log_debug(f"Session ID: {session_id}", center=True)
-
 
         # Initialize Knowledge Filters
         effective_filters = knowledge_filters
@@ -4061,7 +4060,7 @@ class Agent:
                 # Convert dict to Memory
             elif isinstance(self.memory, dict):
                 memory_dict = self.memory
-                
+
                 memory_dict.pop("runs")
                 self.memory = Memory(**memory_dict)
             else:
@@ -4233,8 +4232,8 @@ class Agent:
             )
 
         if not self.cache_session:
-            if self.memory is not None and session_id in self.memory.runs:
-                self.memory.runs.pop(session_id)
+            if self.memory is not None and self.memory.runs is not None and session_id in self.memory.runs:
+                self.memory.runs.pop(session_id)  # type: ignore
 
         return self.agent_session
 

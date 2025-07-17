@@ -130,6 +130,8 @@ class Team:
     session_name: Optional[str] = None
     # Session state (stored in the database to persist across runs)
     session_state: Optional[Dict[str, Any]] = None
+    # If True, cache the session in memory
+    cache_session: bool = True
 
     # Team session state (shared between team leaders and team members)
     team_session_state: Optional[Dict[str, Any]] = None
@@ -311,6 +313,7 @@ class Team:
         team_session_state: Optional[Dict[str, Any]] = None,
         workflow_session_state: Optional[Dict[str, Any]] = None,
         add_state_in_messages: bool = False,
+        cache_session: bool = True,
         description: Optional[str] = None,
         instructions: Optional[Union[str, List[str], Callable]] = None,
         expected_output: Optional[str] = None,
@@ -389,6 +392,8 @@ class Team:
         self.team_session_state = team_session_state
         self.workflow_session_state = workflow_session_state
         self.add_state_in_messages = add_state_in_messages
+
+        self.cache_session = cache_session
 
         self.description = description
         self.instructions = instructions
@@ -619,7 +624,6 @@ class Team:
     def initialize_team(self, session_id: Optional[str] = None) -> None:
         self._set_defaults()
         self._set_default_model()
-        self._set_storage_mode()
 
         # Set debug mode
         self._set_debug()
@@ -729,6 +733,8 @@ class Team:
 
         self._initialize_session_state(user_id=user_id, session_id=session_id)
 
+        self._set_storage_mode()
+        
         # Read existing session from storage
         self.read_from_storage(session_id=session_id)
 
@@ -1196,7 +1202,6 @@ class Team:
             session_id=session_id, user_id=user_id, session_state=session_state
         )
         log_debug(f"Session ID: {session_id}", center=True)
-
         self.initialize_team(session_id=session_id)
 
         effective_filters = knowledge_filters
@@ -1630,7 +1635,7 @@ class Team:
             self.memory.add_team_run(team_run)  # type: ignore
 
         elif isinstance(self.memory, Memory):
-            # Add AgentRun to memory
+            # Add run to memory
             self.memory.add_run(session_id=session_id, run=run_response)
 
     def _update_memory(
@@ -6848,6 +6853,11 @@ class Team:
             self.team_session = cast(
                 TeamSession, self.storage.upsert(session=self._get_team_session(session_id=session_id, user_id=user_id))
             )
+        
+        # Remove session from memory
+        if not self.cache_session:
+            if self.memory is not None and session_id in self.memory.runs:
+                self.memory.runs.pop(session_id)
         return self.team_session
 
     def rename_session(self, session_name: str, session_id: Optional[str] = None) -> None:
@@ -7022,9 +7032,20 @@ class Team:
                     try:
                         if self.memory.runs is None:
                             self.memory.runs = {}
-                        self.memory.runs[session.session_id] = []
+                        if session.session_id not in self.memory.runs:
+                            self.memory.runs[session.session_id] = []
                         for run in session.memory["runs"]:
                             run_session_id = run["session_id"]
+                            
+                            # Skip existing runs
+                            skip = False
+                            for existing_run in self.memory.runs[run_session_id]:  # type: ignore
+                                if existing_run.run_id == run["run_id"]:
+                                    skip = True
+                                    break
+                            if skip:
+                                continue
+                            
                             if "team_id" in run:
                                 self.memory.runs[run_session_id].append(TeamRunResponse.from_dict(run))
                             else:
@@ -7739,6 +7760,8 @@ class Team:
                     run_responses = self.memory.runs.get(session_id)
                     if run_responses is not None:
                         memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
+                    
+                    
         return TeamSession(
             session_id=session_id,
             team_id=self.team_id,

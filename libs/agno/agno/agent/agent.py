@@ -119,6 +119,8 @@ class Agent:
     session_state: Optional[Dict[str, Any]] = None
     search_previous_sessions_history: Optional[bool] = False
     num_history_sessions: Optional[int] = None
+    # If True, cache the session in memory
+    cache_session: bool = True
 
     # --- Agent Context ---
     # Context available for tools and prompt functions
@@ -351,6 +353,7 @@ class Agent:
         session_state: Optional[Dict[str, Any]] = None,
         search_previous_sessions_history: Optional[bool] = False,
         num_history_sessions: Optional[int] = None,
+        cache_session: bool = True,
         context: Optional[Dict[str, Any]] = None,
         add_context: bool = False,
         resolve_context: bool = True,
@@ -440,7 +443,9 @@ class Agent:
         self.session_state = session_state
         self.search_previous_sessions_history = search_previous_sessions_history
         self.num_history_sessions = num_history_sessions
-
+        
+        self.cache_session = cache_session
+        
         self.context = context
         self.add_context = add_context
         self.resolve_context = resolve_context
@@ -4108,9 +4113,18 @@ class Agent:
                     try:
                         if self.memory.runs is None:
                             self.memory.runs = {}
-                        self.memory.runs[session.session_id] = []
+                        if session.session_id not in self.memory.runs:
+                            self.memory.runs[session.session_id] = []
                         for run in session.memory["runs"]:
                             run_session_id = run["session_id"]
+                            
+                            skip = False
+                            for existing_run in self.memory.runs[run_session_id]:  # type: ignore
+                                if existing_run.run_id == run["run_id"]:
+                                    skip = True
+                                    break
+                            if skip:
+                                continue
                             if "team_id" in run:
                                 self.memory.runs[run_session_id].append(TeamRunResponse.from_dict(run))
                             else:
@@ -4224,6 +4238,11 @@ class Agent:
                 AgentSession,
                 self.storage.upsert(session=self.get_agent_session(session_id=session_id, user_id=user_id)),
             )
+            
+        if not self.cache_session:
+            if self.memory is not None and session_id in self.memory.runs:
+                self.memory.runs.pop(session_id)
+                    
         return self.agent_session
 
     def add_introduction(self, introduction: str) -> None:

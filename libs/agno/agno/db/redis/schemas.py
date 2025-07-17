@@ -30,7 +30,6 @@ USER_MEMORY_SCHEMA = {
     "workflow_id": {"type": "string"},
     "user_id": {"type": "string"},
     "topics": {"type": "json"},
-    "feedback": {"type": "string"},
     "last_updated": {"type": "integer"},
 }
 

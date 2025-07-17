@@ -818,7 +818,6 @@ class MongoDb(BaseDb):
                 "memory_id": memory.id,
                 "memory": memory.memory,
                 "topics": memory.memory.get("topics", []),
-                "feedback": memory.memory.get("feedback", None),
                 "last_updated": int(time.time()),
             }
 

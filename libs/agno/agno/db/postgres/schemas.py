@@ -52,7 +52,6 @@ USER_MEMORY_TABLE_SCHEMA = {
     "workflow_id": {"type": String, "nullable": True},
     "user_id": {"type": String, "nullable": True},
     "topics": {"type": JSON, "nullable": True},
-    "feedback": {"type": String, "nullable": True},
     "last_updated": {"type": BigInteger, "nullable": True},
 }
 

@@ -980,7 +980,6 @@ class PostgresDb(BaseDb):
                     memory_id=memory.id,
                     memory=memory.memory,
                     topics=memory.memory.get("topics", []),
-                    feedback=memory.memory.get("feedback", None),
                     last_updated=int(time.time()),
                 )
                 stmt = stmt.on_conflict_do_update(
@@ -988,7 +987,6 @@ class PostgresDb(BaseDb):
                     set_=dict(
                         memory=memory.memory,
                         topics=memory.memory.get("topics", []),
-                        feedback=memory.memory.get("feedback", None),
                         last_updated=int(time.time()),
                     ),
                 ).returning(table)

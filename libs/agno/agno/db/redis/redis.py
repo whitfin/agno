@@ -879,7 +879,6 @@ class RedisDb(BaseDb):
                 "memory_id": memory.id,
                 "memory": memory.memory,
                 "topics": memory.memory.get("topics", []),
-                "feedback": memory.memory.get("feedback"),
                 "last_updated": int(time.time()),
             }
 

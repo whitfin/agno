@@ -28,7 +28,7 @@ class UserMemorySchema(BaseModel):
             agent_id=memory_dict["agent_id"],
             team_id=memory_dict["team_id"],
             workflow_id=memory_dict["workflow_id"],
-            memory=memory_dict["memory"]["memory"],
+            memory=memory_dict["memory"],
             topics=memory_dict["topics"],
             last_updated=memory_dict["last_updated"],
         )

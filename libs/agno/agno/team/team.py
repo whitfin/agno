@@ -734,7 +734,7 @@ class Team:
         self._initialize_session_state(user_id=user_id, session_id=session_id)
 
         self._set_storage_mode()
-        
+
         # Read existing session from storage
         self.read_from_storage(session_id=session_id)
 
@@ -6853,7 +6853,7 @@ class Team:
             self.team_session = cast(
                 TeamSession, self.storage.upsert(session=self._get_team_session(session_id=session_id, user_id=user_id))
             )
-        
+
         # Remove session from memory
         if not self.cache_session:
             if self.memory is not None and session_id in self.memory.runs:
@@ -7035,7 +7035,7 @@ class Team:
                         self.memory.runs[session.session_id] = []
                         for run in session.memory["runs"]:
                             run_session_id = run["session_id"]
-                            
+
                             if "team_id" in run:
                                 self.memory.runs[run_session_id].append(TeamRunResponse.from_dict(run))
                             else:
@@ -7750,8 +7750,7 @@ class Team:
                     run_responses = self.memory.runs.get(session_id)
                     if run_responses is not None:
                         memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
-                    
-                    
+
         return TeamSession(
             session_id=session_id,
             team_id=self.team_id,

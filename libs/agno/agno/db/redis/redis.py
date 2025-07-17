@@ -318,7 +318,6 @@ class RedisDb(BaseDb):
 
             return data
 
-
         except Exception as e:
             log_debug(f"Exception reading session: {e}")
             return None

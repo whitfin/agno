@@ -143,24 +143,6 @@ class Memory:
     def initialize(self, user_id: Optional[str] = None):
         self.set_log_level()
 
-    # def to_dict(self) -> Dict[str, Any]:
-    #     _memory_dict = {}
-    #     # Add memories if they exist
-    #     if self.memories is not None:
-    #         _memory_dict["memories"] = {
-    #             user_id: {memory_id: memory.to_dict() for memory_id, memory in user_memories.items()}
-    #             for user_id, user_memories in self.memories.items()
-    #         }
-
-    # if self.team_context is not None:
-    #     _memory_dict["team_context"] = {}
-    #     for session_id, team_context in self.team_context.items():
-    #         if session_id is not None:
-    #             _memory_dict["team_context"][session_id] = team_context.to_dict()
-
-    # _memory_dict = {k: v for k, v in _memory_dict.items() if v is not None}
-    # return _memory_dict
-
     # -*- Public Functions
     def get_user_memories(self, user_id: Optional[str] = None) -> List[UserMemory]:
         """Get the user memories for a given user id"""
@@ -517,16 +499,6 @@ class Memory:
         """Clears the memory."""
         if self.db:
             self.db.clear()
-
-    # -*- Chat History Functions
-    def read_chat_history(self, session_id: str, session_type: SessionType) -> Optional[List[Message]]:
-        """Read the chat history from the session"""
-        if not self.db:
-            raise ValueError("Db not initialized")
-        session = self.read_session(session_id=session_id, session_type=session_type)
-        if session and session.chat_history:
-            return [Message.from_dict(msg) for msg in session.chat_history]
-        return None
 
     # -*- Utility Functions
     def search_user_memories(

@@ -4113,18 +4113,10 @@ class Agent:
                     try:
                         if self.memory.runs is None:
                             self.memory.runs = {}
-                        if session.session_id not in self.memory.runs:
-                            self.memory.runs[session.session_id] = []
+                        self.memory.runs[session.session_id] = []
                         for run in session.memory["runs"]:
                             run_session_id = run["session_id"]
                             
-                            skip = False
-                            for existing_run in self.memory.runs[run_session_id]:  # type: ignore
-                                if existing_run.run_id == run["run_id"]:
-                                    skip = True
-                                    break
-                            if skip:
-                                continue
                             if "team_id" in run:
                                 self.memory.runs[run_session_id].append(TeamRunResponse.from_dict(run))
                             else:

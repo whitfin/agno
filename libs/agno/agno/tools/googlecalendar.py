@@ -1,6 +1,7 @@
 import datetime
 import json
 import os.path
+import uuid
 from functools import wraps
 from typing import List, Dict, Optional
 
@@ -64,7 +65,13 @@ class GoogleCalendarTools(Toolkit):
     Enhanced Google Calendar Tools supporting both file-based and token-based authentication.
     """
     
-    def __init__(self, credentials_path: Optional[str] = None, token_path: Optional[str] = None, access_token: Optional[str] = None):
+    def __init__(
+        self,
+        credentials_path: Optional[str] = None,
+        token_path: Optional[str] = None,
+        access_token: Optional[str] = None,
+        **kwargs,
+    ):
         """
         Initialize Google Calendar Tools with either file-based or token-based authentication.
 
@@ -73,7 +80,6 @@ class GoogleCalendarTools(Toolkit):
             token_path (Optional[str]): Path to store/retrieve the token.json file
             access_token (Optional[str]): Direct OAuth 2.0 access token for token-based authentication
         """
-        super().__init__(name="google_calendar_tools")
 
         self.creds = None
         self.service = None
@@ -110,13 +116,16 @@ class GoogleCalendarTools(Toolkit):
             )
             raise ValueError("Either credentials path or access token is required")
 
-        # Register all methods
-        self.register(self.list_events)
-        self.register(self.create_event)
-        self.register(self.update_event)
-        self.register(self.delete_event)
-        self.register(self.fetch_all_events)
-        self.register(self.find_available_slots)
+        # Initialize toolkit with all methods
+        tools = []
+        tools.append(self.list_events)
+        tools.append(self.create_event)
+        tools.append(self.update_event)
+        tools.append(self.delete_event)
+        tools.append(self.fetch_all_events)
+        tools.append(self.find_available_slots)
+
+        super().__init__(name="google_calendar_tools", tools=tools, **kwargs)
 
     @authenticated
     def list_events(self, limit: int = 10, date_from: str = None, calendar_id: str = "primary") -> str:
@@ -174,6 +183,7 @@ class GoogleCalendarTools(Toolkit):
         transparency: str = "opaque",
         recurrence: Optional[List[str]] = None,
         reminders: Optional[Dict] = None,
+        add_google_meet_link: Optional[bool] = False,
     ) -> str:
         """
         Create a new event in the calendar.
@@ -192,6 +202,7 @@ class GoogleCalendarTools(Toolkit):
             transparency (Optional[str]): Whether the event blocks time ("opaque", "transparent")
             recurrence (Optional[List[str]]): Recurrence rules for repeating events
             reminders (Optional[Dict]): Reminder settings for the event
+            add_google_meet_link (Optional[bool]): Whether to add a google meet link to the event
         """
         try:
             # Format attendees if provided
@@ -220,6 +231,12 @@ class GoogleCalendarTools(Toolkit):
                 "transparency": transparency if transparency != "opaque" else None
             }
 
+            # Add Google Meet link if requested
+            if add_google_meet_link:
+                event["conferenceData"] = {
+                    "createRequest": {"requestId": str(uuid.uuid4()), "conferenceSolutionKey": {"type": "hangoutsMeet"}}
+                }
+
             # Remove None values
             event = {k: v for k, v in event.items() if v is not None}
 
@@ -227,7 +244,8 @@ class GoogleCalendarTools(Toolkit):
                 event_result = self.service.events().insert(
                     calendarId=calendar_id, 
                     body=event,
-                    sendUpdates=send_updates
+                    sendUpdates=send_updates,
+                    conferenceDataVersion=1 if add_google_meet_link else 0,
                 ).execute()
                 logger.info(f"Event created successfully in calendar {calendar_id}. Event ID: {event_result['id']}")
                 return json.dumps(event_result)
@@ -518,3 +536,18 @@ class GoogleCalendarTools(Toolkit):
         except Exception as e:
             logger.error(f"An error occurred while finding available slots: {e}")
             return json.dumps({"error": f"An error occurred: {str(e)}"})
+
+
+class GoogleCalendarTokenTools(GoogleCalendarTools):
+    """
+    Backward compatibility class for token-based authentication.
+    """
+    
+    def __init__(self, access_token: str, **kwargs):
+        """
+        Initialize with access token for backward compatibility.
+        
+        Args:
+            access_token (str): OAuth 2.0 access token
+        """
+        super().__init__(access_token=access_token, **kwargs)

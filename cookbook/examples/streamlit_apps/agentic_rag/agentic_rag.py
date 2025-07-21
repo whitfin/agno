@@ -36,6 +36,7 @@ from agno.knowledge.knowledge import Knowledge
 from agno.memory import Memory
 from utils import get_model_from_id
 from agno.vectordb.pgvector import PgVector
+from agno.tools.duckduckgo import DuckDuckGoTools
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
@@ -109,6 +110,7 @@ def get_agentic_rag_agent(
             "   - Suggest alternative approaches or questions",
             "   - Be transparent about limitations in available information",
         ],
+        tools=[DuckDuckGoTools()],
         markdown=True,
         add_datetime_to_instructions=True,
         debug_mode=debug_mode,

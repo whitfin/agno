@@ -69,15 +69,15 @@ def main():
     ####################################################################
     agentic_rag_agent: Agent
     if (
-        "agent" not in st.session_state
-        or st.session_state["agent"] is None
+        "agentic_rag_agent" not in st.session_state
+        or st.session_state["agentic_rag_agent"] is None
         or st.session_state.get("current_model") != model_id
     ):
         agentic_rag_agent = get_agentic_rag_agent(
             model_id=model_id, session_id=st.session_state.get("session_id")
         )
 
-        st.session_state["agent"] = agentic_rag_agent
+        st.session_state["agentic_rag_agent"] = agentic_rag_agent
         st.session_state["current_model"] = model_id
     else:
         agentic_rag_agent = st.session_state["agent"]
@@ -145,6 +145,7 @@ def main():
         finally:
             alert.empty()
 
+    
     # Clear knowledge base
     if st.sidebar.button("Clear Knowledge Base"):
         if agentic_rag_agent.knowledge.vector_store:
@@ -162,7 +163,7 @@ def main():
         )
 
     ###############################################################
-    # Utility buttons (using streamlit utilities)
+    # Utility buttons
     ###############################################################
     st.sidebar.markdown("#### 🛠️ Utilities")
     col1, col2 = st.sidebar.columns([1, 1])
@@ -207,7 +208,7 @@ def main():
             )
 
     ####################################################################
-    # Display Chat Messages
+    # Display Chat history
     ####################################################################
     for message in st.session_state["messages"]:
         if message["role"] in ["user", "assistant"]:
@@ -242,14 +243,14 @@ def main():
                 try:
                     # Run the agent and stream the response
                     run_response = agentic_rag_agent.run(question, stream=True)
-                    for resp_chunk in run_response:
+                    for _resp_chunk in run_response:
                         # Display tool calls if available
-                        if hasattr(resp_chunk, "tool") and resp_chunk.tool:
-                            display_tool_calls(tool_calls_container, [resp_chunk.tool])
+                        if hasattr(_resp_chunk, "tool") and _resp_chunk.tool:
+                            display_tool_calls(tool_calls_container, [_resp_chunk.tool])
 
                         # Display response content
-                        if resp_chunk.content is not None:
-                            response += resp_chunk.content
+                        if _resp_chunk.content is not None:
+                            response += _resp_chunk.content
                             resp_container.markdown(response)
 
                     add_message(
@@ -261,18 +262,15 @@ def main():
                     st.error(error_message)
 
     ####################################################################
-    # Session management widgets (using streamlit utilities)
+    # Session management widgets
     ####################################################################
-
-    # Session selector with built-in rename functionality
-    # Note: Rename option appears below when you have an active session
     session_selector_widget(agentic_rag_agent, model_id, get_agentic_rag_agent)
 
     # Knowledge base information
     knowledge_base_info_widget(agentic_rag_agent)
 
     ####################################################################
-    # About section (inline instead of separate file)
+    # About section
     ####################################################################
     st.sidebar.markdown("---")
     st.sidebar.markdown("### ℹ️ About")

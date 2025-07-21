@@ -42,7 +42,6 @@ from agno.run.messages import RunMessages
 from agno.run.response import RunEvent, RunResponse, RunResponseEvent
 from agno.run.team import TeamRunEvent, TeamRunResponse, TeamRunResponseEvent, ToolCallCompletedEvent
 from agno.session import TeamSession
-from agno.session.summarizer import SessionSummary
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -5100,7 +5099,7 @@ class Team:
 
             # Then add a summary of the interaction to the system prompt
             if self.add_session_summary_references:
-                session_summary: SessionSummary = self.team_session.get_session_summary()  # type: ignore
+                session_summary = self.team_session.get_session_summary()  # type: ignore
                 if session_summary is not None:
                     system_message_content += "Here is a brief summary of your previous interactions:\n\n"
                     system_message_content += "<summary_of_previous_interactions>\n"
@@ -6609,7 +6608,7 @@ class Team:
         # Try to load from database
         if self.memory is not None and self.memory.db is not None:
             self.team_session = cast(
-                TeamSession, self.memory.read_session(session_id=session_id, session_type=SessionType.TEAM.value)
+                TeamSession, self.memory.read_session(session_id=session_id, session_type=SessionType.TEAM)
             )
             if self.team_session is not None:
                 self.load_team_session(session=self.team_session)
@@ -7041,7 +7040,7 @@ class Team:
         self, query: str, num_documents: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, **kwargs
     ) -> Optional[List[Union[Dict[str, Any], str]]]:
         """Return a list of references from the knowledge base"""
-        from agno.document import Document
+        from agno.knowledge.document import Document
 
         # Validate the filters against known valid filter keys
         if self.knowledge is not None:
@@ -7098,7 +7097,7 @@ class Team:
         self, query: str, num_documents: Optional[int] = None, filters: Optional[Dict[str, Any]] = None, **kwargs
     ) -> Optional[List[Union[Dict[str, Any], str]]]:
         """Get relevant documents from knowledge base asynchronously."""
-        from agno.document import Document
+        from agno.knowledge.document import Document
 
         # Validate the filters against known valid filter keys
         if self.knowledge is not None:

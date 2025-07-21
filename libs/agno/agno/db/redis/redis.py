@@ -312,7 +312,11 @@ class RedisDb(BaseDb):
             Exception: If any error occurs while getting the session.
         """
         try:
+            data = self._get_record("sessions", session_id)
+            if data is None:
+                return None
 
+            return data
 
         except Exception as e:
             log_debug(f"Exception reading session: {e}")
@@ -879,7 +883,6 @@ class RedisDb(BaseDb):
                 "memory_id": memory.id,
                 "memory": memory.memory,
                 "topics": memory.memory.get("topics", []),
-                "feedback": memory.memory.get("feedback"),
                 "last_updated": int(time.time()),
             }
 

@@ -123,14 +123,16 @@ class ChromaDb(VectorDb):
             name (str): Name of the document to check.
         Returns:
             bool: True if document exists, False otherwise."""
-        if self.client:
-            try:
-                collections: Collection = self.client.get_collection(name=self.collection_name)
-                for collection in collections:  # type: ignore
-                    if name in collection:
-                        return True
-            except Exception as e:
-                logger.error(f"Document with given name does not exist: {e}")
+        if not self.client:
+            logger.warning("Client not initialized")
+            return False
+
+        try:
+            collection: Collection = self.client.get_collection(name=self.collection_name)
+            result = collection.get(where={"name": {"$eq": name}}, limit=1)
+            return len(result.get("ids", [])) > 0
+        except Exception as e:
+            logger.error(f"Error checking name existence: {e}")
         return False
 
     async def async_name_exists(self, name: str) -> bool:
@@ -162,6 +164,12 @@ class ChromaDb(VectorDb):
             metadata = document.meta_data or {}
             if filters:
                 metadata.update(filters)
+
+            # Add name, content_id to metadata
+            if document.name is not None:
+                metadata["name"] = document.name
+            if document.content_id is not None:
+                metadata["content_id"] = document.content_id
 
             docs_embeddings.append(document.embedding)
             docs.append(cleaned_content)
@@ -204,11 +212,23 @@ class ChromaDb(VectorDb):
             document.embed(embedder=self.embedder)
             cleaned_content = document.content.replace("\x00", "\ufffd")
             doc_id = md5(cleaned_content.encode()).hexdigest()
+
+            # Handle metadata and filters
+            metadata = document.meta_data or {}
+            if filters:
+                metadata.update(filters)
+
+            # Add name, content_id to metadata
+            if document.name is not None:
+                metadata["name"] = document.name
+            if document.content_id is not None:
+                metadata["content_id"] = document.content_id
+
             docs_embeddings.append(document.embedding)
             docs.append(cleaned_content)
             ids.append(doc_id)
-            docs_metadata.append(document.meta_data)
-            log_debug(f"Upserted document: {document.id} | {document.name} | {document.meta_data}")
+            docs_metadata.append(metadata)
+            log_debug(f"Upserted document: {document.id} | {document.name} | {metadata}")
 
         if self._collection is None:
             logger.warning("Collection does not exist")
@@ -268,13 +288,19 @@ class ChromaDb(VectorDb):
             metadata[idx]["distances"] = distance
 
         try:
-            for idx, (id_, metadata, document) in enumerate(zip(ids, metadata, documents)):
+            for idx, (id_, doc_metadata, document) in enumerate(zip(ids, metadata, documents)):
+                # Extract the fields we added to metadata
+                name = doc_metadata.pop("name", None)
+                content_id = doc_metadata.pop("content_id", None)
+
                 search_results.append(
                     Document(
                         id=id_,
-                        meta_data=metadata,
+                        name=name,
+                        meta_data=doc_metadata,
                         content=document,
                         embedding=embeddings[idx],
+                        content_id=content_id,
                     )
                 )
         except Exception as e:
@@ -362,10 +388,103 @@ class ChromaDb(VectorDb):
             return False
 
     def delete_by_id(self, id: str) -> bool:
-        return NotImplementedError
+        """Delete document by ID."""
+        if not self.client:
+            logger.error("Client not initialized")
+            return False
+
+        try:
+            collection: Collection = self.client.get_collection(name=self.collection_name)
+
+            # Check if document exists
+            if not self.id_exists(id):
+                log_info(f"Document with ID '{id}' not found")
+                return False
+
+            # Delete the document
+            collection.delete(ids=[id])
+            log_info(f"Deleted document with ID '{id}'")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting document by ID '{id}': {e}")
+            return False
 
     def delete_by_name(self, name: str) -> bool:
-        return NotImplementedError
+        """Delete documents by name."""
+        if not self.client:
+            logger.error("Client not initialized")
+            return False
+
+        try:
+            collection: Collection = self.client.get_collection(name=self.collection_name)
+
+            # Find all documents with the given name
+            result = collection.get(where={"name": {"$eq": name}})
+            ids_to_delete = result.get("ids", [])
+
+            if not ids_to_delete:
+                log_info(f"No documents found with name '{name}'")
+                return False
+
+            # Delete all matching documents
+            collection.delete(ids=ids_to_delete)
+            log_info(f"Deleted {len(ids_to_delete)} documents with name '{name}'")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting documents by name '{name}': {e}")
+            return False
 
     def delete_by_metadata(self, metadata: Dict[str, Any]) -> bool:
-        return NotImplementedError
+        """Delete documents by metadata."""
+        if not self.client:
+            logger.error("Client not initialized")
+            return False
+
+        try:
+            collection: Collection = self.client.get_collection(name=self.collection_name)
+
+            # Build where clause for metadata filtering
+            where_clause = {}
+            for key, value in metadata.items():
+                where_clause[key] = {"$eq": value}
+
+            # Find all documents with the matching metadata
+            result = collection.get(where=where_clause)
+            ids_to_delete = result.get("ids", [])
+
+            if not ids_to_delete:
+                log_info(f"No documents found with metadata '{metadata}'")
+                return False
+
+            # Delete all matching documents
+            collection.delete(ids=ids_to_delete)
+            log_info(f"Deleted {len(ids_to_delete)} documents with metadata '{metadata}'")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting documents by metadata '{metadata}': {e}")
+            return False
+
+    def delete_by_content_id(self, content_id: str) -> bool:
+        """Delete documents by content ID."""
+        if not self.client:
+            logger.error("Client not initialized")
+            return False
+
+        try:
+            collection: Collection = self.client.get_collection(name=self.collection_name)
+
+            # Find all documents with the given content_id
+            result = collection.get(where={"content_id": {"$eq": content_id}})
+            ids_to_delete = result.get("ids", [])
+
+            if not ids_to_delete:
+                log_info(f"No documents found with content_id '{content_id}'")
+                return False
+
+            # Delete all matching documents
+            collection.delete(ids=ids_to_delete)
+            log_info(f"Deleted {len(ids_to_delete)} documents with content_id '{content_id}'")
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting documents by content_id '{content_id}': {e}")
+            return False

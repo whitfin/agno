@@ -510,6 +510,7 @@ class PostgresDb(BaseDb):
                 stmt = (
                     update(table)
                     .where(table.c.session_id == session_id)
+                    .where(table.c.session_type == session_type.value)
                     .values(
                         session_data=func.cast(
                             func.jsonb_set(
@@ -954,11 +955,11 @@ class PostgresDb(BaseDb):
                 stmt = postgresql.insert(table).values(
                     memory_id=memory.memory_id,
                     memory=memory.memory,
-                    topics=memory.topics,
                     input=memory.input,
                     user_id=memory.user_id,
                     agent_id=memory.agent_id,
                     team_id=memory.team_id,
+                    topics=memory.topics,
                     workflow_id=memory.workflow_id,
                     last_updated=int(time.time()),
                 )

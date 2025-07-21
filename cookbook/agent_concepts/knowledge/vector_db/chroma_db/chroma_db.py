@@ -1,17 +1,14 @@
 from agno.agent import Agent
 from agno.knowledge.knowledge import Knowledge
-from agno.vectordb.lancedb import LanceDb
+from agno.vectordb.chroma import ChromaDb
 
-vector_db = LanceDb(
-    table_name="vectors",
-    uri="tmp/lancedb",
-)
-
-# Create Knowledge Instance with LanceDB
+# Create Knowledge Instance with ChromaDB
 knowledge = Knowledge(
     name="Basic SDK Knowledge Base",
-    description="Agno 2.0 Knowledge Implementation with LanceDB",
-    vector_store=vector_db,
+    description="Agno 2.0 Knowledge Implementation with ChromaDB",
+    vector_store=ChromaDb(
+        collection="vectors", path="tmp/chromadb", persistent_client=True
+    ),
 )
 
 knowledge.add_content(
@@ -24,6 +21,8 @@ knowledge.add_content(
 agent = Agent(knowledge=knowledge)
 agent.print_response("List down the ingredients to make Massaman Gai", markdown=True)
 
+# Delete operations examples
+vector_db = knowledge.vector_store
 vector_db.delete_by_name("Recipes")
 # or
-vector_db.delete_by_metadata({"doc_type": "recipe_book"})
+vector_db.delete_by_metadata({"user_tag": "Recipes from website"})

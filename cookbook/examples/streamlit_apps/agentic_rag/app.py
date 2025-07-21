@@ -98,9 +98,7 @@ def main():
     # Document Management
     ####################################################################
     st.sidebar.markdown("#### 📚 Document Management")
-    st.sidebar.metric(
-        "Documents Loaded", agentic_rag_agent.knowledge.vector_store.get_count()
-    )
+   
 
     # URL input
     input_url = st.sidebar.text_input("Add URL to Knowledge Base")

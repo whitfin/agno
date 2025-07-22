@@ -43,3 +43,33 @@ class SessionSummaryResponse(BaseModel):
 
     def to_json(self) -> str:
         return self.model_dump_json(exclude_none=True, indent=2)
+
+
+@dataclass
+class SessionSummaryManager:
+    """Session Summary Manager"""
+
+    # Model used for memory management
+    model: Optional[Model] = None
+
+    # Provide the system message for the manager as a string. If not provided, a default prompt will be used.
+    system_message: Optional[str] = None
+    # Provide the memory capture instructions for the manager as a string. If not provided, a default prompt will be used.
+    memory_capture_instructions: Optional[str] = None
+    # Additional instructions for the manager
+    additional_instructions: Optional[str] = None
+
+    # Whether memories were created in the last run
+    memories_updated: bool = False
+
+    # Whether to delete memories
+    delete_memories: bool = False
+    # Whether to clear memories
+    clear_memories: bool = False
+
+    # The database to store memories
+    db: Optional[BaseDb] = None
+
+    debug_mode: bool = False
+
+    

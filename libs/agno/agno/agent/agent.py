@@ -122,6 +122,8 @@ class Agent:
     # Model and prompt used to create session summaries
     session_summary_model: Optional[Model] = None
     session_summary_prompt: Optional[str] = None
+    # Session summary manager to use for this agent
+    session_summary_manager: Optional[SessionSummaryManager] = None
 
     # --- Agent Context ---
     # Context available for tools and prompt functions
@@ -572,7 +574,7 @@ class Agent:
             self.model = OpenAIChat(id="gpt-4o")
 
     def set_memory_manager(self) -> None:
-        if (self.enable_agentic_memory or self.enable_user_memories) and self.memory_manager is None:
+        if self.enable_user_memories and self.memory_manager is None:
             if self.db is None:
                 log_warning("Database not provided. Memories will not be stored.")
 
@@ -3761,7 +3763,7 @@ class Agent:
         if self.db is not None:
             log_debug(f"Reading AgentSession: {session_id}")
             self.agent_session = cast(
-                AgentSession, self.memory.read_session(session_id=session_id, session_type=SessionType.AGENT)
+                AgentSession, self.read_session(session_id=session_id, session_type=SessionType.AGENT)
             )
 
             if self.agent_session is not None:
@@ -4062,15 +4064,10 @@ class Agent:
             system_message_content += "</success_criteria>\n"
             system_message_content += "Stop running when the success_criteria is met.\n\n"
         # 3.3.9 Then add memories to the system prompt
-        if self.memory_manager:
+        if self.memory_manager is not None:
             if not user_id:
                 user_id = "default"
-            if (
-                self.add_memory_references
-                or self.enable_agentic_memory
-                or self.enable_user_memories
-                or self.memory_manager is not None
-            ):
+            if self.add_memory_references:
                 user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
                 if user_memories and len(user_memories) > 0:
                     system_message_content += (

@@ -27,11 +27,11 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.agent import Agent
-from agno.db.base import SessionType
+from agno.db.base import BaseDb, SessionType
 from agno.exceptions import ModelProviderError, RunCancelledException
 from agno.knowledge.agent import AgentKnowledge
+from agno.memory import MemoryManager
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
-from agno.memory.memory import Memory
 from agno.models.base import Model
 from agno.models.message import Citations, Message, MessageReferences
 from agno.models.metrics import Metrics
@@ -159,6 +159,13 @@ class Team:
     # Role for the system message
     system_message_role: str = "system"
 
+    # --- Database ---
+    # Database to use for this agent
+    db: Optional[BaseDb] = None
+
+    # Memory manager to use for this agent
+    memory_manager: Optional[MemoryManager] = None
+
     # --- Success criteria ---
     # Define the success criteria for the team
     success_criteria: Optional[str] = None
@@ -231,8 +238,6 @@ class Team:
     parse_response: bool = True
 
     # --- History ---
-    # Memory for the team
-    memory: Optional[Memory] = None
     # Enable the agent to manage memories of the user
     enable_agentic_memory: bool = False
     # If True, the agent creates/updates user memories at the end of runs
@@ -347,7 +352,6 @@ class Team:
         parser_model_prompt: Optional[str] = None,
         use_json_mode: bool = False,
         parse_response: bool = True,
-        memory: Optional[Memory] = None,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
         add_memory_references: Optional[bool] = None,
@@ -431,8 +435,6 @@ class Team:
         self.parser_model_prompt = parser_model_prompt
         self.use_json_mode = use_json_mode
         self.parse_response = parse_response
-
-        self.memory = memory
 
         self.enable_agentic_memory = enable_agentic_memory
         self.enable_user_memories = enable_user_memories
@@ -632,15 +634,6 @@ class Team:
         self._set_team_id()
 
         log_debug(f"Team ID: {self.team_id}", center=True)
-
-        # Initialize memory if not yet set
-        if self.memory is None:
-            self.memory = Memory()
-
-        # Default to the team's model if no model is provided
-        if isinstance(self.memory, Memory):
-            if self.memory.model is None and self.model is not None:
-                self.memory.set_model(self.model)
 
         # Initialize formatter
         if self._formatter is None:
@@ -1945,7 +1938,7 @@ class Team:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         self.run_response = cast(TeamRunResponse, self.run_response)
-        self.memory = cast(Memory, self.memory)
+        self.memory_manager = cast(MemoryManager, self.memory_manager)
 
         # Create a thread pool with a reasonable number of workers
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -1956,7 +1949,7 @@ class Team:
             if self.enable_user_memories and user_message_str is not None:
                 futures.append(
                     executor.submit(
-                        self.memory.create_user_memories,
+                        self.memory_manager.create_user_memories,
                         message=user_message_str,
                         user_id=user_id,
                         team_id=self.team_id,
@@ -1998,15 +1991,16 @@ class Team:
     async def _aupdate_memory(
         self, run_messages: RunMessages, user_id: Optional[str] = None
     ) -> AsyncIterator[TeamRunResponseEvent]:
-        self.memory = cast(Memory, self.memory)
+        
         self.run_response = cast(TeamRunResponse, self.run_response)
+        self.memory_manager = cast(MemoryManager, self.memory_manager)
         tasks = []
 
         user_message_str = (
             run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
         )
         if self.enable_user_memories and user_message_str is not None and user_message_str:
-            tasks.append(self.memory.acreate_user_memories(message=user_message_str, user_id=user_id))
+            tasks.append(self.memory_manager.acreate_user_memories(message=user_message_str, user_id=user_id))
 
         # Update the session summary if needed
         if self.enable_session_summaries:
@@ -2571,8 +2565,8 @@ class Team:
                         )
                         panels.append(citations_panel)
 
-                if self.memory is not None and isinstance(self.memory, Memory):
-                    if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
+                if self.memory_manager is not None:
+                    if self.memory_manager.memories_updated:
                         memory_panel = create_panel(
                             content=Text("Memories updated"),
                             title="Memories",
@@ -2904,8 +2898,8 @@ class Team:
                     panels.append(citations_panel)
                     live_console.update(Group(*panels))
 
-            if self.memory is not None and isinstance(self.memory, Memory):
-                if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
+            if self.memory_manager is not None:
+                if self.memory_manager.memories_updated:
                     memory_panel = create_panel(
                         content=Text("Memories updated"),
                         title="Memories",
@@ -3441,8 +3435,8 @@ class Team:
                         )
                         panels.append(citations_panel)
 
-                if self.memory is not None and isinstance(self.memory, Memory):
-                    if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
+                if self.memory_manager is not None:
+                    if self.memory_manager.memories_updated:
                         memory_panel = create_panel(
                             content=Text("Memories updated"),
                             title="Memories",
@@ -3706,8 +3700,8 @@ class Team:
                     panels.append(citations_panel)
                     live_console.update(Group(*panels))
 
-            if self.memory is not None and isinstance(self.memory, Memory):
-                if self.memory.memory_manager is not None and self.memory.memory_manager.memories_updated:
+            if self.memory_manager is not None:
+                if self.memory_manager.memories_updated:
                     memory_panel = create_panel(
                         content=Text("Memories updated"),
                         title="Memories",
@@ -4697,7 +4691,7 @@ class Team:
         if self.read_team_history:
             _tools.append(self.get_team_history_function(session_id=session_id))
 
-        if isinstance(self.memory, Memory) and self.enable_agentic_memory:
+        if self.memory_manager is not None and self.enable_agentic_memory:
             _tools.append(self.get_update_user_memory_function(user_id=user_id, async_mode=async_mode))
 
         if self.enable_agentic_context:
@@ -5561,8 +5555,8 @@ class Team:
             Returns:
                 str: A string indicating the status of the update.
             """
-            self.memory = cast(Memory, self.memory)
-            response = self.memory.update_memory_task(task=task, user_id=user_id)
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            response = self.memory_manager.update_memory_task(task=task, user_id=user_id)
             return response
 
         async def aupdate_user_memory(task: str) -> str:
@@ -5577,8 +5571,8 @@ class Team:
             Returns:
                 str: A string indicating the status of the update.
             """
-            self.memory = cast(Memory, self.memory)
-            response = await self.memory.aupdate_memory_task(task=task, user_id=user_id)
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            response = await self.memory_manager.aupdate_memory_task(task=task, user_id=user_id)
             return response
 
         if async_mode:
@@ -5614,8 +5608,8 @@ class Team:
             import json
 
             history: List[Dict[str, Any]] = []
-            if isinstance(self.memory, Memory):
-                all_chats = self.memory.get_messages_for_session(session_id=session_id)
+            if self.team_session is not None:
+                all_chats = self.get_messages_for_session(session_id=session_id)
 
                 if len(all_chats) == 0:
                     return ""
@@ -5709,7 +5703,7 @@ class Team:
             """
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
-            self.memory = cast(Memory, self.memory)
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
 
             # 2. Determine team context to send
             team_context_str, team_member_interactions_str = self._determine_team_context(
@@ -5778,8 +5772,8 @@ class Team:
 
                 # Update the memory
                 member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-                self.memory = cast(Memory, self.memory)
-                self.memory.add_interaction_to_team_context(
+                self.memory_manager = cast(MemoryManager, self.memory_manager)
+                self.memory_manager.add_interaction_to_team_context(
                     session_id=session_id,
                     member_name=member_name,
                     task=task_description,
@@ -5850,8 +5844,8 @@ class Team:
                     check_if_run_cancelled(response)
 
                     member_name = agent.name if agent.name else f"agent_{idx}"
-                    self.memory = cast(Memory, self.memory)
-                    self.memory.add_interaction_to_team_context(
+                    self.memory_manager = cast(MemoryManager, self.memory_manager)
+                    self.memory_manager.add_interaction_to_team_context(
                         session_id=session_id,
                         member_name=member_name,
                         task=task_description,
@@ -5915,36 +5909,21 @@ class Team:
     def _determine_team_context(
         self, session_id: str, images: List[Image], videos: List[Video], audio: List[Audio]
     ) -> Tuple[Optional[str], Optional[str]]:
-        if isinstance(self.memory, Memory):
-            self.memory = cast(Memory, self.memory)
-            team_context_str = None
-            if self.enable_agentic_context:
-                team_context_str = self.memory.get_team_context_str(session_id=session_id)
 
-            team_member_interactions_str = None
-            if self.share_member_interactions:
-                team_member_interactions_str = self.memory.get_team_member_interactions_str(session_id=session_id)
-                if context_images := self.memory.get_team_context_images(session_id=session_id):
-                    images.extend([Image.from_artifact(img) for img in context_images])
-                if context_videos := self.memory.get_team_context_videos(session_id=session_id):
-                    videos.extend([Video.from_artifact(vid) for vid in context_videos])
-                if context_audio := self.memory.get_team_context_audio(session_id=session_id):
-                    audio.extend([Audio.from_artifact(aud) for aud in context_audio])
-        else:
-            self.memory = cast(Memory, self.memory)
-            team_context_str = None
-            if self.enable_agentic_context:
-                team_context_str = self.memory.get_team_context_str(session_id=session_id)  # type: ignore
+        self.memory_manager = cast(MemoryManager, self.memory_manager)
+        team_context_str = None
+        if self.enable_agentic_context:
+            team_context_str = self.memory_manager.get_team_context_str(session_id=session_id)  # type: ignore
 
-            team_member_interactions_str = None
-            if self.share_member_interactions:
-                team_member_interactions_str = self.memory.get_team_member_interactions_str(session_id=session_id)  # type: ignore
-                if context_images := self.memory.get_team_context_images(session_id=session_id):  # type: ignore
-                    images.extend([Image.from_artifact(img) for img in context_images])
-                if context_videos := self.memory.get_team_context_videos(session_id=session_id):  # type: ignore
-                    videos.extend([Video.from_artifact(vid) for vid in context_videos])
-                if context_audio := self.memory.get_team_context_audio(session_id=session_id):  # type: ignore
-                    audio.extend([Audio.from_artifact(aud) for aud in context_audio])
+        team_member_interactions_str = None
+        if self.share_member_interactions:
+            team_member_interactions_str = self.memory_manager.get_team_member_interactions_str(session_id=session_id)  # type: ignore
+            if context_images := self.memory_manager.get_team_context_images(session_id=session_id):  # type: ignore
+                images.extend([Image.from_artifact(img) for img in context_images])
+            if context_videos := self.memory_manager.get_team_context_videos(session_id=session_id):  # type: ignore
+                videos.extend([Video.from_artifact(vid) for vid in context_videos])
+            if context_audio := self.memory_manager.get_team_context_audio(session_id=session_id):  # type: ignore
+                audio.extend([Audio.from_artifact(aud) for aud in context_audio])
         return team_context_str, team_member_interactions_str
 
     def get_transfer_task_function(
@@ -6080,8 +6059,8 @@ class Team:
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
 
-            self.memory = cast(Memory, self.memory)
-            self.memory.add_interaction_to_team_context(
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            self.memory_manager.add_interaction_to_team_context(
                 session_id=session_id,
                 member_name=member_name,
                 task=task_description,
@@ -6202,8 +6181,8 @@ class Team:
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-            self.memory = cast(Memory, self.memory)
-            self.memory.add_interaction_to_team_context(
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            self.memory_manager.add_interaction_to_team_context(
                 session_id=session_id,
                 member_name=member_name,
                 task=task_description,
@@ -6434,8 +6413,8 @@ class Team:
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-            self.memory = cast(Memory, self.memory)
-            self.memory.add_interaction_to_team_context(
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            self.memory_manager.add_interaction_to_team_context(
                 session_id=session_id,  # type: ignore
                 member_name=member_name,
                 task=message.get_content_string(),
@@ -6555,8 +6534,8 @@ class Team:
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-            self.memory = cast(Memory, self.memory)
-            self.memory.add_interaction_to_team_context(
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
+            self.memory_manager.add_interaction_to_team_context(
                 session_id=session_id,  # type: ignore
                 member_name=member_name,
                 task=message.get_content_string(),
@@ -6829,8 +6808,8 @@ class Team:
         if self.memory is None:
             return []
 
-        if isinstance(self.memory, Memory):
-            return self.memory.get_messages_from_last_n_runs(
+        if self.team_session is not None:
+            return self.team_session.get_messages_from_last_n_runs(
                 session_id=_session_id,
                 # Only filter by team_id if this is part of a team
                 team_id=self.team_id if self.team_session_id is not None else None,
@@ -6858,8 +6837,8 @@ class Team:
         if user_id is None:
             user_id = "default"
 
-        if isinstance(self.memory, Memory):
-            return self.memory.get_user_memories(user_id=user_id)
+        if self.memory_manager is not None:
+            return self.memory_manager.get_user_memories(user_id=user_id)
         raise ValueError(f"Memory type {type(self.memory)} not supported")
 
     ###########################################################################
@@ -7408,17 +7387,18 @@ class Team:
             session_data["audio"] = [aud.to_dict() for aud in self.audio]  # type: ignore
         return session_data
 
+    # TODO: Review usage of this function
     def _get_team_session(self, session_id: str, user_id: Optional[str] = None) -> TeamSession:
         from time import time
 
         """Get an Memory object, which can be saved to the database"""
         memory_dict = None
-        if self.memory is not None:
-            self.memory = cast(Memory, self.memory)
+        if self.memory_manager is not None:
+            self.memory_manager = cast(MemoryManager, self.memory_manager)
             # We fake the structure on storage, to maintain the interface with the legacy implementation
-            if self.memory.runs is not None:
-                memory_dict = self.memory.to_dict()
-                run_responses = self.memory.runs.get(session_id)
+            if self.memory_manager.runs is not None:
+                memory_dict = self.memory_manager.to_dict()
+                run_responses = self.memory_manager.runs.get(session_id)
                 if run_responses is not None:
                     memory_dict["runs"] = [rr.to_dict() for rr in run_responses]
 

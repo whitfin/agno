@@ -70,7 +70,7 @@ class TeamContext:
 
 @dataclass
 class MemoryManager:
-    """Model for Memory Manager"""
+    """Memory Manager"""
 
     # Model used for memory management
     model: Optional[Model] = None

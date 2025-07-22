@@ -171,12 +171,7 @@ def main():
         if st.sidebar.button("🔄 New Chat", use_container_width=True):
             restart_agent()
     with col2:
-        # Export chat
-        has_messages = (
-            st.session_state.get("messages") and len(st.session_state["messages"]) > 0
-        )
-
-        if has_messages:
+        if st.session_state.get("messages") and len(st.session_state["messages"]) > 0:
             # Generate filename
             session_id = st.session_state.get("session_id")
             if (
@@ -212,7 +207,7 @@ def main():
     ####################################################################
     for message in st.session_state["messages"]:
         if message["role"] in ["user", "assistant"]:
-            content = message["content"]
+            _content = message["content"]
 
             # Display tool calls first if they exist (without assistant icon)
             if "tool_calls" in message and message["tool_calls"]:
@@ -220,12 +215,12 @@ def main():
 
             # Only display the message content if it exists and is not empty/None
             if (
-                content is not None
-                and str(content).strip()
-                and str(content).strip().lower() != "none"
+                _content is not None
+                and str(_content).strip()
+                and str(_content).strip().lower() != "none"
             ):
                 with st.chat_message(message["role"]):
-                    st.markdown(content)
+                    st.markdown(_content)
 
     ####################################################################
     # Generate response for user message
@@ -256,25 +251,19 @@ def main():
                         response += _resp_chunk.content
                         resp_container.markdown(response)
 
-                # Clear the streaming container and add to chat history
-                # The assistant icon will only appear when displayed from chat history
                 resp_container.empty()
                 add_message("assistant", response, agentic_rag_agent.run_response.tools)
-                # Force refresh to show the final response with assistant icon
+                # Force refresh to show the final response
                 st.rerun()
             except Exception as e:
                 error_message = f"Sorry, I encountered an error: {str(e)}"
-                resp_container.empty()
                 add_message("assistant", error_message)
                 st.error(error_message)
-                st.rerun()
 
     ####################################################################
     # Session management widgets
     ####################################################################
-    session_selector_widget(
-        agentic_rag_agent, model_id, get_agentic_rag_agent, agent_name=agent_name
-    )
+    session_selector_widget(agentic_rag_agent, model_id, agent_name=agent_name)
 
     # Knowledge base information
     knowledge_base_info_widget(agentic_rag_agent)

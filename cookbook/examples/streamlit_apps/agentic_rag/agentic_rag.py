@@ -47,9 +47,9 @@ def get_agentic_rag_agent(
     session_id: Optional[str] = None,
     debug_mode: bool = True,
 ) -> Agent:
-    """Get an Agentic RAG Agent with knowledge"""
+    """Get an Agentic RAG Agent"""
 
-    # Create the Knowledge system with vector store
+    # Set up the knowledge base
     knowledge_base = Knowledge(
         name="Agentic RAG Knowledge Base",
         description="Knowledge base for agentic RAG application",
@@ -59,7 +59,7 @@ def get_agentic_rag_agent(
             schema="ai",
             embedder=OpenAIEmbedder(id="text-embedding-3-small"),
         ),
-        max_results=10,
+        max_results=5,
     )
 
     memory = Memory(
@@ -114,7 +114,6 @@ def get_agentic_rag_agent(
         markdown=True,
         add_datetime_to_instructions=True,
         debug_mode=debug_mode,
-        # show_tool_calls=True,
     )
 
     return agent

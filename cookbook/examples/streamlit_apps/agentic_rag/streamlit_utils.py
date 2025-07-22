@@ -1,32 +1,47 @@
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict, Union
 
 try:
     import streamlit as st
+    from streamlit.delta_generator import DeltaGenerator
 except ImportError:
     raise ImportError(
         "Streamlit is not installed. Please install it with `pip install streamlit`"
     )
 
 from agno.agent import Agent
-from agno.utils.log import log_debug, logger
+from agno.models.message import Message
+from agno.models.response import ToolExecution
+from agno.utils.log import log_debug, log_error, log_warning
+
+
+class SessionMessage(TypedDict):
+    """Type definition for messages stored in Streamlit session state."""
+
+    role: str
+    content: str
+    tool_calls: Optional[List[ToolExecution]]
 
 
 def add_message(
-    role: str, content: str, tool_calls: Optional[List[Dict[str, Any]]] = None
+    role: str, content: str, tool_calls: Optional[List[ToolExecution]] = None
 ) -> None:
+    """Add a message to the Streamlit session state."""
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
-    message = {"role": role, "content": content}
-    if tool_calls:
-        message["tool_calls"] = tool_calls
-
+    message: SessionMessage = {
+        "role": role,
+        "content": content,
+        "tool_calls": tool_calls,
+    }
     st.session_state["messages"].append(message)
 
 
-def display_tool_calls(container, tools: List[Any]):
+def display_tool_calls(
+    container: DeltaGenerator, tools: List[Union[ToolExecution, Dict[str, Any]]]
+) -> None:
     """Display tool calls in expandable sections."""
     if not tools:
         log_debug("No tools calls to display")
@@ -88,7 +103,7 @@ def export_chat_history(app_name: str = "Chat") -> str:
                 title += "..."
             break
 
-    chat_text = f"# {title}\n\n"
+    chat_text = f"# Agentic RAG Chat\n\n"
     chat_text += f"**Exported:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n\n"
     chat_text += "---\n\n"
 
@@ -104,7 +119,7 @@ def export_chat_history(app_name: str = "Chat") -> str:
     return chat_text
 
 
-def restart_st_session(**session_keys) -> None:
+def restart_st_session(**session_keys: str) -> None:
     for key in session_keys.values():
         if key in st.session_state:
             st.session_state[key] = None
@@ -116,7 +131,6 @@ def restart_st_session(**session_keys) -> None:
 def session_selector_widget(
     agent: Agent,
     model_id: str,
-    agent_creation_callback: callable,
     agent_name: str = "agent",
 ) -> None:
     if not agent.memory or not agent.memory.db:
@@ -131,7 +145,7 @@ def session_selector_widget(
             sort_order="desc",
         )
     except Exception as e:
-        logger.error(f"Error fetching sessions: {e}")
+        log_error(f"Error fetching sessions: {e}")
         st.sidebar.error("Could not load sessions")
         return
 
@@ -206,9 +220,7 @@ def session_selector_widget(
         )
 
         if should_load:
-            _load_session(
-                selected_session_id, model_id, agent_creation_callback, agent_name
-            )
+            _load_session(selected_session_id, agent, agent_name)
 
     if agent.session_id:
         if "session_edit_mode" not in st.session_state:
@@ -258,19 +270,23 @@ def session_selector_widget(
 
 def _load_session(
     session_id: str,
-    model_id: str,
-    agent_creation_callback: callable,
+    agent: Agent,
     agent_name: str = "agent",
 ):
     try:
-        new_agent = agent_creation_callback(model_id=model_id, session_id=session_id)
-        st.session_state[agent_name] = new_agent
+        # Use the existing agent and switch its session
+        agent.session_id = session_id
+        # Reset any session-specific state
+        agent.reset_session_state()
+
+        # Update session state
+        st.session_state[agent_name] = agent
         st.session_state["session_id"] = session_id
         st.session_state["messages"] = []
 
         try:
             # Load chat history using the standard method
-            chat_history = new_agent.get_messages_for_session(session_id)
+            chat_history = agent.get_messages_for_session(session_id)
 
             if chat_history:
                 for message in chat_history:
@@ -286,7 +302,7 @@ def _load_session(
                     elif message.role == "assistant":
                         # Get tool executions for this specific message
                         tool_executions = get_tool_executions_for_message(
-                            new_agent, message
+                            agent, message
                         )
                         add_message("assistant", str(message.content), tool_executions)
                     elif message.role == "tool":
@@ -297,15 +313,17 @@ def _load_session(
                         continue
 
         except Exception as e:
-            logger.warning(f"Could not load chat history: {e}")
+            log_warning(f"Could not load chat history: {e}")
 
         st.rerun()
     except Exception as e:
-        logger.error(f"Error loading session {session_id}: {e}")
+        log_error(f"Error loading session {session_id}: {e}")
         st.error(f"Error loading session: {e}")
 
 
-def get_tool_executions_for_message(agent: Agent, message) -> Optional[List[Any]]:
+def get_tool_executions_for_message(
+    agent: Agent, message: Message
+) -> Optional[List[ToolExecution]]:
     """Get tool executions for a message from the agent's session data."""
     if not hasattr(message, "tool_calls") or not message.tool_calls:
         return None
@@ -363,11 +381,11 @@ def knowledge_base_info_widget(agent: Agent) -> None:
         else:
             st.sidebar.metric("Documents Loaded", doc_count)
     except Exception as e:
-        logger.error(f"Error getting knowledge base info: {e}")
+        log_error(f"Error getting knowledge base info: {e}")
         st.sidebar.warning("Could not retrieve knowledge base information")
 
 
-COMMON_CSS = """
+COMMON_CSS: str = """
     <style>
     .main-title {
         text-align: center;

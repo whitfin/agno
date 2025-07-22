@@ -751,6 +751,7 @@ class MemoryManager:
         )
         log_debug(f"Updated team context with member name: {member_name}")
 
+    # TODO: Change to session state
     def set_team_context_text(self, session_id: str, text: Union[dict, str]) -> None:
         if self.team_context is None:
             self.team_context = {}

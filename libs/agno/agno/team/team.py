@@ -5913,6 +5913,7 @@ class Team:
 
         return run_member_agents_func
 
+    # TODO: Review this function
     def _determine_team_context(
         self, session_id: str, images: List[Image], videos: List[Video], audio: List[Audio]
     ) -> Tuple[Optional[str], Optional[str]]:

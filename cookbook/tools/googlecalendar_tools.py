@@ -46,7 +46,7 @@ from agno.tools.googlecalendar import GoogleCalendarTools
 agent = Agent(
     tools=[
         GoogleCalendarTools(
-            credentials_path="./tmp/desktop_credentials.json",  # Path to your downloaded OAuth credentials
+            credentials_path="./credentials.json",  # Path to your downloaded OAuth credentials
         )
     ],
     # show_tool_calls=True,

@@ -71,7 +71,7 @@ def export_chat_history(app_name: str = "Chat") -> str:
     return chat_text
 
 
-def restart_agent_session(**session_keys) -> None:
+def restart_st_session(**session_keys) -> None:
     for key in session_keys.values():
         if key in st.session_state:
             st.session_state[key] = None
@@ -251,6 +251,7 @@ def get_tool_executions_for_message(agent: Agent, message) -> Optional[List[Any]
                                 return run.tools
 
     return None
+
 
 def knowledge_base_info_widget(agent: Agent) -> None:
     """Display knowledge base information widget."""

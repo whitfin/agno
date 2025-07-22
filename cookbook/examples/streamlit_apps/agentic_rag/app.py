@@ -4,6 +4,7 @@ import tempfile
 import nest_asyncio
 import streamlit as st
 from agentic_rag import get_agentic_rag_agent
+from agno.agent import Agent
 from agno.utils.log import logger
 from agno.utils.streamlit import (
     COMMON_CSS,
@@ -11,7 +12,7 @@ from agno.utils.streamlit import (
     display_tool_calls,
     export_chat_history,
     knowledge_base_info_widget,
-    restart_agent_session,
+    restart_st_session,
     session_selector_widget,
 )
 
@@ -29,8 +30,8 @@ st.markdown(COMMON_CSS, unsafe_allow_html=True)
 
 def restart_agent():
     """Reset the agent and clear chat history"""
-    restart_agent_session(
-        agent="agent",
+    restart_st_session(
+        agent="agentic_rag_agent",
         session_id="session_id",
         current_model="current_model",
     )
@@ -80,7 +81,7 @@ def main():
         st.session_state["agentic_rag_agent"] = agentic_rag_agent
         st.session_state["current_model"] = model_id
     else:
-        agentic_rag_agent = st.session_state["agent"]
+        agentic_rag_agent = st.session_state["agentic_rag_agent"]
 
     ####################################################################
     # Session management
@@ -98,7 +99,6 @@ def main():
     # Document Management
     ####################################################################
     st.sidebar.markdown("#### 📚 Document Management")
-   
 
     # URL input
     input_url = st.sidebar.text_input("Add URL to Knowledge Base")
@@ -145,7 +145,6 @@ def main():
         finally:
             alert.empty()
 
-    
     # Clear knowledge base
     if st.sidebar.button("Clear Knowledge Base"):
         if agentic_rag_agent.knowledge.vector_store:

@@ -124,10 +124,12 @@ class GoogleCalendarTools(Toolkit):
                     self.creds = flow.run_local_server(port=self.port)
                 except Exception as e:
                     log_error(f"An error occurred: {e}")
+                    return
 
                 # Save the credentials for future use
-                with open(self.token_path, "w") as token:
-                    token.write(self.creds.to_json())
+                if self.creds:
+                    with open(self.token_path, "w") as token:
+                        token.write(self.creds.to_json())
 
     @authenticate
     def list_events(self, limit: int = 10, date_from: Optional[str] = None, calendar_id: str = "primary") -> str:

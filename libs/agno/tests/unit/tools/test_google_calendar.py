@@ -52,33 +52,33 @@ class TestGoogleCalendarToolsInitialization:
             temp_file = f.name
 
         try:
-            with patch("agno.tools.googlecalendar.logger") as mock_logger:
+            with patch("agno.tools.googlecalendar.log_warning") as mock_log_warning:
                 tools = GoogleCalendarTools(credentials_path=temp_file)
                 assert tools.token_path == "token.json"
-                mock_logger.warning.assert_called_once()
+                mock_log_warning.assert_called_once()
         finally:
             os.unlink(temp_file)
 
-    def test_init_with_tool_flags(self):
-        """Test initialization with specific tool flags."""
-        tools = GoogleCalendarTools(
-            access_token="test_token",
-            list_events=False,
-            create_event=True,
-            update_event=False,
-            delete_event=True,
-            fetch_all_events=False,
-            find_available_slots=True,
-        )
+    def test_init_with_all_tools_registered(self):
+        """Test that all tools are properly registered during initialization."""
+        tools = GoogleCalendarTools(access_token="test_token")
 
-        # Check that only enabled tools are registered
+        # Check that all expected tools are registered
         tool_names = [func.name for func in tools.functions.values()]
-        assert "create_event" in tool_names
-        assert "delete_event" in tool_names
-        assert "find_available_slots" in tool_names
-        assert "list_events" not in tool_names
-        assert "update_event" not in tool_names
-        assert "fetch_all_events" not in tool_names
+        expected_tools = [
+            "list_events",
+            "create_event",
+            "update_event",
+            "delete_event",
+            "fetch_all_events",
+            "find_available_slots",
+        ]
+
+        for tool_name in expected_tools:
+            assert tool_name in tool_names, f"Tool {tool_name} should be registered"
+
+        # Verify we have the expected number of tools
+        assert len(tool_names) == len(expected_tools)
 
 
 class TestGoogleCalendarTokenTools:

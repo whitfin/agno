@@ -4054,16 +4054,17 @@ class Team:
         assistant_message_role = self.model.assistant_message_role if self.model is not None else "assistant"
 
         # Get metrics of the team-agent's messages
-        for member in self.members:
-            # Only members with memory
-            if member.memory is not None:
-                if member.memory.runs is not None:
-                    for runs in member.memory.runs.values():
-                        for run in runs:
-                            if run is not None and run.messages is not None:
-                                for m in run.messages:
-                                    if m.role == assistant_message_role and m.metrics is not None:
-                                        current_session_metrics += m.metrics
+        # for member in self.members:
+        #     # Only members with agent_session
+        #     if member.agent_session is not None:
+        #         if member.agent_session.runs is not None:
+        #             for runs in member.agent_session.runs.values():
+        #                 for run in runs:
+        #                     if run is not None and run.messages is not None:
+        #                         for m in run.messages:
+        #                             if m.role == assistant_message_role and m.metrics is not None:
+        #                                 current_session_metrics += m.metrics
+        #     # TODO: Add metrics member teams
 
         return current_session_metrics
 
@@ -5780,12 +5781,12 @@ class Team:
                 # Update the memory
                 member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
                 self.memory_manager = cast(MemoryManager, self.memory_manager)
-                self.memory_manager.add_interaction_to_team_context(
-                    session_id=session_id,
-                    member_name=member_name,
-                    task=task_description,
-                    run_response=member_agent.run_response,  # type: ignore
-                )
+                # self.team_session.add_interaction_to_team_context(
+                #     session_id=session_id,
+                #     member_name=member_name,
+                #     task=task_description,
+                #     run_response=member_agent.run_response,  # type: ignore
+                # )
 
                 # Add the member run to the team run response
                 self.run_response = cast(TeamRunResponse, self.run_response)
@@ -5852,12 +5853,12 @@ class Team:
 
                     member_name = agent.name if agent.name else f"agent_{idx}"
                     self.memory_manager = cast(MemoryManager, self.memory_manager)
-                    self.memory_manager.add_interaction_to_team_context(
-                        session_id=session_id,
-                        member_name=member_name,
-                        task=task_description,
-                        run_response=agent.run_response,
-                    )
+                    # self.memory_manager.add_interaction_to_team_context(
+                    #     session_id=session_id,
+                    #     member_name=member_name,
+                    #     task=task_description,
+                    #     run_response=agent.run_response,
+                    # )
 
                     # Add the member run to the team run response
                     self.run_response = cast(TeamRunResponse, self.run_response)
@@ -6066,12 +6067,12 @@ class Team:
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
 
             self.memory_manager = cast(MemoryManager, self.memory_manager)
-            self.memory_manager.add_interaction_to_team_context(
-                session_id=session_id,
-                member_name=member_name,
-                task=task_description,
-                run_response=member_agent.run_response,  # type: ignore
-            )
+            # self.memory_manager.add_interaction_to_team_context(
+            #     session_id=session_id,
+            #     member_name=member_name,
+            #     task=task_description,
+            #     run_response=member_agent.run_response,  # type: ignore
+            # )
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)

@@ -1,7 +1,10 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-import streamlit as st
+try:
+    import streamlit as st
+except ImportError:
+    raise ImportError("Streamlit is not installed. Please install it with `pip install streamlit`")
 
 from agno.agent import Agent
 from agno.utils.log import logger
@@ -21,7 +24,6 @@ def add_message(role: str, content: str, tool_calls: Optional[List[Dict[str, Any
 def display_tool_calls(container, tools: List[Any]):
     """Display tool calls in expandable sections."""
     if not tools:
-        return
 
     with container.container():
         for tool in tools:

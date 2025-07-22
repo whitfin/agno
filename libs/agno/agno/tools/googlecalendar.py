@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Any, Dict, List, Optional
 
 from agno.tools import Toolkit
-from agno.utils.log import logger
+from agno.utils.log import log_debug, log_error, log_warning
 
 try:
     from google.auth.transport.requests import Request
@@ -50,12 +50,6 @@ class GoogleCalendarTools(Toolkit):
         credentials_path: Optional[str] = None,
         token_path: Optional[str] = None,
         access_token: Optional[str] = None,
-        list_events: bool = True,
-        create_event: bool = True,
-        update_event: bool = True,
-        delete_event: bool = True,
-        fetch_all_events: bool = True,
-        find_available_slots: bool = True,
         port: int = 8080,
         **kwargs,
     ):
@@ -66,16 +60,12 @@ class GoogleCalendarTools(Toolkit):
             credentials_path (Optional[str]): Path to the credentials.json file for OAuth 2.0 flow
             token_path (Optional[str]): Path to store/retrieve the token.json file
             access_token (Optional[str]): Direct OAuth 2.0 access token for token-based authentication
-            list_events (bool): Enable listing events. Defaults to True.
-            create_event (bool): Enable creating events. Defaults to True.
-            update_event (bool): Enable updating events. Defaults to True.
-            delete_event (bool): Enable deleting events. Defaults to True.
-            fetch_all_events (bool): Enable fetching all events. Defaults to True.
-            find_available_slots (bool): Enable finding available time slots. Defaults to True.
+            port (Optional[int]): Port to use for OAuth authentication. Default is 8080.
         """
 
         self.creds: Optional[Credentials] = None
         self.service: Optional[Any] = None  # Google Calendar service object
+        self.port: int = port
 
         # Token-based authentication
         if access_token:
@@ -84,13 +74,13 @@ class GoogleCalendarTools(Toolkit):
         # File-based authentication
         elif credentials_path:
             if not os.path.exists(credentials_path):
-                logger.error(
+                log_error(
                     "Google Calendar Tool: Credential file path is invalid, please provide the full path of the credentials json file"
                 )
                 raise ValueError("Credentials Path is invalid")
 
             if not token_path:
-                logger.warning(
+                log_warning(
                     f"Google Calendar Tool: Token path is not provided, using {os.getcwd()}/token.json as default path"
                 )
                 token_path = "token.json"
@@ -98,25 +88,21 @@ class GoogleCalendarTools(Toolkit):
             self.credentials_path = credentials_path
             self.token_path = token_path
         else:
-            logger.error("Google Calendar Tool: Please provide either valid credentials path or access token")
+            log_error("Google Calendar Tool: Please provide either valid credentials path or access token")
             raise ValueError("Either credentials path or access token is required")
 
-        # Build tools list
-        tools: List[Any] = []
-        if list_events:
-            tools.append(self.list_events)
-        if create_event:
-            tools.append(self.create_event)
-        if update_event:
-            tools.append(self.update_event)
-        if delete_event:
-            tools.append(self.delete_event)
-        if fetch_all_events:
-            tools.append(self.fetch_all_events)
-        if find_available_slots:
-            tools.append(self.find_available_slots)
-
-        super().__init__(name="google_calendar_tools", tools=tools, **kwargs)
+        super().__init__(
+            name="google_calendar_tools",
+            tools=[
+                self.list_events,
+                self.create_event,
+                self.update_event,
+                self.delete_event,
+                self.fetch_all_events,
+                self.find_available_slots,
+            ],
+            **kwargs,
+        )
 
     def _auth(self) -> None:
         """Authenticate with Google Calendar API"""
@@ -133,26 +119,11 @@ class GoogleCalendarTools(Toolkit):
                 self.creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(self.credentials_path, SCOPES)
-                # Try common ports that should be configured in Google Cloud Console
-                ports_to_try = [8080, 8000, 9000, 8090, 8888]
-
-                for port in ports_to_try:
-                    try:
-                        logger.info(f"Attempting OAuth authentication on port {port}")
-                        self.creds = flow.run_local_server(port=port)
-                        break
-                    except OSError as e:
-                        if "Address already in use" in str(e):
-                            logger.warning(f"Port {port} is in use, trying next port...")
-                            continue
-                        else:
-                            raise e
-                else:
-                    # If all common ports fail, use random port but warn user
-                    logger.warning(
-                        "All common ports in use, using random port. You may need to add this redirect URI to Google Cloud Console."
-                    )
-                    self.creds = flow.run_local_server(port=0)
+                try:
+                    log_debug(f"Attempting OAuth authentication on port {self.port}")
+                    self.creds = flow.run_local_server(port=self.port)
+                except Exception as e:
+                    log_error(f"An error occurred: {e}")
 
                 # Save the credentials for future use
                 with open(self.token_path, "w") as token:
@@ -199,7 +170,7 @@ class GoogleCalendarTools(Toolkit):
                 return json.dumps({"message": "No upcoming events found."})
             return json.dumps(events)
         except HttpError as error:
-            logger.error(f"An error occurred: {error}")
+            log_error(f"An error occurred: {error}")
             return json.dumps({"error": f"An error occurred: {error}"})
 
     @authenticate
@@ -289,10 +260,10 @@ class GoogleCalendarTools(Toolkit):
                 )
                 .execute()
             )
-            logger.info(f"Event created successfully in calendar {calendar_id}. Event ID: {event_result['id']}")
+            log_debug(f"Event created successfully in calendar {calendar_id}. Event ID: {event_result['id']}")
             return json.dumps(event_result)
         except HttpError as error:
-            logger.error(f"An error occurred: {error}")
+            log_error(f"An error occurred: {error}")
             return json.dumps({"error": f"An error occurred: {error}"})
 
     @authenticate
@@ -370,10 +341,10 @@ class GoogleCalendarTools(Toolkit):
                 .execute()
             )
 
-            logger.info(f"Event {event_id} updated successfully.")
+            log_debug(f"Event {event_id} updated successfully.")
             return json.dumps(updated_event)
         except HttpError as error:
-            logger.error(f"An error occurred while updating event: {error}")
+            log_error(f"An error occurred while updating event: {error}")
             return json.dumps({"error": f"An error occurred: {error}"})
 
     @authenticate
@@ -395,10 +366,10 @@ class GoogleCalendarTools(Toolkit):
 
             self.service.events().delete(calendarId=calendar_id, eventId=event_id, sendUpdates=send_updates).execute()
 
-            logger.info(f"Event {event_id} deleted successfully.")
+            log_debug(f"Event {event_id} deleted successfully.")
             return json.dumps({"success": True, "message": f"Event {event_id} deleted successfully."})
         except HttpError as error:
-            logger.error(f"An error occurred while deleting event: {error}")
+            log_error(f"An error occurred while deleting event: {error}")
             return json.dumps({"error": f"An error occurred: {error}"})
 
     @authenticate
@@ -482,13 +453,13 @@ class GoogleCalendarTools(Toolkit):
                 if not page_token:
                     break
 
-            logger.info(f"Fetched {len(all_events)} events from calendar: {calendar_id}")
+            log_debug(f"Fetched {len(all_events)} events from calendar: {calendar_id}")
 
             if not all_events:
                 return json.dumps({"message": "No events found."})
             return json.dumps(all_events)
         except HttpError as error:
-            logger.error(f"An error occurred while fetching events: {error}")
+            log_error(f"An error occurred while fetching events: {error}")
             return json.dumps({"error": f"An error occurred: {error}"})
 
     @authenticate
@@ -606,7 +577,7 @@ class GoogleCalendarTools(Toolkit):
             )
 
         except Exception as e:
-            logger.error(f"An error occurred while finding available slots: {e}")
+            log_error(f"An error occurred while finding available slots: {e}")
             return json.dumps({"error": f"An error occurred: {str(e)}"})
 
 

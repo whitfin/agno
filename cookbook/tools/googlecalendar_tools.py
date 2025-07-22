@@ -46,7 +46,7 @@ from agno.tools.googlecalendar import GoogleCalendarTools
 agent = Agent(
     tools=[
         GoogleCalendarTools(
-            credentials_path="./credentials.json",  # Path to your downloaded OAuth credentials
+            credentials_path="./tmp/desktop_credentials.json",  # Path to your downloaded OAuth credentials
         )
     ],
     # show_tool_calls=True,
@@ -71,7 +71,7 @@ agent.print_response("Give me the list of today's events", markdown=True)
 
 print("\nCreating a test event...")
 agent.print_response(
-    "create an event today from 5pm to 6pm, make the title as 'Team Meeting' and description as 'Weekly team sync'",
+    "create an event tomorrow from 9am to 10am, make the title as 'Team Meeting' and description as 'Weekly team sync'",
     markdown=True,
 )
 

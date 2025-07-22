@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from textwrap import dedent
-from typing import Any, Dict, List, Mapping, Optional, Type, Union
-
-from pydantic import BaseModel
+from typing import Any, Dict, List, Mapping, Optional
 
 from agno.models.message import Message
 from agno.run.base import RunStatus
 from agno.run.response import RunResponse
-from agno.session.summary import SessionSummary, SessionSummaryResponse
+from agno.session.summary import SessionSummary
 from agno.utils.log import log_debug, log_warning
 
 
@@ -40,7 +37,7 @@ class AgentSession:
     # List of all runs in the session
     runs: Optional[List[RunResponse]] = None
     # Summary of the session
-    summary: Optional[SessionSummary] = None
+    summary: Optional["SessionSummary"] = None
 
     # The unix timestamp when this session was created
     created_at: Optional[int] = None

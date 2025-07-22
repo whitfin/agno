@@ -46,7 +46,7 @@ from agno.run.response import (
     RunResponsePausedEvent,
 )
 from agno.run.team import TeamRunResponseEvent
-from agno.session import AgentSession, Session
+from agno.session import AgentSession, Session, SessionSummaryManager
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -119,10 +119,7 @@ class Agent:
     enable_session_summaries: bool = False
     # If True, the agent adds a reference to the session summaries in the response
     add_session_summary_references: Optional[bool] = None
-    # Model and prompt used to create session summaries
-    session_summary_model: Optional[Model] = None
-    session_summary_prompt: Optional[str] = None
-    # Session summary manager to use for this agent
+    # Session summary manager
     session_summary_manager: Optional[SessionSummaryManager] = None
 
     # --- Agent Context ---
@@ -349,6 +346,7 @@ class Agent:
         add_memory_references: Optional[bool] = None,
         enable_session_summaries: bool = False,
         add_session_summary_references: Optional[bool] = None,
+        session_summary_manager: Optional[SessionSummaryManager] = None,
         add_history_to_messages: bool = False,
         num_history_runs: int = 3,
         knowledge: Optional[AgentKnowledge] = None,
@@ -405,7 +403,6 @@ class Agent:
         stream_intermediate_steps: bool = False,
         store_events: bool = False,
         events_to_skip: Optional[List[RunEvent]] = None,
-        role: Optional[str] = None,
         debug_mode: bool = False,
         debug_level: Literal[1, 2] = 1,
         telemetry: bool = True,
@@ -427,10 +424,13 @@ class Agent:
         self.resolve_context = resolve_context
 
         self.db = db
+
         self.memory_manager = memory_manager
         self.enable_agentic_memory = enable_agentic_memory
         self.enable_user_memories = enable_user_memories
         self.add_memory_references = add_memory_references
+
+        self.session_summary_manager = session_summary_manager
         self.enable_session_summaries = enable_session_summaries
         self.add_session_summary_references = add_session_summary_references
 
@@ -586,12 +586,24 @@ class Agent:
             if self.memory_manager.db is None:
                 self.memory_manager.db = self.db
 
+    def set_session_summary_manager(self) -> None:
+        if self.enable_session_summaries and self.session_summary_manager is None:
+            self.session_summary_manager = SessionSummaryManager(model=self.model)
+
+        if self.session_summary_manager is not None:
+            if self.session_summary_manager.model is None:
+                self.session_summary_manager.model = self.model
+
     def set_defaults(self) -> None:
         if self.add_memory_references is None:
-            self.add_memory_references = self.enable_user_memories or self.enable_agentic_memory
+            self.add_memory_references = (
+                self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
+            )
 
         if self.add_session_summary_references is None:
-            self.add_session_summary_references = self.enable_session_summaries
+            self.add_session_summary_references = (
+                self.enable_session_summaries or self.session_summary_manager is not None
+            )
 
     def reset_session_state(self) -> None:
         self.session_name = None
@@ -616,6 +628,7 @@ class Agent:
         self.set_debug()
         self.set_agent_id()
         self.set_memory_manager()
+        self.set_session_summary_manager()
 
         log_debug(f"Agent ID: {self.agent_id}", center=True)
 
@@ -3115,7 +3128,6 @@ class Agent:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         self.run_response = cast(RunResponse, self.run_response)
-        self.memory_manager = cast(MemoryManager, self.memory_manager)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = []
@@ -3167,16 +3179,12 @@ class Agent:
                     log_warning("Unable to add messages to memory")
 
             # Create session summary
-            if self.enable_session_summaries:
+            if self.session_summary_manager is not None:
                 log_debug("Creating session summary.")
-                if self.session_summary_model is None:
-                    self.session_summary_model = self.model
-
                 futures.append(
                     executor.submit(
-                        self.agent_session.create_session_summary,
-                        session_summary_model=self.session_summary_model,
-                        session_summary_prompt=self.session_summary_prompt,
+                        self.session_summary_manager.create_session_summary,
+                        session=self.agent_session,
                     )
                 )
 
@@ -3205,11 +3213,10 @@ class Agent:
         user_id: Optional[str] = None,
     ) -> AsyncIterator[RunResponseEvent]:
         self.run_response = cast(RunResponse, self.run_response)
-        self.memory_manager = cast(MemoryManager, self.memory_manager)
         tasks = []
 
         # Create user memories from single message
-        if self.enable_user_memories and run_messages.user_message is not None:
+        if run_messages.user_message is not None and self.memory_manager is not None:
             log_debug("Creating user memories.")
 
             tasks.append(
@@ -3220,7 +3227,7 @@ class Agent:
 
         # Parse messages if provided
         if (
-            self.enable_user_memories
+            self.memory_manager is not None
             and run_messages.extra_messages is not None
             and len(run_messages.extra_messages) > 0
         ):
@@ -3243,14 +3250,11 @@ class Agent:
                 log_warning("Unable to add messages to memory")
 
         # Create session summary
-        if self.enable_session_summaries:
+        if self.session_summary_manager is not None:
             log_debug("Creating session summary.")
-            if self.session_summary_model is None:
-                self.session_summary_model = self.model
             tasks.append(
-                self.agent_session.acreate_session_summary(
-                    session_summary_model=self.session_summary_model,
-                    session_summary_prompt=self.session_summary_prompt,
+                self.session_summary_manager.acreate_session_summary(
+                    session=self.agent_session,
                 )
             )
 
@@ -4099,18 +4103,16 @@ class Agent:
                     "</updating_user_memories>\n\n"
                 )
 
-            # 3.3.11 Then add a summary of the interaction to the system prompt
-            if self.add_session_summary_references or self.enable_session_summaries:
-                session_summary = self.agent_session.summary
-                if session_summary is not None:
-                    system_message_content += "Here is a brief summary of your previous interactions:\n\n"
-                    system_message_content += "<summary_of_previous_interactions>\n"
-                    system_message_content += session_summary.summary
-                    system_message_content += "\n</summary_of_previous_interactions>\n\n"
-                    system_message_content += (
-                        "Note: this information is from previous interactions and may be outdated. "
-                        "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
-                    )
+        # 3.3.11 Then add a summary of the interaction to the system prompt
+        if self.add_session_summary_references and self.agent_session.summary is not None:
+            system_message_content += "Here is a brief summary of your previous interactions:\n\n"
+            system_message_content += "<summary_of_previous_interactions>\n"
+            system_message_content += self.agent_session.summary.summary
+            system_message_content += "\n</summary_of_previous_interactions>\n\n"
+            system_message_content += (
+                "Note: this information is from previous interactions and may be outdated. "
+                "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
+            )
 
         # 3.3.12 Add the system message from the Model
         system_message_from_model = self.model.get_system_message_for_model(self._tools_for_model)
@@ -6246,11 +6248,7 @@ class Agent:
                     live_log.update(Group(*panels))
                     self.memory_manager.memories_updated = False
 
-                if (
-                    self.agent_session is not None
-                    and self.agent_session.summary is not None
-                    and self.enable_session_summaries
-                ):
+                if self.session_summary_manager is not None and self.session_summary_manager.summaries_updated:
                     summary_panel = create_panel(
                         content=Text("Session summary updated"),
                         title="Session Summary",
@@ -6258,6 +6256,7 @@ class Agent:
                     )
                     panels.append(summary_panel)
                     live_log.update(Group(*panels))
+                    self.session_summary_manager.summaries_updated = False
 
                 response_timer.stop()
 
@@ -6427,11 +6426,7 @@ class Agent:
                     live_log.update(Group(*panels))
                     self.memory_manager.memories_updated = False
 
-                if (
-                    self.agent_session is not None
-                    and self.agent_session.summary is not None
-                    and self.enable_session_summaries
-                ):
+                if self.session_summary_manager is not None and self.session_summary_manager.summaries_updated:
                     summary_panel = create_panel(
                         content=Text("Session summary updated"),
                         title="Session Summary",
@@ -6439,6 +6434,7 @@ class Agent:
                     )
                     panels.append(summary_panel)
                     live_log.update(Group(*panels))
+                    self.session_summary_manager.summaries_updated = False
 
                 # Final update to remove the "Thinking..." status
                 panels = [p for p in panels if not isinstance(p, Status)]
@@ -6699,11 +6695,7 @@ class Agent:
                     live_log.update(Group(*panels))
                     self.memory_manager.memories_updated = False
 
-                if (
-                    self.agent_session is not None
-                    and self.agent_session.summary is not None
-                    and self.enable_session_summaries
-                ):
+                if self.session_summary_manager is not None and self.session_summary_manager.summaries_updated:
                     summary_panel = create_panel(
                         content=Text("Session summary updated"),
                         title="Session Summary",
@@ -6711,6 +6703,7 @@ class Agent:
                     )
                     panels.append(summary_panel)
                     live_log.update(Group(*panels))
+                    self.session_summary_manager.summaries_updated = False
 
                 response_timer.stop()
 
@@ -6878,15 +6871,15 @@ class Agent:
                     self.memory_manager.memories_updated = False
 
                 if (
-                    self.agent_session is not None
-                    and self.agent_session.summary is not None
-                    and self.enable_session_summaries
+                    self.session_summary_manager is not None
+                    and self.session_summary_manager.summaries_updated is not None
                 ):
                     summary_panel = create_panel(
                         content=Text("Session summary updated"),
                         title="Session Summary",
                         border_style="green",
                     )
+                    self.session_summary_manager.summaries_updated = False
                     panels.append(summary_panel)
                     live_log.update(Group(*panels))
 

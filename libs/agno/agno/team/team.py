@@ -27,11 +27,11 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.agent import Agent
-from agno.db.base import BaseDb, SessionType
+from agno.db.base import BaseDb, SessionType, UserMemory
 from agno.exceptions import ModelProviderError, RunCancelledException
 from agno.knowledge.agent import AgentKnowledge
-from agno.memory import MemoryManager
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
+from agno.memory import MemoryManager
 from agno.models.base import Model
 from agno.models.message import Citations, Message, MessageReferences
 from agno.models.metrics import Metrics
@@ -41,7 +41,7 @@ from agno.run.base import RunResponseExtraData, RunStatus
 from agno.run.messages import RunMessages
 from agno.run.response import RunEvent, RunResponse, RunResponseEvent
 from agno.run.team import TeamRunEvent, TeamRunResponse, TeamRunResponseEvent, ToolCallCompletedEvent
-from agno.session import TeamSession
+from agno.session import SessionSummaryManager, TeamSession
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -246,22 +246,19 @@ class Team:
     add_memory_references: Optional[bool] = None
     # If True, the agent creates/updates session summaries at the end of runs
     enable_session_summaries: bool = False
-    # Session summary model
-    session_summary_model: Optional[Model] = None
-    # Session summary prompt
-    session_summary_prompt: Optional[str] = None
+    # # Session summary model
+    # session_summary_model: Optional[Model] = None
+    # # Session summary prompt
+    # session_summary_prompt: Optional[str] = None
+    session_summary_manager: Optional[SessionSummaryManager] = None
     # If True, the agent adds a reference to the session summaries in the response
     add_session_summary_references: Optional[bool] = None
-    # If True, the team stores the chat history in the memory
-    store_chat_history: bool = False
 
     # --- Team History ---
     # If True, enable the team history (Deprecated in favor of add_history_to_messages)
     enable_team_history: bool = False
     # add_history_to_messages=true adds messages from the chat history to the messages list sent to the Model.
     add_history_to_messages: bool = False
-    # Deprecated in favor of num_history_runs: Number of interactions from history
-    num_of_interactions_from_history: Optional[int] = None
     # Number of historical runs to include in the messages
     num_history_runs: int = 3
 
@@ -352,15 +349,15 @@ class Team:
         parser_model_prompt: Optional[str] = None,
         use_json_mode: bool = False,
         parse_response: bool = True,
+        db: Optional[BaseDb] = None,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
         add_memory_references: Optional[bool] = None,
         enable_session_summaries: bool = False,
+        session_summary_manager: Optional[SessionSummaryManager] = None,
         add_session_summary_references: Optional[bool] = None,
-        store_chat_history: bool = False,
         enable_team_history: bool = False,
         add_history_to_messages: bool = False,
-        num_of_interactions_from_history: Optional[int] = None,
         num_history_runs: int = 3,
         extra_data: Optional[Dict[str, Any]] = None,
         reasoning: bool = False,
@@ -436,15 +433,16 @@ class Team:
         self.use_json_mode = use_json_mode
         self.parse_response = parse_response
 
+        self.db = db
+
         self.enable_agentic_memory = enable_agentic_memory
         self.enable_user_memories = enable_user_memories
         self.add_memory_references = add_memory_references
         self.enable_session_summaries = enable_session_summaries
+        self.session_summary_manager = session_summary_manager
         self.add_session_summary_references = add_session_summary_references
-        self.store_chat_history = store_chat_history
         self.enable_team_history = enable_team_history
         self.add_history_to_messages = add_history_to_messages
-        self.num_of_interactions_from_history = num_of_interactions_from_history
         self.num_history_runs = num_history_runs
 
         self.extra_data = extra_data
@@ -592,15 +590,37 @@ class Team:
             log_info("Setting default model to OpenAI Chat")
             self.model = OpenAIChat(id="gpt-4o")
 
+    def set_memory_manager(self) -> None:
+        if self.enable_user_memories and self.memory_manager is None:
+            if self.db is None:
+                log_warning("Database not provided. Memories will not be stored.")
+
+            self.memory_manager = MemoryManager(model=self.model, db=self.db)
+
+        if self.memory_manager is not None:
+            if self.memory_manager.model is None:
+                self.memory_manager.model = self.model
+            if self.memory_manager.db is None:
+                self.memory_manager.db = self.db
+
+    def set_session_summary_manager(self) -> None:
+        if self.enable_session_summaries and self.session_summary_manager is None:
+            self.session_summary_manager = SessionSummaryManager(model=self.model)
+
+        if self.session_summary_manager is not None:
+            if self.session_summary_manager.model is None:
+                self.session_summary_manager.model = self.model
+
     def _set_defaults(self) -> None:
         if self.add_memory_references is None:
-            self.add_memory_references = self.enable_user_memories or self.enable_agentic_memory
+            self.add_memory_references = (
+                self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
+            )
 
         if self.add_session_summary_references is None:
-            self.add_session_summary_references = self.enable_session_summaries
-
-        if self.num_of_interactions_from_history is not None:
-            self.num_history_runs = self.num_of_interactions_from_history
+            self.add_session_summary_references = (
+                self.enable_session_summaries or self.session_summary_manager is not None
+            )
 
     def _reset_session_state(self) -> None:
         self.session_name = None
@@ -1938,7 +1958,6 @@ class Team:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         self.run_response = cast(TeamRunResponse, self.run_response)
-        self.memory_manager = cast(MemoryManager, self.memory_manager)
 
         # Create a thread pool with a reasonable number of workers
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -1946,7 +1965,8 @@ class Team:
             user_message_str = (
                 run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
             )
-            if self.enable_user_memories and user_message_str is not None:
+            # Create user memories
+            if user_message_str is not None and self.memory_manager is not None:
                 futures.append(
                     executor.submit(
                         self.memory_manager.create_user_memories,
@@ -1956,16 +1976,13 @@ class Team:
                     )
                 )
 
-            # Update the session summary if needed
-            if self.enable_session_summaries:
-                if self.session_summary_model is None:
-                    self.session_summary_model = self.model
-
+            # Create session summary
+            if self.session_summary_manager is not None:
+                log_debug("Creating session summary.")
                 futures.append(
                     executor.submit(
-                        self.team_session.create_session_summary,
-                        session_summary_model=self.session_summary_model,
-                        session_summary_prompt=self.session_summary_prompt,
+                        self.session_summary_manager.create_session_summary,
+                        session=self.agent_session,
                     )
                 )
 
@@ -1991,28 +2008,18 @@ class Team:
     async def _aupdate_memory(
         self, run_messages: RunMessages, user_id: Optional[str] = None
     ) -> AsyncIterator[TeamRunResponseEvent]:
-        
         self.run_response = cast(TeamRunResponse, self.run_response)
-        self.memory_manager = cast(MemoryManager, self.memory_manager)
         tasks = []
 
         user_message_str = (
             run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
         )
-        if self.enable_user_memories and user_message_str is not None and user_message_str:
+        if user_message_str is not None and self.memory_manager is not None:
             tasks.append(self.memory_manager.acreate_user_memories(message=user_message_str, user_id=user_id))
 
-        # Update the session summary if needed
-        if self.enable_session_summaries:
-            if self.session_summary_model is None:
-                self.session_summary_model = self.model
+            if self.session_summary_manager is not None:
+                tasks.append(self.session_summary_manager.acreate_session_summary(session=self.team_session))
 
-            tasks.append(
-                self.team_session.acreate_session_summary(
-                    session_summary_model=self.session_summary_model,
-                    session_summary_prompt=self.session_summary_prompt,
-                )
-            )
         if tasks:
             if self.stream_intermediate_steps:
                 yield self._handle_event(
@@ -5059,10 +5066,10 @@ class Team:
             system_message_content += "</attached_media>\n\n"
 
         # Then add memories to the system prompt
-        if self.memory and self.add_memory_references:
+        if self.db is not None and self.add_memory_references:
             if not user_id:
                 user_id = "default"
-            user_memories = self.memory.get_user_memories(user_id=user_id)  # type: ignore
+            user_memories = self.db.get_user_memories(user_id=user_id)  # type: ignore
             if user_memories and len(user_memories) > 0:
                 system_message_content += (
                     "You have access to memories from previous interactions with the user that you can use:\n\n"
@@ -5635,8 +5642,8 @@ class Team:
             Args:
                 state (str or dict): The state to set as the team context.
             """
-            self.memory.set_team_context_text(session_id=session_id, text=state)  # type: ignore
-            msg = f"Current team context: {self.memory.get_team_context_str(session_id=session_id)}"  # type: ignore
+            self.memory_manager.set_team_context_text(session_id=session_id, text=state)  # type: ignore
+            msg = f"Current team context: {self.memory_manager.get_team_context_str(session_id=session_id)}"  # type: ignore
             log_debug(msg)  # type: ignore
             return msg
 
@@ -5909,7 +5916,6 @@ class Team:
     def _determine_team_context(
         self, session_id: str, images: List[Image], videos: List[Video], audio: List[Audio]
     ) -> Tuple[Optional[str], Optional[str]]:
-
         self.memory_manager = cast(MemoryManager, self.memory_manager)
         team_context_str = None
         if self.enable_agentic_context:
@@ -6585,9 +6591,9 @@ class Team:
             return self.team_session
 
         # Try to load from database
-        if self.memory is not None and self.memory.db is not None:
+        if self.db is not None:
             self.team_session = cast(
-                TeamSession, self.memory.read_session(session_id=session_id, session_type=SessionType.TEAM)
+                TeamSession, self.db.get_session(session_id=session_id, session_type=SessionType.TEAM)
             )
             if self.team_session is not None:
                 self.load_team_session(session=self.team_session)
@@ -6613,17 +6619,15 @@ class Team:
         Returns:
             Optional[TeamSession]: The saved TeamSession or None if not saved.
         """
-        if self.memory is not None and self.memory.db is not None:
+        if self.db is not None:
             session = self.get_team_session(session_id=session_id, user_id=user_id)
             if not session:
                 return None
 
             # Update the session_data with the latest data
             session.session_data = self.get_team_session_data()
-            if self.store_chat_history:
-                session.chat_history = session.get_chat_history()
 
-            self.memory.upsert_session(session=session)
+            self.db.upsert_session(session=session)
         return self.team_session
 
     def rename_session(self, session_name: str, session_id: Optional[str] = None) -> Optional[TeamSession]:
@@ -6642,8 +6646,8 @@ class Team:
 
     def delete_session(self, session_id: str) -> None:
         """Delete the current session and save to storage"""
-        if self.memory is not None and self.memory.db is not None:
-            self.memory.db.delete_session(session_id=session_id, session_type=SessionType.TEAM)
+        if self.db is not None:
+            self.db.delete_session(session_id=session_id, session_type=SessionType.TEAM)
 
     def load_team_session(self, session: TeamSession):
         """Load the existing TeamSession from an TeamSession (from the database)"""
@@ -6783,14 +6787,8 @@ class Team:
 
     def get_chat_history(self) -> List[Message]:
         """Read the chat history from the session"""
-        from agno.db.base import SessionType
-
-        # If the chat history is already set, return it
-        if self.team_session is not None and self.team_session.chat_history is not None:
-            return self.team_session.chat_history
-        # Else read from the db
-        if self.memory is not None and self.memory.db is not None:
-            return self.memory.read_chat_history(session_id=self.session_id, session_type=SessionType.TEAM)
+        if self.team_session is not None:
+            return self.team_session.get_chat_history()
         return []
 
     def get_messages_for_session(
@@ -6802,10 +6800,10 @@ class Team:
             log_warning("Session ID is not set, cannot get messages for session")
             return []
 
-        if self.memory is None:
+        if self.team_session is None:
             self.get_team_session(session_id=_session_id)
 
-        if self.memory is None:
+        if self.team_session is None:
             return []
 
         if self.team_session is not None:
@@ -6819,27 +6817,24 @@ class Team:
 
     def get_session_summary(self, session_id: Optional[str] = None, user_id: Optional[str] = None):
         """Get the session summary for the given session ID and user ID."""
-        if self.memory is None:
+        if self.team_session is None:
             return None
 
         session_id = session_id if session_id is not None else self.session_id
         if session_id is None:
             raise ValueError("Session ID is required")
 
-        # TODO: Add a db call to get the session summary
         return self.team_session.get_session_summary(session_id=session_id, user_id=user_id)
 
-    def get_user_memories(self, user_id: Optional[str] = None):
+    def get_user_memories(self, user_id: Optional[str] = None) -> Optional[List[UserMemory]]:
         """Get the user memories for the given user ID."""
-        if self.memory is None:
+        if self.memory_manager is None:
             return None
         user_id = user_id if user_id is not None else self.user_id
         if user_id is None:
             user_id = "default"
 
-        if self.memory_manager is not None:
-            return self.memory_manager.get_user_memories(user_id=user_id)
-        raise ValueError(f"Memory type {type(self.memory)} not supported")
+        return self.memory_manager.get_user_memories(user_id=user_id)
 
     ###########################################################################
     # Handle images, videos and audio

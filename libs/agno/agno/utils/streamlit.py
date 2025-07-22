@@ -6,9 +6,7 @@ try:
     import streamlit as st
     from streamlit.delta_generator import DeltaGenerator
 except ImportError:
-    raise ImportError(
-        "Streamlit is not installed. Please install it with `pip install streamlit`"
-    )
+    raise ImportError("Streamlit is not installed. Please install it with `pip install streamlit`")
 
 from agno.agent import Agent
 from agno.models.message import Message
@@ -24,9 +22,7 @@ class SessionMessage(TypedDict):
     tool_calls: Optional[List[ToolExecution]]
 
 
-def add_message(
-    role: str, content: str, tool_calls: Optional[List[ToolExecution]] = None
-) -> None:
+def add_message(role: str, content: str, tool_calls: Optional[List[ToolExecution]] = None) -> None:
     """Add a message to the Streamlit session state."""
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
@@ -39,9 +35,7 @@ def add_message(
     st.session_state["messages"].append(message)
 
 
-def display_tool_calls(
-    container: DeltaGenerator, tools: List[Union[ToolExecution, Dict[str, Any]]]
-) -> None:
+def display_tool_calls(container: DeltaGenerator, tools: List[Union[ToolExecution, Dict[str, Any]]]) -> None:
     """Display tool calls in expandable sections."""
     if not tools:
         log_debug("No tools calls to display")
@@ -83,25 +77,12 @@ def display_tool_calls(
 
                     except (json.JSONDecodeError, ValueError, TypeError):
                         # Fallback to text display for non-JSON content
-                        result_str = str(result)
-                        if len(result_str) > 500:
-                            st.text(f"Found {len(result_str)} characters of data")
-                            st.text(result_str[:200] + "...")
-                        else:
-                            st.text(result_str)
+                        log_warning(f"Failed to parse tool result: {result}")
 
 
 def export_chat_history(app_name: str = "Chat") -> str:
     if "messages" not in st.session_state or not st.session_state["messages"]:
         return "# Chat History\n\n*No messages to export*"
-
-    title = "Chat History"
-    for msg in st.session_state["messages"]:
-        if msg.get("role") == "user" and msg.get("content"):
-            title = msg["content"][:100]
-            if len(msg["content"]) > 100:
-                title += "..."
-            break
 
     chat_text = f"# Agentic RAG Chat\n\n"
     chat_text += f"**Exported:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n\n"
@@ -193,11 +174,7 @@ def session_selector_widget(
 
     if current_session_id:
         display_options = session_options
-        selected_index = (
-            session_options.index(current_selection)
-            if current_selection in session_options
-            else 0
-        )
+        selected_index = session_options.index(current_selection) if current_selection in session_options else 0
     else:
         display_options = ["🆕 New Chat"] + session_options
         selected_index = 0
@@ -212,16 +189,14 @@ def session_selector_widget(
     if selected != "🆕 New Chat" and selected in session_dict:
         selected_session_id = session_dict[selected]
 
-        # Always load if current_session_id is None/empty (new chat state) or different
-        should_load = (
-            current_session_id is None
-            or current_session_id == ""
-            or selected_session_id != current_session_id
+        _is_session_changed = (
+            current_session_id is None or current_session_id == "" or selected_session_id != current_session_id
         )
 
-        if should_load:
+        if _is_session_changed:
             _load_session(selected_session_id, agent, agent_name)
 
+    # Rename session
     if agent.session_id:
         if "session_edit_mode" not in st.session_state:
             st.session_state.session_edit_mode = False
@@ -237,9 +212,7 @@ def session_selector_widget(
                     st.session_state.session_edit_mode = True
                     st.rerun()
         else:
-            new_name = st.sidebar.text_input(
-                "Enter new name:", value=current_name, key="session_name_input"
-            )
+            new_name = st.sidebar.text_input("Enter new name:", value=current_name, key="session_name_input")
 
             col1, col2 = st.sidebar.columns([1, 1])
             with col1:
@@ -261,9 +234,7 @@ def session_selector_widget(
                         st.sidebar.error("Please enter a valid name")
 
             with col2:
-                if st.button(
-                    "❌ Cancel", use_container_width=True, key="cancel_session_rename"
-                ):
+                if st.button("❌ Cancel", use_container_width=True, key="cancel_session_rename"):
                     st.session_state.session_edit_mode = False
                     st.rerun()
 
@@ -293,17 +264,15 @@ def _load_session(
                     if message.role == "user":
                         # Check if this is a tool result message disguised as a user message
                         content_str = str(message.content).strip()
-                        if content_str.startswith(
-                            "[{'type': 'tool_result'"
-                        ) or content_str.startswith('[{"type": "tool_result"'):
+                        if content_str.startswith("[{'type': 'tool_result'") or content_str.startswith(
+                            '[{"type": "tool_result"'
+                        ):
                             continue
 
                         add_message("user", str(message.content))
                     elif message.role == "assistant":
                         # Get tool executions for this specific message
-                        tool_executions = get_tool_executions_for_message(
-                            agent, message
-                        )
+                        tool_executions = get_tool_executions_for_message(agent, message)
                         add_message("assistant", str(message.content), tool_executions)
                     elif message.role == "tool":
                         # Skip tool messages - these are internal and shouldn't be shown to users
@@ -321,9 +290,7 @@ def _load_session(
         st.error(f"Error loading session: {e}")
 
 
-def get_tool_executions_for_message(
-    agent: Agent, message: Message
-) -> Optional[List[ToolExecution]]:
+def get_tool_executions_for_message(agent: Agent, message: Message) -> Optional[List[ToolExecution]]:
     """Get tool executions for a message from the agent's session data."""
     if not hasattr(message, "tool_calls") or not message.tool_calls:
         return None
@@ -338,11 +305,7 @@ def get_tool_executions_for_message(
         return None
 
     # Find matching tool executions from agent session
-    if (
-        hasattr(agent, "agent_session")
-        and agent.agent_session
-        and agent.agent_session.runs
-    ):
+    if hasattr(agent, "agent_session") and agent.agent_session and agent.agent_session.runs:
         matching_tools = []
 
         # Search through runs to find tool executions that match this message's tool call IDs

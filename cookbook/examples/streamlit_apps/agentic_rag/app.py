@@ -6,7 +6,7 @@ import streamlit as st
 from agentic_rag import get_agentic_rag_agent
 from agno.agent import Agent
 from agno.utils.log import logger
-from streamlit_utils import (
+from agno.utils.streamlit import (
     COMMON_CSS,
     add_message,
     display_tool_calls,
@@ -51,11 +51,11 @@ def main():
     # Model selector
     ####################################################################
     model_options = {
+        "claude-4-sonnet": "anthropic:claude-sonnet-4-0",
         "o3-mini": "openai:o3-mini",
         "kimi-k2-instruct": "groq:moonshotai/kimi-k2-instruct",
         "gpt-4o": "openai:gpt-4o",
         "gemini-2.5-pro": "google:gemini-2.5-pro",
-        "claude-4-sonnet": "anthropic:claude-sonnet-4-0",
     }
     selected_model = st.sidebar.selectbox(
         "Select a model",
@@ -242,8 +242,13 @@ def main():
                 # Run the agent and stream the response
                 run_response = agentic_rag_agent.run(question, stream=True)
                 for _resp_chunk in run_response:
-                    # Display tool calls if available (without assistant icon)
-                    if hasattr(_resp_chunk, "tool") and _resp_chunk.tool:
+                    # Display tool calls if available (only for completed events)
+                    if (
+                        hasattr(_resp_chunk, "tool")
+                        and _resp_chunk.tool
+                        and hasattr(_resp_chunk, "event")
+                        and _resp_chunk.event == "ToolCallCompleted"
+                    ):
                         display_tool_calls(tool_calls_container, [_resp_chunk.tool])
 
                     # Display response content without assistant icon during streaming
@@ -253,7 +258,6 @@ def main():
 
                 resp_container.empty()
                 add_message("assistant", response, agentic_rag_agent.run_response.tools)
-                # Force refresh to show the final response
                 st.rerun()
             except Exception as e:
                 error_message = f"Sorry, I encountered an error: {str(e)}"

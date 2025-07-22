@@ -68,20 +68,21 @@ def main():
     ####################################################################
     # Initialize Agent
     ####################################################################
+    agent_name = "agentic_rag_agent"
     agentic_rag_agent: Agent
     if (
-        "agentic_rag_agent" not in st.session_state
-        or st.session_state["agentic_rag_agent"] is None
+        agent_name not in st.session_state
+        or st.session_state[agent_name] is None
         or st.session_state.get("current_model") != model_id
     ):
         agentic_rag_agent = get_agentic_rag_agent(
             model_id=model_id, session_id=st.session_state.get("session_id")
         )
 
-        st.session_state["agentic_rag_agent"] = agentic_rag_agent
+        st.session_state[agent_name] = agentic_rag_agent
         st.session_state["current_model"] = model_id
     else:
-        agentic_rag_agent = st.session_state["agentic_rag_agent"]
+        agentic_rag_agent = st.session_state[agent_name]
 
     ####################################################################
     # Session management
@@ -263,7 +264,9 @@ def main():
     ####################################################################
     # Session management widgets
     ####################################################################
-    session_selector_widget(agentic_rag_agent, model_id, get_agentic_rag_agent)
+    session_selector_widget(
+        agentic_rag_agent, model_id, get_agentic_rag_agent, agent_name=agent_name
+    )
 
     # Knowledge base information
     knowledge_base_info_widget(agentic_rag_agent)

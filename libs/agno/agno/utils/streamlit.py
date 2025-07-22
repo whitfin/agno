@@ -80,7 +80,9 @@ def restart_st_session(**session_keys) -> None:
     st.rerun()
 
 
-def session_selector_widget(agent: Agent, model_id: str, agent_creation_callback: callable) -> None:
+def session_selector_widget(
+    agent: Agent, model_id: str, agent_creation_callback: callable, agent_name: str = "agent"
+) -> None:
     if not agent.memory or not agent.memory.db:
         st.sidebar.info("💡 Memory not configured. Sessions will not be saved.")
         return
@@ -156,7 +158,7 @@ def session_selector_widget(agent: Agent, model_id: str, agent_creation_callback
     if selected != "🆕 New Chat" and selected in session_dict:
         selected_session_id = session_dict[selected]
         if selected_session_id != current_session_id:
-            _load_session(selected_session_id, model_id, agent_creation_callback)
+            _load_session(selected_session_id, model_id, agent_creation_callback, agent_name)
 
     if agent.session_id:
         if "session_edit_mode" not in st.session_state:
@@ -200,10 +202,10 @@ def session_selector_widget(agent: Agent, model_id: str, agent_creation_callback
                     st.rerun()
 
 
-def _load_session(session_id: str, model_id: str, agent_creation_callback: callable):
+def _load_session(session_id: str, model_id: str, agent_creation_callback: callable, agent_name: str = "agent"):
     try:
         new_agent = agent_creation_callback(model_id=model_id, session_id=session_id)
-        st.session_state["agent"] = new_agent
+        st.session_state[agent_name] = new_agent
         st.session_state["session_id"] = session_id
         st.session_state["messages"] = []
 

@@ -114,6 +114,7 @@ def get_agentic_rag_agent(
         markdown=True,
         add_datetime_to_instructions=True,
         debug_mode=debug_mode,
+        # show_tool_calls=True,
     )
 
     return agent

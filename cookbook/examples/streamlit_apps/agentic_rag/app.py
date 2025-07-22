@@ -6,7 +6,7 @@ import streamlit as st
 from agentic_rag import get_agentic_rag_agent
 from agno.agent import Agent
 from agno.utils.log import logger
-from agno.utils.streamlit import (
+from streamlit_utils import (
     COMMON_CSS,
     add_message,
     display_tool_calls,
@@ -213,17 +213,18 @@ def main():
     for message in st.session_state["messages"]:
         if message["role"] in ["user", "assistant"]:
             content = message["content"]
-            with st.chat_message(message["role"]):
-                # Display tool calls first if they exist
-                if "tool_calls" in message and message["tool_calls"]:
-                    display_tool_calls(st.container(), message["tool_calls"])
 
-                # Display content if it exists and is not "None"
-                if (
-                    content is not None
-                    and str(content).strip()
-                    and str(content).strip().lower() != "none"
-                ):
+            # Display tool calls first if they exist (without assistant icon)
+            if "tool_calls" in message and message["tool_calls"]:
+                display_tool_calls(st.container(), message["tool_calls"])
+
+            # Only display the message content if it exists and is not empty/None
+            if (
+                content is not None
+                and str(content).strip()
+                and str(content).strip().lower() != "none"
+            ):
+                with st.chat_message(message["role"]):
                     st.markdown(content)
 
     ####################################################################
@@ -234,32 +235,39 @@ def main():
     )
     if last_message and last_message.get("role") == "user":
         question = last_message["content"]
-        with st.chat_message("assistant"):
-            # Create container for tool calls
-            tool_calls_container = st.empty()
-            resp_container = st.empty()
-            with st.spinner("🤔 Thinking..."):
-                response = ""
-                try:
-                    # Run the agent and stream the response
-                    run_response = agentic_rag_agent.run(question, stream=True)
-                    for _resp_chunk in run_response:
-                        # Display tool calls if available
-                        if hasattr(_resp_chunk, "tool") and _resp_chunk.tool:
-                            display_tool_calls(tool_calls_container, [_resp_chunk.tool])
 
-                        # Display response content
-                        if _resp_chunk.content is not None:
-                            response += _resp_chunk.content
-                            resp_container.markdown(response)
+        # Create containers outside of any chat message context
+        tool_calls_container = st.container()
 
-                    add_message(
-                        "assistant", response, agentic_rag_agent.run_response.tools
-                    )
-                except Exception as e:
-                    error_message = f"Sorry, I encountered an error: {str(e)}"
-                    add_message("assistant", error_message)
-                    st.error(error_message)
+        # Show streaming response without assistant icon
+        resp_container = st.empty()
+        with st.spinner("🤔 Thinking..."):
+            response = ""
+            try:
+                # Run the agent and stream the response
+                run_response = agentic_rag_agent.run(question, stream=True)
+                for _resp_chunk in run_response:
+                    # Display tool calls if available (without assistant icon)
+                    if hasattr(_resp_chunk, "tool") and _resp_chunk.tool:
+                        display_tool_calls(tool_calls_container, [_resp_chunk.tool])
+
+                    # Display response content without assistant icon during streaming
+                    if _resp_chunk.content is not None:
+                        response += _resp_chunk.content
+                        resp_container.markdown(response)
+
+                # Clear the streaming container and add to chat history
+                # The assistant icon will only appear when displayed from chat history
+                resp_container.empty()
+                add_message("assistant", response, agentic_rag_agent.run_response.tools)
+                # Force refresh to show the final response with assistant icon
+                st.rerun()
+            except Exception as e:
+                error_message = f"Sorry, I encountered an error: {str(e)}"
+                resp_container.empty()
+                add_message("assistant", error_message)
+                st.error(error_message)
+                st.rerun()
 
     ####################################################################
     # Session management widgets

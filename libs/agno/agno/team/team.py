@@ -593,9 +593,6 @@ class Team:
             self.model = OpenAIChat(id="gpt-4o")
 
     def set_memory_manager(self) -> None:
-        if not self.enable_user_memories:
-            return
-
         if self.db is None:
             log_warning("Database not provided. Memories will not be stored.")
 
@@ -658,8 +655,10 @@ class Team:
         self._set_team_id()
 
         # Set the memory manager and session summary manager
-        self.set_memory_manager()
-        self.set_session_summary_manager()
+        if self.enable_user_memories or self.memory_manager is not None:
+            self.set_memory_manager()
+        if self.enable_session_summaries or self.session_summary_manager is not None:
+            self.set_session_summary_manager()
 
         log_debug(f"Team ID: {self.team_id}", center=True)
 
@@ -2025,8 +2024,8 @@ class Team:
         if user_message_str is not None and self.memory_manager is not None:
             tasks.append(self.memory_manager.acreate_user_memories(message=user_message_str, user_id=user_id))
 
-            if self.session_summary_manager is not None:
-                tasks.append(self.session_summary_manager.acreate_session_summary(session=self.team_session))
+        if self.session_summary_manager is not None:
+            tasks.append(self.session_summary_manager.acreate_session_summary(session=self.team_session))
 
         if tasks:
             if self.stream_intermediate_steps:
@@ -6842,8 +6841,7 @@ class Team:
     def add_interaction_to_team_context(
         self, session_id: str, member_name: str, task: str, run_response: Union[RunResponse, TeamRunResponse]
     ) -> None:
-        if self._team_context is None:
-            self._team_context = {}
+        self._team_context = {}
         if session_id not in self._team_context:
             self._team_context[session_id] = {}
         self._team_context[session_id] = {

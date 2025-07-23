@@ -574,13 +574,15 @@ class Agent:
             self.model = OpenAIChat(id="gpt-4o")
 
     def set_memory_manager(self) -> None:
-        if self.enable_user_memories and self.memory_manager is None:
-            if self.db is None:
-                log_warning("Database not provided. Memories will not be stored.")
+        if not self.enable_user_memories:
+            return
 
+        if self.db is None:
+            log_warning("Database not provided. Memories will not be stored.")
+
+        if self.memory_manager is None:
             self.memory_manager = MemoryManager(model=self.model, db=self.db)
-
-        if self.memory_manager is not None:
+        else:
             if self.memory_manager.model is None:
                 self.memory_manager.model = self.model
             if self.memory_manager.db is None:

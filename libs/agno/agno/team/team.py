@@ -593,13 +593,15 @@ class Team:
             self.model = OpenAIChat(id="gpt-4o")
 
     def set_memory_manager(self) -> None:
-        if self.enable_user_memories and self.memory_manager is None:
-            if self.db is None:
-                log_warning("Database not provided. Memories will not be stored.")
+        if not self.enable_user_memories:
+            return
 
+        if self.db is None:
+            log_warning("Database not provided. Memories will not be stored.")
+
+        if self.memory_manager is None:
             self.memory_manager = MemoryManager(model=self.model, db=self.db)
-
-        if self.memory_manager is not None:
+        else:
             if self.memory_manager.model is None:
                 self.memory_manager.model = self.model
             if self.memory_manager.db is None:
@@ -654,6 +656,10 @@ class Team:
 
         # Set the team ID if not set
         self._set_team_id()
+
+        # Set the memory manager and session summary manager
+        self.set_memory_manager()
+        self.set_session_summary_manager()
 
         log_debug(f"Team ID: {self.team_id}", center=True)
 
@@ -1984,7 +1990,7 @@ class Team:
                 futures.append(
                     executor.submit(
                         self.session_summary_manager.create_session_summary,
-                        session=self.agent_session,
+                        session=self.team_session,
                     )
                 )
 

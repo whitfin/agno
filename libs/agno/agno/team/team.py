@@ -501,6 +501,8 @@ class Team:
         # True if we should parse a member response model
         self._member_response_model: Optional[Type[BaseModel]] = None
 
+        self._team_context: Optional[Dict[str, Any]] = None
+
         self._formatter: Optional[SafeFormatter] = None
 
     @property
@@ -4055,15 +4057,16 @@ class Team:
 
         # Get metrics of the team-agent's messages
         for member in self.members:
-            # Only members with memory
-            if member.memory is not None:
-                if member.memory.runs is not None:
-                    for runs in member.memory.runs.values():
-                        for run in runs:
-                            if run is not None and run.messages is not None:
-                                for m in run.messages:
-                                    if m.role == assistant_message_role and m.metrics is not None:
-                                        current_session_metrics += m.metrics
+            # Only members with agent_session
+            if member.agent_session is not None:
+                if member.agent_session.runs is not None:
+                    for run in member.agent_session.runs:
+                        if run is not None and run.messages is not None:
+                            for m in run.messages:
+                                if m.role == assistant_message_role and m.metrics is not None:
+                                    current_session_metrics += m.metrics
+
+        # TODO: Get metrics when members are teams
 
         return current_session_metrics
 
@@ -5635,6 +5638,7 @@ class Team:
         return get_team_history
 
     def get_set_shared_context_function(self, session_id: str) -> Callable:
+        # TODO: Change fn name to set_session_state
         def set_shared_context(state: Union[str, dict]) -> str:
             """
             Set or update the team's shared context with the given state.
@@ -5642,8 +5646,8 @@ class Team:
             Args:
                 state (str or dict): The state to set as the team context.
             """
-            self.memory_manager.set_team_context_text(session_id=session_id, text=state)  # type: ignore
-            msg = f"Current team context: {self.memory_manager.get_team_context_str(session_id=session_id)}"  # type: ignore
+            self.set_team_context_text(session_id=session_id, text=state)  # type: ignore
+            msg = f"Current team context: {self.get_team_context_str(session_id=session_id)}"  # type: ignore
             log_debug(msg)  # type: ignore
             return msg
 
@@ -5779,8 +5783,7 @@ class Team:
 
                 # Update the memory
                 member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-                self.memory_manager = cast(MemoryManager, self.memory_manager)
-                self.memory_manager.add_interaction_to_team_context(
+                self.add_interaction_to_team_context(
                     session_id=session_id,
                     member_name=member_name,
                     task=task_description,
@@ -5851,8 +5854,7 @@ class Team:
                     check_if_run_cancelled(response)
 
                     member_name = agent.name if agent.name else f"agent_{idx}"
-                    self.memory_manager = cast(MemoryManager, self.memory_manager)
-                    self.memory_manager.add_interaction_to_team_context(
+                    self.add_interaction_to_team_context(
                         session_id=session_id,
                         member_name=member_name,
                         task=task_description,
@@ -5913,23 +5915,21 @@ class Team:
 
         return run_member_agents_func
 
-    # TODO: Review this function
     def _determine_team_context(
         self, session_id: str, images: List[Image], videos: List[Video], audio: List[Audio]
     ) -> Tuple[Optional[str], Optional[str]]:
-        self.memory_manager = cast(MemoryManager, self.memory_manager)
         team_context_str = None
         if self.enable_agentic_context:
-            team_context_str = self.memory_manager.get_team_context_str(session_id=session_id)  # type: ignore
+            team_context_str = self.get_team_context_str(session_id=session_id)  # type: ignore
 
         team_member_interactions_str = None
         if self.share_member_interactions:
-            team_member_interactions_str = self.memory_manager.get_team_member_interactions_str(session_id=session_id)  # type: ignore
-            if context_images := self.memory_manager.get_team_context_images(session_id=session_id):  # type: ignore
+            team_member_interactions_str = self.get_team_member_interactions_str(session_id=session_id)  # type: ignore
+            if context_images := self.get_team_context_images(session_id=session_id):  # type: ignore
                 images.extend([Image.from_artifact(img) for img in context_images])
-            if context_videos := self.memory_manager.get_team_context_videos(session_id=session_id):  # type: ignore
+            if context_videos := self.get_team_context_videos(session_id=session_id):  # type: ignore
                 videos.extend([Video.from_artifact(vid) for vid in context_videos])
-            if context_audio := self.memory_manager.get_team_context_audio(session_id=session_id):  # type: ignore
+            if context_audio := self.get_team_context_audio(session_id=session_id):  # type: ignore
                 audio.extend([Audio.from_artifact(aud) for aud in context_audio])
         return team_context_str, team_member_interactions_str
 
@@ -6066,8 +6066,7 @@ class Team:
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
 
-            self.memory_manager = cast(MemoryManager, self.memory_manager)
-            self.memory_manager.add_interaction_to_team_context(
+            self.add_interaction_to_team_context(
                 session_id=session_id,
                 member_name=member_name,
                 task=task_description,
@@ -6188,8 +6187,7 @@ class Team:
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-            self.memory_manager = cast(MemoryManager, self.memory_manager)
-            self.memory_manager.add_interaction_to_team_context(
+            self.add_interaction_to_team_context(
                 session_id=session_id,
                 member_name=member_name,
                 task=task_description,
@@ -6420,8 +6418,7 @@ class Team:
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-            self.memory_manager = cast(MemoryManager, self.memory_manager)
-            self.memory_manager.add_interaction_to_team_context(
+            self.add_interaction_to_team_context(
                 session_id=session_id,  # type: ignore
                 member_name=member_name,
                 task=message.get_content_string(),
@@ -6541,8 +6538,7 @@ class Team:
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-            self.memory_manager = cast(MemoryManager, self.memory_manager)
-            self.memory_manager.add_interaction_to_team_context(
+            self.add_interaction_to_team_context(
                 session_id=session_id,  # type: ignore
                 member_name=member_name,
                 task=message.get_content_string(),
@@ -6836,6 +6832,102 @@ class Team:
             user_id = "default"
 
         return self.memory_manager.get_user_memories(user_id=user_id)
+
+    def add_interaction_to_team_context(
+        self, session_id: str, member_name: str, task: str, run_response: Union[RunResponse, TeamRunResponse]
+    ) -> None:
+        if self._team_context is None:
+            self._team_context = {}
+        if session_id not in self._team_context:
+            self._team_context[session_id] = {}
+        self._team_context[session_id] = {
+            "member_name": member_name,
+            "task": task,
+            "response": run_response,
+        }
+        log_debug(f"Updated team context with member name: {member_name}")
+
+    def set_team_context_text(self, session_id: str, text: Union[dict, str]) -> None:
+        if self.team_session_state is None:
+            self.team_session_state = {}
+        if session_id not in self.team_session_state:
+            self.team_session_state[session_id] = {}
+        if isinstance(text, dict):
+            if self.team_session_state[session_id].text is not None:
+                try:
+                    current_context = self.team_session_state[session_id]
+                except Exception:
+                    current_context = {}
+            else:
+                current_context = {}
+            current_context.update(text)
+            self.team_session_state[session_id] = current_context
+        else:
+            # If string then we overwrite the current context
+            self.team_session_state[session_id] = text
+
+    def get_team_context_str(self, session_id: str) -> str:
+        if not self.team_session_state:
+            return ""
+        session_team_context = self.team_session_state.get(session_id, None)
+        if session_team_context:
+            return f"<team context>\n{session_team_context}\n</team context>\n"
+        return ""
+
+    def get_team_member_interactions_str(self, session_id: str) -> str:
+        if not self._team_context:
+            return ""
+        team_member_interactions_str = ""
+        session_team_context = self._team_context.get(session_id, None)
+        if session_team_context:
+            team_member_interactions_str += "<member interactions>\n"
+
+            for interaction in session_team_context:
+                response_dict = interaction.response.to_dict()
+                response_content = (
+                    response_dict.get("content")
+                    or ",".join([tool.get("content", "") for tool in response_dict.get("tools", [])])
+                    or ""
+                )
+                team_member_interactions_str += f"Member: {interaction.member_name}\n"
+                team_member_interactions_str += f"Task: {interaction.task}\n"
+                team_member_interactions_str += f"Response: {response_content}\n"
+                team_member_interactions_str += "\n"
+            team_member_interactions_str += "</member interactions>\n"
+        return team_member_interactions_str
+
+    def get_team_context_images(self, session_id: str) -> List[ImageArtifact]:
+        if not self._team_context:
+            return []
+        images = []
+        session_team_context = self._team_context.get(session_id, None)
+        if session_team_context:
+            for interaction in session_team_context:
+                if interaction.response.images:
+                    images.extend(interaction.response.images)
+        return images
+
+    def get_team_context_videos(self, session_id: str) -> List[VideoArtifact]:
+        if not self._team_context:
+            return []
+        videos = []
+        session_team_context = self._team_context.get(session_id, None)
+        if session_team_context:
+            for interaction in session_team_context:
+                if interaction.response.videos:
+                    videos.extend(interaction.response.videos)
+        return videos
+
+    def get_team_context_audio(self, session_id: str) -> List[AudioArtifact]:
+        if not self._team_context:
+            return []
+        audio = []
+        session_team_context = self._team_context.get(session_id, None)
+        if session_team_context and session_team_context.member_interactions:
+            for interaction in session_team_context.member_interactions:
+                if interaction.response.audio:
+                    audio.extend(interaction.response.audio)
+        return audio
 
     ###########################################################################
     # Handle images, videos and audio

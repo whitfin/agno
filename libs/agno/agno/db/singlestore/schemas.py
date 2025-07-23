@@ -9,7 +9,7 @@ except ImportError:
 
 SESSION_TABLE_SCHEMA = {
     "session_id": {"type": lambda: String(128), "nullable": False},
-    "session_type": {"type": lambda: String(20), "nullable": False},
+    "session_type": {"type": lambda: String(20), "nullable": False, "index": True},
     "agent_id": {"type": lambda: String(128), "nullable": True},
     "team_id": {"type": lambda: String(128), "nullable": True},
     "workflow_id": {"type": lambda: String(128), "nullable": True},
@@ -22,7 +22,7 @@ SESSION_TABLE_SCHEMA = {
     "extra_data": {"type": JSON, "nullable": True},
     "runs": {"type": JSON, "nullable": True},
     "summary": {"type": JSON, "nullable": True},
-    "created_at": {"type": BigInteger, "nullable": False},
+    "created_at": {"type": BigInteger, "nullable": False, "index": True},
     "updated_at": {"type": BigInteger, "nullable": True},
     "_unique_constraints": [
         {
@@ -50,9 +50,9 @@ USER_MEMORY_TABLE_SCHEMA = {
     "agent_id": {"type": lambda: String(128), "nullable": True},
     "team_id": {"type": lambda: String(128), "nullable": True},
     "workflow_id": {"type": lambda: String(128), "nullable": True},
-    "user_id": {"type": lambda: String(128), "nullable": True},
+    "user_id": {"type": lambda: String(128), "nullable": True, "index": True},
     "topics": {"type": JSON, "nullable": True},
-    "last_updated": {"type": BigInteger, "nullable": True},
+    "last_updated": {"type": BigInteger, "nullable": True, "index": True},
 }
 
 EVAL_TABLE_SCHEMA = {
@@ -66,7 +66,7 @@ EVAL_TABLE_SCHEMA = {
     "model_id": {"type": lambda: String(128), "nullable": True},
     "model_provider": {"type": lambda: String(50), "nullable": True},
     "evaluated_component_name": {"type": lambda: String(255), "nullable": True},
-    "created_at": {"type": BigInteger, "nullable": False},
+    "created_at": {"type": BigInteger, "nullable": False, "index": True},
     "updated_at": {"type": BigInteger, "nullable": True},
 }
 

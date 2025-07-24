@@ -57,4 +57,5 @@ agent_os = AgentOS(
 app = agent_os.get_app()
 
 if __name__ == "__main__":
+    basic_agent.run("Hey")
     agent_os.serve(app="basic:app", reload=True)

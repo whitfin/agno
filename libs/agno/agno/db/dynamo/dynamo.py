@@ -28,9 +28,9 @@ from agno.db.dynamo.utils import (
     serialize_knowledge_row,
     serialize_to_dynamo_item,
 )
-from agno.db.schemas import MemoryRow
 from agno.db.schemas.evals import EvalRunRecord, EvalType
 from agno.db.schemas.knowledge import KnowledgeRow
+from agno.db.schemas.memory import UserMemory
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error
 
@@ -597,15 +597,15 @@ class DynamoDb(BaseDb):
 
     def get_user_memory(
         self, memory_id: str, deserialize: Optional[bool] = True
-    ) -> Optional[Union[MemoryRow, Dict[str, Any]]]:
+    ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         """
-        Get a user memory from the database as a MemoryRow object.
+        Get a user memory from the database as a UserMemory object.
 
         Args:
             memory_id: The ID of the memory to get.
 
         Returns:
-            Optional[MemoryRow]: The user memory data if found, None otherwise.
+            Optional[UserMemory]: The user memory data if found, None otherwise.
 
         Raises:
             Exception: If any error occurs while getting the user memory.
@@ -622,12 +622,7 @@ class DynamoDb(BaseDb):
             if not deserialize:
                 return item
 
-            return MemoryRow(
-                id=item["memory_id"],
-                user_id=item["user_id"],
-                memory=item["memory"],
-                last_updated=item.get("last_updated"),
-            )
+            return UserMemory.from_dict(item)
 
         except Exception as e:
             log_error(f"Failed to get user memory {memory_id}: {e}")
@@ -646,9 +641,9 @@ class DynamoDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[MemoryRow], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[UserMemory], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]:
         """
-        Get user memories from the database as a list of MemoryRow objects.
+        Get user memories from the database as a list of UserMemory objects.
 
         Args:
             user_id: The ID of the user to get the memories for.
@@ -664,7 +659,7 @@ class DynamoDb(BaseDb):
             deserialize: Whether to deserialize the memories.
 
         Returns:
-            Union[List[MemoryRow], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]: The user memories data.
+            Union[List[UserMemory], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]: The user memories data.
 
         Raises:
             Exception: If any error occurs while getting the user memories.
@@ -752,17 +747,7 @@ class DynamoDb(BaseDb):
             if not deserialize:
                 return paginated_items, len(items)
 
-            return [
-                MemoryRow(
-                    id=item["memory_id"],
-                    memory=item["memory"],
-                    last_updated=item["last_updated"],
-                    user_id=str(item.get("user_id")),
-                    agent_id=item.get("agent_id"),
-                    team_id=item.get("team_id"),
-                )
-                for item in items
-            ]
+            return [UserMemory.from_dict(item) for item in items]
 
         except Exception as e:
             log_error(f"Failed to get user memories: {e}")
@@ -855,8 +840,8 @@ class DynamoDb(BaseDb):
             return [], 0
 
     def upsert_user_memory(
-        self, memory: MemoryRow, deserialize: Optional[bool] = True
-    ) -> Optional[Union[MemoryRow, Dict[str, Any]]]:
+        self, memory: UserMemory, deserialize: Optional[bool] = True
+    ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         """
         Upsert a user memory into the database.
 
@@ -869,7 +854,6 @@ class DynamoDb(BaseDb):
         try:
             table_name = self._get_table("user_memories")
             memory_dict = memory.to_dict()
-            memory_dict["memory_id"] = memory.id
             memory_dict["last_updated"] = datetime.now(timezone.utc).isoformat()
             item = serialize_to_dynamo_item(memory_dict)
 
@@ -878,7 +862,7 @@ class DynamoDb(BaseDb):
             if not deserialize:
                 return memory_dict
 
-            return memory
+            return UserMemory.from_dict(memory_dict)
 
         except Exception as e:
             log_error(f"Failed to upsert user memory: {e}")

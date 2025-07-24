@@ -562,10 +562,6 @@ class Team:
             else:
                 merge_dictionaries(member.workflow_session_state, self.workflow_session_state)
 
-        if member.db is not None:
-            member.db = None
-            log_debug("Database for Team members is not required, setting to None")
-
         if isinstance(member, Agent):
             member.team_id = self.team_id
             member.set_agent_id()

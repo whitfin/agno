@@ -21,7 +21,7 @@ from agno.db.redis.utils import (
 )
 from agno.db.schemas.evals import EvalFilterType, EvalRunRecord, EvalType
 from agno.db.schemas.knowledge import KnowledgeRow
-from agno.db.schemas.memory import MemoryRow
+from agno.db.schemas.memory import UserMemory
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
@@ -693,14 +693,14 @@ class RedisDb(BaseDb):
 
     def get_user_memory(
         self, memory_id: str, deserialize: Optional[bool] = True
-    ) -> Optional[Union[MemoryRow, Dict[str, Any]]]:
+    ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         """Get a memory from Redis.
 
         Args:
             memory_id (str): The ID of the memory to get.
 
         Returns:
-            Optional[MemoryRow]: The memory data if found, None otherwise.
+            Optional[UserMemory]: The memory data if found, None otherwise.
         """
         try:
             memory_raw = self._get_record("user_memories", memory_id)
@@ -710,12 +710,7 @@ class RedisDb(BaseDb):
             if not deserialize:
                 return memory_raw
 
-            return MemoryRow(
-                id=memory_raw["memory_id"],
-                user_id=memory_raw["user_id"],
-                memory=memory_raw["memory"],
-                last_updated=memory_raw["last_updated"],
-            )
+            return UserMemory.from_dict(memory_raw)
 
         except Exception as e:
             log_debug(f"Exception reading memory: {e}")
@@ -734,8 +729,8 @@ class RedisDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[MemoryRow], Tuple[List[Dict[str, Any]], int]]:
-        """Get all memories from Redis as MemoryRow objects.
+    ) -> Union[List[UserMemory], Tuple[List[Dict[str, Any]], int]]:
+        """Get all memories from Redis as UserMemory objects.
 
         Args:
             user_id (Optional[str]): The ID of the user to filter by.
@@ -751,8 +746,8 @@ class RedisDb(BaseDb):
             deserialize (Optional[bool]): Whether to deserialize the memories.
 
         Returns:
-            Union[List[MemoryRow], Tuple[List[Dict[str, Any]], int]]:
-                - When deserialize=True: List of MemoryRow objects
+            Union[List[UserMemory], Tuple[List[Dict[str, Any]], int]]:
+                - When deserialize=True: List of UserMemory objects
                 - When deserialize=False: Tuple of (memory dictionaries, total count)
 
         Raises:
@@ -792,15 +787,7 @@ class RedisDb(BaseDb):
             if not deserialize:
                 return paginated_memories, len(filtered_memories)
 
-            return [
-                MemoryRow(
-                    id=record["memory_id"],
-                    user_id=record["user_id"],
-                    memory=record["memory"],
-                    last_updated=record["last_updated"],
-                )
-                for record in paginated_memories
-            ]
+            return [UserMemory.from_dict(record) for record in paginated_memories]
 
         except Exception as e:
             log_debug(f"Exception reading memories: {e}")
@@ -861,33 +848,33 @@ class RedisDb(BaseDb):
             return [], 0
 
     def upsert_user_memory(
-        self, memory: MemoryRow, deserialize: Optional[bool] = True
-    ) -> Optional[Union[MemoryRow, Dict[str, Any]]]:
+        self, memory: UserMemory, deserialize: Optional[bool] = True
+    ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         """Upsert a user memory in Redis.
 
         Args:
-            memory (MemoryRow): The memory to upsert.
+            memory (UserMemory): The memory to upsert.
 
         Returns:
-            Optional[MemoryRow]: The upserted memory data if successful, None otherwise.
+            Optional[UserMemory]: The upserted memory data if successful, None otherwise.
         """
         try:
-            if memory.id is None:
-                memory.id = str(uuid4())
+            if memory.memory_id is None:
+                memory.memory_id = str(uuid4())
 
             data = {
                 "user_id": memory.user_id,
                 "agent_id": memory.agent_id,
                 "team_id": memory.team_id,
                 "workflow_id": None,
-                "memory_id": memory.id,
+                "memory_id": memory.memory_id,
                 "memory": memory.memory,
-                "topics": memory.memory.get("topics", []),
+                "topics": memory.topics,
                 "last_updated": int(time.time()),
             }
 
             success = self._store_record(
-                "user_memories", memory.id, data, index_fields=["user_id", "agent_id", "team_id", "workflow_id"]
+                "user_memories", memory.memory_id, data, index_fields=["user_id", "agent_id", "team_id", "workflow_id"]
             )
 
             if not success:
@@ -896,14 +883,7 @@ class RedisDb(BaseDb):
             if not deserialize:
                 return data
 
-            return MemoryRow(
-                id=data["memory_id"],
-                user_id=data["user_id"],
-                agent_id=data["agent_id"],
-                team_id=data["team_id"],
-                memory=data["memory"],
-                last_updated=data["last_updated"],
-            )
+            return UserMemory.from_dict(data)
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")

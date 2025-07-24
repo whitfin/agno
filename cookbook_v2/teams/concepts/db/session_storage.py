@@ -7,14 +7,26 @@ db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 db = PostgresDb(db_url=db_url, session_table="sessions")
 
-agent = Agent(name="test_agent", model=OpenAIChat(id="gpt-4o-mini"))
+# agent = Agent(name="test_agent", model=OpenAIChat(id="gpt-4o-mini"))
+
+# team = Team(
+#     model=OpenAIChat(id="gpt-4o-mini"),
+#     members=[agent],
+#     db=db,
+#     session_id="team_session_storage",
+#     add_history_to_messages=True,
+# )
+
+# team.print_response("Tell me a new interesting fact about space")
+
+# Team member with storage
+agent = Agent(agent_id="test_agent", model=OpenAIChat(id="gpt-4o-mini"), add_history_to_messages=True)
 
 team = Team(
     model=OpenAIChat(id="gpt-4o-mini"),
     members=[agent],
     db=db,
     session_id="team_session_storage",
-    add_history_to_messages=True,
 )
 
 team.print_response("Tell me a new interesting fact about space")

@@ -33,7 +33,7 @@ class TeamSession:
     # Extra Data stored with this agent
     extra_data: Optional[Dict[str, Any]] = None
     # List of all runs in the session
-    runs: Optional[list[TeamRunResponse]] = None
+    runs: Optional[list[Union[TeamRunResponse, RunResponse]]] = None
     # Summary of the session
     summary: Optional[Dict[str, Any]] = None
 
@@ -113,6 +113,7 @@ class TeamSession:
         skip_role: Optional[str] = None,
         skip_status: Optional[List[RunStatus]] = None,
         skip_history_messages: bool = True,
+        member_runs: bool = False,
     ) -> List[Message]:
         """Returns the messages from the last_n runs, excluding previously tagged history messages.
         Args:
@@ -139,8 +140,9 @@ class TeamSession:
         if team_id:
             session_runs = [run for run in session_runs if hasattr(run, "team_id") and run.team_id == team_id]  # type: ignore
 
-        # Filter for the main team runs
-        session_runs = [run for run in session_runs if run.team_session_id is None]  # type: ignore
+        if not member_runs:
+            # Filter for the main team runs
+            session_runs = [run for run in session_runs if run.team_session_id is None]  # type: ignore
 
         # Filter by status
         session_runs = [run for run in session_runs if hasattr(run, "status") and run.status not in skip_status]  # type: ignore

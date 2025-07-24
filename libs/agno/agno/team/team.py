@@ -5673,30 +5673,31 @@ class Team:
 
                 merge_dictionaries(self.workflow_session_state, member_state)
 
-    # TODO: Implement member history by using this function
     def _get_history_for_member_agent(self, member_agent: Union[Agent, "Team"], session_id: str) -> List[Message]:
-        if member_agent.add_history_to_messages:
-            log_info(f"Adding messages from history for {member_agent.name}")
-            from copy import deepcopy
+        if not member_agent.add_history_to_messages:
+            return []
 
-            history = self.team_session.get_messages_from_last_n_runs(
-                session_id=session_id,
-                last_n=member_agent.num_history_runs or self.num_history_runs,
-                skip_role=self.system_message_role,
-                agent_id=member_agent.agent_id,
-                team_id=member_agent.team_id if member_agent.agent_id is None else None,
-            )
+        log_info(f"Adding messages from history for {member_agent.name}")
+        from copy import deepcopy
 
-            if len(history) > 0:
-                # Create a deep copy of the history messages to avoid modifying the original messages
-                history_copy = [deepcopy(msg) for msg in history]
+        history = self.team_session.get_messages_from_last_n_runs(
+            session_id=session_id,
+            last_n=member_agent.num_history_runs or self.num_history_runs,
+            skip_role=self.system_message_role,
+            agent_id=member_agent.agent_id,
+            team_id=member_agent.team_id if member_agent.agent_id is None else None,
+            member_runs=True,
+        )
 
-                # Tag each message as coming from history
-                for _msg in history_copy:
-                    _msg.from_history = True
+        if len(history) > 0:
+            # Create a deep copy of the history messages to avoid modifying the original messages
+            history_copy = [deepcopy(msg) for msg in history]
 
-                return history_copy
-        return []
+            # Tag each message as coming from history
+            for _msg in history_copy:
+                _msg.from_history = True
+
+            return history_copy
 
     def get_run_member_agents_function(
         self,
@@ -5801,6 +5802,9 @@ class Team:
                     except Exception as e:
                         yield f"Agent {member_agent.name}: Error - {str(e)}"
 
+                # Add team run id to the member run
+                member_agent.run_response.parent_run_id = self.run_id  # type: ignore
+
                 # Update the memory
                 member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
                 self.add_interaction_to_team_context(
@@ -5873,6 +5877,9 @@ class Team:
                         stream=False,
                     )
                     check_if_run_cancelled(response)
+
+                    # Add team run id to the member run
+                    agent.run_response.parent_run_id = self.run_id  # type: ignore
 
                     member_name = agent.name if agent.name else f"agent_{idx}"
                     self.add_interaction_to_team_context(
@@ -6085,9 +6092,11 @@ class Team:
             # Afterward, switch back to the team logger
             use_team_logger()
 
+            # Add team run id to the member run
+            member_agent.run_response.parent_run_id = self.run_id  # type: ignore
+
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
-
             self.add_interaction_to_team_context(
                 session_id=session_id,
                 member_name=member_name,
@@ -6207,6 +6216,9 @@ class Team:
 
             # Afterward, switch back to the team logger
             use_team_logger()
+
+            # Add team run id to the member run
+            member_agent.run_response.parent_run_id = self.run_id  # type: ignore
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
@@ -6440,6 +6452,9 @@ class Team:
             # Afterward, switch back to the team logger
             use_team_logger()
 
+            # Add team run id to the member run
+            member_agent.run_response.parent_run_id = self.run_id  # type: ignore
+
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
             self.add_interaction_to_team_context(
@@ -6560,6 +6575,9 @@ class Team:
 
             # Afterward, switch back to the team logger
             use_team_logger()
+
+            # Add team run id to the member run
+            member_agent.run_response.parent_run_id = self.run_id  # type: ignore
 
             # Update the memory
             member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"

@@ -132,9 +132,9 @@ class PostgresDb(BaseDb):
             table_metadata = MetaData(schema=db_schema)
             table = Table(table_name, table_metadata, *columns, schema=db_schema)
 
-            # Add multi-column unique constraints
+            # Add multi-column unique constraints with table-specific names
             for constraint in schema_unique_constraints:
-                constraint_name = constraint["name"]
+                constraint_name = f"{table_name}_{constraint['name']}"
                 constraint_columns = constraint["columns"]
                 table.append_constraint(UniqueConstraint(*constraint_columns, name=constraint_name))
 
@@ -147,14 +147,7 @@ class PostgresDb(BaseDb):
                 create_schema(session=sess, db_schema=db_schema)
 
             # Create table
-            table_without_indexes = Table(
-                table_name,
-                MetaData(schema=db_schema),
-                *[c.copy() for c in table.columns],
-                *[c for c in table.constraints if not isinstance(c, Index)],
-                schema=db_schema,
-            )
-            table_without_indexes.create(self.db_engine, checkfirst=True)
+            table.create(self.db_engine, checkfirst=True)
 
             # Create indexes
             for idx in table.indexes:
@@ -183,7 +176,7 @@ class PostgresDb(BaseDb):
             return table
 
         except Exception as e:
-            log_error(f"Could not create table {db_schema}.{table_name}: {e}")
+            log_warning(f"Could not create table {db_schema}.{table_name}: {e}")
             raise
 
     def _get_table(self, table_type: str) -> Table:
@@ -303,7 +296,7 @@ class PostgresDb(BaseDb):
                     return True
 
         except Exception as e:
-            log_error(f"Error deleting session: {e}")
+            log_warning(f"Error deleting session: {e}")
             return False
 
     def delete_sessions(self, session_ids: List[str]) -> None:
@@ -326,7 +319,7 @@ class PostgresDb(BaseDb):
             log_debug(f"Successfully deleted {result.rowcount} sessions")
 
         except Exception as e:
-            log_error(f"Error deleting sessions: {e}")
+            log_warning(f"Error deleting sessions: {e}")
 
     def get_session(
         self,
@@ -380,7 +373,7 @@ class PostgresDb(BaseDb):
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
-            log_debug(f"Exception reading from session table: {e}")
+            log_warning(f"Exception reading from session table: {e}")
             return None
 
     def get_sessions(
@@ -480,8 +473,8 @@ class PostgresDb(BaseDb):
                 raise ValueError(f"Invalid session type: {session_type}")
 
         except Exception as e:
-            log_debug(f"Exception reading from session table: {e}")
-            return []
+            log_warning(f"Exception reading from session table: {e}")
+            return [] if deserialize else ([], 0)
 
     def rename_session(
         self, session_id: str, session_type: SessionType, session_name: str, deserialize: Optional[bool] = True
@@ -541,7 +534,7 @@ class PostgresDb(BaseDb):
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
-            log_error(f"Exception renaming session: {e}")
+            log_warning(f"Exception renaming session: {e}")
             return None
 
     def upsert_session(self, session: Session, deserialize: Optional[bool] = True) -> Optional[Session]:
@@ -700,10 +693,10 @@ class PostgresDb(BaseDb):
                 else:
                     log_debug(f"No user memory found with id: {memory_id}")
 
-                return success
+                    return success
 
         except Exception as e:
-            log_error(f"Error deleting user memory: {e}")
+            log_warning(f"Error deleting user memory: {e}")
             return False
 
     def delete_user_memories(self, memory_ids: List[str]) -> None:
@@ -725,7 +718,7 @@ class PostgresDb(BaseDb):
                     log_debug(f"No user memories found with ids: {memory_ids}")
 
         except Exception as e:
-            log_error(f"Error deleting user memories: {e}")
+            log_warning(f"Error deleting user memories: {e}")
 
     def get_all_memory_topics(self) -> List[str]:
         """Get all memory topics from the database.
@@ -742,7 +735,7 @@ class PostgresDb(BaseDb):
                 return [record[0] for record in result]
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_warning(f"Exception reading from memory table: {e}")
             return []
 
     def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[UserMemory]:
@@ -776,7 +769,7 @@ class PostgresDb(BaseDb):
             return UserMemory.from_dict(memory_raw)
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_warning(f"Exception reading from memory table: {e}")
             return None
 
     def get_user_memories(
@@ -834,7 +827,7 @@ class PostgresDb(BaseDb):
                     topic_conditions = [text(f"topics::text LIKE '%\"{topic}\"%'") for topic in topics]
                     stmt = stmt.where(and_(*topic_conditions))
                 if search_content is not None:
-                    stmt = stmt.where(table.c.memory.ilike(f"%{search_content}%"))
+                    stmt = stmt.where(func.cast(table.c.memory, postgresql.TEXT).ilike(f"%{search_content}%"))
 
                 # Get total count after applying filtering
                 count_stmt = select(func.count()).select_from(stmt.alias())
@@ -860,8 +853,8 @@ class PostgresDb(BaseDb):
             return [UserMemory.from_dict(record) for record in user_memories_raw]
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
-            return []
+            log_warning(f"Exception reading from memory table: {e}")
+            return [] if deserialize else ([], 0)
 
     def get_user_memory_stats(
         self, limit: Optional[int] = None, page: Optional[int] = None
@@ -925,7 +918,7 @@ class PostgresDb(BaseDb):
                 ], total_count
 
         except Exception as e:
-            log_debug(f"Exception getting user memory stats: {e}")
+            log_warning(f"Exception getting user memory stats: {e}")
             return [], 0
 
     def upsert_user_memory(
@@ -1028,7 +1021,7 @@ class PostgresDb(BaseDb):
                 return [record._mapping for record in result]
 
         except Exception as e:
-            log_debug(f"Exception reading from sessions table: {e}")
+            log_warning(f"Exception reading from sessions table: {e}")
             return []
 
     def _get_metrics_calculation_starting_date(self, table: Table) -> Optional[date]:
@@ -1123,8 +1116,8 @@ class PostgresDb(BaseDb):
             return results
 
         except Exception as e:
-            log_error(f"Exception refreshing metrics: {e}")
-            raise e
+            log_warning(f"Exception refreshing metrics: {e}")
+            return None
 
     def get_metrics(
         self, starting_date: Optional[date] = None, ending_date: Optional[date] = None
@@ -1161,30 +1154,13 @@ class PostgresDb(BaseDb):
             return [row._mapping for row in result], latest_updated_at
 
         except Exception as e:
-            log_error(f"Exception getting metrics: {e}")
+            log_warning(f"Exception getting metrics: {e}")
             return [], None
 
     # -- Knowledge methods --
 
-    def _get_knowledge_table(self) -> Table:
-        """Get or create the knowledge table.
-
-        Returns:
-            Table: The knowledge table.
-        """
-        if not hasattr(self, "knowledge_table"):
-            if self.knowledge_table_name is None:
-                raise ValueError("Knowledge table was not provided on initialization")
-
-            log_info(f"Getting knowledge table: {self.knowledge_table_name}")
-            self.knowledge_table = self._get_or_create_table(
-                table_name=self.knowledge_table_name, table_type="knowledge_contents", db_schema=self.db_schema
-            )
-
-        return self.knowledge_table
-
     def delete_knowledge_content(self, id: str):
-        table = self._get_knowledge_table()
+        table = self._get_table(table_type="knowledge")
         with self.Session() as sess, sess.begin():
             stmt = table.delete().where(table.c.id == id)
             sess.execute(stmt)
@@ -1192,7 +1168,7 @@ class PostgresDb(BaseDb):
         return
 
     def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
-        table = self._get_knowledge_table()
+        table = self._get_table(table_type="knowledge")
         print(f"Getting knowledge content: {id}, {table}")
         with self.Session() as sess, sess.begin():
             stmt = select(table).where(table.c.id == id)
@@ -1219,7 +1195,7 @@ class PostgresDb(BaseDb):
         Returns:
             List[KnowledgeRow]: The knowledge contents.
         """
-        table = self._get_knowledge_table()
+        table = self._get_table(table_type="knowledge")
         with self.Session() as sess, sess.begin():
             stmt = select(table)
 
@@ -1250,38 +1226,68 @@ class PostgresDb(BaseDb):
             Optional[KnowledgeRow]: The upserted knowledge row, or None if the operation fails.
         """
         try:
-            table = self._get_knowledge_table()
+            table = self._get_table(table_type="knowledge")
             with self.Session() as sess, sess.begin():
-                # Only include fields that are not None in the update
-                update_fields = {
-                    k: v
-                    for k, v in {
-                        "name": knowledge_row.name,
-                        "description": knowledge_row.description,
-                        "metadata": knowledge_row.metadata,
-                        "type": knowledge_row.type,
-                        "size": knowledge_row.size,
-                        "linked_to": knowledge_row.linked_to,
-                        "access_count": knowledge_row.access_count,
-                        "status": knowledge_row.status,
-                        "status_message": knowledge_row.status_message,
-                        "created_at": knowledge_row.created_at,
-                        "updated_at": knowledge_row.updated_at,
-                    }.items()
-                    if v is not None
+                # Get the actual table columns to avoid "unconsumed column names" error
+                table_columns = set(table.columns.keys())
+
+                # Only include fields that exist in the table and are not None
+                insert_data = {}
+                update_fields = {}
+
+                # Map of KnowledgeRow fields to table columns
+                field_mapping = {
+                    "id": "id",
+                    "name": "name",
+                    "description": "description",
+                    "metadata": "metadata",
+                    "type": "type",
+                    "size": "size",
+                    "linked_to": "linked_to",
+                    "access_count": "access_count",
+                    "status": "status",
+                    "status_message": "status_message",
+                    "created_at": "created_at",
+                    "updated_at": "updated_at",
                 }
 
-                stmt = (
-                    postgresql.insert(table)
-                    .values(knowledge_row.model_dump())
-                    .on_conflict_do_update(index_elements=["id"], set_=update_fields)
-                )
-                sess.execute(stmt)
+                # Build insert and update data only for fields that exist in the table
+                for model_field, table_column in field_mapping.items():
+                    if table_column in table_columns:
+                        value = getattr(knowledge_row, model_field, None)
+                        if value is not None:
+                            insert_data[table_column] = value
+                            # Don't include ID in update_fields since it's the primary key
+                            if table_column != "id":
+                                update_fields[table_column] = value
+
+                # Ensure id is always included for the insert
+                if "id" in table_columns and knowledge_row.id:
+                    insert_data["id"] = knowledge_row.id
+
+                # Handle case where update_fields is empty (all fields are None or don't exist in table)
+                if not update_fields:
+                    # If we have insert_data, just do an insert without conflict resolution
+                    if insert_data:
+                        stmt = postgresql.insert(table).values(insert_data)
+                        sess.execute(stmt)
+                    else:
+                        # If we have no data at all, this is an error
+                        log_error("No valid fields found for knowledge row upsert")
+                        return None
+                else:
+                    # Normal upsert with conflict resolution
+                    stmt = (
+                        postgresql.insert(table)
+                        .values(insert_data)
+                        .on_conflict_do_update(index_elements=["id"], set_=update_fields)
+                    )
+                    sess.execute(stmt)
 
             return knowledge_row
 
         except Exception as e:
-            log_error(f"Error upserting knowledge row: {e}")
+            log_warning(f"Error upserting knowledge row: {e}")
             return None
 
     # -- Eval methods --
@@ -1311,7 +1317,7 @@ class PostgresDb(BaseDb):
             return eval_run
 
         except Exception as e:
-            log_error(f"Error creating eval run: {e}")
+            log_warning(f"Error creating eval run: {e}")
             return None
 
     def delete_eval_run(self, eval_run_id: str) -> None:
@@ -1332,8 +1338,7 @@ class PostgresDb(BaseDb):
                     log_debug(f"Deleted eval run with ID: {eval_run_id}")
 
         except Exception as e:
-            log_debug(f"Error deleting eval run {eval_run_id}: {e}")
-            raise
+            log_warning(f"Error deleting eval run {eval_run_id}: {e}")
 
     def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
         """Delete multiple eval runs from the database.
@@ -1353,8 +1358,7 @@ class PostgresDb(BaseDb):
                     log_debug(f"Deleted {result.rowcount} eval runs")
 
         except Exception as e:
-            log_debug(f"Error deleting eval runs {eval_run_ids}: {e}")
-            raise
+            log_warning(f"Error deleting eval runs {eval_run_ids}: {e}")
 
     def get_eval_run(
         self, eval_run_id: str, deserialize: Optional[bool] = True
@@ -1389,7 +1393,7 @@ class PostgresDb(BaseDb):
                 return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Exception getting eval run {eval_run_id}: {e}")
+            log_warning(f"Exception getting eval run {eval_run_id}: {e}")
             return None
 
     def get_eval_runs(
@@ -1481,7 +1485,7 @@ class PostgresDb(BaseDb):
                 return [EvalRunRecord.model_validate(row) for row in eval_runs_raw]
 
         except Exception as e:
-            log_debug(f"Exception getting eval runs: {e}")
+            log_warning(f"Exception getting eval runs: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_eval_run(
@@ -1514,5 +1518,4 @@ class PostgresDb(BaseDb):
             return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Error upserting eval run name {eval_run_id}: {e}")
-            raise
+            log_warning(f"Error upserting eval run name {eval_run_id}: {e}")

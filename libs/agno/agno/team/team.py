@@ -29,7 +29,7 @@ from pydantic import BaseModel
 from agno.agent import Agent
 from agno.db.base import BaseDb, SessionType, UserMemory
 from agno.exceptions import ModelProviderError, RunCancelledException
-from agno.knowledge.agent import AgentKnowledge
+from agno.knowledge.knowledge import Knowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
 from agno.memory import MemoryManager
 from agno.models.base import Model
@@ -177,7 +177,7 @@ class Team:
     add_context: bool = False
 
     # --- Agent Knowledge ---
-    knowledge: Optional[AgentKnowledge] = None
+    knowledge: Optional[Knowledge] = None
     # Add knowledge_filters to the Agent class attributes
     knowledge_filters: Optional[Dict[str, Any]] = None
     # Let the agent choose the knowledge filters
@@ -328,7 +328,7 @@ class Team:
         system_message_role: str = "system",
         context: Optional[Dict[str, Any]] = None,
         add_context: bool = False,
-        knowledge: Optional[AgentKnowledge] = None,
+        knowledge: Optional[Knowledge] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         add_references: bool = False,
         enable_agentic_knowledge_filters: Optional[bool] = False,
@@ -7150,11 +7150,11 @@ class Team:
                 return None
 
             if num_documents is None:
-                num_documents = self.knowledge.num_documents
+                num_documents = self.knowledge.max_results
 
             log_debug(f"Searching knowledge base with filters: {filters}")
             relevant_docs: List[Document] = self.knowledge.search(
-                query=query, num_documents=num_documents, filters=filters
+                query=query, max_results=num_documents, filters=filters
             )
 
             if not relevant_docs or len(relevant_docs) == 0:
@@ -7209,11 +7209,11 @@ class Team:
                 return None
 
             if num_documents is None:
-                num_documents = self.knowledge.num_documents
+                num_documents = self.knowledge.max_results
 
             log_debug(f"Searching knowledge base with filters: {filters}")
             relevant_docs: List[Document] = await self.knowledge.async_search(
-                query=query, num_documents=num_documents, filters=filters
+                query=query, max_results=num_documents, filters=filters
             )
 
             if not relevant_docs or len(relevant_docs) == 0:

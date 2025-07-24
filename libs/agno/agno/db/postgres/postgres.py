@@ -367,7 +367,7 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-                session = hydrate_session(dict(result._mapping))
+                session = dict(result._mapping)
 
             if not deserialize:
                 return session
@@ -466,7 +466,7 @@ class PostgresDb(BaseDb):
                 if records is None:
                     return [], 0
 
-                session = [hydrate_session(dict(record._mapping)) for record in records]
+                session = [dict(record._mapping) for record in records]
                 if not deserialize:
                     return session, total_count
 
@@ -528,7 +528,7 @@ class PostgresDb(BaseDb):
                 if not row:
                     return None
 
-            session = hydrate_session(dict(row._mapping))
+            session = dict(row._mapping)
             if not deserialize:
                 return session
 
@@ -596,7 +596,7 @@ class PostgresDb(BaseDb):
                     ).returning(table)
                     result = sess.execute(stmt)
                     row = result.fetchone()
-                    session = row._mapping
+                    session = dict(row._mapping)
                     if session is None or not deserialize:
                         return session
                     return AgentSession.from_dict(session)
@@ -633,7 +633,7 @@ class PostgresDb(BaseDb):
                     ).returning(table)
                     result = sess.execute(stmt)
                     row = result.fetchone()
-                    session = row._mapping
+                    session = dict(row._mapping)
                     if session is None or not deserialize:
                         return session
                     return TeamSession.from_dict(session)
@@ -668,7 +668,7 @@ class PostgresDb(BaseDb):
                     ).returning(table)
                     result = sess.execute(stmt)
                     row = result.fetchone()
-                    session = row._mapping
+                    session = dict(row._mapping)
                     if session is None or not deserialize:
                         return session
                     return WorkflowSession.from_dict(session)

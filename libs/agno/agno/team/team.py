@@ -255,8 +255,6 @@ class Team:
     add_session_summary_references: Optional[bool] = None
 
     # --- Team History ---
-    # If True, enable the team history (Deprecated in favor of add_history_to_messages)
-    enable_team_history: bool = False
     # add_history_to_messages=true adds messages from the chat history to the messages list sent to the Model.
     add_history_to_messages: bool = False
     # Number of historical runs to include in the messages
@@ -356,7 +354,6 @@ class Team:
         enable_session_summaries: bool = False,
         session_summary_manager: Optional[SessionSummaryManager] = None,
         add_session_summary_references: Optional[bool] = None,
-        enable_team_history: bool = False,
         add_history_to_messages: bool = False,
         num_history_runs: int = 3,
         extra_data: Optional[Dict[str, Any]] = None,
@@ -441,7 +438,6 @@ class Team:
         self.enable_session_summaries = enable_session_summaries
         self.session_summary_manager = session_summary_manager
         self.add_session_summary_references = add_session_summary_references
-        self.enable_team_history = enable_team_history
         self.add_history_to_messages = add_history_to_messages
         self.num_history_runs = num_history_runs
 
@@ -565,6 +561,10 @@ class Team:
                 member.workflow_session_state = self.workflow_session_state
             else:
                 merge_dictionaries(member.workflow_session_state, self.workflow_session_state)
+
+        if member.db is not None:
+            member.db = None
+            log_debug(f"Database for Team members is not required, setting to None")
 
         if isinstance(member, Agent):
             member.team_id = self.team_id
@@ -4611,7 +4611,6 @@ class Team:
         from_run_response: Optional[TeamRunResponse] = None,
     ) -> TeamRunResponse:
         extra_data = None
-        member_responses = None
         formatted_tool_calls = None
         if from_run_response:
             content = from_run_response.content
@@ -4623,7 +4622,6 @@ class Team:
             model = from_run_response.model
             messages = from_run_response.messages
             extra_data = from_run_response.extra_data
-            member_responses = from_run_response.member_responses
             citations = from_run_response.citations
             tools = from_run_response.tools
             formatted_tool_calls = from_run_response.formatted_tool_calls
@@ -4651,8 +4649,6 @@ class Team:
         )
         if formatted_tool_calls:
             rr.formatted_tool_calls = formatted_tool_calls
-        if member_responses:
-            rr.member_responses = member_responses
         if content_type is not None:
             rr.content_type = content_type
         if created_at is not None:
@@ -5205,7 +5201,7 @@ class Team:
             run_messages.messages.append(system_message)
 
         # 2. Add history to run_messages
-        if self.enable_team_history or self.add_history_to_messages:
+        if self.add_history_to_messages:
             from copy import deepcopy
 
             history = self.team_session.get_messages_from_last_n_runs(
@@ -5683,6 +5679,31 @@ class Team:
 
                 merge_dictionaries(self.workflow_session_state, member_state)
 
+    # TODO: Implement member history by using this function
+    def _get_history_for_member_agent(self, member_agent: Union[Agent, "Team"], session_id: str) -> List[Message]:
+        if member_agent.add_history_to_messages:
+            log_info(f"Adding messages from history for {member_agent.name}")
+            from copy import deepcopy
+
+            history = self.team_session.get_messages_from_last_n_runs(
+                session_id=session_id,
+                last_n=member_agent.num_history_runs or self.num_history_runs,
+                skip_role=self.system_message_role,
+                agent_id=member_agent.agent_id,
+                team_id=member_agent.team_id if member_agent.agent_id is None else None,
+            )
+
+            if len(history) > 0:
+                # Create a deep copy of the history messages to avoid modifying the original messages
+                history_copy = [deepcopy(msg) for msg in history]
+
+                # Tag each message as coming from history
+                for _msg in history_copy:
+                    _msg.from_history = True
+
+                return history_copy
+        return []
+
     def get_run_member_agents_function(
         self,
         session_id: str,
@@ -5797,7 +5818,8 @@ class Team:
 
                 # Add the member run to the team run response
                 self.run_response = cast(TeamRunResponse, self.run_response)
-                self.run_response.add_member_run(member_agent.run_response)  # type: ignore
+                # Add the member run to the team session
+                self.team_session.add_run(member_agent.run_response)
 
                 # Update team session state
                 self._update_team_session_state(member_agent)
@@ -5868,7 +5890,8 @@ class Team:
 
                     # Add the member run to the team run response
                     self.run_response = cast(TeamRunResponse, self.run_response)
-                    self.run_response.add_member_run(agent.run_response)
+                    # Add the member run to the team session
+                    self.team_session.add_run(agent.run_response)
 
                     # Update team session state
                     self._update_team_session_state(current_agent)
@@ -6080,7 +6103,8 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
-            self.run_response.add_member_run(member_agent.run_response)  # type: ignore
+            # Add the member run to the team session
+            self.team_session.add_run(member_agent.run_response)
 
             # Update team session state
             self._update_team_session_state(member_agent)
@@ -6201,7 +6225,8 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
-            self.run_response.add_member_run(member_agent.run_response)  # type: ignore
+            # Add the member run to the team session
+            self.team_session.add_run(member_agent.run_response)
 
             # Update team session state
             self._update_team_session_state(member_agent)
@@ -6432,7 +6457,8 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
-            self.run_response.add_member_run(member_agent.run_response)  # type: ignore
+            # Add the member run to the team session
+            self.team_session.add_run(member_agent.run_response)
 
             # Update team session state
             self._update_team_session_state(member_agent)
@@ -6552,7 +6578,8 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
-            self.run_response.add_member_run(member_agent.run_response)  # type: ignore
+            # Add the member run to the team session
+            self.team_session.add_run(member_agent.run_response)
 
             # Update team session state
             self._update_team_session_state(member_agent)
@@ -6768,7 +6795,7 @@ class Team:
                 return self.team_session.session_id
 
         # Load an existing session or create a new session
-        if self.storage is not None:
+        if self.db is not None:
             # Load existing session if session_id is provided
             log_debug(f"Reading TeamSession: {self.session_id}")
             self.get_team_session(session_id=self.session_id)  # type: ignore

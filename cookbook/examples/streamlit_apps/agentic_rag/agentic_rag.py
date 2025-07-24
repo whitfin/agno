@@ -62,12 +62,10 @@ def get_agentic_rag_agent(
         max_results=5,
     )
 
-    memory = Memory(
-        db=PostgresDb(
-            db_url=db_url,
-            session_table="sessions",
-            db_schema="ai",
-        )
+    db=PostgresDb(
+        db_url=db_url,
+        session_table="sessions",
+        user_memory_table="user_memories",
     )
 
     agent = Agent(
@@ -75,7 +73,7 @@ def get_agentic_rag_agent(
         model=get_model_from_id(model_id),
         agent_id="agentic-rag-agent",
         user_id=user_id,
-        memory=memory,
+        db=db,
         knowledge=knowledge_base,
         search_knowledge=True,
         read_tool_call_history=True,

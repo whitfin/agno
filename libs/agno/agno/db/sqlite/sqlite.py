@@ -139,9 +139,9 @@ class SqliteDb(BaseDb):
             table_metadata = MetaData()
             table = Table(table_name, table_metadata, *columns)
 
-            # Add multi-column unique constraints
+            # Add multi-column unique constraints with table-specific names
             for constraint in schema_unique_constraints:
-                constraint_name = constraint["name"]
+                constraint_name = f"{table_name}_{constraint['name']}"
                 constraint_columns = constraint["columns"]
                 table.append_constraint(UniqueConstraint(*constraint_columns, name=constraint_name))
 

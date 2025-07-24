@@ -509,6 +509,7 @@ class Knowledge:
         self, query: str, max_results: Optional[int] = None, filters: Optional[Dict[str, Any]] = None
     ) -> List[Document]:
         """Returns relevant documents matching a query"""
+
         try:
             if self.vector_store is None:
                 log_warning("No vector db provided")
@@ -525,6 +526,7 @@ class Knowledge:
         self, query: str, max_results: Optional[int] = None, filters: Optional[Dict[str, Any]] = None
     ) -> List[Document]:
         """Returns relevant documents matching a query"""
+
         try:
             if self.vector_store is None:
                 log_warning("No vector db provided")

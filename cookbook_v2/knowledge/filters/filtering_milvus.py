@@ -1,28 +1,35 @@
 from agno.agent import Agent
-from agno.knowledge.pdf import PDFKnowledgeBase
+from agno.knowledge.knowledge import Knowledge
 from agno.utils.media import (
     SampleDataFileExtension,
     download_knowledge_filters_sample_data,
 )
-from agno.vectordb.pgvector import PgVector
+from agno.vectordb.milvus import Milvus
 
 # Download all sample CVs and get their paths
 downloaded_cv_paths = download_knowledge_filters_sample_data(
     num_files=5, file_extension=SampleDataFileExtension.PDF
 )
 
-# Initialize PgVector
-db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
-
-vector_db = PgVector(table_name="recipes", db_url=db_url)
+# Initialize Milvus vector db
+vector_db = Milvus(
+    collection="recipes",
+    uri="tmp/milvus.db",
+)
 
 # Step 1: Initialize knowledge base with documents and metadata
 # ------------------------------------------------------------------------------
 # When initializing the knowledge base, we can attach metadata that will be used for filtering
 # This metadata can include user IDs, document types, dates, or any other attributes
 
-knowledge_base = PDFKnowledgeBase(
-    path=[
+knowledge = Knowledge(
+    name="Milvus Knowledge Base",
+    description="A knowledge base for Milvus",
+    vector_store=vector_db,
+)
+
+knowledge.add_contents(
+    [
         {
             "path": downloaded_cv_paths[0],
             "metadata": {
@@ -63,18 +70,16 @@ knowledge_base = PDFKnowledgeBase(
                 "year": 2025,
             },
         },
-    ],
-    vector_db=vector_db,
+    ]
 )
 
 # Load all documents into the vector database
-knowledge_base.load(recreate=True)
 
 # Step 2: Query the knowledge base with different filter combinations
 # ------------------------------------------------------------------------------
 
 agent = Agent(
-    knowledge=knowledge_base,
+    knowledge=knowledge,
     search_knowledge=True,
 )
 

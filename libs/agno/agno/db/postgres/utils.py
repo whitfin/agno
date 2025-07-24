@@ -24,6 +24,7 @@ except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
 
+# TODO: This function is redundant and should be removed
 def hydrate_session(session: dict) -> dict:
     """Convert nested dictionaries to their corresponding object types.
 

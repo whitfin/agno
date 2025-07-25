@@ -16,7 +16,6 @@ from agno.db.singlestore.utils import (
     create_schema,
     fetch_all_sessions_data,
     get_dates_to_calculate_metrics_for,
-    hydrate_session,
     is_table_available,
     is_valid_table,
 )
@@ -250,9 +249,9 @@ class SingleStoreDb(BaseDb):
                     idx.create(self.db_engine)
 
                 except Exception as e:
-                    log_warning(f"Error creating index {idx.name}: {e}")
+                    log_error(f"Error creating index {idx.name}: {e}")
 
-            log_info(f"Successfully created table {table_ref}")
+            log_debug(f"Successfully created table {table_ref}")
             return table
 
         except Exception as e:
@@ -262,9 +261,6 @@ class SingleStoreDb(BaseDb):
     def _get_table(self, table_type: str) -> Table:
         if table_type == "sessions":
             if not hasattr(self, "session_table"):
-                if self.session_table_name is None:
-                    raise ValueError("Session table was not provided on initialization")
-
                 self.session_table = self._get_or_create_table(
                     table_name=self.session_table_name, table_type="sessions", db_schema=self.db_schema
                 )
@@ -272,9 +268,6 @@ class SingleStoreDb(BaseDb):
 
         if table_type == "user_memories":
             if not hasattr(self, "user_memory_table"):
-                if self.user_memory_table_name is None:
-                    raise ValueError("User memory table was not provided on initialization")
-
                 self.user_memory_table = self._get_or_create_table(
                     table_name=self.user_memory_table_name, table_type="user_memories", db_schema=self.db_schema
                 )
@@ -282,9 +275,6 @@ class SingleStoreDb(BaseDb):
 
         if table_type == "metrics":
             if not hasattr(self, "metrics_table"):
-                if self.metrics_table_name is None:
-                    raise ValueError("Metrics table was not provided on initialization")
-
                 self.metrics_table = self._get_or_create_table(
                     table_name=self.metrics_table_name, table_type="metrics", db_schema=self.db_schema
                 )
@@ -292,9 +282,6 @@ class SingleStoreDb(BaseDb):
 
         if table_type == "evals":
             if not hasattr(self, "eval_table"):
-                if self.eval_table_name is None:
-                    raise ValueError("Eval table was not provided on initialization")
-
                 self.eval_table = self._get_or_create_table(
                     table_name=self.eval_table_name, table_type="evals", db_schema=self.db_schema
                 )
@@ -302,9 +289,6 @@ class SingleStoreDb(BaseDb):
 
         if table_type == "knowledge":
             if not hasattr(self, "knowledge_table"):
-                if self.knowledge_table_name is None:
-                    raise ValueError("Knowledge table was not provided on initialization")
-
                 self.knowledge_table = self._get_or_create_table(
                     table_name=self.knowledge_table_name, table_type="knowledge", db_schema=self.db_schema
                 )
@@ -440,7 +424,7 @@ class SingleStoreDb(BaseDb):
                 if result is None:
                     return None
 
-                session = hydrate_session(dict(result._mapping))
+                session = dict(result._mapping)
 
             if not deserialize:
                 return session
@@ -453,7 +437,7 @@ class SingleStoreDb(BaseDb):
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
-            log_debug(f"Exception reading from session table: {e}")
+            log_error(f"Exception reading from session table: {e}")
             return None
 
     def get_sessions(
@@ -542,7 +526,7 @@ class SingleStoreDb(BaseDb):
                 if records is None:
                     return [], 0
 
-                session = [hydrate_session(dict(record._mapping)) for record in records]
+                session = [dict(record._mapping) for record in records]
                 if not deserialize:
                     return session, total_count
 
@@ -599,7 +583,10 @@ class SingleStoreDb(BaseDb):
                 if not row:
                     return None
 
-            session = hydrate_session(dict(row._mapping))
+            session = dict(row._mapping)
+
+            log_debug(f"Renamed session with id '{session_id}' to '{session_name}'")
+
             if not deserialize:
                 return session
 
@@ -611,7 +598,7 @@ class SingleStoreDb(BaseDb):
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
-            log_error(f"Exception renaming session: {e}")
+            log_error(f"Error renaming session: {e}")
             return None
 
     def upsert_session(self, session: Session, deserialize: Optional[bool] = True) -> Optional[Session]:
@@ -669,8 +656,14 @@ class SingleStoreDb(BaseDb):
                         & (table.c.agent_id == session_dict.get("agent_id"))
                     )
                     row = sess.execute(select_stmt).fetchone()
-                    if row is None or not deserialize:
-                        return row._mapping if row else None
+                    if row is None:
+                        return None
+
+                    log_debug(f"Upserted session with id '{session_dict.get('session_id')}'")
+
+                    if not deserialize:
+                        return row._mapping
+
                     return AgentSession.from_dict(row._mapping)
 
             elif isinstance(session, TeamSession):
@@ -708,8 +701,14 @@ class SingleStoreDb(BaseDb):
                         & (table.c.team_id == session_dict.get("team_id"))
                     )
                     row = sess.execute(select_stmt).fetchone()
-                    if row is None or not deserialize:
-                        return row._mapping if row else None
+                    if row is None:
+                        return None
+
+                    log_debug(f"Upserted session with id '{session_dict.get('session_id')}'")
+
+                    if not deserialize:
+                        return row._mapping
+
                     return TeamSession.from_dict(row._mapping)
 
             elif isinstance(session, WorkflowSession):
@@ -745,12 +744,18 @@ class SingleStoreDb(BaseDb):
                         & (table.c.workflow_id == session_dict.get("workflow_id"))
                     )
                     row = sess.execute(select_stmt).fetchone()
-                    if row is None or not deserialize:
-                        return row._mapping if row else None
+                    if row is None:
+                        return None
+
+                    log_debug(f"Upserted session with id '{session_dict.get('session_id')}'")
+
+                    if not deserialize:
+                        return row._mapping
+
                     return WorkflowSession.from_dict(row._mapping)
 
         except Exception as e:
-            log_warning(f"Exception upserting into sessions table: {e}")
+            log_error(f"Error upserting into sessions table: {e}")
             return None
 
     # -- Memory methods --
@@ -829,7 +834,7 @@ class SingleStoreDb(BaseDb):
                 return topics
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return []
 
     def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[UserMemory]:
@@ -863,7 +868,7 @@ class SingleStoreDb(BaseDb):
             return UserMemory.from_dict(memory_raw)
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return None
 
     def get_user_memories(
@@ -880,7 +885,7 @@ class SingleStoreDb(BaseDb):
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
     ) -> Union[List[UserMemory], Tuple[List[Dict[str, Any]], int]]:
-        """Get all memories from the database as MemoryRow objects.
+        """Get all memories from the database as UserMemory objects.
 
         Args:
             user_id (Optional[str]): The ID of the user to filter by.
@@ -948,7 +953,7 @@ class SingleStoreDb(BaseDb):
             return [UserMemory.from_dict(record) for record in user_memories_raw]
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return []
 
     def get_user_memory_stats(
@@ -1013,7 +1018,7 @@ class SingleStoreDb(BaseDb):
                 ], total_count
 
         except Exception as e:
-            log_debug(f"Exception getting user memory stats: {e}")
+            log_error(f"Exception getting user memory stats: {e}")
             return [], 0
 
     def upsert_user_memory(
@@ -1067,15 +1072,19 @@ class SingleStoreDb(BaseDb):
                 # Fetch the result
                 select_stmt = select(table).where(table.c.memory_id == memory.memory_id)
                 row = sess.execute(select_stmt).fetchone()
+                if row is None:
+                    return None
 
-            user_memory_raw = row._mapping if row else None
+            log_debug(f"Upserted user memory with id '{memory.memory_id}'")
+
+            user_memory_raw = row._mapping
             if not user_memory_raw or not deserialize:
                 return user_memory_raw
 
             return UserMemory.from_dict(user_memory_raw)
 
         except Exception as e:
-            log_error(f"Exception upserting user memory: {e}")
+            log_error(f"Error upserting user memory: {e}")
             return None
 
     # -- Metrics methods --
@@ -1116,7 +1125,7 @@ class SingleStoreDb(BaseDb):
                 return [record._mapping for record in result]
 
         except Exception as e:
-            log_debug(f"Exception reading from sessions table: {e}")
+            log_error(f"Exception reading from sessions table: {e}")
             return []
 
     def _get_metrics_calculation_starting_date(self, table: Table) -> Optional[date]:
@@ -1210,10 +1219,12 @@ class SingleStoreDb(BaseDb):
                 with self.Session() as sess, sess.begin():
                     bulk_upsert_metrics(session=sess, table=table, metrics_records=metrics_records)
 
+            log_debug("Updated metrics calculations")
+
             return metrics_records
 
         except Exception as e:
-            log_error(f"Exception refreshing metrics: {e}")
+            log_error(f"Error refreshing metrics: {e}")
             raise e
 
     def get_metrics(
@@ -1251,7 +1262,7 @@ class SingleStoreDb(BaseDb):
             return [row._mapping for row in result], latest_updated_at
 
         except Exception as e:
-            log_error(f"Exception getting metrics: {e}")
+            log_error(f"Error getting metrics: {e}")
             return [], None
 
     # -- Knowledge methods --
@@ -1284,7 +1295,7 @@ class SingleStoreDb(BaseDb):
             stmt = table.delete().where(table.c.id == id)
             sess.execute(stmt)
 
-        return
+        log_debug(f"Deleted knowledge content with id '{id}'")
 
     def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
         """Get knowledge content from the database.
@@ -1378,6 +1389,8 @@ class SingleStoreDb(BaseDb):
                 stmt = stmt.on_duplicate_key_update(**update_fields)
                 sess.execute(stmt)
 
+            log_debug(f"Upserted knowledge source with id '{knowledge_row.id}'")
+
             return knowledge_row
 
         except Exception as e:
@@ -1408,6 +1421,8 @@ class SingleStoreDb(BaseDb):
                 )
                 sess.execute(stmt)
 
+            log_debug(f"Created eval run with id '{eval_run.run_id}'")
+
             return eval_run
 
         except Exception as e:
@@ -1432,7 +1447,7 @@ class SingleStoreDb(BaseDb):
                     log_debug(f"Deleted eval run with ID: {eval_run_id}")
 
         except Exception as e:
-            log_debug(f"Error deleting eval run {eval_run_id}: {e}")
+            log_error(f"Error deleting eval run {eval_run_id}: {e}")
             raise
 
     def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
@@ -1448,12 +1463,12 @@ class SingleStoreDb(BaseDb):
                 stmt = table.delete().where(table.c.run_id.in_(eval_run_ids))
                 result = sess.execute(stmt)
                 if result.rowcount == 0:
-                    log_warning(f"No eval runs found with IDs: {eval_run_ids}")
+                    log_debug(f"No eval runs found with IDs: {eval_run_ids}")
                 else:
                     log_debug(f"Deleted {result.rowcount} eval runs")
 
         except Exception as e:
-            log_debug(f"Error deleting eval runs {eval_run_ids}: {e}")
+            log_error(f"Error deleting eval runs {eval_run_ids}: {e}")
             raise
 
     def get_eval_run(
@@ -1489,7 +1504,7 @@ class SingleStoreDb(BaseDb):
                 return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Exception getting eval run {eval_run_id}: {e}")
+            log_error(f"Exception getting eval run {eval_run_id}: {e}")
             return None
 
     def get_eval_runs(
@@ -1581,7 +1596,7 @@ class SingleStoreDb(BaseDb):
                 return [EvalRunRecord.model_validate(row) for row in eval_runs_raw]
 
         except Exception as e:
-            log_debug(f"Exception getting eval runs: {e}")
+            log_error(f"Exception getting eval runs: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_eval_run(
@@ -1608,11 +1623,14 @@ class SingleStoreDb(BaseDb):
                 sess.execute(stmt)
 
             eval_run_raw = self.get_eval_run(eval_run_id=eval_run_id, deserialize=deserialize)
+
+            log_debug(f"Renamed eval run with id '{eval_run_id}' to '{name}'")
+
             if not eval_run_raw or not deserialize:
                 return eval_run_raw
 
             return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Error upserting eval run name {eval_run_id}: {e}")
+            log_error(f"Error renaming eval run {eval_run_id}: {e}")
             raise

@@ -1,28 +1,22 @@
-"""Example showing how to use AgentOS with Redis as database"""
+"""Example showing how to use AgentOS with JSON files as database"""
 
 from agno.agent import Agent
-from agno.db.redis import RedisDb
+from agno.db.json import JsonDb
 from agno.eval.accuracy import AccuracyEval
 from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
 from agno.team.team import Team
 
-# Setup the Redis database
-db = RedisDb(
-    db_url="redis://localhost:6379",
-    session_table="sessions",
-    eval_table="eval_runs",
-    user_memory_table="user_memories",
-    metrics_table="metrics",
-)
+# Setup the JSON database
+db = JsonDb(db_path="./agno_json_data")
 
 # Setup the memory
 memory = Memory(db=db)
 
 # Setup a basic agent and a basic team
 agent = Agent(
-    name="Basic Agent",
+    name="JSON Demo Agent",
     agent_id="basic-agent",
     model=OpenAIChat(id="gpt-4o"),
     memory=memory,
@@ -33,34 +27,37 @@ agent = Agent(
     add_datetime_to_instructions=True,
     markdown=True,
 )
+
 team = Team(
     team_id="basic-team",
-    name="Team Agent",
+    name="JSON Demo Team",
     model=OpenAIChat(id="gpt-4o"),
     memory=memory,
     members=[agent],
     debug_mode=True,
 )
 
-# Evals
+# Evaluation example
 evaluation = AccuracyEval(
     db=db,
-    name="Calculator Evaluation",
+    name="JSON Demo Evaluation",
     model=OpenAIChat(id="gpt-4o"),
     agent=agent,
-    input="Should I post my password online? Answer yes or no.",
-    expected_output="No",
+    input="What is 2 + 2?",
+    expected_output="4",
     num_iterations=1,
 )
 # evaluation.run(print_results=True)
 
+# Create the AgentOS instance
 agent_os = AgentOS(
-    description="Example app for basic agent with playground capabilities",
-    os_id="basic-app",
+    description="Example app using JSON file database for simple deployments and demos",
+    os_id="json-demo-app",
     agents=[agent],
     teams=[team],
 )
+
 app = agent_os.get_app()
 
 if __name__ == "__main__":
-    agent_os.serve(app="redis_demo:app", reload=True)
+    agent_os.serve(app="json_demo:app", reload=True)

@@ -1,21 +1,22 @@
-"""Example showing how to use AgentOS with Redis as database"""
+from os import getenv
 
 from agno.agent import Agent
-from agno.db.redis import RedisDb
+from agno.db.postgres import PostgresDb
 from agno.eval.accuracy import AccuracyEval
 from agno.memory import Memory
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
 from agno.team.team import Team
 
-# Setup the Redis database
-db = RedisDb(
-    db_url="redis://localhost:6379",
-    session_table="sessions",
-    eval_table="eval_runs",
-    user_memory_table="user_memories",
-    metrics_table="metrics",
+SUPABASE_PROJECT = getenv("SUPABASE_PROJECT")
+SUPABASE_PASSWORD = getenv("SUPABASE_PASSWORD")
+
+SUPABASE_DB_URL = (
+    f"postgresql://postgres:{SUPABASE_PASSWORD}@db.{SUPABASE_PROJECT}:5432/postgres"
 )
+
+# Setup the Redis database
+db = PostgresDb(db_url=SUPABASE_DB_URL)
 
 # Setup the memory
 memory = Memory(db=db)
@@ -24,7 +25,6 @@ memory = Memory(db=db)
 agent = Agent(
     name="Basic Agent",
     agent_id="basic-agent",
-    model=OpenAIChat(id="gpt-4o"),
     memory=memory,
     enable_user_memories=True,
     enable_session_summaries=True,
@@ -63,4 +63,5 @@ agent_os = AgentOS(
 app = agent_os.get_app()
 
 if __name__ == "__main__":
-    agent_os.serve(app="redis_demo:app", reload=True)
+    agent.run("What is the weather in Tokyo?")
+    agent_os.serve(app="supabase_demo:app", reload=True)

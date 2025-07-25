@@ -142,7 +142,7 @@ class TeamSession:
 
         if not member_runs:
             # Filter for the main team runs
-            session_runs = [run for run in session_runs if run.team_session_id is None]  # type: ignore
+            session_runs = [run for run in session_runs if run.parent_run_id is None]  # type: ignore
 
         # Filter by status
         session_runs = [run for run in session_runs if hasattr(run, "status") and run.status not in skip_status]  # type: ignore

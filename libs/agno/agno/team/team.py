@@ -600,6 +600,11 @@ class Team:
             if self.memory_manager.db is None:
                 self.memory_manager.db = self.db
 
+        if self.add_memory_references is None:
+            self.add_memory_references = (
+                self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
+            )
+
     def set_session_summary_manager(self) -> None:
         if self.enable_session_summaries and self.session_summary_manager is None:
             self.session_summary_manager = SessionSummaryManager(model=self.model)
@@ -607,12 +612,6 @@ class Team:
         if self.session_summary_manager is not None:
             if self.session_summary_manager.model is None:
                 self.session_summary_manager.model = self.model
-
-    def _set_defaults(self) -> None:
-        if self.add_memory_references is None:
-            self.add_memory_references = (
-                self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
-            )
 
         if self.add_session_summary_references is None:
             self.add_session_summary_references = (
@@ -638,7 +637,6 @@ class Team:
         self.run_response = None
 
     def initialize_team(self, session_id: Optional[str] = None) -> None:
-        self._set_defaults()
         self._set_default_model()
 
         # Set debug mode
@@ -651,7 +649,7 @@ class Team:
         self._set_team_id()
 
         # Set the memory manager and session summary manager
-        if self.enable_user_memories or self.memory_manager is not None:
+        if self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None:
             self.set_memory_manager()
         if self.enable_session_summaries or self.session_summary_manager is not None:
             self.set_session_summary_manager()
@@ -1969,7 +1967,7 @@ class Team:
                 run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
             )
             # Create user memories
-            if user_message_str is not None and self.memory_manager is not None:
+            if user_message_str is not None and self.memory_manager is not None and not self.enable_agentic_memory:
                 futures.append(
                     executor.submit(
                         self.memory_manager.create_user_memories,
@@ -2017,7 +2015,7 @@ class Team:
         user_message_str = (
             run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
         )
-        if user_message_str is not None and self.memory_manager is not None:
+        if user_message_str is not None and self.memory_manager is not None and not self.enable_agentic_memory:
             tasks.append(self.memory_manager.acreate_user_memories(message=user_message_str, user_id=user_id))
 
         if self.session_summary_manager is not None:
@@ -5071,10 +5069,14 @@ class Team:
             system_message_content += "</attached_media>\n\n"
 
         # Then add memories to the system prompt
-        if self.db is not None and self.add_memory_references:
+        if self.add_memory_references:
+            _memory_manager_not_set = False
             if not user_id:
                 user_id = "default"
-            user_memories = self.db.get_user_memories(user_id=user_id)  # type: ignore
+            if self.memory_manager is None:
+                self.set_memory_manager()
+                _memory_manager_not_set = True
+            user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
             if user_memories and len(user_memories) > 0:
                 system_message_content += (
                     "You have access to memories from previous interactions with the user that you can use:\n\n"
@@ -5085,36 +5087,38 @@ class Team:
                 system_message_content += "\n</memories_from_previous_interactions>\n\n"
                 system_message_content += (
                     "Note: this information is from previous interactions and may be updated in this conversation. "
-                    "You should always prefer information from this conversation over the past memories.\n\n"
+                    "You should always prefer information from this conversation over the past memories.\n"
                 )
             else:
                 system_message_content += (
                     "You have the capability to retain memories from previous interactions with the user, "
                     "but have not had any interactions with the user yet.\n"
                 )
+            if _memory_manager_not_set:
+                self.memory_manager = None
 
             if self.enable_agentic_memory:
                 system_message_content += (
-                    "You have access to the `update_user_memory` tool.\n"
-                    "You can use the `update_user_memory` tool to add new memories, update existing memories, delete memories, or clear all memories.\n"
-                    "Memories should include details that could personalize ongoing interactions with the user.\n"
-                    "Use this tool to add new memories or update existing memories that you identify in the conversation.\n"
-                    "Use this tool if the user asks to update their memory, delete a memory, or clear all memories.\n"
-                    "If you use the `update_user_memory` tool, remember to pass on the response to the user.\n\n"
+                    "\n<updating_user_memories>\n"
+                    "- You have access to the `update_user_memory` tool that you can use to add new memories, update existing memories, delete memories, or clear all memories.\n"
+                    "- If the user's message includes information that should be captured as a memory, use the `update_user_memory` tool to update your memory database.\n"
+                    "- Memories should include details that could personalize ongoing interactions with the user.\n"
+                    "- Use this tool to add new memories or update existing memories that you identify in the conversation.\n"
+                    "- Use this tool if the user asks to update their memory, delete a memory, or clear all memories.\n"
+                    "- If you use the `update_user_memory` tool, remember to pass on the response to the user.\n"
+                    "</updating_user_memories>\n\n"
                 )
 
-            # Then add a summary of the interaction to the system prompt
-            if self.add_session_summary_references:
-                session_summary = self.team_session.get_session_summary()  # type: ignore
-                if session_summary is not None:
-                    system_message_content += "Here is a brief summary of your previous interactions:\n\n"
-                    system_message_content += "<summary_of_previous_interactions>\n"
-                    system_message_content += session_summary.summary
-                    system_message_content += "\n</summary_of_previous_interactions>\n\n"
-                    system_message_content += (
-                        "Note: this information is from previous interactions and may be outdated. "
-                        "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
-                    )
+        # Then add a summary of the interaction to the system prompt
+        if self.add_session_summary_references and self.team_session.summary is not None:
+            system_message_content += "Here is a brief summary of your previous interactions:\n\n"
+            system_message_content += "<summary_of_previous_interactions>\n"
+            system_message_content += self.team_session.summary
+            system_message_content += "\n</summary_of_previous_interactions>\n\n"
+            system_message_content += (
+                "Note: this information is from previous interactions and may be outdated. "
+                "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
+            )
 
         if self.description is not None:
             system_message_content += f"<description>\n{self.description}\n</description>\n\n"
@@ -5681,11 +5685,9 @@ class Team:
                 merge_dictionaries(self.workflow_session_state, member_state)
 
     def _get_history_for_member_agent(self, member_agent: Union[Agent, "Team"], session_id: str) -> List[Message]:
-        if not member_agent.add_history_to_messages:
-            return []
+        from copy import deepcopy
 
         log_info(f"Adding messages from history for {member_agent.name}")
-        from copy import deepcopy
 
         history = self.team_session.get_messages_from_last_n_runs(
             session_id=session_id,
@@ -5742,14 +5744,13 @@ class Team:
             """
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
-            self.memory_manager = cast(MemoryManager, self.memory_manager)
 
-            # 2. Determine team context to send
+            # 1. Determine team context to send
             team_context_str, team_member_interactions_str = self._determine_team_context(
                 session_id, images, videos, audio
             )
 
-            # 3. Create the member agent task
+            # 2. Create the member agent task
             member_agent_task = self._formate_member_agent_task(
                 task_description, expected_output, team_context_str, team_member_interactions_str
             )
@@ -5757,12 +5758,20 @@ class Team:
             for member_agent_index, member_agent in enumerate(self.members):
                 self._initialize_member(member_agent, session_id=session_id)
 
+                # Add history for the member if enabled
+                history = None
+                if member_agent.add_history_to_messages:
+                    history = self._get_history_for_member_agent(member_agent, session_id)
+                    if history:
+                        history.append(Message(role="user", content=member_agent_task))
+
                 if stream:
                     member_agent_run_response_stream = member_agent.run(
-                        member_agent_task,
+                        member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
                         session_id=session_id,
+                        messages=history if history is not None else None,
                         images=images,
                         videos=videos,
                         audio=audio,
@@ -5775,10 +5784,11 @@ class Team:
                         yield member_agent_run_response_chunk
                 else:
                     member_agent_run_response = member_agent.run(
-                        member_agent_task,
+                        member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
                         session_id=session_id,
+                        messages=history if history is not None else None,
                         images=images,
                         videos=videos,
                         audio=audio,
@@ -5853,12 +5863,12 @@ class Team:
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
 
-            # 2. Determine team context to send
+            # 1. Determine team context to send
             team_context_str, team_member_interactions_str = self._determine_team_context(
                 session_id, images, videos, audio
             )
 
-            # 3. Create the member agent task
+            # 2. Create the member agent task
             member_agent_task = self._formate_member_agent_task(
                 task_description, expected_output, team_context_str, team_member_interactions_str
             )
@@ -5871,12 +5881,20 @@ class Team:
                 current_index = member_agent_index  # Create a reference to the current index
                 self._initialize_member(current_agent, session_id=session_id)
 
+                # Add history for the member if enabled
+                history = None
+                if member_agent.add_history_to_messages:
+                    history = self._get_history_for_member_agent(member_agent, session_id)
+                    if history:
+                        history.append(Message(role="user", content=member_agent_task))
+
                 async def run_member_agent(agent=current_agent, idx=current_index) -> str:
                     response = await agent.arun(
-                        member_agent_task,
+                        member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
                         session_id=session_id,
+                        messages=history if history is not None else None,
                         images=images,
                         videos=videos,
                         audio=audio,
@@ -6006,6 +6024,7 @@ class Team:
             """
             # 1. Find the member agent using the helper function
             result = self._find_member_by_id(member_id)
+            history = None
             if result is None:
                 yield f"Member with ID {member_id} not found in the team or any subteams. Please choose the correct member from the list of members:\n\n{self.get_members_system_message_content(indent=0)}"
                 return
@@ -6023,6 +6042,12 @@ class Team:
                 task_description, expected_output, team_context_str, team_member_interactions_str
             )
 
+            # 4. Add history for the member if enabled
+            if member_agent.add_history_to_messages:
+                history = self._get_history_for_member_agent(member_agent, session_id)
+                if history:
+                    history.append(Message(role="user", content=member_agent_task))
+
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
 
@@ -6032,10 +6057,11 @@ class Team:
 
             if stream:
                 member_agent_run_response_stream = member_agent.run(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6053,10 +6079,11 @@ class Team:
                     yield member_agent_run_response_event
             else:
                 member_agent_run_response = member_agent.run(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6140,6 +6167,7 @@ class Team:
 
             # Find the member agent using the helper function
             result = self._find_member_by_id(member_id)
+            history = None
             if result is None:
                 yield f"Member with ID {member_id} not found in the team or any subteams. Please choose the correct member from the list of members:\n\n{self.get_members_system_message_content(indent=0)}"
                 return
@@ -6157,6 +6185,12 @@ class Team:
                 task_description, expected_output, team_context_str, team_member_interactions_str
             )
 
+            # 4. Add history for the member if enabled
+            if member_agent.add_history_to_messages:
+                history = self._get_history_for_member_agent(member_agent, session_id)
+                if history:
+                    history.append(Message(role="user", content=member_agent_task))
+
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
 
@@ -6166,10 +6200,11 @@ class Team:
 
             if stream:
                 member_agent_run_response_stream = await member_agent.arun(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6185,10 +6220,11 @@ class Team:
                     yield member_agent_run_response_event
             else:
                 member_agent_run_response = await member_agent.arun(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6365,6 +6401,7 @@ class Team:
 
             # Find the member agent using the helper function
             result = self._find_member_by_id(member_id)
+            history = None
             if result is None:
                 yield f"Member with ID {member_id} not found in the team or any subteams. Please choose the correct member from the list of members:\n\n{self.get_members_system_message_content(indent=0)}"
                 return
@@ -6386,6 +6423,12 @@ class Team:
             # If found in subteam, include the path in the task description
             member_agent_task = message.get_content_string()
 
+            # Add history for the member if enabled
+            if member_agent.add_history_to_messages:
+                history = self._get_history_for_member_agent(member_agent, session_id)
+                if history:
+                    history.append(Message(role="user", content=member_agent_task))
+
             if expected_output:
                 member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
 
@@ -6396,10 +6439,11 @@ class Team:
             # 2. Get the response from the member agent
             if stream:
                 member_agent_run_response_stream = member_agent.run(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6415,10 +6459,11 @@ class Team:
                     yield member_agent_run_response_chunk
             else:
                 member_agent_run_response = member_agent.run(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6499,6 +6544,7 @@ class Team:
 
             # Find the member agent using the helper function
             result = self._find_member_by_id(member_id)
+            history = None
             if result is None:
                 yield f"Member with ID {member_id} not found in the team or any subteams. Please choose the correct member from the list of members:\n\n{self.get_members_system_message_content(indent=0)}"
                 return
@@ -6516,6 +6562,12 @@ class Team:
             # If found in subteam, include the path in the task description
             member_agent_task = message.get_content_string()
 
+            # Add history for the member if enabled
+            if member_agent.add_history_to_messages:
+                history = self._get_history_for_member_agent(member_agent, session_id)
+                if history:
+                    history.append(Message(role="user", content=member_agent_task))
+
             if expected_output:
                 member_agent_task += f"\n\n<expected_output>\n{expected_output}\n</expected_output>"
 
@@ -6526,10 +6578,11 @@ class Team:
             # 2. Get the response from the member agent
             if stream:
                 member_agent_run_response_stream = await member_agent.arun(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6545,10 +6598,11 @@ class Team:
                     yield member_agent_run_response_event
             else:
                 member_agent_run_response = await member_agent.arun(
-                    member_agent_task,
+                    member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
+                    messages=history if history is not None else None,
                     images=images,
                     videos=videos,
                     audio=audio,
@@ -6667,7 +6721,7 @@ class Team:
         Returns:
             Optional[TeamSession]: The saved TeamSession or None if not saved.
         """
-        if self.db is not None:
+        if self.db is not None and self.parent_team_id is None:
             session = self.get_team_session(session_id=session_id, user_id=user_id)
             if not session:
                 return None

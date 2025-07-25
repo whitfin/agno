@@ -1,3 +1,3 @@
-from agno.memory.manager import MemoryManager
+from agno.memory.manager import MemoryManager, UserMemory
 
-__all__ = ["MemoryManager"]
+__all__ = ["MemoryManager", "UserMemory"]

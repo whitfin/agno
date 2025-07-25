@@ -6,8 +6,8 @@ from uuid import uuid4
 from sqlalchemy import Index, UniqueConstraint
 
 from agno.db.base import BaseDb, SessionType
-from agno.db.postgres.schemas import get_table_schema_definition
-from agno.db.postgres.utils import (
+from agno.db.mysql.schemas import get_table_schema_definition
+from agno.db.mysql.utils import (
     apply_sorting,
     bulk_upsert_metrics,
     calculate_date_metrics,
@@ -24,8 +24,8 @@ from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
 try:
-    from sqlalchemy import and_, func, update
-    from sqlalchemy.dialects import postgresql
+    from sqlalchemy import JSON, TEXT, and_, cast, func, update
+    from sqlalchemy.dialects import mysql
     from sqlalchemy.engine import Engine, create_engine
     from sqlalchemy.orm import scoped_session, sessionmaker
     from sqlalchemy.schema import Column, MetaData, Table
@@ -34,7 +34,7 @@ except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
 
 
-class PostgresDb(BaseDb):
+class MySQLDb(BaseDb):
     def __init__(
         self,
         db_engine: Optional[Engine] = None,
@@ -47,7 +47,7 @@ class PostgresDb(BaseDb):
         knowledge_table: Optional[str] = None,
     ):
         """
-        Interface for interacting with a PostgreSQL database.
+        Interface for interacting with a MySQL database.
 
         The following order is used to determine the database connection:
             1. Use the db_engine if provided
@@ -91,7 +91,6 @@ class PostgresDb(BaseDb):
         self.Session: scoped_session = scoped_session(sessionmaker(bind=self.db_engine))
 
     # -- DB methods --
-
     def _create_table(self, table_name: str, table_type: str, db_schema: str) -> Table:
         """
         Create a table with the appropriate schema based on the table type.
@@ -156,10 +155,13 @@ class PostgresDb(BaseDb):
                     # Check if index already exists
                     with self.Session() as sess:
                         exists_query = text(
-                            "SELECT 1 FROM pg_indexes WHERE schemaname = :schema AND indexname = :index_name"
+                            "SELECT 1 FROM information_schema.statistics WHERE table_schema = :schema "
+                            "AND table_name = :table_name AND index_name = :index_name"
                         )
                         exists = (
-                            sess.execute(exists_query, {"schema": db_schema, "index_name": idx.name}).scalar()
+                            sess.execute(
+                                exists_query, {"schema": db_schema, "table_name": table_name, "index_name": idx.name}
+                            ).scalar()
                             is not None
                         )
                         if exists:
@@ -433,10 +435,11 @@ class PostgresDb(BaseDb):
                 if end_timestamp is not None:
                     stmt = stmt.where(table.c.created_at <= end_timestamp)
                 if session_name is not None:
+                    # MySQL JSON extraction syntax
                     stmt = stmt.where(
-                        func.coalesce(func.json_extract_path_text(table.c.session_data, "session_name"), "").ilike(
-                            f"%{session_name}%"
-                        )
+                        func.coalesce(
+                            func.json_unquote(func.json_extract(table.c.session_data, "$.session_name")), ""
+                        ).ilike(f"%{session_name}%")
                     )
                 if session_type is not None:
                     session_type_value = session_type.value if isinstance(session_type, SessionType) else session_type
@@ -454,25 +457,18 @@ class PostgresDb(BaseDb):
                     if page is not None:
                         stmt = stmt.offset((page - 1) * limit)
 
-                records = sess.execute(stmt).fetchall()
-                if records is None:
-                    return [], 0
+                result = sess.execute(stmt).fetchall()
+                if not result:
+                    return [] if deserialize else ([], 0)
 
-                session = [dict(record._mapping) for record in records]
+                eval_runs_raw = [row._mapping for row in result]
                 if not deserialize:
-                    return session, total_count
+                    return eval_runs_raw, total_count
 
-            if session_type == SessionType.AGENT:
-                return [AgentSession.from_dict(record) for record in session]  # type: ignore
-            elif session_type == SessionType.TEAM:
-                return [TeamSession.from_dict(record) for record in session]  # type: ignore
-            elif session_type == SessionType.WORKFLOW:
-                return [WorkflowSession.from_dict(record) for record in session]  # type: ignore
-            else:
-                raise ValueError(f"Invalid session type: {session_type}")
+                return [EvalRunRecord.model_validate(row) for row in eval_runs_raw]
 
         except Exception as e:
-            log_warning(f"Exception reading from session table: {e}")
+            log_warning(f"Exception getting eval runs: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_session(
@@ -499,23 +495,18 @@ class PostgresDb(BaseDb):
             table = self._get_table(table_type="sessions")
 
             with self.Session() as sess, sess.begin():
+                # MySQL JSON_SET syntax
                 stmt = (
                     update(table)
                     .where(table.c.session_id == session_id)
                     .where(table.c.session_type == session_type.value)
-                    .values(
-                        session_data=func.cast(
-                            func.jsonb_set(
-                                func.cast(table.c.session_data, postgresql.JSONB),
-                                text("'{session_name}'"),
-                                func.to_jsonb(session_name),
-                            ),
-                            postgresql.JSON,
-                        )
-                    )
-                    .returning(*table.c)
+                    .values(session_data=func.json_set(table.c.session_data, "$.session_name", session_name))
                 )
-                result = sess.execute(stmt)
+                sess.execute(stmt)
+
+                # Fetch the updated row
+                select_stmt = select(table).where(table.c.session_id == session_id)
+                result = sess.execute(select_stmt)
                 row = result.fetchone()
                 if not row:
                     return None
@@ -558,7 +549,7 @@ class PostgresDb(BaseDb):
 
             if isinstance(session, AgentSession):
                 with self.Session() as sess, sess.begin():
-                    stmt = postgresql.insert(table).values(
+                    stmt = mysql.insert(table).values(
                         session_id=session_dict.get("session_id"),
                         session_type=SessionType.AGENT.value,
                         agent_id=session_dict.get("agent_id"),
@@ -572,22 +563,25 @@ class PostgresDb(BaseDb):
                         created_at=session_dict.get("created_at"),
                         updated_at=session_dict.get("created_at"),
                     )
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=["session_id", "agent_id"],
-                        set_=dict(
-                            agent_id=session_dict.get("agent_id"),
-                            team_session_id=session_dict.get("team_session_id"),
-                            user_id=session_dict.get("user_id"),
-                            agent_data=session_dict.get("agent_data"),
-                            session_data=session_dict.get("session_data"),
-                            summary=session_dict.get("summary"),
-                            extra_data=session_dict.get("extra_data"),
-                            runs=session_dict.get("runs"),
-                            updated_at=int(time.time()),
-                        ),
-                    ).returning(table)
-                    result = sess.execute(stmt)
+                    stmt = stmt.on_duplicate_key_update(
+                        agent_id=session_dict.get("agent_id"),
+                        team_session_id=session_dict.get("team_session_id"),
+                        user_id=session_dict.get("user_id"),
+                        agent_data=session_dict.get("agent_data"),
+                        session_data=session_dict.get("session_data"),
+                        summary=session_dict.get("summary"),
+                        extra_data=session_dict.get("extra_data"),
+                        runs=session_dict.get("runs"),
+                        updated_at=int(time.time()),
+                    )
+                    sess.execute(stmt)
+
+                    # Fetch the row
+                    select_stmt = select(table).where(table.c.session_id == session_dict.get("session_id"))
+                    result = sess.execute(select_stmt)
                     row = result.fetchone()
+                    if not row:
+                        return None
                     session = dict(row._mapping)
                     if session is None or not deserialize:
                         return session
@@ -595,7 +589,7 @@ class PostgresDb(BaseDb):
 
             elif isinstance(session, TeamSession):
                 with self.Session() as sess, sess.begin():
-                    stmt = postgresql.insert(table).values(
+                    stmt = mysql.insert(table).values(
                         session_id=session_dict.get("session_id"),
                         session_type=SessionType.TEAM.value,
                         team_id=session_dict.get("team_id"),
@@ -609,22 +603,25 @@ class PostgresDb(BaseDb):
                         created_at=session_dict.get("created_at"),
                         updated_at=session_dict.get("created_at"),
                     )
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=["session_id", "team_id"],
-                        set_=dict(
-                            team_id=session_dict.get("team_id"),
-                            team_session_id=session_dict.get("team_session_id"),
-                            user_id=session_dict.get("user_id"),
-                            team_data=session_dict.get("team_data"),
-                            session_data=session_dict.get("session_data"),
-                            summary=session_dict.get("summary"),
-                            extra_data=session_dict.get("extra_data"),
-                            runs=session_dict.get("runs"),
-                            updated_at=int(time.time()),
-                        ),
-                    ).returning(table)
-                    result = sess.execute(stmt)
+                    stmt = stmt.on_duplicate_key_update(
+                        team_id=session_dict.get("team_id"),
+                        team_session_id=session_dict.get("team_session_id"),
+                        user_id=session_dict.get("user_id"),
+                        team_data=session_dict.get("team_data"),
+                        session_data=session_dict.get("session_data"),
+                        summary=session_dict.get("summary"),
+                        extra_data=session_dict.get("extra_data"),
+                        runs=session_dict.get("runs"),
+                        updated_at=int(time.time()),
+                    )
+                    sess.execute(stmt)
+
+                    # Fetch the row
+                    select_stmt = select(table).where(table.c.session_id == session_dict.get("session_id"))
+                    result = sess.execute(select_stmt)
                     row = result.fetchone()
+                    if not row:
+                        return None
                     session = dict(row._mapping)
                     if session is None or not deserialize:
                         return session
@@ -632,7 +629,7 @@ class PostgresDb(BaseDb):
 
             elif isinstance(session, WorkflowSession):
                 with self.Session() as sess, sess.begin():
-                    stmt = postgresql.insert(table).values(
+                    stmt = mysql.insert(table).values(
                         session_id=session_dict.get("session_id"),
                         session_type=SessionType.WORKFLOW.value,
                         workflow_id=session_dict.get("workflow_id"),
@@ -645,21 +642,24 @@ class PostgresDb(BaseDb):
                         created_at=session_dict.get("created_at"),
                         updated_at=session_dict.get("created_at"),
                     )
-                    stmt = stmt.on_conflict_do_update(
-                        index_elements=["session_id", "workflow_id"],
-                        set_=dict(
-                            workflow_id=session_dict.get("workflow_id"),
-                            user_id=session_dict.get("user_id"),
-                            workflow_data=session_dict.get("workflow_data"),
-                            session_data=session_dict.get("session_data"),
-                            summary=session_dict.get("summary"),
-                            extra_data=session_dict.get("extra_data"),
-                            runs=session_dict.get("runs"),
-                            updated_at=int(time.time()),
-                        ),
-                    ).returning(table)
-                    result = sess.execute(stmt)
+                    stmt = stmt.on_duplicate_key_update(
+                        workflow_id=session_dict.get("workflow_id"),
+                        user_id=session_dict.get("user_id"),
+                        workflow_data=session_dict.get("workflow_data"),
+                        session_data=session_dict.get("session_data"),
+                        summary=session_dict.get("summary"),
+                        extra_data=session_dict.get("extra_data"),
+                        runs=session_dict.get("runs"),
+                        updated_at=int(time.time()),
+                    )
+                    sess.execute(stmt)
+
+                    # Fetch the row
+                    select_stmt = select(table).where(table.c.session_id == session_dict.get("session_id"))
+                    result = sess.execute(select_stmt)
                     row = result.fetchone()
+                    if not row:
+                        return None
                     session = dict(row._mapping)
                     if session is None or not deserialize:
                         return session
@@ -692,7 +692,7 @@ class PostgresDb(BaseDb):
                 else:
                     log_debug(f"No user memory found with id: {memory_id}")
 
-                    return success
+                return success
 
         except Exception as e:
             log_warning(f"Error deleting user memory: {e}")
@@ -729,9 +729,24 @@ class PostgresDb(BaseDb):
             table = self._get_table(table_type="user_memories")
 
             with self.Session() as sess, sess.begin():
-                stmt = select(func.json_array_elements_text(table.c.topics))
+                # MySQL approach: extract JSON array elements differently
+                stmt = select(table.c.topics)
                 result = sess.execute(stmt).fetchall()
-                return [record[0] for record in result]
+
+                topics_set = set()
+                for row in result:
+                    if row[0]:
+                        # Parse JSON array and add topics to set
+                        import json
+
+                        try:
+                            topics = json.loads(row[0]) if isinstance(row[0], str) else row[0]
+                            if isinstance(topics, list):
+                                topics_set.update(topics)
+                        except:
+                            pass
+
+                return list(topics_set)
 
         except Exception as e:
             log_warning(f"Exception reading from memory table: {e}")
@@ -823,10 +838,13 @@ class PostgresDb(BaseDb):
                 if workflow_id is not None:
                     stmt = stmt.where(table.c.workflow_id == workflow_id)
                 if topics is not None:
-                    topic_conditions = [text(f"topics::text LIKE '%\"{topic}\"%'") for topic in topics]
+                    # MySQL JSON contains syntax
+                    topic_conditions = []
+                    for topic in topics:
+                        topic_conditions.append(func.json_contains(table.c.topics, f'"{topic}"'))
                     stmt = stmt.where(and_(*topic_conditions))
                 if search_content is not None:
-                    stmt = stmt.where(func.cast(table.c.memory, postgresql.TEXT).ilike(f"%{search_content}%"))
+                    stmt = stmt.where(cast(table.c.memory, TEXT).ilike(f"%{search_content}%"))
 
                 # Get total count after applying filtering
                 count_stmt = select(func.count()).select_from(stmt.alias())
@@ -953,7 +971,7 @@ class PostgresDb(BaseDb):
                 if memory.memory_id is None:
                     memory.memory_id = str(uuid4())
 
-                stmt = postgresql.insert(table).values(
+                stmt = mysql.insert(table).values(
                     memory_id=memory.memory_id,
                     memory=memory.memory,
                     input=memory.input,
@@ -964,21 +982,23 @@ class PostgresDb(BaseDb):
                     workflow_id=memory.workflow_id,
                     last_updated=int(time.time()),
                 )
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["memory_id"],
-                    set_=dict(
-                        memory=memory.memory,
-                        topics=memory.topics,
-                        input=memory.input,
-                        agent_id=memory.agent_id,
-                        team_id=memory.team_id,
-                        workflow_id=memory.workflow_id,
-                        last_updated=int(time.time()),
-                    ),
-                ).returning(table)
+                stmt = stmt.on_duplicate_key_update(
+                    memory=memory.memory,
+                    topics=memory.topics,
+                    input=memory.input,
+                    agent_id=memory.agent_id,
+                    team_id=memory.team_id,
+                    workflow_id=memory.workflow_id,
+                    last_updated=int(time.time()),
+                )
+                sess.execute(stmt)
 
-                result = sess.execute(stmt)
+                # Fetch the row
+                select_stmt = select(table).where(table.c.memory_id == memory.memory_id)
+                result = sess.execute(select_stmt)
                 row = result.fetchone()
+                if not row:
+                    return None
 
             user_memory_raw = row._mapping
             if not user_memory_raw or not deserialize:
@@ -1276,7 +1296,7 @@ class PostgresDb(BaseDb):
                 if not update_fields:
                     # If we have insert_data, just do an insert without conflict resolution
                     if insert_data:
-                        stmt = postgresql.insert(table).values(insert_data)
+                        stmt = mysql.insert(table).values(insert_data)
                         sess.execute(stmt)
                     else:
                         # If we have no data at all, this is an error
@@ -1284,11 +1304,7 @@ class PostgresDb(BaseDb):
                         return None
                 else:
                     # Normal upsert with conflict resolution
-                    stmt = (
-                        postgresql.insert(table)
-                        .values(insert_data)
-                        .on_conflict_do_update(index_elements=["id"], set_=update_fields)
-                    )
+                    stmt = mysql.insert(table).values(insert_data).on_duplicate_key_update(**update_fields)
                     sess.execute(stmt)
 
             return knowledge_row
@@ -1316,7 +1332,7 @@ class PostgresDb(BaseDb):
 
             with self.Session() as sess, sess.begin():
                 current_time = int(time.time())
-                stmt = postgresql.insert(table).values(
+                stmt = mysql.insert(table).values(
                     {"created_at": current_time, "updated_at": current_time, **eval_run.model_dump()}
                 )
                 sess.execute(stmt)
@@ -1526,3 +1542,4 @@ class PostgresDb(BaseDb):
 
         except Exception as e:
             log_warning(f"Error upserting eval run name {eval_run_id}: {e}")
+            return None

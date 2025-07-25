@@ -573,9 +573,6 @@ class Agent:
             self.model = OpenAIChat(id="gpt-4o")
 
     def set_memory_manager(self) -> None:
-        if not self.enable_user_memories:
-            return
-
         if self.db is None:
             log_warning("Database not provided. Memories will not be stored.")
 
@@ -587,6 +584,11 @@ class Agent:
             if self.memory_manager.db is None:
                 self.memory_manager.db = self.db
 
+        if self.add_memory_references is None:
+            self.add_memory_references = (
+                self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
+            )
+
     def set_session_summary_manager(self) -> None:
         if self.enable_session_summaries and self.session_summary_manager is None:
             self.session_summary_manager = SessionSummaryManager(model=self.model)
@@ -594,12 +596,6 @@ class Agent:
         if self.session_summary_manager is not None:
             if self.session_summary_manager.model is None:
                 self.session_summary_manager.model = self.model
-
-    def set_defaults(self) -> None:
-        if self.add_memory_references is None:
-            self.add_memory_references = (
-                self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
-            )
 
         if self.add_session_summary_references is None:
             self.add_session_summary_references = (
@@ -624,12 +620,13 @@ class Agent:
         self.run_response = None
 
     def initialize_agent(self) -> None:
-        self.set_defaults()
         self.set_default_model()
         self.set_debug()
         self.set_agent_id()
-        self.set_memory_manager()
-        self.set_session_summary_manager()
+        if self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None:
+            self.set_memory_manager()
+        if self.enable_session_summaries or self.session_summary_manager is not None:
+            self.set_session_summary_manager()
 
         log_debug(f"Agent ID: {self.agent_id}", center=True)
 
@@ -3085,7 +3082,7 @@ class Agent:
             user_message_str = (
                 run_messages.user_message.get_content_string() if run_messages.user_message is not None else None
             )
-            if user_message_str is not None and (self.memory_manager is not None or self.enable_user_memories):
+            if user_message_str is not None and self.memory_manager is not None and not self.enable_agentic_memory:
                 log_debug("Creating user memories.")
                 futures.append(
                     executor.submit(
@@ -3165,7 +3162,7 @@ class Agent:
         tasks = []
 
         # Create user memories from single message
-        if run_messages.user_message is not None and self.memory_manager is not None:
+        if run_messages.user_message is not None and self.memory_manager is not None and not self.enable_agentic_memory:
             log_debug("Creating user memories.")
 
             tasks.append(
@@ -3744,7 +3741,8 @@ class Agent:
             Optional[AgentSession]: The saved AgentSession or None if not saved.
         """
 
-        if self.db is not None:
+        # If the agent is a member of a team, do not save the session to the database
+        if self.db is not None and self.team_id is None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
             # Update the session_data with the latest data
             session.session_data = self.get_agent_session_data()
@@ -4017,28 +4015,33 @@ class Agent:
             system_message_content += "</success_criteria>\n"
             system_message_content += "Stop running when the success_criteria is met.\n\n"
         # 3.3.9 Then add memories to the system prompt
-        if self.memory_manager is not None:
+        if self.add_memory_references:
+            _memory_manager_not_set = False
             if not user_id:
                 user_id = "default"
-            if self.add_memory_references:
-                user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
-                if user_memories and len(user_memories) > 0:
-                    system_message_content += (
-                        "You have access to memories from previous interactions with the user that you can use:\n\n"
-                    )
-                    system_message_content += "<memories_from_previous_interactions>"
-                    for _memory in user_memories:  # type: ignore
-                        system_message_content += f"\n- {_memory}"
-                    system_message_content += "\n</memories_from_previous_interactions>\n\n"
-                    system_message_content += (
-                        "Note: this information is from previous interactions and may be updated in this conversation. "
-                        "You should always prefer information from this conversation over the past memories.\n"
-                    )
-                else:
-                    system_message_content += (
-                        "You have the capability to retain memories from previous interactions with the user, "
-                        "but have not had any interactions with the user yet.\n"
-                    )
+            if self.memory_manager is None:
+                self.set_memory_manager()
+                _memory_manager_not_set = True
+            user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
+            if user_memories and len(user_memories) > 0:
+                system_message_content += (
+                    "You have access to memories from previous interactions with the user that you can use:\n\n"
+                )
+                system_message_content += "<memories_from_previous_interactions>"
+                for _memory in user_memories:  # type: ignore
+                    system_message_content += f"\n- {_memory.memory}"
+                system_message_content += "\n</memories_from_previous_interactions>\n\n"
+                system_message_content += (
+                    "Note: this information is from previous interactions and may be updated in this conversation. "
+                    "You should always prefer information from this conversation over the past memories.\n"
+                )
+            else:
+                system_message_content += (
+                    "You have the capability to retain memories from previous interactions with the user, "
+                    "but have not had any interactions with the user yet.\n"
+                )
+            if _memory_manager_not_set:
+                self.memory_manager = None
 
             if self.enable_agentic_memory:
                 system_message_content += (
@@ -4332,7 +4335,7 @@ class Agent:
         # 4.Add user message to run_messages
         user_message: Optional[Message] = None
         # 4.1 Build user message if message is None, str or list
-        if message is None or isinstance(message, str) or isinstance(message, list):
+        if message is None or isinstance(message, str) or isinstance(message, list) and messages is None:
             user_message = self.get_user_message(
                 message=message,
                 audio=audio,

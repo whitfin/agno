@@ -1,6 +1,5 @@
-import json
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from os import getenv
 from textwrap import dedent
@@ -10,14 +9,13 @@ from pydantic import BaseModel, Field
 
 from agno.db.base import BaseDb, SessionType
 from agno.db.schemas.memory import UserMemory
-from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
 from agno.models.base import Model
 from agno.models.message import Message
-from agno.run.response import RunResponse
-from agno.run.team import TeamRunResponse
 from agno.session import Session
 from agno.tools.function import Function
 from agno.utils.log import log_debug, log_error, log_warning, set_log_level_to_debug, set_log_level_to_info
+from agno.utils.prompts import get_json_output_prompt
+from agno.utils.string import parse_response_model_str
 
 
 class MemorySearchResponse(BaseModel):
@@ -103,7 +101,8 @@ class MemoryManager:
             memories = {}
             for memory in all_memories:
                 if memory.user_id is not None and memory.memory_id is not None:
-                    memories.setdefault(memory.user_id, {})[memory.memory_id] = memory.memory
+                    memories.setdefault(memory.user_id, []).append(memory)
+
             return memories
         return None
 
@@ -118,7 +117,7 @@ class MemoryManager:
         self.set_log_level()
 
     # -*- Public Functions
-    def get_user_memories(self, user_id: Optional[str] = None) -> List[UserMemory]:
+    def get_user_memories(self, user_id: Optional[str] = None) -> Optional[List[UserMemory]]:
         """Get the user memories for a given user id"""
         if self.db:
             if user_id is None:
@@ -127,7 +126,7 @@ class MemoryManager:
             memories = self.read_from_db(user_id=user_id)
             if memories is None:
                 return []
-            return list(memories.get(user_id, {}).values())
+            return memories.get(user_id, [])
         else:
             log_warning("Memory Db not provided.")
             return []
@@ -141,7 +140,7 @@ class MemoryManager:
             memories = self.read_from_db(user_id=user_id)
             if memories is None:
                 return None
-            return memories.get(user_id, {}).get(memory_id, None)
+            return memories.get(user_id, []).get(memory_id, None)
         else:
             log_warning("Memory Db not provided.")
             return None
@@ -166,14 +165,11 @@ class MemoryManager:
                 memory.memory_id = memory_id
             if user_id is None:
                 user_id = "default"
+            memory.user_id = user_id
 
             if not memory.last_updated:
                 memory.last_updated = datetime.now()
 
-            memories = self.read_from_db(user_id=user_id)
-            if memories is None:
-                memories = {}
-            memories.setdefault(user_id, {})[memory_id] = memory
             if self.db:
                 self._upsert_db_memory(memory=memory)
             return memory_id
@@ -202,12 +198,8 @@ class MemoryManager:
             if not memory.last_updated:
                 memory.last_updated = datetime.now()
 
-            memories = self.read_from_db(user_id=user_id)
-            if memories is None:
-                memories = {}
-            if memory_id not in memories[user_id]:
-                log_warning(f"Memory {memory_id} not found for user {user_id}")
-                return None
+            memory.memory_id = memory_id
+            memory.user_id = user_id
 
             self._upsert_db_memory(memory=memory)
 
@@ -215,6 +207,11 @@ class MemoryManager:
         else:
             log_warning("Memory Db not provided.")
             return None
+
+    def clear(self) -> None:
+        """Clears the memory."""
+        if self.db:
+            self.db.clear_memories()
 
     def delete_user_memory(
         self,
@@ -227,18 +224,9 @@ class MemoryManager:
             user_id (Optional[str]): The user id to delete the memory from. If not provided, the memory is deleted from the "default" user.
         """
         if self.db:
-            if user_id is None:
-                user_id = "default"
-
-            memories = self.read_from_db(user_id=user_id)
-
-            if memory_id not in memories[user_id]:  # type: ignore
-                log_warning(f"Memory {memory_id} not found for user {user_id}")
-                return None
-
             self._delete_db_memory(memory_id=memory_id)
         else:
-            log_warning("Memory Db not provided.")
+            log_warning("Memory DB not provided.")
             return None
 
     # -*- Agent Functions
@@ -273,10 +261,8 @@ class MemoryManager:
         if memories is None:
             memories = {}
 
-        existing_memories = memories.get(user_id, {})  # type: ignore
-        existing_memories = [
-            {"memory_id": memory_id, "memory": memory} for memory_id, memory in existing_memories.items()
-        ]
+        existing_memories = memories.get(user_id, [])  # type: ignore
+        existing_memories = [{"memory_id": memory.memory_id, "memory": memory.memory} for memory in existing_memories]
         response = self.create_or_update_memories(  # type: ignore
             messages=messages,
             existing_memories=existing_memories,
@@ -323,10 +309,8 @@ class MemoryManager:
         if memories is None:
             memories = {}
 
-        existing_memories = memories.get(user_id, {})  # type: ignore
-        existing_memories = [
-            {"memory_id": memory_id, "memory": memory.memory} for memory_id, memory in existing_memories.items()
-        ]
+        existing_memories = memories.get(user_id, [])  # type: ignore
+        existing_memories = [{"memory_id": memory.memory_id, "memory": memory.memory} for memory in existing_memories]
 
         response = await self.acreate_or_update_memories(  # type: ignore
             messages=messages,
@@ -358,10 +342,8 @@ class MemoryManager:
         if memories is None:
             memories = {}
 
-        existing_memories = memories.get(user_id, {})  # type: ignore
-        existing_memories = [
-            {"memory_id": memory_id, "memory": memory.memory} for memory_id, memory in existing_memories.items()
-        ]
+        existing_memories = memories.get(user_id, [])  # type: ignore
+        existing_memories = [{"memory_id": memory.memory_id, "memory": memory.memory} for memory in existing_memories]
         # The memory manager updates the DB directly
         response = self.run_memory_task(  # type: ignore
             task=task,
@@ -392,10 +374,8 @@ class MemoryManager:
         if memories is None:
             memories = {}
 
-        existing_memories = memories.get(user_id, {})  # type: ignore
-        existing_memories = [
-            {"memory_id": memory_id, "memory": memory.memory} for memory_id, memory in existing_memories.items()
-        ]
+        existing_memories = memories.get(user_id, [])  # type: ignore
+        existing_memories = [{"memory_id": memory.memory_id, "memory": memory.memory} for memory in existing_memories]
         # The memory manager updates the DB directly
         response = await self.arun_memory_task(  # type: ignore
             task=task,
@@ -551,10 +531,10 @@ class MemoryManager:
         log_debug("Searching for memories", center=True)
 
         # Get all memories as a list
-        user_memories: Dict[str, UserMemory] = memories[user_id]
+        user_memories: List[UserMemory] = memories[user_id]
         system_message_str = "Your task is to search through user memories and return the IDs of the memories that are related to the query.\n"
         system_message_str += "\n<user_memories>\n"
-        for memory in user_memories.values():
+        for memory in user_memories:
             system_message_str += f"ID: {memory.memory_id}\n"
             system_message_str += f"Memory: {memory.memory}\n"
             if memory.topics:
@@ -604,7 +584,9 @@ class MemoryManager:
         memories_to_return = []
         if memory_search:
             for memory_id in memory_search.memory_ids:
-                memories_to_return.append(user_memories[memory_id])
+                for memory in user_memories:
+                    if memory.memory_id == memory_id:
+                        memories_to_return.append(memory)
         return memories_to_return[:limit]
 
     def _get_last_n_memories(self, user_id: str, limit: Optional[int] = None) -> List[UserMemory]:
@@ -620,13 +602,10 @@ class MemoryManager:
         if memories is None:
             memories = {}
 
-        memories_dict = memories.get(user_id, {})
+        memories_list = memories.get(user_id, [])
 
         # Sort memories by last_updated timestamp if available
-        if memories_dict:
-            # Convert to list of values for sorting
-            memories_list = list(memories_dict.values())
-
+        if memories_list:
             # Sort memories by last_updated timestamp (newest first)
             # If last_updated is None, place at the beginning of the list
             sorted_memories_list = sorted(
@@ -654,12 +633,9 @@ class MemoryManager:
         if memories is None:
             memories = {}
 
-        memories_dict = memories.get(user_id, {})
+        memories_list = memories.get(user_id, [])
         # Sort memories by last_updated timestamp if available
-        if memories_dict:
-            # Convert to list of values for sorting
-            memories_list = list(memories_dict.values())
-
+        if memories_list:
             # Sort memories by last_updated timestamp (oldest first)
             # If last_updated is None, place at the end of the list
             sorted_memories_list = sorted(

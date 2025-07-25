@@ -7,11 +7,7 @@ from agno.workflow import Workflow
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 # Setup the database
-db = PostgresDb(
-    db_url=db_url,
-    session_table="sessions",
-    user_memory_table="user_memory",
-)
+db = PostgresDb(db_url=db_url)
 
 
 basic_agent = Agent(
@@ -28,6 +24,7 @@ basic_agent = Agent(
 basic_team = Team(
     team_id="basic-team",
     name="Basic Team",
+    db=db,
     description="Just a simple team",
     members=[basic_agent],
 )

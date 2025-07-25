@@ -86,8 +86,18 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
 
         if session_type == SessionType.AGENT:
             return [RunSchema.from_run_response(run) for run in runs]
+
         elif session_type == SessionType.TEAM:
-            return [RunSchema.from_team_run_response(run) for run in runs]
+            # TODO: Uncomment after FE is ready
+            # team_runs, member_runs = [], []
+            # for run in runs:
+            #     if run.get("parent_run_id") is not None:
+            #         member_runs.append(MemberRunSchema.from_dict(run))
+            #     else:
+            #         team_runs.append(TeamRunSchema.from_dict(run))
+            # return TeamAndMemberRunsSchema(runs=team_runs, member_runs=member_runs)
+            return [TeamRunSchema.from_dict(run) for run in runs]
+
         elif session_type == SessionType.WORKFLOW:
             return [RunSchema.from_run_response(run) for run in runs]
 

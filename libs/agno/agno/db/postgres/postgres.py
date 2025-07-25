@@ -854,6 +854,15 @@ class PostgresDb(BaseDb):
             log_error(f"Exception reading from memory table: {e}")
             return [] if deserialize else ([], 0)
 
+    def clear_memories(self) -> None:
+        """Clear all user memories from the database."""
+        try:
+            table = self._get_table(table_type="user_memories")
+            with self.Session() as sess, sess.begin():
+                sess.execute(table.delete())
+        except Exception as e:
+            log_warning(f"Exception clearing user memories: {e}")
+
     def get_user_memory_stats(
         self, limit: Optional[int] = None, page: Optional[int] = None
     ) -> Tuple[List[Dict[str, Any]], int]:
@@ -960,7 +969,6 @@ class PostgresDb(BaseDb):
                         memory=memory.memory,
                         topics=memory.topics,
                         input=memory.input,
-                        user_id=memory.user_id,
                         agent_id=memory.agent_id,
                         team_id=memory.team_id,
                         workflow_id=memory.workflow_id,

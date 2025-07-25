@@ -18,11 +18,9 @@ from agno.os.schema import (
     ConfigResponse,
     InterfaceResponse,
     ManagerResponse,
-    MemberRunSchema,
     Model,
     RunSchema,
     SessionSchema,
-    TeamAndMemberRunsSchema,
     TeamResponse,
     TeamRunSchema,
     TeamSessionDetailSchema,
@@ -713,11 +711,11 @@ def get_base_router(
 
         return TeamSessionDetailSchema.from_session(session)  # type: ignore
 
-    @router.get("/teams/{team_id}/sessions/{session_id}/runs", response_model=TeamAndMemberRunsSchema, status_code=200)
+    @router.get("/teams/{team_id}/sessions/{session_id}/runs", response_model=List[TeamRunSchema], status_code=200)
     async def get_team_session_runs(
         team_id: str,
         session_id: str,
-    ) -> TeamAndMemberRunsSchema:
+    ) -> List[TeamRunSchema]:
         team = get_team_by_id(team_id, os.teams)
         if team is None:
             raise HTTPException(status_code=404, detail="Team not found")
@@ -733,14 +731,17 @@ def get_base_router(
         if not runs:
             raise HTTPException(status_code=404, detail=f"Session with id {session_id} has no runs")
 
-        team_runs, member_runs = [], []
-        for run in runs:
-            if hasattr(run, "parent_run_id"):
-                member_runs.append(MemberRunSchema.from_dict(run))
-            else:
-                team_runs.append(TeamRunSchema.from_dict(run))
+        # TODO: Uncomment after FE is ready
+        # team_runs, member_runs = [], []
+        # for run in runs:
+        #     if hasattr(run, "parent_run_id"):
+        #         member_runs.append(MemberRunSchema.from_dict(run))
+        #     else:
+        #         team_runs.append(TeamRunSchema.from_dict(run))
 
-        return TeamAndMemberRunsSchema(runs=team_runs, member_runs=member_runs)
+        # return TeamAndMemberRunsSchema(runs=team_runs, member_runs=member_runs)
+
+        return [TeamRunSchema.from_dict(run) for run in runs]
 
     @router.get("/teams/{team_id}", response_model=TeamResponse)
     async def get_team(team_id: str):

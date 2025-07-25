@@ -113,6 +113,7 @@ class DynamoDb(BaseDb):
                     schema = get_table_schema_definition(table_type)
                     schema["TableName"] = table_name
                     create_table_if_not_exists(self.client, table_name, schema)
+
                 except Exception as e:
                     log_error(f"Failed to create table {table_name}: {e}")
 
@@ -512,6 +513,8 @@ class DynamoDb(BaseDb):
             item = serialize_to_dynamo_item(serialized_session)
             self.client.put_item(TableName=table_name, Item=item)
 
+            log_debug(f"Upserted session with id '{session.session_id}'")
+
             return deserialize_session_result(serialized_session, session, deserialize)
 
         except Exception as e:
@@ -592,7 +595,7 @@ class DynamoDb(BaseDb):
             return list(all_topics)
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return []
 
     def get_user_memory(
@@ -859,6 +862,8 @@ class DynamoDb(BaseDb):
 
             self.client.put_item(TableName=table_name, Item=item)
 
+            log_debug(f"Upserted user memory with id '{memory.memory_id}'")
+
             if not deserialize:
                 return memory_dict
 
@@ -937,6 +942,8 @@ class DynamoDb(BaseDb):
             # Store metrics in DynamoDB
             if metrics_records:
                 results = self._bulk_upsert_metrics(metrics_records)
+
+            log_debug("Updated metrics calculations")
 
             return results
 
@@ -1137,10 +1144,8 @@ class DynamoDb(BaseDb):
             existing_record = self._get_existing_metrics_record(table_name, date_str)
 
             if existing_record:
-                # Update existing record
                 return self._update_existing_metrics_record(table_name, existing_record, record)
             else:
-                # Create new record
                 return self._create_new_metrics_record(table_name, record)
 
         except Exception as e:
@@ -1476,6 +1481,8 @@ class DynamoDb(BaseDb):
 
             self.client.put_item(TableName=self.knowledge_table_name, Item=item)
 
+            log_debug(f"Upserted knowledge source with id '{knowledge_row.id}'")
+
         except Exception as e:
             log_error(f"Failed to upsert knowledge source {knowledge_row.id}: {e}")
 
@@ -1489,6 +1496,7 @@ class DynamoDb(BaseDb):
         try:
             self.client.delete_item(TableName=self.knowledge_table_name, Key={"id": {"S": id}})
             log_debug(f"Deleted knowledge source {id}")
+
         except Exception as e:
             log_error(f"Failed to delete knowledge source {id}: {e}")
 
@@ -1658,6 +1666,9 @@ class DynamoDb(BaseDb):
             )
 
             item = response.get("Attributes")
+
+            log_debug(f"Renamed eval run with id '{eval_run_id}' to '{name}'")
+
             if item:
                 return deserialize_from_dynamodb_item(item)
             return None

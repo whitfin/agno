@@ -135,8 +135,8 @@ def create_table_if_not_exists(dynamodb_client, table_name: str, schema: Dict[st
     """Create DynamoDB table if it doesn't exist."""
     try:
         dynamodb_client.describe_table(TableName=table_name)
-        log_debug(f"Table {table_name} already exists")
         return True
+
     except dynamodb_client.exceptions.ResourceNotFoundException:
         log_info(f"Creating table {table_name}")
         try:
@@ -144,8 +144,11 @@ def create_table_if_not_exists(dynamodb_client, table_name: str, schema: Dict[st
             # Wait for table to be created
             waiter = dynamodb_client.get_waiter("table_exists")
             waiter.wait(TableName=table_name)
-            log_info(f"Table {table_name} created successfully")
+
+            log_debug(f"Table {table_name} created successfully")
+
             return True
+
         except Exception as e:
             log_error(f"Failed to create table {table_name}: {e}")
             return False

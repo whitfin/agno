@@ -13,9 +13,9 @@ from agno.db.mongo.utils import (
     fetch_all_sessions_data,
     get_dates_to_calculate_metrics_for,
 )
-from agno.db.schemas import MemoryRow
 from agno.db.schemas.evals import EvalFilterType, EvalRunRecord, EvalType
 from agno.db.schemas.knowledge import KnowledgeRow
+from agno.db.schemas.memory import UserMemory
 from agno.db.utils import deserialize_session_json_fields, serialize_session_json_fields
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info, log_warning
@@ -608,7 +608,7 @@ class MongoDb(BaseDb):
             log_debug(f"Exception reading from collection: {e}")
             return []
 
-    def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[MemoryRow]:
+    def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[UserMemory]:
         """Get a memory from the database.
 
         Args:
@@ -616,8 +616,8 @@ class MongoDb(BaseDb):
             deserialize (Optional[bool]): Whether to serialize the memory. Defaults to True.
 
         Returns:
-            Optional[MemoryRow]:
-                - When deserialize=True: MemoryRow object
+            Optional[UserMemory]:
+                - When deserialize=True: UserMemory object
                 - When deserialize=False: Memory dictionary
 
         Raises:
@@ -629,12 +629,7 @@ class MongoDb(BaseDb):
             if result is None or not deserialize:
                 return result
 
-            return MemoryRow(
-                id=result["memory_id"],
-                user_id=result["user_id"],
-                memory=result["memory"],
-                last_updated=result["last_updated"],
-            )
+            return UserMemory.from_dict(result)
 
         except Exception as e:
             log_debug(f"Exception reading from collection: {e}")
@@ -653,8 +648,8 @@ class MongoDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[MemoryRow], Tuple[List[Dict[str, Any]], int]]:
-        """Get all memories from the database as MemoryRow objects.
+    ) -> Union[List[UserMemory], Tuple[List[Dict[str, Any]], int]]:
+        """Get all memories from the database as UserMemory objects.
 
         Args:
             user_id (Optional[str]): The ID of the user to get the memories for.
@@ -713,15 +708,7 @@ class MongoDb(BaseDb):
             if not deserialize:
                 return records, total_count
 
-            return [
-                MemoryRow(
-                    id=record["memory_id"],
-                    user_id=record["user_id"],
-                    memory=record["memory"],
-                    last_updated=record["last_updated"],
-                )
-                for record in records
-            ]
+            return [UserMemory.from_dict(record) for record in records]
 
         except Exception as e:
             log_debug(f"Exception reading from collection: {e}")
@@ -788,17 +775,17 @@ class MongoDb(BaseDb):
             return [], 0
 
     def upsert_user_memory(
-        self, memory: MemoryRow, deserialize: Optional[bool] = True
-    ) -> Optional[Union[MemoryRow, Dict[str, Any]]]:
+        self, memory: UserMemory, deserialize: Optional[bool] = True
+    ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         """Upsert a user memory in the database.
 
         Args:
-            memory (MemoryRow): The memory to upsert.
+            memory (UserMemory): The memory to upsert.
             deserialize (Optional[bool]): Whether to serialize the memory. Defaults to True.
 
         Returns:
-            Optional[Union[MemoryRow, Dict[str, Any]]]:
-                - When deserialize=True: MemoryRow object
+            Optional[Union[UserMemory, Dict[str, Any]]]:
+                - When deserialize=True: UserMemory object
                 - When deserialize=False: Memory dictionary
 
         Raises:
@@ -807,21 +794,21 @@ class MongoDb(BaseDb):
         try:
             collection = self._get_collection(table_type="user_memories")
 
-            if memory.id is None:
-                memory.id = str(uuid4())
+            if memory.memory_id is None:
+                memory.memory_id = str(uuid4())
 
             update_doc = {
                 "user_id": memory.user_id,
                 "agent_id": memory.agent_id,
                 "team_id": memory.team_id,
                 "workflow_id": None,
-                "memory_id": memory.id,
+                "memory_id": memory.memory_id,
                 "memory": memory.memory,
-                "topics": memory.memory.get("topics", []),
+                "topics": memory.topics,
                 "last_updated": int(time.time()),
             }
 
-            result = collection.replace_one({"memory_id": memory.id}, update_doc, upsert=True)
+            result = collection.replace_one({"memory_id": memory.memory_id}, update_doc, upsert=True)
 
             if result.upserted_id:
                 update_doc["_id"] = result.upserted_id
@@ -829,14 +816,7 @@ class MongoDb(BaseDb):
             if not deserialize:
                 return update_doc
 
-            return MemoryRow(
-                id=update_doc["memory_id"],
-                user_id=update_doc["user_id"],
-                agent_id=update_doc["agent_id"],
-                team_id=update_doc["team_id"],
-                memory=update_doc["memory"],
-                last_updated=update_doc["last_updated"],
-            )
+            return UserMemory.from_dict(update_doc)
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")

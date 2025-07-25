@@ -16,7 +16,6 @@ from agno.db.singlestore.utils import (
     create_schema,
     fetch_all_sessions_data,
     get_dates_to_calculate_metrics_for,
-    hydrate_session,
     is_table_available,
     is_valid_table,
 )
@@ -198,15 +197,6 @@ class SingleStoreDb(BaseDb):
                 with self.Session() as sess, sess.begin():
                     create_schema(session=sess, db_schema=db_schema)
 
-            # Create table
-            table_without_indexes = Table(
-                table_name,
-                MetaData(schema=db_schema),
-                *[c.copy() for c in table.columns],
-                *[c for c in table.constraints if not isinstance(c, Index)],
-                schema=db_schema,
-            )
-
             # SingleStore has a limitation on the number of unique multi-field constraints per table.
             # We need to work around that limitation for the sessions table.
             if table_type == "sessions":
@@ -230,7 +220,7 @@ class SingleStoreDb(BaseDb):
 
                     sess.execute(text(table_sql))
             else:
-                table_without_indexes.create(self.db_engine, checkfirst=True)
+                table.create(self.db_engine, checkfirst=True)
 
             # Create indexes
             for idx in table.indexes:
@@ -449,7 +439,7 @@ class SingleStoreDb(BaseDb):
                 if result is None:
                     return None
 
-                session = hydrate_session(dict(result._mapping))
+                session = dict(result._mapping)
 
             if not deserialize:
                 return session
@@ -551,7 +541,7 @@ class SingleStoreDb(BaseDb):
                 if records is None:
                     return [], 0
 
-                session = [hydrate_session(dict(record._mapping)) for record in records]
+                session = [dict(record._mapping) for record in records]
                 if not deserialize:
                     return session, total_count
 
@@ -608,7 +598,7 @@ class SingleStoreDb(BaseDb):
                 if not row:
                     return None
 
-            session = hydrate_session(dict(row._mapping))
+            session = dict(row._mapping)
             if not deserialize:
                 return session
 

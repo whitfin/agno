@@ -14,7 +14,6 @@ from agno.db.postgres.utils import (
     create_schema,
     fetch_all_sessions_data,
     get_dates_to_calculate_metrics_for,
-    hydrate_session,
     is_table_available,
     is_valid_table,
 )
@@ -147,14 +146,7 @@ class PostgresDb(BaseDb):
                 create_schema(session=sess, db_schema=db_schema)
 
             # Create table
-            table_without_indexes = Table(
-                table_name,
-                MetaData(schema=db_schema),
-                *[c.copy() for c in table.columns],
-                *[c for c in table.constraints if not isinstance(c, Index)],
-                schema=db_schema,
-            )
-            table_without_indexes.create(self.db_engine, checkfirst=True)
+            table.create(self.db_engine, checkfirst=True)
 
             # Create indexes
             for idx in table.indexes:
@@ -276,6 +268,7 @@ class PostgresDb(BaseDb):
             raise
 
     # -- Session methods --
+
     def delete_session(self, session_id: str) -> bool:
         """
         Delete a session from the database.
@@ -367,7 +360,7 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-                session = hydrate_session(dict(result._mapping))
+                session = dict(result._mapping)
 
             if not deserialize:
                 return session
@@ -466,7 +459,7 @@ class PostgresDb(BaseDb):
                 if records is None:
                     return [], 0
 
-                session = [hydrate_session(dict(record._mapping)) for record in records]
+                session = [dict(record._mapping) for record in records]
                 if not deserialize:
                     return session, total_count
 
@@ -528,7 +521,7 @@ class PostgresDb(BaseDb):
                 if not row:
                     return None
 
-            session = hydrate_session(dict(row._mapping))
+            session = dict(row._mapping)
             if not deserialize:
                 return session
 
@@ -793,7 +786,7 @@ class PostgresDb(BaseDb):
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
     ) -> Union[List[UserMemory], Tuple[List[Dict[str, Any]], int]]:
-        """Get all memories from the database as MemoryRow objects.
+        """Get all memories from the database as UserMemory objects.
 
         Args:
             user_id (Optional[str]): The ID of the user to filter by.
@@ -1166,25 +1159,8 @@ class PostgresDb(BaseDb):
 
     # -- Knowledge methods --
 
-    def _get_knowledge_table(self) -> Table:
-        """Get or create the knowledge table.
-
-        Returns:
-            Table: The knowledge table.
-        """
-        if not hasattr(self, "knowledge_table"):
-            if self.knowledge_table_name is None:
-                raise ValueError("Knowledge table was not provided on initialization")
-
-            log_info(f"Getting knowledge table: {self.knowledge_table_name}")
-            self.knowledge_table = self._get_or_create_table(
-                table_name=self.knowledge_table_name, table_type="knowledge_contents", db_schema=self.db_schema
-            )
-
-        return self.knowledge_table
-
     def delete_knowledge_content(self, id: str):
-        table = self._get_knowledge_table()
+        table = self._get_table(table_type="knowledge")
         with self.Session() as sess, sess.begin():
             stmt = table.delete().where(table.c.id == id)
             sess.execute(stmt)
@@ -1192,7 +1168,7 @@ class PostgresDb(BaseDb):
         return
 
     def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
-        table = self._get_knowledge_table()
+        table = self._get_table(table_type="knowledge")
         print(f"Getting knowledge content: {id}, {table}")
         with self.Session() as sess, sess.begin():
             stmt = select(table).where(table.c.id == id)
@@ -1219,7 +1195,7 @@ class PostgresDb(BaseDb):
         Returns:
             List[KnowledgeRow]: The knowledge contents.
         """
-        table = self._get_knowledge_table()
+        table = self._get_table(table_type="knowledge")
         with self.Session() as sess, sess.begin():
             stmt = select(table)
 
@@ -1250,7 +1226,7 @@ class PostgresDb(BaseDb):
             Optional[KnowledgeRow]: The upserted knowledge row, or None if the operation fails.
         """
         try:
-            table = self._get_knowledge_table()
+            table = self._get_table(table_type="knowledge")
             with self.Session() as sess, sess.begin():
                 # Get the actual table columns to avoid "unconsumed column names" error
                 table_columns = set(table.columns.keys())

@@ -16,11 +16,6 @@ db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 # Create Postgres-backed memory store
 memory_db = PostgresDb(
     db_url=db_url,
-    session_table="sessions",
-    user_memory_table="user_memory",
-    eval_table="eval_runs",
-    metrics_table="metrics",
-    knowledge_table="knowledge_contents",
 )
 memory = Memory(db=memory_db)
 
@@ -71,11 +66,5 @@ app = agent_os.get_app()
 
 
 if __name__ == "__main__":
-    # Add content to the knowledge base
-    knowledge.add_content(
-        name="Agno Docs",
-        url="https://docs.agno.com/introduction",
-        metadata={"info": "Documentation from Agno website"},
-    )
     # Simple run to generate and record a session
     agent_os.serve(app="demo:app", reload=True)

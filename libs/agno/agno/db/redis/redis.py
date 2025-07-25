@@ -15,7 +15,6 @@ from agno.db.redis.utils import (
     generate_redis_key,
     get_all_keys_for_table,
     get_dates_to_calculate_metrics_for,
-    hydrate_session,
     remove_index_entries,
     serialize_data,
 )
@@ -343,17 +342,15 @@ class RedisDb(BaseDb):
             Exception: If any error occurs while getting the session.
         """
         try:
-            data = self._get_record("sessions", session_id)
-            if data is None:
+            session = self._get_record("sessions", session_id)
+            if session is None:
                 return None
 
             # Apply filters
-            if user_id is not None and data.get("user_id") != user_id:
+            if user_id is not None and session.get("user_id") != user_id:
                 return None
-            if session_type is not None and data.get("session_type") != session_type:
+            if session_type is not None and session.get("session_type") != session_type:
                 return None
-
-            session = hydrate_session(data)
 
             if not deserialize:
                 return session
@@ -431,7 +428,7 @@ class RedisDb(BaseDb):
 
             sorted_sessions = apply_sorting(records=filtered_sessions, sort_by=sort_by, sort_order=sort_order)
             sessions = apply_pagination(records=sorted_sessions, limit=limit, page=page)
-            sessions = [hydrate_session(record) for record in sessions]
+            sessions = [record for record in sessions]
 
             if not deserialize:
                 return sessions, len(filtered_sessions)
@@ -466,22 +463,20 @@ class RedisDb(BaseDb):
             Exception: If any error occurs while renaming the session.
         """
         try:
-            session_data = self._get_record("sessions", session_id)
-            if session_data is None:
+            session = self._get_record("sessions", session_id)
+            if session is None:
                 return None
 
             # Update session_name, in session_data
-            if "session_data" not in session_data:
-                session_data["session_data"] = {}
-            session_data["session_data"]["session_name"] = session_name
-            session_data["updated_at"] = int(time.time())
+            if "session_data" not in session:
+                session["session_data"] = {}
+            session["session_data"]["session_name"] = session_name
+            session["updated_at"] = int(time.time())
 
             # Store updated session
-            success = self._store_record("sessions", session_id, session_data)
+            success = self._store_record("sessions", session_id, session)
             if not success:
                 return None
-
-            session = hydrate_session(session_data)
 
             if not deserialize:
                 return session
@@ -613,12 +608,10 @@ class RedisDb(BaseDb):
                 if not success:
                     return None
 
-                session = hydrate_session(data)
-
                 if not deserialize:
-                    return session
+                    return data
 
-                return WorkflowSession.from_dict(session)
+                return WorkflowSession.from_dict(data)
 
         except Exception as e:
             log_warning(f"Exception upserting session: {e}")

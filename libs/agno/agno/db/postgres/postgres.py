@@ -14,7 +14,6 @@ from agno.db.postgres.utils import (
     create_schema,
     fetch_all_sessions_data,
     get_dates_to_calculate_metrics_for,
-    hydrate_session,
     is_table_available,
     is_valid_table,
 )
@@ -360,7 +359,7 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-                session = hydrate_session(dict(result._mapping))
+                session = dict(result._mapping)
 
             if not deserialize:
                 return session
@@ -459,7 +458,7 @@ class PostgresDb(BaseDb):
                 if records is None:
                     return [], 0
 
-                session = [hydrate_session(dict(record._mapping)) for record in records]
+                session = [dict(record._mapping) for record in records]
                 if not deserialize:
                     return session, total_count
 
@@ -521,7 +520,7 @@ class PostgresDb(BaseDb):
                 if not row:
                     return None
 
-            session = hydrate_session(dict(row._mapping))
+            session = dict(row._mapping)
             if not deserialize:
                 return session
 

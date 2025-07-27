@@ -130,6 +130,7 @@ class Workflow:
     store_events: bool = False
     events_to_skip: Optional[List[WorkflowRunEvent]] = None
 
+    websocket: Optional[WebSocket] = None
     websocket_broadcaster: Optional[WebSocketBroadcaster] = None
 
     def __init__(
@@ -164,6 +165,7 @@ class Workflow:
         self.events_to_skip = events_to_skip or []
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
+        # Create WebSocket broadcaster if provided
         self.websocket_broadcaster = WebSocketBroadcaster(websocket=websocket) if websocket else None
 
     @property
@@ -949,9 +951,6 @@ class Workflow:
         """Execute a specific pipeline by name with event streaming"""
         from inspect import isasyncgenfunction, iscoroutinefunction, isgeneratorfunction
 
-        if websocket_broadcaster:
-            self.websocket_broadcaster = websocket_broadcaster
-
         workflow_run_response.status = RunStatus.running
         workflow_started_event = WorkflowStartedEvent(
             run_id=workflow_run_response.run_id or "",
@@ -1238,7 +1237,6 @@ class Workflow:
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
         stream_intermediate_steps: bool = False,
-        websocket: Optional["WebSocket"] = None,
         **kwargs: Any,
     ) -> WorkflowRunResponse:
         """Execute workflow in background with streaming and WebSocket broadcasting"""
@@ -1281,10 +1279,6 @@ class Workflow:
         )
 
         self.update_agents_and_teams_session_info()
-
-        # Create WebSocket broadcaster if provided
-        if websocket:
-            self.websocket_broadcaster = WebSocketBroadcaster(websocket=websocket)
 
         async def execute_workflow_background_stream():
             """Background execution with streaming and WebSocket broadcasting"""
@@ -1464,7 +1458,6 @@ class Workflow:
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
-        websocket: Optional[WebSocket] = None,
     ) -> WorkflowRunResponse: ...
 
     @overload
@@ -1480,7 +1473,6 @@ class Workflow:
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
-        websocket: Optional[WebSocket] = None,
     ) -> AsyncIterator[WorkflowRunResponseEvent]: ...
 
     async def arun(
@@ -1495,12 +1487,11 @@ class Workflow:
         stream: bool = False,
         stream_intermediate_steps: Optional[bool] = False,
         background: Optional[bool] = False,
-        websocket: Optional[WebSocket] = None,
         **kwargs: Any,
     ) -> Union[WorkflowRunResponse, AsyncIterator[WorkflowRunResponseEvent]]:
         """Execute the workflow synchronously with optional streaming"""
         if background:
-            if stream and websocket:
+            if stream and self.websocket_broadcaster:
                 # Background + Streaming + WebSocket = Real-time events
                 return await self._arun_background_stream(
                     message=message,
@@ -1511,16 +1502,13 @@ class Workflow:
                     images=images,
                     videos=videos,
                     stream_intermediate_steps=stream_intermediate_steps or False,
-                    websocket=websocket,
                     **kwargs,
                 )
-            elif stream and not websocket:
+            elif stream and not self.websocket_broadcaster:
                 # Background + Streaming but no WebSocket = Not supported
                 raise ValueError("Background streaming execution requires a WebSocket for real-time events")
             else:
                 # Background + Non-streaming = Polling (existing)
-                if websocket:
-                    logger.warning("WebSocket parameter ignored for non-streaming background execution")
                 return await self._arun_background(
                     message=message,
                     additional_data=additional_data,

@@ -27,19 +27,6 @@ search_agent = Agent(
     instructions="Search for additional information on the web",
 )
 
-workflow = Workflow(
-    name="Tech Research Pipeline",
-    steps=[
-        Step(name="hackernews_research", agent=hackernews_agent),
-        Step(name="web_search", agent=search_agent),
-    ],
-    storage=SqliteStorage(
-        table_name="workflow_v2_bg",
-        db_file="tmp/workflow_v2_bg.db",
-        mode="workflow_v2",
-    ),
-)
-
 # === FASTAPI APP ===
 app = FastAPI(title="Background Workflow WebSocket Demo")
 
@@ -590,6 +577,20 @@ async def run_workflow_background_stream(request: Dict[str, Any]):
             "message": "No WebSocket connection available for background streaming",
         }
 
+    workflow = Workflow(
+        name="Tech Research Pipeline",
+        steps=[
+            Step(name="hackernews_research", agent=hackernews_agent),
+            Step(name="web_search", agent=search_agent),
+        ],
+        storage=SqliteStorage(
+            table_name="workflow_v2_bg",
+            db_file="tmp/workflow_v2_bg.db",
+            mode="workflow_v2",
+        ),
+        websocket=websocket_conn,
+    )
+
     try:
         # Execute workflow in background with streaming and WebSocket
         result = await workflow.arun(
@@ -598,7 +599,6 @@ async def run_workflow_background_stream(request: Dict[str, Any]):
             stream=True,
             stream_intermediate_steps=True,
             background=True,
-            websocket=websocket_conn,
         )
 
         return {
@@ -607,50 +607,6 @@ async def run_workflow_background_stream(request: Dict[str, Any]):
             "session_id": result.session_id,
             "message": "Background streaming workflow started - events will be broadcast via WebSocket",
         }
-
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@app.post("/workflow/background")
-async def run_workflow_background(request: Dict[str, Any]):
-    """Run workflow in background (no WebSocket support)"""
-    message = request.get("message", "AI trends 2024")
-    session_id = request.get("session_id")
-
-    try:
-        # Execute workflow in background
-        result = await workflow.arun(
-            message=message,
-            session_id=session_id,
-            background=True,
-        )
-
-        return {
-            "status": "started",
-            "run_id": result.run_id,
-            "session_id": result.session_id,
-            "message": "Background workflow started",
-        }
-
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
-@app.get("/workflow/status/{session_id}/{run_id}")
-async def get_workflow_status(session_id: str, run_id: str):
-    """Get status of a background workflow"""
-    try:
-        result = workflow.get_run(run_id)
-        if result:
-            return {
-                "status": result.status.value if result.status else "unknown",
-                "run_id": result.run_id,
-                "content": result.content,
-                "created_at": result.created_at,
-            }
-        else:
-            return {"status": "not_found", "message": "Workflow run not found"}
 
     except Exception as e:
         return {"status": "error", "message": str(e)}

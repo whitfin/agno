@@ -350,25 +350,51 @@ class WorkflowMetrics:
 
 
 @dataclass
-class WebSocketBroadcaster:
-    """WebSocket broadcaster for real-time workflow events"""
+class WebSocketHandler:
+    """Generic WebSocket handler for real-time workflow events"""
 
     websocket: Optional[WebSocket] = None
 
-    async def broadcast_event(self, event: Dict[str, Any]) -> None:
-        """Broadcast an event to the connected WebSocket"""
-        if self.websocket:
-            try:
-                import json
+    async def handle_event(self, event: Any) -> None:
+        """Handle an event object - serializes and sends via WebSocket"""
+        if not self.websocket:
+            return
 
-                await self.websocket.send_text(json.dumps(event))
-            except Exception as e:
-                log_warning(f"Failed to broadcast WebSocket event: {e}")
+        try:
+            if hasattr(event, "to_dict"):
+                data = event.to_dict()
+            elif hasattr(event, "__dict__"):
+                data = event.__dict__
+            elif isinstance(event, dict):
+                data = event
+            else:
+                data = {"type": "message", "content": str(event)}
 
-    async def broadcast_json(self, data: Dict[str, Any]) -> None:
-        """Broadcast JSON data to the connected WebSocket"""
-        await self.broadcast_event(data)
+            import json
 
-    async def broadcast_text(self, message: str) -> None:
-        """Broadcast text message to the connected WebSocket"""
-        await self.broadcast_event({"type": "message", "content": message})
+            await self.websocket.send_text(json.dumps(data))
+
+        except Exception as e:
+            log_warning(f"Failed to handle WebSocket event: {e}")
+
+    async def handle_text(self, message: str) -> None:
+        """Handle a plain text message"""
+        if not self.websocket:
+            return
+
+        try:
+            await self.websocket.send_text(message)
+        except Exception as e:
+            log_warning(f"Failed to send WebSocket text: {e}")
+
+    async def handle_dict(self, data: Dict[str, Any]) -> None:
+        """Handle a dictionary directly"""
+        if not self.websocket:
+            return
+
+        try:
+            import json
+
+            await self.websocket.send_text(json.dumps(data))
+        except Exception as e:
+            log_warning(f"Failed to send WebSocket dict: {e}")

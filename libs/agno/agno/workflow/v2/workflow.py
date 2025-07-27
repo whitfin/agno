@@ -65,7 +65,7 @@ from agno.workflow.v2.types import (
     StepInput,
     StepMetrics,
     StepOutput,
-    WebSocketBroadcaster,
+    WebSocketHandler,
     WorkflowExecutionInput,
     WorkflowMetrics,
 )
@@ -131,7 +131,7 @@ class Workflow:
     events_to_skip: Optional[List[WorkflowRunEvent]] = None
 
     websocket: Optional[WebSocket] = None
-    websocket_broadcaster: Optional[WebSocketBroadcaster] = None
+    websocket_handler: Optional[WebSocketHandler] = None
 
     def __init__(
         self,
@@ -165,8 +165,7 @@ class Workflow:
         self.events_to_skip = events_to_skip or []
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
-        # Create WebSocket broadcaster if provided
-        self.websocket_broadcaster = WebSocketBroadcaster(websocket=websocket) if websocket else None
+        self.websocket_handler = WebSocketHandler(websocket=websocket) if websocket else None
 
     @property
     def run_parameters(self) -> Dict[str, Any]:
@@ -270,17 +269,13 @@ class Workflow:
             workflow_run_response.events.append(event)
 
         # Broadcast to WebSocket if available (async context only)
-        if self.websocket_broadcaster and hasattr(event, "to_dict"):
+        if self.websocket_handler:
             import asyncio
 
             try:
                 loop = asyncio.get_running_loop()
                 if loop:
-                    asyncio.create_task(
-                        self.websocket_broadcaster.broadcast_json(
-                            event.to_dict() if hasattr(event, "to_dict") else event.__dict__
-                        )
-                    )
+                    asyncio.create_task(self.websocket_handler.handle_event(event))
             except RuntimeError:
                 pass
 
@@ -945,7 +940,6 @@ class Workflow:
         execution_input: WorkflowExecutionInput,
         workflow_run_response: WorkflowRunResponse,
         stream_intermediate_steps: bool = False,
-        websocket_broadcaster: Optional[WebSocketBroadcaster] = None,
         **kwargs: Any,
     ) -> AsyncIterator[WorkflowRunResponseEvent]:
         """Execute a specific pipeline by name with event streaming"""
@@ -1292,7 +1286,6 @@ class Workflow:
                     execution_input=inputs,
                     workflow_run_response=workflow_run_response,
                     stream_intermediate_steps=stream_intermediate_steps,
-                    websocket_broadcaster=self.websocket_broadcaster,
                     **kwargs,
                 ):
                     # Events are automatically broadcast by _handle_event
@@ -1491,7 +1484,7 @@ class Workflow:
     ) -> Union[WorkflowRunResponse, AsyncIterator[WorkflowRunResponseEvent]]:
         """Execute the workflow synchronously with optional streaming"""
         if background:
-            if stream and self.websocket_broadcaster:
+            if stream and self.websocket_handler:
                 # Background + Streaming + WebSocket = Real-time events
                 return await self._arun_background_stream(
                     message=message,
@@ -1504,7 +1497,7 @@ class Workflow:
                     stream_intermediate_steps=stream_intermediate_steps or False,
                     **kwargs,
                 )
-            elif stream and not self.websocket_broadcaster:
+            elif stream and not self.websocket_handler:
                 # Background + Streaming but no WebSocket = Not supported
                 raise ValueError("Background streaming execution requires a WebSocket for real-time events")
             else:

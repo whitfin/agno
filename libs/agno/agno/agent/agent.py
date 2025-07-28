@@ -402,6 +402,7 @@ class Agent:
         stream_intermediate_steps: bool = False,
         store_events: bool = False,
         events_to_skip: Optional[List[RunEvent]] = None,
+        role: Optional[str] = None,
         debug_mode: bool = False,
         debug_level: Literal[1, 2] = 1,
         telemetry: bool = True,
@@ -501,6 +502,7 @@ class Agent:
         self.stream_intermediate_steps = stream_intermediate_steps
 
         self.store_events = store_events
+        self.role = role
         # By default, we skip the run response content event
         self.events_to_skip = events_to_skip
         if self.events_to_skip is None:

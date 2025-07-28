@@ -57,9 +57,6 @@ async def run_performance_eval(
     default_model: Optional[Model] = None,
 ) -> EvalSchema:
     """Run a performance evaluation for the given agent or team"""
-    if not eval_run_input.warmup_runs:
-        raise HTTPException(status_code=400, detail="warmup_runs is required for performance evaluations")
-
     if agent:
 
         def run_component():  # type: ignore

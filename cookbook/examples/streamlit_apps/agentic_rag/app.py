@@ -33,7 +33,6 @@ st.markdown(COMMON_CSS, unsafe_allow_html=True)
 def initialize_agent(
     model_id: str, user_id: str = None, debug_mode: bool = True
 ) -> Agent:
-    """Initialize or get existing agent with Agno 2.0 session management."""
     agent_name = "agentic_rag_agent"
 
     if agent_name not in st.session_state or st.session_state[agent_name] is None:
@@ -48,7 +47,6 @@ def initialize_agent(
 
         agent.load_session()
 
-        # Update session state
         st.session_state[agent_name] = agent
         st.session_state["session_id"] = agent.session_id
 
@@ -63,7 +61,6 @@ def initialize_agent(
 
 
 def setup_sidebar(agent: Agent, model_id: str) -> None:
-    """Set up all sidebar components."""
     model_options = {
         "gpt-4o": "openai:gpt-4o",
         "o3-mini": "openai:o3-mini",
@@ -74,7 +71,7 @@ def setup_sidebar(agent: Agent, model_id: str) -> None:
     selected_model = st.sidebar.selectbox(
         "Select a model",
         options=list(model_options.keys()),
-        index=list(model_options.values()).index(model_id),
+        index=0,
         key="model_selector",
     )
 
@@ -142,7 +139,6 @@ def setup_sidebar(agent: Agent, model_id: str) -> None:
 
     # Session management
     session_selector_widget(agent, model_id, agent_name="agentic_rag_agent")
-    rename_session_widget(agent)
 
     # Knowledge base info
     knowledge_base_info_widget(agent)

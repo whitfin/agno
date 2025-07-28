@@ -217,6 +217,7 @@ def session_selector_widget(agent: Agent, model_id: str, agent_name: str = "agen
 
             st.rerun()
 
+        rename_session_widget(agent)
     except Exception as e:
         logger.error(f"Error in session selector: {e}")
         st.sidebar.error("Could not load sessions")

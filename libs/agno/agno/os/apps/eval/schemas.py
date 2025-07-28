@@ -15,6 +15,8 @@ class EvalRunInput(BaseModel):
     agent_id: Optional[str] = None
     team_id: Optional[str] = None
 
+    model_id: Optional[str] = None
+    model_provider: Optional[str] = None
     eval_type: EvalType
     input: str
     expected_output: str

@@ -381,7 +381,9 @@ class RunSchema(BaseModel):
             run_input=run_input,
             run_response_format=run_response_format,
             metrics=run_response.get("metrics"),
-            messages=[message for message in run_response.get("messages", [])] if run_response.get("messages") else None,
+            messages=[message for message in run_response.get("messages", [])]
+            if run_response.get("messages")
+            else None,
             tools=[tool for tool in run_response.get("tools", [])] if run_response.get("tools") else None,
             events=[event for event in run_response.get("events", [])] if run_response.get("events") else None,
             created_at=datetime.fromtimestamp(run_response.get("created_at", 0), tz=timezone.utc)
@@ -417,6 +419,7 @@ class RunSchema(BaseModel):
 
 class TeamRunSchema(BaseModel):
     run_id: str
+    parent_run_id: Optional[str]
     content: Optional[str]
     reasoning_content: Optional[str]
     run_input: Optional[str]
@@ -433,6 +436,7 @@ class TeamRunSchema(BaseModel):
         run_response_format = "text" if run_dict.get("content_type", "str") == "str" else "json"
         return cls(
             run_id=run_dict.get("run_id", ""),
+            parent_run_id=run_dict.get("parent_run_id", ""),
             run_input=run_input,
             content=run_dict.get("content", ""),
             run_response_format=run_response_format,

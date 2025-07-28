@@ -107,6 +107,7 @@ def attach_routes(
             if not agent:
                 raise HTTPException(status_code=404, detail=f"Agent with id '{eval_run_input.agent_id}' not found")
 
+            default_model = None
             if (
                 hasattr(agent, "model")
                 and agent.model is not None

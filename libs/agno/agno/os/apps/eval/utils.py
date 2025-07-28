@@ -20,6 +20,9 @@ async def run_accuracy_eval(
     default_model: Optional[Model] = None,
 ) -> EvalSchema:
     """Run an Accuracy evaluation for the given agent or team"""
+    if not eval_run_input.expected_output:
+        raise HTTPException(status_code=400, detail="expected_output is required for accuracy evaluation")
+
     accuracy_eval = AccuracyEval(
         db=db,
         agent=agent,
@@ -54,6 +57,9 @@ async def run_performance_eval(
     default_model: Optional[Model] = None,
 ) -> EvalSchema:
     """Run a performance evaluation for the given agent or team"""
+    if not eval_run_input.warmup_runs:
+        raise HTTPException(status_code=400, detail="warmup_runs is required for performance evaluations")
+
     if agent:
 
         def run_component():  # type: ignore
@@ -107,6 +113,9 @@ async def run_reliability_eval(
     default_model: Optional[Model] = None,
 ) -> EvalSchema:
     """Run a reliability evaluation for the given agent or team"""
+    if not eval_run_input.expected_tool_calls:
+        raise HTTPException(status_code=400, detail="expected_tool_calls is required for reliability evaluations")
+
     if agent:
         agent_response = agent.run(eval_run_input.input)
         reliability_eval = ReliabilityEval(

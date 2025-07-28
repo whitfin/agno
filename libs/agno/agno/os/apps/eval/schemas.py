@@ -19,10 +19,12 @@ class EvalRunInput(BaseModel):
     model_provider: Optional[str] = None
     eval_type: EvalType
     input: str
-    expected_output: str
     additional_guidelines: Optional[str] = None
     num_iterations: Optional[int] = 1
     name: Optional[str] = None
+
+    # Accuracy eval specific fields
+    expected_output: Optional[str] = None
 
     # Performance eval specific fields
     warmup_runs: Optional[int] = 0

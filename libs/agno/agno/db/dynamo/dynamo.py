@@ -21,7 +21,6 @@ from agno.db.dynamo.utils import (
     execute_query_with_pagination,
     fetch_all_sessions_data,
     get_dates_to_calculate_metrics_for,
-    hydrate_session,
     merge_with_existing_session,
     prepare_session_data,
     serialize_eval_record,
@@ -114,6 +113,7 @@ class DynamoDb(BaseDb):
                     schema = get_table_schema_definition(table_type)
                     schema["TableName"] = table_name
                     create_table_if_not_exists(self.client, table_name, schema)
+
                 except Exception as e:
                     log_error(f"Failed to create table {table_name}: {e}")
 
@@ -265,17 +265,16 @@ class DynamoDb(BaseDb):
 
             item = response.get("Item")
             if item:
-                session_raw = deserialize_from_dynamodb_item(item)
+                session = deserialize_from_dynamodb_item(item)
 
-                if session_type and session_raw.get("session_type") != session_type.value:
+                if session_type and session.get("session_type") != session_type.value:
                     return None
-                if user_id and session_raw.get("user_id") != user_id:
-                    return None
-
-                if not session_raw:
+                if user_id and session.get("user_id") != user_id:
                     return None
 
-                session = hydrate_session(session_raw)
+                if not session:
+                    return None
+
                 if not deserialize:
                     return session
 
@@ -463,8 +462,7 @@ class DynamoDb(BaseDb):
             if not item:
                 return None
 
-            session_data = deserialize_from_dynamodb_item(item)
-            session = hydrate_session(session_data)
+            session = deserialize_from_dynamodb_item(item)
             if not deserialize:
                 return session
 
@@ -507,10 +505,15 @@ class DynamoDb(BaseDb):
             serialized_session = prepare_session_data(session)
             if existing_item:
                 serialized_session = merge_with_existing_session(serialized_session, existing_item)
+                serialized_session["updated_at"] = int(time.time())
+            else:
+                serialized_session["updated_at"] = serialized_session["created_at"]
 
             # Upsert
             item = serialize_to_dynamo_item(serialized_session)
             self.client.put_item(TableName=table_name, Item=item)
+
+            log_debug(f"Upserted session with id '{session.session_id}'")
 
             return deserialize_session_result(serialized_session, session, deserialize)
 
@@ -592,7 +595,7 @@ class DynamoDb(BaseDb):
             return list(all_topics)
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return []
 
     def get_user_memory(
@@ -859,6 +862,8 @@ class DynamoDb(BaseDb):
 
             self.client.put_item(TableName=table_name, Item=item)
 
+            log_debug(f"Upserted user memory with id '{memory.memory_id}'")
+
             if not deserialize:
                 return memory_dict
 
@@ -937,6 +942,8 @@ class DynamoDb(BaseDb):
             # Store metrics in DynamoDB
             if metrics_records:
                 results = self._bulk_upsert_metrics(metrics_records)
+
+            log_debug("Updated metrics calculations")
 
             return results
 
@@ -1137,10 +1144,8 @@ class DynamoDb(BaseDb):
             existing_record = self._get_existing_metrics_record(table_name, date_str)
 
             if existing_record:
-                # Update existing record
                 return self._update_existing_metrics_record(table_name, existing_record, record)
             else:
-                # Create new record
                 return self._create_new_metrics_record(table_name, record)
 
         except Exception as e:
@@ -1476,6 +1481,8 @@ class DynamoDb(BaseDb):
 
             self.client.put_item(TableName=self.knowledge_table_name, Item=item)
 
+            log_debug(f"Upserted knowledge source with id '{knowledge_row.id}'")
+
         except Exception as e:
             log_error(f"Failed to upsert knowledge source {knowledge_row.id}: {e}")
 
@@ -1489,6 +1496,7 @@ class DynamoDb(BaseDb):
         try:
             self.client.delete_item(TableName=self.knowledge_table_name, Key={"id": {"S": id}})
             log_debug(f"Deleted knowledge source {id}")
+
         except Exception as e:
             log_error(f"Failed to delete knowledge source {id}: {e}")
 
@@ -1658,6 +1666,9 @@ class DynamoDb(BaseDb):
             )
 
             item = response.get("Attributes")
+
+            log_debug(f"Renamed eval run with id '{eval_run_id}' to '{name}'")
+
             if item:
                 return deserialize_from_dynamodb_item(item)
             return None

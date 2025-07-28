@@ -11,8 +11,7 @@ from pydantic import BaseModel
 from agno.exceptions import ModelProviderError
 from agno.media import Audio, File, ImageArtifact, Video
 from agno.models.base import Model
-from agno.models.message import Citations, Message, UrlCitation
-from agno.models.metrics import Metrics
+from agno.models.message import Citations, Message, Metrics, UrlCitation
 from agno.models.response import ModelResponse
 from agno.utils.gemini import convert_schema, format_function_definitions, format_image_for_message
 from agno.utils.log import log_debug, log_error, log_info, log_warning

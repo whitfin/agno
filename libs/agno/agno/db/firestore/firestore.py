@@ -18,7 +18,7 @@ from agno.db.schemas.knowledge import KnowledgeRow
 from agno.db.schemas.memory import UserMemory
 from agno.db.utils import deserialize_session_json_fields, serialize_session_json_fields
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
-from agno.utils.log import log_debug, log_error, log_info, log_warning
+from agno.utils.log import log_debug, log_error, log_info
 
 try:
     from google.cloud.firestore import Client, FieldFilter
@@ -260,7 +260,7 @@ class FirestoreDb(BaseDb):
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
-            log_debug(f"Exception reading session: {e}")
+            log_error(f"Exception reading session: {e}")
             return None
 
     def get_sessions(
@@ -362,7 +362,7 @@ class FirestoreDb(BaseDb):
             return sessions
 
         except Exception as e:
-            log_debug(f"Exception reading sessions: {e}")
+            log_error(f"Exception reading sessions: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_session(
@@ -403,6 +403,8 @@ class FirestoreDb(BaseDb):
             if result is None:
                 return None
             deserialized_session = deserialize_session_json_fields(result)
+
+            log_debug(f"Renamed session with id '{session_id}' to '{session_name}'")
 
             if not deserialize:
                 return deserialized_session
@@ -503,6 +505,8 @@ class FirestoreDb(BaseDb):
                 return None
             deserialized_session = deserialize_session_json_fields(result)
 
+            log_debug(f"Upserted session with id '{session.session_id}'")
+
             if not deserialize:
                 return deserialized_session
 
@@ -514,7 +518,7 @@ class FirestoreDb(BaseDb):
                 return WorkflowSession.from_dict(deserialized_session)
 
         except Exception as e:
-            log_warning(f"Exception upserting session: {e}")
+            log_error(f"Exception upserting session: {e}")
             return None
 
     # -- Memory methods --
@@ -575,7 +579,9 @@ class FirestoreDb(BaseDb):
             batch.commit()
 
             if deleted_count == 0:
-                log_debug(f"No user memories found with ids: {memory_ids}")
+                log_info(f"No user memories found with ids: {memory_ids}")
+            else:
+                log_info(f"Successfully deleted {deleted_count} user memories")
 
         except Exception as e:
             log_error(f"Error deleting user memories: {e}")
@@ -603,7 +609,7 @@ class FirestoreDb(BaseDb):
             return [topic for topic in all_topics if topic]
 
         except Exception as e:
-            log_debug(f"Exception reading from collection: {e}")
+            log_error(f"Exception reading from collection: {e}")
             return []
 
     def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[UserMemory]:
@@ -636,7 +642,7 @@ class FirestoreDb(BaseDb):
             return UserMemory.from_dict(result)
 
         except Exception as e:
-            log_debug(f"Exception reading from collection: {e}")
+            log_error(f"Exception reading from collection: {e}")
             return None
 
     def get_user_memories(
@@ -715,7 +721,7 @@ class FirestoreDb(BaseDb):
             return [UserMemory.from_dict(record) for record in records]
 
         except Exception as e:
-            log_debug(f"Exception reading from collection: {e}")
+            log_error(f"Exception reading from collection: {e}")
             return []
 
     def get_user_memory_stats(
@@ -771,7 +777,7 @@ class FirestoreDb(BaseDb):
             return formatted_results, total_count
 
         except Exception as e:
-            log_debug(f"Exception getting user memory stats: {e}")
+            log_error(f"Exception getting user memory stats: {e}")
             return [], 0
 
     def upsert_user_memory(
@@ -808,6 +814,8 @@ class FirestoreDb(BaseDb):
                 doc_ref = collection_ref.document()
 
             doc_ref.set(update_doc, merge=True)
+
+            log_debug(f"Upserted user memory with id '{memory.memory_id}'")
 
             if not deserialize:
                 return update_doc
@@ -850,7 +858,7 @@ class FirestoreDb(BaseDb):
             return results
 
         except Exception as e:
-            log_debug(f"Exception reading from sessions collection: {e}")
+            log_error(f"Exception reading from sessions collection: {e}")
             return []
 
     def _get_metrics_calculation_starting_date(self, collection_ref) -> Optional[date]:
@@ -882,7 +890,7 @@ class FirestoreDb(BaseDb):
             return datetime.fromtimestamp(first_session_date, tz=timezone.utc).date()
 
         except Exception as e:
-            log_debug(f"Exception getting metrics calculation starting date: {e}")
+            log_error(f"Exception getting metrics calculation starting date: {e}")
             return None
 
     def calculate_metrics(self) -> Optional[list[dict]]:
@@ -931,6 +939,8 @@ class FirestoreDb(BaseDb):
 
             if metrics_records:
                 results = bulk_upsert_metrics(collection_ref, metrics_records)
+
+            log_debug("Updated metrics calculations")
 
             return results
 
@@ -981,6 +991,7 @@ class FirestoreDb(BaseDb):
 
             for doc in docs:
                 doc.reference.delete()
+
         except Exception as e:
             log_error(f"Error deleting knowledge source: {e}")
 
@@ -995,6 +1006,7 @@ class FirestoreDb(BaseDb):
                 return KnowledgeRow.model_validate(data)
 
             return None
+
         except Exception as e:
             log_error(f"Error getting knowledge source: {e}")
             return None
@@ -1047,6 +1059,8 @@ class FirestoreDb(BaseDb):
 
             doc_ref.set(update_doc, merge=True)
 
+            log_debug(f"Upserted knowledge source with id '{knowledge_row.id}'")
+
             return knowledge_row
 
         except Exception as e:
@@ -1068,6 +1082,8 @@ class FirestoreDb(BaseDb):
             doc_ref = collection_ref.document()
             doc_ref.set(eval_dict)
 
+            log_debug(f"Created eval run with id '{eval_run.run_id}'")
+
             return eval_run
 
         except Exception as e:
@@ -1086,12 +1102,12 @@ class FirestoreDb(BaseDb):
                 deleted_count += 1
 
             if deleted_count == 0:
-                log_warning(f"No eval run found with ID: {eval_run_id}")
+                log_info(f"No eval run found with ID: {eval_run_id}")
             else:
-                log_debug(f"Deleted eval run with ID: {eval_run_id}")
+                log_info(f"Deleted eval run with ID: {eval_run_id}")
 
         except Exception as e:
-            log_debug(f"Error deleting eval run {eval_run_id}: {e}")
+            log_error(f"Error deleting eval run {eval_run_id}: {e}")
             raise
 
     def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
@@ -1117,12 +1133,12 @@ class FirestoreDb(BaseDb):
             batch.commit()
 
             if deleted_count == 0:
-                log_warning(f"No eval runs found with IDs: {eval_run_ids}")
+                log_info(f"No eval runs found with IDs: {eval_run_ids}")
             else:
-                log_debug(f"Deleted {deleted_count} eval runs")
+                log_info(f"Deleted {deleted_count} eval runs")
 
         except Exception as e:
-            log_debug(f"Error deleting eval runs {eval_run_ids}: {e}")
+            log_error(f"Error deleting eval runs {eval_run_ids}: {e}")
             raise
 
     def get_eval_run(
@@ -1160,7 +1176,7 @@ class FirestoreDb(BaseDb):
             return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Exception getting eval run {eval_run_id}: {e}")
+            log_error(f"Exception getting eval run {eval_run_id}: {e}")
             return None
 
     def get_eval_runs(
@@ -1257,7 +1273,7 @@ class FirestoreDb(BaseDb):
             return [EvalRunRecord.model_validate(row) for row in records]
 
         except Exception as e:
-            log_debug(f"Exception getting eval runs: {e}")
+            log_error(f"Exception getting eval runs: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_eval_run(
@@ -1295,11 +1311,13 @@ class FirestoreDb(BaseDb):
 
             result = updated_doc.to_dict()
 
+            log_debug(f"Renamed eval run with id '{eval_run_id}' to '{name}'")
+
             if not result or not deserialize:
                 return result
 
             return EvalRunRecord.model_validate(result)
 
         except Exception as e:
-            log_debug(f"Error updating eval run name {eval_run_id}: {e}")
+            log_error(f"Error updating eval run name {eval_run_id}: {e}")
             raise

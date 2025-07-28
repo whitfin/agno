@@ -845,7 +845,7 @@ class SqliteDb(BaseDb):
             return [UserMemory.from_dict(record) for record in user_memories_raw]
 
         except Exception as e:
-            log_debug(f"Exception reading from memory table: {e}")
+            log_error(f"Error reading from memory table: {e}")
             return []
 
     def get_user_memory_stats(
@@ -912,7 +912,7 @@ class SqliteDb(BaseDb):
                 ], total_count
 
         except Exception as e:
-            log_debug(f"Exception getting user memory stats: {e}")
+            log_error(f"Error getting user memory stats: {e}")
             return [], 0
 
     def upsert_user_memory(
@@ -959,6 +959,11 @@ class SqliteDb(BaseDb):
                 result = sess.execute(stmt)
                 row = result.fetchone()
 
+                if row is None:
+                    return None
+
+            log_debug(f"Upserted user memory with id '{memory.memory_id}'")
+
             user_memory_raw = row._mapping
             if not user_memory_raw or not deserialize:
                 return user_memory_raw
@@ -966,7 +971,7 @@ class SqliteDb(BaseDb):
             return UserMemory.from_dict(user_memory_raw)
 
         except Exception as e:
-            log_error(f"Exception upserting user memory: {e}")
+            log_error(f"Error upserting user memory: {e}")
             return None
 
     # -- Metrics methods --
@@ -1008,7 +1013,7 @@ class SqliteDb(BaseDb):
                 return [record._mapping for record in result]
 
         except Exception as e:
-            log_debug(f"Exception reading from sessions table: {e}")
+            log_error(f"Error reading from sessions table: {e}")
             return []
 
     def _get_metrics_calculation_starting_date(self, table: Table) -> Optional[date]:
@@ -1100,10 +1105,12 @@ class SqliteDb(BaseDb):
                 with self.Session() as sess, sess.begin():
                     results = bulk_upsert_metrics(session=sess, table=table, metrics_records=metrics_records)
 
+            log_debug("Updated metrics calculations")
+
             return results
 
         except Exception as e:
-            log_error(f"Exception refreshing metrics: {e}")
+            log_error(f"Error refreshing metrics: {e}")
             raise e
 
     def get_metrics(
@@ -1141,7 +1148,7 @@ class SqliteDb(BaseDb):
             return [row._mapping for row in result], latest_updated_at
 
         except Exception as e:
-            log_error(f"Exception getting metrics: {e}")
+            log_error(f"Error getting metrics: {e}")
             return [], None
 
     # -- Knowledge methods --
@@ -1267,7 +1274,11 @@ class SqliteDb(BaseDb):
                 )
                 sess.execute(stmt)
                 sess.commit()
+
+            log_debug(f"Upserted knowledge document with id '{knowledge_row.id}'")
+
             return knowledge_row
+
         except Exception as e:
             log_error(f"Error upserting knowledge document: {e}")
             return None
@@ -1318,6 +1329,8 @@ class SqliteDb(BaseDb):
                 sess.execute(stmt)
                 sess.commit()
 
+            log_debug(f"Created eval run with id '{eval_run.run_id}'")
+
             return eval_run
 
         except Exception as e:
@@ -1342,7 +1355,7 @@ class SqliteDb(BaseDb):
                     log_debug(f"Deleted eval run with ID: {eval_run_id}")
 
         except Exception as e:
-            log_debug(f"Error deleting eval run {eval_run_id}: {e}")
+            log_error(f"Error deleting eval run {eval_run_id}: {e}")
             raise
 
     def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
@@ -1358,12 +1371,12 @@ class SqliteDb(BaseDb):
                 stmt = table.delete().where(table.c.run_id.in_(eval_run_ids))
                 result = sess.execute(stmt)
                 if result.rowcount == 0:
-                    log_warning(f"No eval runs found with IDs: {eval_run_ids}")
+                    log_debug(f"No eval runs found with IDs: {eval_run_ids}")
                 else:
                     log_debug(f"Deleted {result.rowcount} eval runs")
 
         except Exception as e:
-            log_debug(f"Error deleting eval runs {eval_run_ids}: {e}")
+            log_error(f"Error deleting eval runs {eval_run_ids}: {e}")
             raise
 
     def get_eval_run(
@@ -1399,7 +1412,7 @@ class SqliteDb(BaseDb):
             return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Exception getting eval run {eval_run_id}: {e}")
+            log_error(f"Exception getting eval run {eval_run_id}: {e}")
             return None
 
     def get_eval_runs(
@@ -1481,7 +1494,7 @@ class SqliteDb(BaseDb):
 
                 result = sess.execute(stmt).fetchall()
                 if not result:
-                    return [] if serialize else ([], 0)
+                    return [] if deserialize else ([], 0)
 
                 eval_runs_raw = [row._mapping for row in result]
                 if not deserialize:
@@ -1490,18 +1503,18 @@ class SqliteDb(BaseDb):
             return [EvalRunRecord.model_validate(row) for row in eval_runs_raw]
 
         except Exception as e:
-            log_debug(f"Exception getting eval runs: {e}")
+            log_error(f"Exception getting eval runs: {e}")
             return []
 
     def rename_eval_run(
-        self, eval_run_id: str, name: str, serialize: bool = True
+        self, eval_run_id: str, name: str, deserialize: Optional[bool] = True
     ) -> Optional[Union[EvalRunRecord, Dict[str, Any]]]:
         """Upsert the name of an eval run in the database, returning raw dictionary.
 
         Args:
             eval_run_id (str): The ID of the eval run to update.
             name (str): The new name of the eval run.
-            serialize (bool): Whether to serialize the eval run. Defaults to True.
+            deserialize (Optional[bool]): Whether to serialize the eval run. Defaults to True.
 
         Returns:
             Optional[Union[EvalRunRecord, Dict[str, Any]]]:
@@ -1519,12 +1532,15 @@ class SqliteDb(BaseDb):
                 )
                 sess.execute(stmt)
 
-            eval_run_raw = self.get_eval_run_raw(eval_run_id=eval_run_id)
+            eval_run_raw = self.get_eval_run(eval_run_id=eval_run_id, deserialize=deserialize)
+
+            log_debug(f"Renamed eval run with id '{eval_run_id}' to '{name}'")
+
             if not eval_run_raw or not deserialize:
                 return eval_run_raw
 
             return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_debug(f"Error upserting eval run name {eval_run_id}: {e}")
+            log_error(f"Error renaming eval run {eval_run_id}: {e}")
             raise

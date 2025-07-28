@@ -1,5 +1,5 @@
-"""🤖 Agentic RAG Agent - Your AI Knowledge Assistant!
-This advanced example shows how to build a sophisticated RAG (Retrieval Augmented Generation) system that leverages vector search and LLMs to provide deep insights from any knowledge base.
+"""🤖 Agentic RAG Agent
+This advanced example shows how to build a sophisticated Agentic RAG (Retrieval Augmented Generation) system that leverages vector search and Language Models to provide deep insights from any knowledge base.
 
 The agent can:
 - Process and understand documents from multiple sources (PDFs, websites, text files)
@@ -61,10 +61,9 @@ def get_agentic_rag_agent(
         max_results=5,
     )
 
-    db=PostgresDb(
+    db = PostgresDb(
         db_url=db_url,
         session_table="sessions",
-        user_memory_table="user_memories",
     )
 
     agent = Agent(
@@ -77,7 +76,7 @@ def get_agentic_rag_agent(
         search_knowledge=True,
         read_tool_call_history=True,
         add_history_to_messages=True,
-        num_history_runs=10,
+        num_history_runs=3,
         session_id=session_id,
         description="You are a helpful Agent called 'Agentic RAG' and your goal is to assist the user in the best way possible.",
         instructions=[

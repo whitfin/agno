@@ -80,11 +80,11 @@ def display_tool_calls(container: DeltaGenerator, tools: List[Union[ToolExecutio
                         log_warning(f"Failed to parse tool result: {result}")
 
 
-def export_chat_history(app_name: str = "Chat") -> str:
+def export_chat_history(app_name: str = "Agno App") -> str:
     if "messages" not in st.session_state or not st.session_state["messages"]:
-        return "# Chat History\n\n*No messages to export*"
+        return f"# {app_name} Chat History\n\n*No messages to export*"
 
-    chat_text = f"# Agentic RAG Chat\n\n"
+    chat_text = f"# {app_name} Chat\n\n"
     chat_text += f"**Exported:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n\n"
     chat_text += "---\n\n"
 
@@ -100,7 +100,7 @@ def export_chat_history(app_name: str = "Chat") -> str:
     return chat_text
 
 
-def restart_st_session(**session_keys: str) -> None:
+def restart_session(**session_keys: str) -> None:
     for key in session_keys.values():
         if key in st.session_state:
             st.session_state[key] = None
@@ -114,12 +114,12 @@ def session_selector_widget(
     model_id: str,
     agent_name: str = "agent",
 ) -> None:
-    if not agent.memory or not agent.memory.db:
+    if not agent or not agent.db:
         st.sidebar.info("💡 Memory not configured. Sessions will not be saved.")
         return
 
     try:
-        sessions = agent.memory.db.get_sessions(
+        sessions = agent.db.get_sessions(
             session_type="agent",
             deserialize=True,
             sort_by="created_at",

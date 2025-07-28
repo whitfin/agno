@@ -10,11 +10,6 @@ from agno.team.team import Team
 
 SUPABASE_PROJECT = getenv("SUPABASE_PROJECT")
 SUPABASE_PASSWORD = getenv("SUPABASE_PASSWORD")
-#
-SUPABASE_PROJECT_URL = "jwlwpajkxnaohwkavvbm.supabase.co"
-API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp3bHdwYWpreG5hb2h3a2F2dmJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzNzE0NjksImV4cCI6MjA2ODk0NzQ2OX0.otMukX5m_Q4mrDvld53h0PFBfRS8QM4bVJdn4znOpcA"
-PASSWORD = "lcb7KftNEDVa3xV2"
-#
 
 SUPABASE_DB_URL = (
     f"postgresql://postgres:{SUPABASE_PASSWORD}@db.{SUPABASE_PROJECT}:5432/postgres"
@@ -68,4 +63,5 @@ agent_os = AgentOS(
 app = agent_os.get_app()
 
 if __name__ == "__main__":
-    agent_os.serve(app="postgres_demo:app", reload=True)
+    agent.run("What is the weather in Tokyo?")
+    agent_os.serve(app="supabase_demo:app", reload=True)

@@ -12,7 +12,7 @@ from agno.utils.streamlit import (
     display_tool_calls,
     export_chat_history,
     knowledge_base_info_widget,
-    restart_st_session,
+    restart_session,
     session_selector_widget,
 )
 
@@ -30,7 +30,7 @@ st.markdown(COMMON_CSS, unsafe_allow_html=True)
 
 def restart_agent():
     """Reset the agent and clear chat history"""
-    restart_st_session(
+    restart_session(
         agent="agentic_rag_agent",
         session_id="session_id",
         current_model="current_model",
@@ -51,11 +51,9 @@ def main():
     # Model selector
     ####################################################################
     model_options = {
-        "claude-4-sonnet": "anthropic:claude-sonnet-4-0",
-        "o3-mini": "openai:o3-mini",
-        "kimi-k2-instruct": "groq:moonshotai/kimi-k2-instruct",
         "gpt-4o": "openai:gpt-4o",
-        "gemini-2.5-pro": "google:gemini-2.5-pro",
+        "o3-mini": "openai:o3-mini",
+        "claude-4-sonnet": "anthropic:claude-sonnet-4-0",
     }
     selected_model = st.sidebar.selectbox(
         "Select a model",

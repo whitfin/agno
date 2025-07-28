@@ -52,7 +52,7 @@ def get_agentic_rag_agent(
     knowledge_base = Knowledge(
         name="Agentic RAG Knowledge Base",
         description="Knowledge base for agentic RAG application",
-        vector_store=PgVector(
+        vector_db=PgVector(
             db_url=db_url,
             table_name="agentic_rag_documents",
             schema="ai",
@@ -63,7 +63,7 @@ def get_agentic_rag_agent(
 
     db = PostgresDb(
         db_url=db_url,
-        session_table="sessions",
+        session_table="agentic_rag_sessions",
     )
 
     agent = Agent(
@@ -71,13 +71,13 @@ def get_agentic_rag_agent(
         model=get_model_from_id(model_id),
         agent_id="agentic-rag-agent",
         user_id=user_id,
+        session_id=session_id,
         db=db,
         knowledge=knowledge_base,
         search_knowledge=True,
         read_tool_call_history=True,
         add_history_to_messages=True,
         num_history_runs=3,
-        session_id=session_id,
         description="You are a helpful Agent called 'Agentic RAG' and your goal is to assist the user in the best way possible.",
         instructions=[
             "1. Knowledge Base Search:",

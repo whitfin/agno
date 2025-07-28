@@ -493,11 +493,11 @@ def get_base_router(
         if agent.db is None:
             raise HTTPException(status_code=404, detail="Agent has no database. Runs are unavailable.")
 
-        session = agent.db.get_session(session_type=SessionType.AGENT, session_id=session_id)
+        session = agent.db.get_session(session_type=SessionType.AGENT, session_id=session_id, deserialize=False)
         if not session:
             raise HTTPException(status_code=404, detail=f"Session with id {session_id} not found")
 
-        return [RunSchema.from_run_response(run) for run in session.runs]  # type: ignore
+        return [RunSchema.from_dict(run) for run in session["runs"]]  # type: ignore
 
     @router.get("/agents/{agent_id}", response_model=AgentResponse)
     async def get_agent(agent_id: str):
@@ -730,16 +730,6 @@ def get_base_router(
         runs = session.get("runs")  # type: ignore
         if not runs:
             raise HTTPException(status_code=404, detail=f"Session with id {session_id} has no runs")
-
-        # TODO: Uncomment after FE is ready
-        # team_runs, member_runs = [], []
-        # for run in runs:
-        #     if hasattr(run, "parent_run_id"):
-        #         member_runs.append(MemberRunSchema.from_dict(run))
-        #     else:
-        #         team_runs.append(TeamRunSchema.from_dict(run))
-
-        # return TeamAndMemberRunsSchema(runs=team_runs, member_runs=member_runs)
 
         return [TeamRunSchema.from_dict(run) for run in runs]
 

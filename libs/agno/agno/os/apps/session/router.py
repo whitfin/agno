@@ -85,21 +85,13 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
             raise HTTPException(status_code=404, detail=f"Session with ID {session_id} has no runs")
 
         if session_type == SessionType.AGENT:
-            return [RunSchema.from_run_response(run) for run in runs]
+            return [RunSchema.from_dict(run) for run in runs]
 
         elif session_type == SessionType.TEAM:
-            # TODO: Uncomment after FE is ready
-            # team_runs, member_runs = [], []
-            # for run in runs:
-            #     if run.get("parent_run_id") is not None:
-            #         member_runs.append(MemberRunSchema.from_dict(run))
-            #     else:
-            #         team_runs.append(TeamRunSchema.from_dict(run))
-            # return TeamAndMemberRunsSchema(runs=team_runs, member_runs=member_runs)
             return [TeamRunSchema.from_dict(run) for run in runs]
 
         elif session_type == SessionType.WORKFLOW:
-            return [RunSchema.from_run_response(run) for run in runs]
+            return [RunSchema.from_dict(run) for run in runs]
 
     @router.delete("/sessions/{session_id}", status_code=204)
     async def delete_session(session_id: str = Path(...)) -> None:

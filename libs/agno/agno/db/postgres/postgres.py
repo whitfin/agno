@@ -559,7 +559,7 @@ class PostgresDb(BaseDb):
                         updated_at=session_dict.get("created_at"),
                     )
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=["session_id", "agent_id"],
+                        index_elements=["session_id"],
                         set_=dict(
                             agent_id=session_dict.get("agent_id"),
                             team_session_id=session_dict.get("team_session_id"),
@@ -599,7 +599,7 @@ class PostgresDb(BaseDb):
                         updated_at=session_dict.get("created_at"),
                     )
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=["session_id", "team_id"],
+                        index_elements=["session_id"],
                         set_=dict(
                             team_id=session_dict.get("team_id"),
                             team_session_id=session_dict.get("team_session_id"),
@@ -638,7 +638,7 @@ class PostgresDb(BaseDb):
                         updated_at=session_dict.get("created_at"),
                     )
                     stmt = stmt.on_conflict_do_update(
-                        index_elements=["session_id", "workflow_id"],
+                        index_elements=["session_id"],
                         set_=dict(
                             workflow_id=session_dict.get("workflow_id"),
                             user_id=session_dict.get("user_id"),

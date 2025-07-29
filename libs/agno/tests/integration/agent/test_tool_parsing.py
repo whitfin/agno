@@ -15,7 +15,7 @@ def test_tool_call_custom_tool_no_parameters():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Tokyo?")
@@ -44,7 +44,7 @@ def test_tool_call_custom_tool_optional_parameters():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Paris?")
@@ -73,7 +73,7 @@ def test_tool_call_custom_tool_untyped_parameters():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Paris?")
@@ -103,7 +103,7 @@ def test_tool_call_list_parameters():
         instructions="Use a single tool call if possible",
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Tokyo and Paris?")
@@ -140,7 +140,7 @@ def test_tool_call_custom_tool_union_parameters():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Paris?")

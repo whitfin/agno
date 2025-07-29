@@ -15,7 +15,7 @@ def test_tool_call_requires_user_input():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Tokyo?")
@@ -43,7 +43,7 @@ def test_tool_call_requires_user_input_specific_fields():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Tokyo?")
@@ -75,7 +75,7 @@ def test_tool_call_requires_user_input_stream():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     found_user_input = False
@@ -108,7 +108,7 @@ async def test_tool_call_requires_user_input_async():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = await agent.arun("What is the weather in Tokyo?")
@@ -139,11 +139,10 @@ async def test_tool_call_requires_user_input_stream_async():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
     )
 
     found_user_input = False
-    async for response in await agent.arun("What is the weather in Tokyo?", stream=True):
+    async for response in agent.arun("What is the weather in Tokyo?", stream=True):
         if response.is_paused:
             assert response.tools[0].requires_user_input
             assert response.tools[0].tool_name == "get_the_weather"
@@ -155,7 +154,7 @@ async def test_tool_call_requires_user_input_stream_async():
     assert found_user_input, "No tools were found to require user input"
 
     found_user_input = False
-    async for response in await agent.acontinue_run(run_id=response.run_id, updated_tools=response.tools, stream=True):
+    async for response in agent.acontinue_run(run_id=response.run_id, updated_tools=response.tools, stream=True):
         if response.is_paused:
             found_user_input = True
     assert found_user_input is False, "Some tools still require user input"
@@ -173,7 +172,7 @@ def test_tool_call_requires_user_input_continue_with_run_id(agent_storage, memor
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Tokyo?", session_id=session_id)
@@ -193,7 +192,7 @@ def test_tool_call_requires_user_input_continue_with_run_id(agent_storage, memor
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.continue_run(run_id=response.run_id, updated_tools=response.tools, session_id=session_id)
@@ -214,7 +213,7 @@ def test_tool_call_multiple_requires_user_input():
         tools=[get_the_weather, get_activities],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What is the weather in Tokyo and what are the activities?")

@@ -31,7 +31,7 @@ team = Team(
     mode="route",
     members=[agent],
     telemetry=False,
-    monitoring=False,
+
 )
 
 

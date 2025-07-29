@@ -51,11 +51,10 @@ class Workflow:
     # Extra data stored with this workflow
     extra_data: Optional[Dict[str, Any]] = None
 
-    # --- Debug & Monitoring ---
+    # --- Debug ---
     # Enable debug logs
     debug_mode: bool = False
-    # monitoring=True logs Workflow information to agno.com for monitoring
-    monitoring: bool = field(default_factory=lambda: getenv("AGNO_MONITOR", "false").lower() == "true")
+    # --- Telemetry ---
     # telemetry=True logs minimal telemetry for analytics
     # This helps us improve the Workflow and provide better support
     telemetry: bool = field(default_factory=lambda: getenv("AGNO_TELEMETRY", "true").lower() == "true")
@@ -85,7 +84,6 @@ class Workflow:
         storage: Optional[BaseDb] = None,
         extra_data: Optional[Dict[str, Any]] = None,
         debug_mode: bool = False,
-        monitoring: bool = False,
         telemetry: bool = True,
         os_id: Optional[str] = None,
     ):
@@ -105,7 +103,6 @@ class Workflow:
         self.extra_data = extra_data
 
         self.debug_mode = debug_mode
-        self.monitoring = monitoring
         self.telemetry = telemetry
 
         self.run_id = None
@@ -144,7 +141,6 @@ class Workflow:
         # Set mode, debug, workflow_id, session_id, initialize memory
         self.set_storage_mode()
         self.set_debug()
-        self.set_monitoring()
         self.set_workflow_id()  # Ensure workflow_id is set
         self.set_session_id()
         self.initialize_memory()
@@ -233,7 +229,6 @@ class Workflow:
         # Set mode, debug, workflow_id, session_id, initialize memory
         self.set_storage_mode()
         self.set_debug()
-        self.set_monitoring()
         self.set_workflow_id()  # Ensure workflow_id is set
         self.set_session_id()
         self.initialize_memory()
@@ -348,19 +343,6 @@ class Workflow:
             log_debug("Debug logs enabled")
         else:
             set_log_level_to_info()
-
-    def set_monitoring(self) -> None:
-        """Override monitoring and telemetry settings based on environment variables."""
-
-        # Only override if the environment variable is set
-        monitor_env = getenv("AGNO_MONITOR")
-        if monitor_env is not None:
-            self.monitoring = monitor_env.lower() == "true"
-
-        # Override telemetry if environment variable is set
-        telemetry_env = getenv("AGNO_TELEMETRY")
-        if telemetry_env is not None:
-            self.telemetry = telemetry_env.lower() == "true"
 
     def initialize_memory(self) -> None:
         if self.memory is None:

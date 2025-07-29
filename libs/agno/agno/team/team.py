@@ -286,15 +286,16 @@ class Team:
 
     # Optional app ID. Indicates this team is part of an app.
     os_id: Optional[str] = None
-    # --- Debug & Monitoring ---
+
+    # --- Debug ---
     # Enable debug logs
     debug_mode: bool = False
     # Debug level: 1 = basic, 2 = detailed
     debug_level: Literal[1, 2] = 1
     # Enable member logs - Sets the debug_mode for team and members
     show_members_responses: bool = False
-    # monitoring=True logs Team information to agno.com for monitoring
-    monitoring: bool = False
+
+    # --- Telemetry ---
     # telemetry=True logs minimal telemetry for analytics
     # This helps us improve the Teams implementation and provide better support
     telemetry: bool = True
@@ -370,7 +371,6 @@ class Team:
         debug_mode: bool = False,
         debug_level: Literal[1, 2] = 1,
         show_members_responses: bool = False,
-        monitoring: bool = False,
         telemetry: bool = True,
     ):
         self.members = members
@@ -517,18 +517,6 @@ class Team:
         else:
             set_log_level_to_info(source_type="team")
 
-    def _set_monitoring(self) -> None:
-        """Override monitoring and telemetry settings based on environment variables."""
-
-        # Only override if the environment variable is set
-        monitor_env = getenv("AGNO_MONITOR")
-        if monitor_env is not None:
-            self.monitoring = monitor_env.lower() == "true"
-
-        telemetry_env = getenv("AGNO_TELEMETRY")
-        if telemetry_env is not None:
-            self.telemetry = telemetry_env.lower() == "true"
-
     def set_telemetry(self) -> None:
         """Override telemetry settings based on environment variables."""
 
@@ -641,9 +629,6 @@ class Team:
 
         # Set debug mode
         self._set_debug()
-
-        # Set monitoring and telemetry
-        self._set_monitoring()
 
         # Set the team ID if not set
         self._set_team_id()
@@ -7525,15 +7510,6 @@ class Team:
             "functions": functions,
             "metrics": self.run_response.metrics,  # type: ignore
         }
-
-        if self.monitoring:
-            run_data.update(
-                {
-                    "run_input": self.run_input,
-                    "run_response": self.run_response.to_dict(),  # type: ignore
-                    "run_response_format": run_response_format,
-                }
-            )
 
         return run_data
 

@@ -8,7 +8,6 @@ agent = Agent(
     show_tool_calls=True,
     markdown=True,
     telemetry=False,
-    monitoring=False,
 )
 
 agent.print_response("What is the current price of TSLA?", stream=True)

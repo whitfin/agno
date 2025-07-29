@@ -297,12 +297,6 @@ def get_sync_router(
             if not workflow_input:
                 raise HTTPException(status_code=400, detail="Workflow input is required")
 
-        if agent:
-            agent.monitoring = bool(monitor)
-        elif team:
-            team.monitoring = bool(monitor)
-        elif workflow:
-            workflow.monitoring = bool(monitor)
 
         if files:
             if agent:

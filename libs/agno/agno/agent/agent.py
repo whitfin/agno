@@ -312,12 +312,11 @@ class Agent:
     # Optional workflow session state. Set by the workflow.
     workflow_session_state: Optional[Dict[str, Any]] = None
 
-    # --- Debug & Monitoring ---
+    # --- Debug ---
     # Enable debug logs
     debug_mode: bool = False
 
-    # monitoring=True logs Agent information to agno.com for monitoring
-    monitoring: bool = False
+    # --- Telemetry ---
     # telemetry=True logs minimal telemetry for analytics
     # This helps us improve the Agent and provide better support
     telemetry: bool = True

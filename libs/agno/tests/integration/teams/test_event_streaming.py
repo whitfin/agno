@@ -19,7 +19,7 @@ def test_basic_events():
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Hello, how are you?", stream=True, stream_intermediate_steps=False)
@@ -39,7 +39,7 @@ async def test_async_basic_events():
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[],
         telemetry=False,
-        monitoring=False,
+
     )
     response_generator = await team.arun("Hello, how are you?", stream=True, stream_intermediate_steps=False)
 
@@ -57,7 +57,7 @@ def test_basic_intermediate_steps_events():
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Hello, how are you?", stream=True, stream_intermediate_steps=True)
@@ -89,7 +89,7 @@ def test_basic_intermediate_steps_events_persisted(team_storage):
         storage=team_storage,
         store_events=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Hello, how are you?", stream=True, stream_intermediate_steps=True)
@@ -116,7 +116,7 @@ def test_intermediate_steps_with_tools():
         members=[],
         tools=[YFinanceTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("What is the stock price of Apple?", stream=True, stream_intermediate_steps=True)
@@ -153,7 +153,7 @@ def test_intermediate_steps_with_tools_events_persisted(team_storage):
         members=[],
         tools=[YFinanceTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("What is the stock price of Apple?", stream=True, stream_intermediate_steps=True)
@@ -193,7 +193,7 @@ def test_intermediate_steps_with_reasoning():
             \
         """),
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run(
@@ -245,7 +245,7 @@ def test_intermediate_steps_with_user_confirmation():
         members=[],
         tools=[get_the_weather],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("What is the weather in Tokyo?", stream=True, stream_intermediate_steps=True)
@@ -313,7 +313,7 @@ def test_intermediate_steps_with_memory(team_storage, memory):
         storage=team_storage,
         enable_user_memories=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Hello, how are you?", stream=True, stream_intermediate_steps=True)
@@ -354,7 +354,7 @@ def test_intermediate_steps_with_structured_output(team_storage):
         response_model=Person,
         instructions="You have no members, answer directly",
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Describe Elon Musk", stream=True, stream_intermediate_steps=True)
@@ -402,7 +402,7 @@ def test_intermediate_steps_with_parser_model(team_storage):
         parser_model=OpenAIChat(id="gpt-4o-mini"),
         instructions="You have no members, answer directly",
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Describe Elon Musk", stream=True, stream_intermediate_steps=True)
@@ -461,7 +461,7 @@ def test_intermediate_steps_with_member_agents():
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[agent_1, agent_2],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run(
@@ -534,14 +534,14 @@ def test_intermediate_steps_with_member_agents_complex():
         name="News Team",
         members=[agent_2],
         telemetry=False,
-        monitoring=False,
+
     )
     team = Team(
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[agent_1, sub_team],
         tools=[ReasoningTools(add_instructions=True)],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_generator = team.run("Do a stock market analysis for Apple.", stream=True, stream_intermediate_steps=True)
@@ -586,7 +586,7 @@ def test_intermediate_steps_with_member_agents_streaming_off():
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[agent_1, agent_2],
         telemetry=False,
-        monitoring=False,
+
         stream_member_events=False,
     )
 

@@ -9,7 +9,7 @@ def test_session_metrics():
         tools=[DuckDuckGoTools(cache_results=True)],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("Hi, my name is John")

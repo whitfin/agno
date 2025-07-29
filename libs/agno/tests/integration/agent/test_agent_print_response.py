@@ -19,7 +19,7 @@ def test_print_response_with_message_panel():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -80,7 +80,7 @@ def test_panel_creation_and_structure():
         model=OpenAIChat(id="gpt-4o-mini"),
         markdown=False,
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -131,7 +131,7 @@ def test_print_response_content_verification():
         model=OpenAIChat(id="gpt-4o-mini"),
         markdown=False,  # Test without markdown first
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -184,7 +184,7 @@ def test_markdown_content_type():
         model=OpenAIChat(id="gpt-4o-mini"),
         markdown=True,
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -231,7 +231,7 @@ def test_tool_calls_panel_creation():
         model=OpenAIChat(id="gpt-4o-mini"),
         show_tool_calls=True,  # Enable tool call display
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -287,7 +287,7 @@ def test_live_update_calls():
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -322,7 +322,7 @@ def test_simple_functionality():
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -366,7 +366,7 @@ def test_error_handling():
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)
@@ -398,7 +398,7 @@ def test_stream_vs_non_stream_behavior():
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
         telemetry=False,
-        monitoring=False,
+
     )
 
     mock_console = Mock(spec=Console)

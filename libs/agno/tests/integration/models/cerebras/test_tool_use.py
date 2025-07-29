@@ -10,7 +10,6 @@ def test_tool_use():
         model=Cerebras(id="llama-4-scout-17b-16e-instruct"),
         tools=[DuckDuckGoTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
     )
 
     response = agent.run("What's happening in France?")
@@ -26,7 +25,6 @@ def test_tool_use_stream():
         model=Cerebras(id="llama-4-scout-17b-16e-instruct"),
         tools=[DuckDuckGoTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
     )
 
     response_stream = agent.run("What's happening in France?", stream=True, stream_intermediate_steps=True)
@@ -53,7 +51,7 @@ async def test_async_tool_use():
         model=Cerebras(id="llama-4-scout-17b-16e-instruct"),
         tools=[DuckDuckGoTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = await agent.arun("What's happening in France?")
@@ -70,7 +68,7 @@ async def test_async_tool_use_stream():
         model=Cerebras(id="llama-4-scout-17b-16e-instruct"),
         tools=[DuckDuckGoTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response_stream = await agent.arun("What's happening in France?", stream=True, stream_intermediate_steps=True)
@@ -96,7 +94,7 @@ def test_tool_use_with_content():
         model=Cerebras(id="llama-4-scout-17b-16e-instruct"),
         tools=[DuckDuckGoTools(cache_results=True)],
         telemetry=False,
-        monitoring=False,
+
     )
 
     response = agent.run("What's happening in France? Summarize the key events.")

@@ -216,8 +216,6 @@ class Agent:
     # --- Settings for building the default system message ---
     # A description of the Agent that is added to the start of the system message.
     description: Optional[str] = None
-    # The goal of this task
-    goal: Optional[str] = None
     # List of instructions for the agent.
     instructions: Optional[Union[str, List[str], Callable]] = None
     # Provide the expected output from the Agent.
@@ -244,7 +242,6 @@ class Agent:
     # Use these for few-shot learning or to provide additional context to the Model.
     # Note: these are not retained in memory, they are added directly to the messages sent to the model.
     add_messages: Optional[List[Union[Dict, Message]]] = None
-    success_criteria: Optional[str] = None
     # --- User message settings ---
     # Provide the user message as a string, list, dict, or function
     # Note: this will ignore the message sent to the run function
@@ -373,8 +370,6 @@ class Agent:
         system_message_role: str = "system",
         process_context: bool = True,
         description: Optional[str] = None,
-        goal: Optional[str] = None,
-        success_criteria: Optional[str] = None,
         instructions: Optional[Union[str, List[str], Callable]] = None,
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
@@ -468,8 +463,6 @@ class Agent:
         self.process_context = process_context
 
         self.description = description
-        self.goal = goal
-        self.success_criteria = success_criteria
         self.instructions = instructions
         self.expected_output = expected_output
         self.additional_context = additional_context
@@ -3984,10 +3977,7 @@ class Agent:
         # 3.3.1 First add the Agent description if provided
         if self.description is not None:
             system_message_content += f"{self.description}\n"
-        # 3.3.2 Then add the Agent goal if provided
-        if self.goal is not None:
-            system_message_content += f"\n<your_goal>\n{self.goal}\n</your_goal>\n\n"
-        # 3.3.3 Then add the Agent role if provided
+        # 3.3.2 Then add the Agent role if provided
         if self.role is not None:
             system_message_content += f"\n<your_role>\n{self.role}\n</your_role>\n\n"
         # 3.3.4 Then add instructions for the Agent
@@ -4020,12 +4010,6 @@ class Agent:
         # 3.3.8 Then add additional context
         if self.additional_context is not None:
             system_message_content += f"{self.additional_context}\n"
-        if self.success_criteria:
-            system_message_content += "Your task is successful when the following criteria is met:\n"
-            system_message_content += "<success_criteria>\n"
-            system_message_content += f"{self.success_criteria}\n"
-            system_message_content += "</success_criteria>\n"
-            system_message_content += "Stop running when the success_criteria is met.\n\n"
         # 3.3.9 Then add memories to the system prompt
         if self.add_memory_references:
             _memory_manager_not_set = False

@@ -166,10 +166,6 @@ class Team:
     # Memory manager to use for this agent
     memory_manager: Optional[MemoryManager] = None
 
-    # --- Success criteria ---
-    # Define the success criteria for the team
-    success_criteria: Optional[str] = None
-
     # --- User provided context ---
     # User provided context
     context: Optional[Dict[str, Any]] = None
@@ -317,7 +313,6 @@ class Team:
         instructions: Optional[Union[str, List[str], Callable]] = None,
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
-        success_criteria: Optional[str] = None,
         markdown: bool = False,
         add_datetime_to_context: bool = False,
         add_location_to_context: bool = False,
@@ -400,7 +395,6 @@ class Team:
         self.add_member_tools_to_system_message = add_member_tools_to_system_message
         self.system_message = system_message
         self.system_message_role = system_message_role
-        self.success_criteria = success_criteria
 
         self.context = context
         self.add_context = add_context
@@ -5035,13 +5029,6 @@ class Team:
 
         if self.name is not None:
             system_message_content += f"Your name is: {self.name}\n\n"
-
-        if self.success_criteria:
-            system_message_content += "Your task is successful when the following criteria is met:\n"
-            system_message_content += "<success_criteria>\n"
-            system_message_content += f"{self.success_criteria}\n"
-            system_message_content += "</success_criteria>\n"
-            system_message_content += "Stop the team run when the success_criteria is met.\n\n"
 
         # Attached media
         if audio is not None or images is not None or videos is not None or files is not None:

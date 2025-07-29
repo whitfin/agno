@@ -105,7 +105,8 @@ class PostgresDb(BaseDb):
             Table: SQLAlchemy Table object
         """
         try:
-            table_schema = get_table_schema_definition(table_type)
+            # TODO: ???
+            table_schema = get_table_schema_definition(table_type).copy()
 
             columns, indexes, unique_constraints = [], [], []
             schema_unique_constraints = table_schema.pop("_unique_constraints", [])
@@ -522,7 +523,9 @@ class PostgresDb(BaseDb):
             log_error(f"Exception renaming session: {e}")
             return None
 
-    def upsert_session(self, session: Session, deserialize: Optional[bool] = True) -> Optional[Session]:
+    def upsert_session(
+        self, session: Session, deserialize: Optional[bool] = True
+    ) -> Optional[Union[Session, Dict[str, Any]]]:
         """
         Insert or update a session in the database.
 
@@ -574,13 +577,13 @@ class PostgresDb(BaseDb):
                     ).returning(table)
                     result = sess.execute(stmt)
                     row = result.fetchone()
-                    session = row._mapping
+                    session_dict = dict(row._mapping)
 
                     log_debug(f"Upserted agent session with id '{session_dict.get('session_id')}'")
 
-                    if session is None or not deserialize:
-                        return session
-                    return AgentSession.from_dict(session)  # type: ignore
+                    if session_dict is None or not deserialize:
+                        return session_dict
+                    return AgentSession.from_dict(session_dict)
 
             elif isinstance(session, TeamSession):
                 with self.Session() as sess, sess.begin():
@@ -614,13 +617,13 @@ class PostgresDb(BaseDb):
                     ).returning(table)
                     result = sess.execute(stmt)
                     row = result.fetchone()
-                    session = row._mapping
+                    session_dict = dict(row._mapping)
 
                     log_debug(f"Upserted team session with id '{session_dict.get('session_id')}'")
 
-                    if session is None or not deserialize:
-                        return session
-                    return TeamSession.from_dict(session)  # type: ignore
+                    if session_dict is None or not deserialize:
+                        return session_dict
+                    return TeamSession.from_dict(session_dict)
 
             elif isinstance(session, WorkflowSession):
                 with self.Session() as sess, sess.begin():
@@ -652,13 +655,13 @@ class PostgresDb(BaseDb):
                     ).returning(table)
                     result = sess.execute(stmt)
                     row = result.fetchone()
-                    session = row._mapping
+                    session_dict = dict(row._mapping)
 
                     log_debug(f"Upserted workflow session with id '{session_dict.get('session_id')}'")
 
-                    if session is None or not deserialize:
-                        return session
-                    return WorkflowSession.from_dict(session)  # type: ignore
+                    if session_dict is None or not deserialize:
+                        return session_dict
+                    return WorkflowSession.from_dict(session_dict)
 
         except Exception as e:
             log_error(f"Exception upserting into sessions table: {e}")
@@ -735,7 +738,9 @@ class PostgresDb(BaseDb):
             log_error(f"Exception reading from memory table: {e}")
             return []
 
-    def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[UserMemory]:
+    def get_user_memory(
+        self, memory_id: str, deserialize: Optional[bool] = True
+    ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         """Get a memory from the database.
 
         Args:
@@ -760,7 +765,7 @@ class PostgresDb(BaseDb):
                 if not result:
                     return None
 
-                memory_raw = result._mapping
+                memory_raw = dict(result._mapping)
                 if not deserialize:
                     return memory_raw
 
@@ -979,7 +984,7 @@ class PostgresDb(BaseDb):
                 result = sess.execute(stmt)
                 row = result.fetchone()
 
-            user_memory_raw = row._mapping
+            user_memory_raw = dict(row._mapping)
 
             log_debug(f"Upserted user memory with id '{memory.memory_id}'")
 

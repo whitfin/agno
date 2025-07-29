@@ -127,29 +127,29 @@ class AgentOS:
                     db_id = id(agent.db)
 
                     # Memory app
-                    if add_unique_component("memory", str(db_id)):
+                    if add_unique_component("memory", f"{db_id}-{agent.db.memory_table_name}"):
                         discovered_apps.append(MemoryApp(db=agent.db))
 
                     # Session app
                     if agent.db.session_table_name:
-                        if add_unique_component("session", str(db_id)):
+                        if add_unique_component("session", f"{db_id}-{agent.db.session_table_name}"):
                             discovered_apps.append(SessionApp(db=agent.db))
 
                     # Metrics app
                     if agent.db.metrics_table_name:
-                        if add_unique_component("metrics", str(db_id)):
+                        if add_unique_component("metrics", f"{db_id}-{agent.db.metrics_table_name}"):
                             discovered_apps.append(MetricsApp(db=agent.db))
 
                     # Eval app
                     if agent.db.eval_table_name:
-                        if add_unique_component("eval", str(db_id)):
+                        if add_unique_component("eval", f"{db_id}-{agent.db.eval_table_name}"):
                             discovered_apps.append(EvalApp(db=agent.db))
 
-                # Knowledge app
-                if hasattr(agent, "knowledge") and agent.knowledge:
-                    knowledge_id = id(agent.knowledge)
-                    if add_unique_component("knowledge", str(knowledge_id)):
-                        discovered_apps.append(KnowledgeApp(knowledge=agent.knowledge))
+                    # Knowledge app
+                    if agent.knowledge:
+                        db = agent.knowledge.contents_db
+                        if add_unique_component("knowledge", f"{db_id}-{db.knowledge_table_name}"):
+                            discovered_apps.append(KnowledgeApp(knowledge=agent.knowledge))
 
         # Process teams
         if self.teams:

@@ -7,13 +7,14 @@ from agno.knowledge.knowledge import Knowledge
 from agno.models.openai import OpenAIChat
 from agno.os import AgentOS
 from agno.os.interfaces.whatsapp import Whatsapp
+from agno.tools.yfinance import YFinanceTools
 from agno.vectordb.pgvector.pgvector import PgVector
 
 # Database connection
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 # Create Postgres-backed memory store
-memory_db = PostgresDb(db_url=db_url)
+db = PostgresDb(db_url=db_url)
 
 # Create Postgres-backed vector store
 vector_db = PgVector(
@@ -22,7 +23,7 @@ vector_db = PgVector(
 )
 knowledge = Knowledge(
     name="Agno Docs",
-    contents_db=memory_db,
+    contents_db=db,
     vector_db=vector_db,
 )
 
@@ -30,15 +31,23 @@ knowledge = Knowledge(
 agno_agent = Agent(
     name="Agno Agent",
     model=OpenAIChat(id="gpt-4.1"),
-    db=memory_db,
+    db=db,
     enable_user_memories=True,
     knowledge=knowledge,
     markdown=True,
 )
 
+finance_agent = Agent(
+    name="Finance Agent",
+    model=OpenAIChat(id="gpt-4.1"),
+    db=db,
+    tools=[YFinanceTools()],
+    markdown=True,
+)
+
 # Setting up and running an eval for our agent
 evaluation = AccuracyEval(
-    db=memory_db,
+    db=db,
     name="Calculator Evaluation",
     model=OpenAIChat(id="gpt-4o"),
     agent=agno_agent,
@@ -52,7 +61,7 @@ evaluation = AccuracyEval(
 # Create the AgentOS
 agent_os = AgentOS(
     os_id="agentos-demo",
-    agents=[agno_agent],
+    agents=[agno_agent, finance_agent],
     interfaces=[Whatsapp(agent=agno_agent)],
 )
 app = agent_os.get_app()

@@ -230,7 +230,7 @@ class Agent:
     add_name_to_instructions: bool = False
     # If True, add the current datetime to the instructions to give the agent a sense of time
     # This allows for relative times like "tomorrow" to be used in the prompt
-    add_datetime_to_instructions: bool = False
+    add_datetime_to_context: bool = False
     # If True, add the current location to the instructions to give the agent a sense of place
     # This allows for location-aware responses and local context
     add_location_to_instructions: bool = False
@@ -380,7 +380,7 @@ class Agent:
         additional_context: Optional[str] = None,
         markdown: bool = False,
         add_name_to_instructions: bool = False,
-        add_datetime_to_instructions: bool = False,
+        add_datetime_to_context: bool = False,
         add_location_to_instructions: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
@@ -475,7 +475,7 @@ class Agent:
         self.additional_context = additional_context
         self.markdown = markdown
         self.add_name_to_instructions = add_name_to_instructions
-        self.add_datetime_to_instructions = add_datetime_to_instructions
+        self.add_datetime_to_context = add_datetime_to_context
         self.add_location_to_instructions = add_location_to_instructions
         self.timezone_identifier = timezone_identifier
         self.add_state_in_messages = add_state_in_messages
@@ -3921,7 +3921,7 @@ class Agent:
         if self.markdown and self.response_model is None:
             additional_information.append("Use markdown to format your answers.")
         # 3.2.2 Add the current datetime
-        if self.add_datetime_to_instructions:
+        if self.add_datetime_to_context:
             from datetime import datetime
 
             tz = None

@@ -148,7 +148,7 @@ class Team:
     markdown: bool = False
     # If True, add the current datetime to the instructions to give the team a sense of time
     # This allows for relative times like "tomorrow" to be used in the prompt
-    add_datetime_to_instructions: bool = False
+    add_datetime_to_context: bool = False
     # If True, add the current location to the instructions to give the team a sense of location
     add_location_to_instructions: bool = False
     # If True, add the tools available to team members to the system message
@@ -319,7 +319,7 @@ class Team:
         additional_context: Optional[str] = None,
         success_criteria: Optional[str] = None,
         markdown: bool = False,
-        add_datetime_to_instructions: bool = False,
+        add_datetime_to_context: bool = False,
         add_location_to_instructions: bool = False,
         add_member_tools_to_system_message: bool = True,
         system_message: Optional[Union[str, Callable, Message]] = None,
@@ -395,7 +395,7 @@ class Team:
         self.expected_output = expected_output
         self.additional_context = additional_context
         self.markdown = markdown
-        self.add_datetime_to_instructions = add_datetime_to_instructions
+        self.add_datetime_to_context = add_datetime_to_context
         self.add_location_to_instructions = add_location_to_instructions
         self.add_member_tools_to_system_message = add_member_tools_to_system_message
         self.system_message = system_message
@@ -4940,7 +4940,7 @@ class Team:
         if self.markdown and self.response_model is None:
             additional_information.append("Use markdown to format your answers.")
         # 1.3.2 Add the current datetime
-        if self.add_datetime_to_instructions:
+        if self.add_datetime_to_context:
             from datetime import datetime
 
             additional_information.append(f"The current time is {datetime.now()}")

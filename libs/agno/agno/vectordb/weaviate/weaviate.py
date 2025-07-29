@@ -886,23 +886,22 @@ class Weaviate(VectorDb):
             logger.error(f"Error checking if ID '{id}' exists: {e}")
             return False
 
-    def _delete_by_content_hash(self, content_hash: str) -> bool:
-        """Delete documents by content hash using direct filter deletion.
+    def content_hash_exists(self, content_hash: str) -> bool:
+        """Check if a document with the given content hash exists in the collection.
 
         Args:
-            content_hash (str): The content hash to delete.
+            content_hash (str): The content hash to check.
 
         Returns:
-            bool: True if documents were deleted successfully, False otherwise.
+            bool: True if the document exists, False otherwise.
         """
         try:
+            doc_uuid = uuid.UUID(hex=content_hash[:32])
             collection = self.get_client().collections.get(self.collection)
-
-            result = collection.data.delete_many(where=Filter.by_property("content_hash").equal(content_hash))
-
-            log_info(f"Deleted documents with content_hash '{content_hash}' from collection '{self.collection}'.")
-            return True
-
+            return collection.data.exists(doc_uuid)
+        except ValueError:
+            log_info(f"Invalid UUID format for content_hash '{content_hash}' - treating as non-existent")
+            return False
         except Exception as e:
-            logger.error(f"Error deleting documents by content_hash '{content_hash}': {e}")
+            logger.error(f"Error checking if content_hash '{content_hash}' exists: {e}")
             return False

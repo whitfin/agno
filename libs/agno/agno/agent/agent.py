@@ -252,7 +252,7 @@ class Agent:
     # Role for the user message
     user_message_role: str = "user"
     # If True, create a default user message using references and chat history
-    create_default_user_message: bool = True
+    process_user_context: bool = True
 
     # --- Agent Response Settings ---
     # Number of retries to attempt
@@ -387,7 +387,7 @@ class Agent:
         add_messages: Optional[List[Union[Dict, Message]]] = None,
         user_message: Optional[Union[List, Dict, str, Callable, Message]] = None,
         user_message_role: str = "user",
-        create_default_user_message: bool = True,
+        process_user_context: bool = True,
         retries: int = 0,
         delay_between_retries: int = 1,
         exponential_backoff: bool = False,
@@ -483,7 +483,7 @@ class Agent:
 
         self.user_message = user_message
         self.user_message_role = user_message_role
-        self.create_default_user_message = create_default_user_message
+        self.process_user_context = process_user_context
 
         self.retries = retries
         self.delay_between_retries = delay_between_retries
@@ -4120,7 +4120,7 @@ class Agent:
         """Return the user message for the Agent.
 
         1. If the user_message is provided, use that.
-        2. If create_default_user_message is False or if the message is a list, return the message as is.
+        2. If process_user_context is False or if the message is a list, return the message as is.
         3. Build the default user message for the Agent
         """
         # Get references from the knowledge base to use in the user message
@@ -4181,8 +4181,8 @@ class Agent:
                 **kwargs,
             )
 
-        # 2. If create_default_user_message is False or message is a list, return the message as is.
-        if not self.create_default_user_message or isinstance(message, list):
+        # 2. If process_user_context is False or message is a list, return the message as is.
+        if not self.process_user_context or isinstance(message, list):
             return Message(
                 role=self.user_message_role,
                 content=message,

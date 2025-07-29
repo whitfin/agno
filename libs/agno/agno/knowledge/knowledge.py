@@ -9,7 +9,7 @@ from pprint import pprint
 from typing import Any, Dict, List, Optional, Tuple, Union, overload
 from uuid import uuid4
 
-from agno.db.postgres.postgres import PostgresDb
+from agno.db.base import BaseDb
 from agno.db.schemas.knowledge import KnowledgeRow
 from agno.knowledge.cloud_storage.cloud_storage import CloudStorageConfig
 from agno.knowledge.content import Content, FileData
@@ -28,7 +28,7 @@ class Knowledge:
     name: Optional[str] = None
     description: Optional[str] = None
     vector_db: Optional[VectorDb] = None
-    contents_db: Optional[PostgresDb] = None
+    contents_db: Optional[BaseDb] = None
     max_results: int = 10
     readers: Optional[Dict[str, Reader]] = None
 
@@ -738,12 +738,18 @@ class Knowledge:
             )
             self.contents_db.upsert_knowledge_content(knowledge_row=content_row)
 
-    def _update_content(self, content: Content):
+    def _update_content(self, content: Content) -> Optional[Dict[str, Any]]:
         if self.contents_db:
+            if not content.id:
+                log_warning("Content id is required to update Knowledge content")
+                return None
+
+            # TODO: we shouldn't check for content here, we should trust the upsert method to handle conflicts
             content_row = self.contents_db.get_knowledge_content(content.id)
             if content_row is None:
                 log_warning(f"Content row not found for id: {content.id}, cannot update status")
-                return
+                return None
+
             if content.name is not None:
                 content_row.name = content.name
             if content.description is not None:
@@ -754,8 +760,12 @@ class Knowledge:
                 content_row.status = content.status
             if content.status_message is not None:
                 content_row.status_message = content.status_message if content.status_message else ""
+
             content_row.updated_at = int(time.time())
             self.contents_db.upsert_knowledge_content(knowledge_row=content_row)
+
+            return content_row.to_dict()
+
         else:
             log_warning(f"Contents DB not found for knowledge base: {self.name}")
 
@@ -874,8 +884,8 @@ class Knowledge:
         pprint(content)
         self._load_content(content, upsert=False, skip_if_exists=True)
 
-    def patch_content(self, content: Content):
-        self._update_content(content)
+    def patch_content(self, content: Content) -> Optional[Dict[str, Any]]:
+        return self._update_content(content)
 
     def get_content_by_id(self, content_id: str) -> Optional[Content]:
         if self.contents_db is None:

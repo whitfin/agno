@@ -211,7 +211,7 @@ class Agent:
     # Role for the system message
     system_message_role: str = "system"
     # If True, create a default system message using agent settings and use that
-    create_default_system_message: bool = True
+    process_context: bool = True
 
     # --- Settings for building the default system message ---
     # A description of the Agent that is added to the start of the system message.
@@ -371,7 +371,7 @@ class Agent:
         read_tool_call_history: bool = False,
         system_message: Optional[Union[str, Callable, Message]] = None,
         system_message_role: str = "system",
-        create_default_system_message: bool = True,
+        process_context: bool = True,
         description: Optional[str] = None,
         goal: Optional[str] = None,
         success_criteria: Optional[str] = None,
@@ -465,7 +465,7 @@ class Agent:
 
         self.system_message = system_message
         self.system_message_role = system_message_role
-        self.create_default_system_message = create_default_system_message
+        self.process_context = process_context
 
         self.description = description
         self.goal = goal
@@ -3854,7 +3854,7 @@ class Agent:
         """Return the system message for the Agent.
 
         1. If the system_message is provided, use that.
-        2. If create_default_system_message is False, return None.
+        2. If process_context is False, return None.
         3. Build and return the default system message for the Agent.
         """
 
@@ -3891,8 +3891,8 @@ class Agent:
             # type: ignore
             return Message(role=self.system_message_role, content=sys_message_content)
 
-        # 2. If create_default_system_message is False, return None.
-        if not self.create_default_system_message:
+        # 2. If process_context is False, return None.
+        if not self.process_context:
             return None
 
         if self.model is None:

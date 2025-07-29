@@ -198,7 +198,7 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
 
     @router.delete("/content", status_code=200)
     def delete_all_content():
-        log_info(f"Deleting all content")
+        log_info("Deleting all content")
         knowledge.remove_all_content()
         return "success"
 

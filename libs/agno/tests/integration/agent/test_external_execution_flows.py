@@ -15,7 +15,6 @@ def test_tool_call_requires_external_execution():
         tools=[send_email],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("Send an email to john@doe.com with the subject 'Test' and the body 'Hello, how are you?'")
@@ -42,7 +41,6 @@ def test_tool_call_requires_external_execution_stream():
         tools=[send_email],
         markdown=True,
         telemetry=False,
-
     )
 
     found_external_execution = False
@@ -81,7 +79,6 @@ async def test_tool_call_requires_external_execution_async():
         tools=[send_email],
         markdown=True,
         telemetry=False,
-
     )
 
     response = await agent.arun(
@@ -110,7 +107,6 @@ def test_tool_call_requires_external_execution_error():
         tools=[send_email],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("Send an email to john@doe.com with the subject 'Test' and the body 'Hello, how are you?'")
@@ -131,7 +127,6 @@ async def test_tool_call_requires_external_execution_stream_async():
         tools=[send_email],
         markdown=True,
         telemetry=False,
-
     )
 
     found_external_execution = False
@@ -172,7 +167,6 @@ def test_tool_call_multiple_requires_external_execution():
         tools=[get_the_weather, get_activities],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo and what are the activities?")

@@ -77,7 +77,6 @@ def test_with_memory():
         num_history_responses=5,
         markdown=True,
         telemetry=False,
-
     )
 
     # First interaction
@@ -107,7 +106,6 @@ def test_response_model():
         model=LMStudio(id="qwen2.5-7b-instruct-1m"),
         markdown=True,
         telemetry=False,
-
         response_model=MovieScript,
     )
 
@@ -130,7 +128,6 @@ def test_json_response_mode():
         model=LMStudio(id="qwen2.5-7b-instruct-1m"),
         use_json_mode=True,
         telemetry=False,
-
         response_model=MovieScript,
     )
 
@@ -149,7 +146,6 @@ def test_history():
         storage=SqliteAgentStorage(table_name="agent_sessions", db_file="tmp/agent_storage.db"),
         add_history_to_messages=True,
         telemetry=False,
-
     )
     agent.run("Hello")
     assert len(agent.run_response.messages) == 2

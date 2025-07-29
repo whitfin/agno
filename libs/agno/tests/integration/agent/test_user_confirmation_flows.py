@@ -15,7 +15,6 @@ def test_tool_call_requires_confirmation():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     agent.run("What is the weather in Tokyo?")
@@ -43,7 +42,6 @@ def test_tool_call_requires_confirmation_continue_with_run_response():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo?")
@@ -73,7 +71,6 @@ def test_tool_call_requires_confirmation_continue_with_run_id(agent_storage, mem
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo?", session_id=session_id)
@@ -93,7 +90,6 @@ def test_tool_call_requires_confirmation_continue_with_run_id(agent_storage, mem
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     response = agent.continue_run(run_id=response.run_id, updated_tools=response.tools, session_id=session_id)
@@ -113,7 +109,6 @@ def test_tool_call_requires_confirmation_continue_with_run_id_stream(agent_stora
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     updated_tools = None
@@ -136,7 +131,6 @@ def test_tool_call_requires_confirmation_continue_with_run_id_stream(agent_stora
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     response = agent.continue_run(
@@ -163,7 +157,6 @@ async def test_tool_call_requires_confirmation_continue_with_run_id_async(agent_
         memory=memory,
         instructions="When you have confirmation, then just use the tool",
         telemetry=False,
-
     )
 
     response = await agent.arun("What is the weather in Tokyo?", session_id=session_id)
@@ -184,7 +177,6 @@ async def test_tool_call_requires_confirmation_continue_with_run_id_async(agent_
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     response = await agent.acontinue_run(run_id=response.run_id, updated_tools=response.tools, session_id=session_id)
@@ -202,7 +194,6 @@ def test_tool_call_requires_confirmation_memory_footprint():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     session_id = "test_session"
@@ -239,7 +230,6 @@ def test_tool_call_requires_confirmation_stream():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     found_confirmation = False
@@ -272,7 +262,6 @@ async def test_tool_call_requires_confirmation_async():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     response = await agent.arun("What is the weather in Tokyo?")
@@ -336,7 +325,6 @@ def test_tool_call_multiple_requires_confirmation():
         tools=[get_the_weather, get_activities],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo and what are the activities?")

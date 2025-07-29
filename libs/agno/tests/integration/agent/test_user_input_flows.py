@@ -15,7 +15,6 @@ def test_tool_call_requires_user_input():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo?")
@@ -43,7 +42,6 @@ def test_tool_call_requires_user_input_specific_fields():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo?")
@@ -75,7 +73,6 @@ def test_tool_call_requires_user_input_stream():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     found_user_input = False
@@ -108,7 +105,6 @@ async def test_tool_call_requires_user_input_async():
         tools=[get_the_weather],
         markdown=True,
         telemetry=False,
-
     )
 
     response = await agent.arun("What is the weather in Tokyo?")
@@ -172,7 +168,6 @@ def test_tool_call_requires_user_input_continue_with_run_id(agent_storage, memor
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo?", session_id=session_id)
@@ -192,7 +187,6 @@ def test_tool_call_requires_user_input_continue_with_run_id(agent_storage, memor
         storage=agent_storage,
         memory=memory,
         telemetry=False,
-
     )
 
     response = agent.continue_run(run_id=response.run_id, updated_tools=response.tools, session_id=session_id)
@@ -213,7 +207,6 @@ def test_tool_call_multiple_requires_user_input():
         tools=[get_the_weather, get_activities],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("What is the weather in Tokyo and what are the activities?")

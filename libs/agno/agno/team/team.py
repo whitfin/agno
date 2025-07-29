@@ -1423,6 +1423,7 @@ class Team:
                 last_exception = e
                 if attempt < num_attempts - 1:
                     import time
+
                     time.sleep(2**attempt)
             except (KeyboardInterrupt, RunCancelledException):
                 if stream:

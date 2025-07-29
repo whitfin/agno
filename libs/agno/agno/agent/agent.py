@@ -1226,7 +1226,6 @@ class Agent:
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
-
     @overload
     async def arun(
         self,
@@ -1247,8 +1246,6 @@ class Agent:
         **kwargs: Any,
     ) -> RunResponse: ...
 
-
-
     @overload
     def arun(
         self,
@@ -1268,7 +1265,6 @@ class Agent:
         debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> AsyncIterator[RunResponseEvent]: ...
-
 
     def arun(
         self,
@@ -1881,7 +1877,6 @@ class Agent:
         debug_mode: Optional[bool] = None,
     ) -> RunResponse: ...
 
-
     @overload
     def acontinue_run(
         self,
@@ -1897,7 +1892,6 @@ class Agent:
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: Optional[bool] = None,
     ) -> AsyncIterator[RunResponseEvent]: ...
-
 
     def acontinue_run(
         self,
@@ -3397,9 +3391,7 @@ class Agent:
             self._rebuild_tools = True
         if self.search_previous_sessions_history:
             agent_tools.append(
-                self.get_previous_sessions_messages_function(
-                    num_history_sessions=self.num_history_sessions
-                )
+                self.get_previous_sessions_messages_function(num_history_sessions=self.num_history_sessions)
             )
             self._rebuild_tools = True
 
@@ -7241,21 +7233,21 @@ class Agent:
         if not self.telemetry:
             return
 
-        from agno.api.agent import AgentRunCreate, create_agent_run
+        # # from agno.api.agent import AgentRunCreate, create_agent_run
 
-        try:
-            agent_session: Optional[AgentSession] = self.agent_session or self.get_agent_session(
-                session_id=session_id, user_id=user_id
-            )
+        # try:
+        #     # agent_session: Optional[AgentSession] = self.agent_session or self.get_agent_session(
+        #     #     session_id=session_id, user_id=user_id
+        #     # )
 
-            # TODO: Telemetry data
-            # create_agent_run(
-            #     run=AgentRunCreate(
-            #         agent_data=agent_session.telemetry_data(),
-            #     ),
-            # )
-        except Exception as e:
-            log_debug(f"Could not create agent event: {e}")
+        #     # TODO: Telemetry data
+        #     # create_agent_run(
+        #     #     run=AgentRunCreate(
+        #     #         agent_data=agent_session.telemetry_data(),
+        #     #     ),
+        #     # )
+        # except Exception as e:
+        #     log_debug(f"Could not create agent event: {e}")
 
     async def _alog_agent_run(self, session_id: str, user_id: Optional[str] = None) -> None:
         self.set_telemetry()
@@ -7263,19 +7255,18 @@ class Agent:
         if not self.telemetry:
             return
 
-        from agno.api.agent import AgentRunCreate, acreate_agent_run
+        # from agno.api.agent import AgentRunCreate, acreate_agent_run
 
-        try:
-            agent_session: Optional[AgentSession] = self.agent_session or self.get_agent_session(
-                session_id=session_id, user_id=user_id
-            )
+        # try:
+        #     agent_session: Optional[AgentSession] = self.agent_session or self.get_agent_session(
+        #         session_id=session_id, user_id=user_id
+        #     )
 
-            # TODO: Telemetry data
-            # await acreate_agent_run(
-            #     run=AgentRunCreate(
-            #         agent_data=agent_session.telemetry_data(),
-            #     ),
-            # )
-        except Exception as e:
-            log_debug(f"Could not create agent event: {e}")
-
+        #     # TODO: Telemetry data
+        #     # await acreate_agent_run(
+        #     #     run=AgentRunCreate(
+        #     #         agent_data=agent_session.telemetry_data(),
+        #     #     ),
+        #     # )
+        # except Exception as e:
+        #     log_debug(f"Could not create agent event: {e}")

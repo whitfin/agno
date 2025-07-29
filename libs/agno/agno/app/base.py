@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from os import getenv
 from typing import Any, Dict, Optional, Union
 from uuid import uuid4
 
@@ -10,10 +9,9 @@ from fastapi.routing import APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from agno.agent.agent import Agent
-from agno.api.app import AppCreate, create_app
 from agno.app.settings import APIAppSettings
 from agno.team.team import Team
-from agno.utils.log import log_debug, log_info
+from agno.utils.log import log_info
 
 
 class BaseAPIApp(ABC):

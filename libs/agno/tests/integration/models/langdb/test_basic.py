@@ -79,7 +79,6 @@ def test_with_memory():
         num_history_responses=5,
         markdown=True,
         telemetry=False,
-
     )
 
     # First interaction
@@ -105,9 +104,7 @@ def test_structured_output():
         genre: str = Field(..., description="Movie genre")
         plot: str = Field(..., description="Brief plot summary")
 
-    agent = Agent(
-        model=LangDB(id="gemini-1.5-pro-latest"), response_model=MovieScript, telemetry=False
-    )
+    agent = Agent(model=LangDB(id="gemini-1.5-pro-latest"), response_model=MovieScript, telemetry=False)
 
     response = agent.run("Create a movie about time travel")
 
@@ -129,7 +126,6 @@ def test_json_response_mode():
         response_model=MovieScript,
         use_json_mode=True,
         telemetry=False,
-
     )
 
     response = agent.run("Create a movie about time travel")
@@ -147,7 +143,6 @@ def test_history():
         storage=SqliteStorage(table_name="agent_sessions", db_file="tmp/agent_storage.db"),
         add_history_to_messages=True,
         telemetry=False,
-
     )
     agent.run("Hello")
     assert len(agent.run_response.messages) == 2

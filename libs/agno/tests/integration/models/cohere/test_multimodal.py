@@ -14,7 +14,6 @@ def test_image_input():
         add_history_to_messages=True,
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run(
@@ -67,7 +66,6 @@ def test_image_input_with_tool_call():
         tools=[DuckDuckGoTools(cache_results=True)],
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run(

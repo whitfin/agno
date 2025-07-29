@@ -297,7 +297,6 @@ def get_sync_router(
             if not workflow_input:
                 raise HTTPException(status_code=400, detail="Workflow input is required")
 
-
         if files:
             if agent:
                 base64_images, base64_audios, base64_videos = agent_process_file(files, agent)

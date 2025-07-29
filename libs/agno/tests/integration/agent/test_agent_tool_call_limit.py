@@ -13,7 +13,6 @@ def test_tool_use_tool_call_limit():
         tool_call_limit=1,
         markdown=True,
         telemetry=False,
-
     )
 
     response = agent.run("Find me the current price of TSLA and APPL.")
@@ -33,7 +32,6 @@ def test_tool_use_tool_call_limit_stream():
         tool_call_limit=1,
         markdown=True,
         telemetry=False,
-
     )
 
     response_stream = agent.run("Find me the current price of TSLA and APPL.", stream=True)
@@ -57,7 +55,6 @@ async def test_tool_use_tool_call_limit_async():
         tool_call_limit=1,
         markdown=True,
         telemetry=False,
-
     )
 
     response = await agent.arun("Find me the current price of TSLA and APPL.")
@@ -78,7 +75,6 @@ async def test_tool_use_tool_call_limit_stream_async():
         tool_call_limit=1,
         markdown=True,
         telemetry=False,
-
     )
 
     tools = []

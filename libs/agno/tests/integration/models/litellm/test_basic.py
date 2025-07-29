@@ -92,7 +92,6 @@ def test_with_memory():
         num_history_responses=5,
         markdown=True,
         telemetry=False,
-
     )
 
     # First interaction
@@ -121,7 +120,6 @@ def test_response_model():
         model=LiteLLM(id="gpt-4o"),
         markdown=True,
         telemetry=False,
-
         response_model=MovieScript,
     )
 
@@ -140,7 +138,6 @@ def test_history():
         storage=SqliteStorage(table_name="agent_sessions_storage", db_file="tmp/data.db"),
         add_history_to_messages=True,
         telemetry=False,
-
     )
     agent.run("Hello")
     assert len(agent.run_response.messages) == 2

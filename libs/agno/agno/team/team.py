@@ -150,7 +150,7 @@ class Team:
     # This allows for relative times like "tomorrow" to be used in the prompt
     add_datetime_to_context: bool = False
     # If True, add the current location to the instructions to give the team a sense of location
-    add_location_to_instructions: bool = False
+    add_location_to_context: bool = False
     # If True, add the tools available to team members to the system message
     add_member_tools_to_system_message: bool = True
 
@@ -320,7 +320,7 @@ class Team:
         success_criteria: Optional[str] = None,
         markdown: bool = False,
         add_datetime_to_context: bool = False,
-        add_location_to_instructions: bool = False,
+        add_location_to_context: bool = False,
         add_member_tools_to_system_message: bool = True,
         system_message: Optional[Union[str, Callable, Message]] = None,
         system_message_role: str = "system",
@@ -396,7 +396,7 @@ class Team:
         self.additional_context = additional_context
         self.markdown = markdown
         self.add_datetime_to_context = add_datetime_to_context
-        self.add_location_to_instructions = add_location_to_instructions
+        self.add_location_to_context = add_location_to_context
         self.add_member_tools_to_system_message = add_member_tools_to_system_message
         self.system_message = system_message
         self.system_message_role = system_message_role
@@ -4946,7 +4946,7 @@ class Team:
             additional_information.append(f"The current time is {datetime.now()}")
 
         # 1.3.3 Add the current location
-        if self.add_location_to_instructions:
+        if self.add_location_to_context:
             from agno.utils.location import get_location
 
             location = get_location()

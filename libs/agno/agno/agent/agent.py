@@ -227,13 +227,13 @@ class Agent:
     # If markdown=true, add instructions to format the output using markdown
     markdown: bool = False
     # If True, add the agent name to the instructions
-    add_name_to_instructions: bool = False
+    add_name_to_context: bool = False
     # If True, add the current datetime to the instructions to give the agent a sense of time
     # This allows for relative times like "tomorrow" to be used in the prompt
     add_datetime_to_context: bool = False
     # If True, add the current location to the instructions to give the agent a sense of place
     # This allows for location-aware responses and local context
-    add_location_to_instructions: bool = False
+    add_location_to_context: bool = False
     # Allows for custom timezone for datetime instructions following the TZ Database format (e.g. "Etc/UTC")
     timezone_identifier: Optional[str] = None
     # If True, add the session state variables in the user and system messages
@@ -379,9 +379,9 @@ class Agent:
         expected_output: Optional[str] = None,
         additional_context: Optional[str] = None,
         markdown: bool = False,
-        add_name_to_instructions: bool = False,
+        add_name_to_context: bool = False,
         add_datetime_to_context: bool = False,
-        add_location_to_instructions: bool = False,
+        add_location_to_context: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
         add_messages: Optional[List[Union[Dict, Message]]] = None,
@@ -474,9 +474,9 @@ class Agent:
         self.expected_output = expected_output
         self.additional_context = additional_context
         self.markdown = markdown
-        self.add_name_to_instructions = add_name_to_instructions
+        self.add_name_to_context = add_name_to_context
         self.add_datetime_to_context = add_datetime_to_context
-        self.add_location_to_instructions = add_location_to_instructions
+        self.add_location_to_context = add_location_to_context
         self.timezone_identifier = timezone_identifier
         self.add_state_in_messages = add_state_in_messages
         self.add_messages = add_messages
@@ -3939,7 +3939,7 @@ class Agent:
             additional_information.append(f"The current time is {time}.")
 
         # 3.2.3 Add the current location
-        if self.add_location_to_instructions:
+        if self.add_location_to_context:
             from agno.utils.location import get_location
 
             location = get_location()
@@ -3951,7 +3951,7 @@ class Agent:
                     additional_information.append(f"Your approximate location is: {location_str}.")
 
         # 3.2.4 Add agent name if provided
-        if self.name is not None and self.add_name_to_instructions:
+        if self.name is not None and self.add_name_to_context:
             additional_information.append(f"Your name is: {self.name}.")
 
         # 3.2.5 Add information about agentic filters if enabled

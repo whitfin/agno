@@ -544,9 +544,9 @@ class Agent:
             self.agent_id = str(uuid4())
         return self.agent_id
 
-    def set_debug(self) -> None:
-        if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
-            self.debug_mode = True
+    def set_debug(self, debug_mode: Optional[bool] = None) -> None:
+        # If the default debug mode is set, or passed on run, or via environment variable, set the debug mode to True
+        if self.debug_mode or debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
             set_log_level_to_debug(level=self.debug_level)
         else:
             set_log_level_to_info()
@@ -621,9 +621,9 @@ class Agent:
         self.run_messages = None
         self.run_response = None
 
-    def initialize_agent(self) -> None:
+    def initialize_agent(self, debug_mode: Optional[bool] = None) -> None:
         self.set_default_model()
-        self.set_debug()
+        self.set_debug(debug_mode=debug_mode)
         self.set_agent_id()
         if self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None:
             self.set_memory_manager()
@@ -834,6 +834,7 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> RunResponse: ...
 
@@ -853,6 +854,7 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Iterator[RunResponseEvent]: ...
 
@@ -871,6 +873,7 @@ class Agent:
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[RunResponse, Iterator[RunResponseEvent]]:
         """Run the Agent and return the response."""
@@ -882,7 +885,7 @@ class Agent:
             self.reset_session_state()
 
         # Initialize the Agent
-        self.initialize_agent()
+        self.initialize_agent(debug_mode=debug_mode)
 
         # Initialize Session
         # Use the default user_id and session_id when necessary
@@ -1224,7 +1227,51 @@ class Agent:
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
+
+    @overload
     async def arun(
+        self,
+        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        *,
+        stream: Literal[False] = False,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        audio: Optional[Sequence[Audio]] = None,
+        images: Optional[Sequence[Image]] = None,
+        videos: Optional[Sequence[Video]] = None,
+        files: Optional[Sequence[File]] = None,
+        messages: Optional[Sequence[Union[Dict, Message]]] = None,
+        stream_intermediate_steps: Optional[bool] = None,
+        retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> RunResponse: ...
+
+
+
+    @overload
+    def arun(
+        self,
+        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        *,
+        stream: Literal[True] = True,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        audio: Optional[Sequence[Audio]] = None,
+        images: Optional[Sequence[Image]] = None,
+        videos: Optional[Sequence[Video]] = None,
+        files: Optional[Sequence[File]] = None,
+        messages: Optional[Sequence[Union[Dict, Message]]] = None,
+        stream_intermediate_steps: Optional[bool] = None,
+        retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[RunResponseEvent]: ...
+
+
+    def arun(
         self,
         message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
         *,
@@ -1239,9 +1286,11 @@ class Agent:
         stream_intermediate_steps: Optional[bool] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
-    ) -> Any:
+    ) -> Union[RunResponse, AsyncIterator[RunResponseEvent]]:
         """Async Run the Agent and return the response."""
+
         self.reset_run_state()
 
         if session_id is not None:
@@ -1249,7 +1298,7 @@ class Agent:
             self.reset_session_state()
 
         # Initialize the Agent
-        self.initialize_agent()
+        self.initialize_agent(debug_mode=debug_mode)
 
         # Initialize Session
         # Use the default user_id and session_id when necessary
@@ -1370,7 +1419,7 @@ class Agent:
 
                 # Pass the new run_response to _arun
                 if stream:
-                    response_iterator = self._arun_stream(
+                    return self._arun_stream(
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -1378,9 +1427,8 @@ class Agent:
                         response_format=response_format,
                         stream_intermediate_steps=stream_intermediate_steps,
                     )  # type: ignore[assignment]
-                    return response_iterator
                 else:
-                    return await self._arun(
+                    return self._arun(
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -1438,6 +1486,7 @@ class Agent:
         session_id: Optional[str] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
     ) -> RunResponse: ...
 
     @overload
@@ -1453,6 +1502,7 @@ class Agent:
         session_id: Optional[str] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
     ) -> Iterator[RunResponseEvent]: ...
 
     def continue_run(
@@ -1467,6 +1517,7 @@ class Agent:
         session_id: Optional[str] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
     ) -> Union[RunResponse, Iterator[RunResponseEvent]]:
         """Continue a previous run.
 
@@ -1487,7 +1538,7 @@ class Agent:
             self.reset_session_state()
 
         # Initialize the Agent
-        self.initialize_agent()
+        self.initialize_agent(debug_mode=debug_mode)
 
         # Initialize Session
         # Use the default user_id and session_id when necessary
@@ -1815,7 +1866,41 @@ class Agent:
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
+    @overload
     async def acontinue_run(
+        self,
+        run_response: Optional[RunResponse] = None,
+        *,
+        stream: Literal[False] = False,
+        stream_intermediate_steps: Optional[bool] = None,
+        run_id: Optional[str] = None,
+        updated_tools: Optional[List[ToolExecution]] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
+    ) -> RunResponse: ...
+
+
+    @overload
+    def acontinue_run(
+        self,
+        run_response: Optional[RunResponse] = None,
+        *,
+        stream: Literal[True] = True,
+        stream_intermediate_steps: Optional[bool] = None,
+        run_id: Optional[str] = None,
+        updated_tools: Optional[List[ToolExecution]] = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        retries: Optional[int] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
+    ) -> AsyncIterator[RunResponseEvent]: ...
+
+
+    def acontinue_run(
         self,
         run_response: Optional[RunResponse] = None,
         *,
@@ -1827,7 +1912,8 @@ class Agent:
         session_id: Optional[str] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
-    ) -> Any:
+        debug_mode: Optional[bool] = None,
+    ) -> Union[RunResponse, AsyncIterator[RunResponseEvent]]:
         """Continue a previous run.
 
         Args:
@@ -1847,7 +1933,7 @@ class Agent:
             self.reset_session_state()
 
         # Initialize the Agent
-        self.initialize_agent()
+        self.initialize_agent(debug_mode=debug_mode)
 
         # Initialize Session
         # Use the default user_id and session_id when necessary
@@ -1977,7 +2063,7 @@ class Agent:
 
             try:
                 if stream:
-                    response_iterator = self._acontinue_run_stream(
+                    return self._acontinue_run_stream(
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -1985,10 +2071,8 @@ class Agent:
                         response_format=response_format,
                         stream_intermediate_steps=stream_intermediate_steps,
                     )
-
-                    return response_iterator
                 else:
-                    return await self._acontinue_run(
+                    return self._acontinue_run(
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -3315,7 +3399,7 @@ class Agent:
         if self.search_previous_sessions_history:
             agent_tools.append(
                 self.get_previous_sessions_messages_function(
-                    num_history_sessions=self.num_history_sessions, user_id=user_id
+                    num_history_sessions=self.num_history_sessions
                 )
             )
             self._rebuild_tools = True
@@ -4875,7 +4959,7 @@ class Agent:
             raise Exception("Model not set")
 
         gen_session_name_prompt = "Conversation\n"
-        messages_for_generating_session_name = self.agent_session.get_messages_for_session(session_id=session_id)
+        messages_for_generating_session_name = self.agent_session.get_messages_for_session()
 
         for message in messages_for_generating_session_name:
             gen_session_name_prompt += f"{message.role.upper()}: {message.content}\n"
@@ -5695,7 +5779,7 @@ class Agent:
 
             history: List[Dict[str, Any]] = []
             if self.agent_session:
-                all_chats = self.agent_session.get_messages_for_session(session_id=session_id)
+                all_chats = self.agent_session.get_messages_for_session()
 
                 if len(all_chats) == 0:
                     return ""
@@ -5975,6 +6059,7 @@ class Agent:
         # Add tags to include in markdown content
         tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
         import json
@@ -6035,6 +6120,7 @@ class Agent:
                     stream=True,
                     stream_intermediate_steps=stream_intermediate_steps,
                     knowledge_filters=knowledge_filters,
+                    debug_mode=debug_mode,
                     **kwargs,
                 ):
                     if isinstance(resp, tuple(get_args(RunResponseEvent))):
@@ -6254,6 +6340,7 @@ class Agent:
                     stream=False,
                     stream_intermediate_steps=stream_intermediate_steps,
                     knowledge_filters=knowledge_filters,
+                    debug_mode=debug_mode,
                     **kwargs,
                 )
                 response_timer.stop()
@@ -6419,6 +6506,7 @@ class Agent:
         # Add tags to include in markdown content
         tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
         import json
@@ -6467,7 +6555,7 @@ class Agent:
                 if render:
                     live_log.update(Group(*panels))
 
-                result = await self.arun(
+                result = self.arun(
                     message=message,
                     messages=messages,
                     session_id=session_id,
@@ -6479,6 +6567,7 @@ class Agent:
                     stream=True,
                     stream_intermediate_steps=stream_intermediate_steps,
                     knowledge_filters=knowledge_filters,
+                    debug_mode=debug_mode,
                     **kwargs,
                 )
 
@@ -6701,6 +6790,7 @@ class Agent:
                     stream=False,
                     stream_intermediate_steps=stream_intermediate_steps,
                     knowledge_filters=knowledge_filters,
+                    debug_mode=debug_mode,
                     **kwargs,
                 )
                 response_timer.stop()
@@ -7189,3 +7279,4 @@ class Agent:
             # )
         except Exception as e:
             log_debug(f"Could not create agent event: {e}")
+

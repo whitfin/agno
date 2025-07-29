@@ -15,7 +15,7 @@ agent = Agent(
 
 
 async def generate_image():
-    response_stream = await agent.arun(
+    response_stream = agent.arun(
         "Make me an image of a cat in a tree.", stream=True
     )
     async for chunk in response_stream:

@@ -89,11 +89,8 @@ class AsyncHackerNewsReporter(Workflow):
             return
 
         logger.info("Reading each story and writing a report.")
-        # Get the async iterator from writer.arun()
-        writer_response = await self.writer.arun(top_stories.content, stream=True)
-
         # Stream the writer's response directly
-        async for response in writer_response:
+        async for response in self.writer.arun(top_stories.content, stream=True):
             if response.content:
                 response.run_id = self.run_id
                 yield response
@@ -109,8 +106,7 @@ if __name__ == "__main__":
         # Run the workflow and collect the final response
         final_content = []
         try:
-            response = await workflow.arun(num_stories=5)
-            async for response in response:
+            async for response in workflow.arun(num_stories=5):
                 if response.content:
                     final_content.append(response.content)
         except Exception as e:

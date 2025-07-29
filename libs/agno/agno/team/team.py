@@ -1227,7 +1227,7 @@ class Team:
     ) -> TeamRunResponse: ...
 
     @overload
-    async def arun(
+    def arun(
         self,
         message: Union[str, List, Dict, Message, BaseModel],
         *,
@@ -1244,7 +1244,7 @@ class Team:
         **kwargs: Any,
     ) -> AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent]]: ...
 
-    async def arun(
+    def arun(
         self,
         message: Union[str, List, Dict, Message, BaseModel],
         *,
@@ -1425,7 +1425,7 @@ class Team:
                     )
                     return response_iterator
                 else:
-                    return await self._arun(
+                    return self._arun(
                         run_response=self.run_response,
                         run_messages=run_messages,
                         session_id=session_id,
@@ -1437,7 +1437,8 @@ class Team:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 last_exception = e
                 if attempt < num_attempts - 1:
-                    await asyncio.sleep(2**attempt)
+                    import time
+                    time.sleep(2**attempt)
             except (KeyboardInterrupt, RunCancelledException):
                 if stream:
                     return async_generator_wrapper(

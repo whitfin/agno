@@ -131,10 +131,9 @@ class BaseDb(ABC):
     ) -> Optional[Union[UserMemory, Dict[str, Any]]]:
         raise NotImplementedError
 
-    # TODO:
-    # @abstractmethod
-    # def clear_memories(self) -> None:
-    #     raise NotImplementedError
+    @abstractmethod
+    def clear_memories(self) -> None:
+        raise NotImplementedError
 
     # --- Metrics ---
     @abstractmethod

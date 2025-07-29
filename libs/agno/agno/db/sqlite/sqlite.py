@@ -943,6 +943,7 @@ class SqliteDb(BaseDb):
                     memory_id=memory.memory_id,
                     memory=memory.memory,
                     topics=memory.topics,
+                    input=memory.input,
                     last_updated=int(time.time()),
                 )
                 stmt = stmt.on_conflict_do_update(
@@ -950,6 +951,7 @@ class SqliteDb(BaseDb):
                     set_=dict(
                         memory=memory.memory,
                         topics=memory.topics,
+                        input=memory.input,
                         last_updated=int(time.time()),
                     ),
                 ).returning(table)

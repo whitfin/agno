@@ -743,7 +743,7 @@ class MySQLDb(BaseDb):
                             topics = json.loads(row[0]) if isinstance(row[0], str) else row[0]
                             if isinstance(topics, list):
                                 topics_set.update(topics)
-                        except:
+                        except Exception:
                             pass
 
                 return list(topics_set)

@@ -173,7 +173,7 @@ class DynamoDb(BaseDb):
 
     # --- Sessions ---
 
-    def delete_session(self, session_id: Optional[str] = None):
+    def delete_session(self, session_id: Optional[str] = None, session_type: Optional[SessionType] = None) -> bool:
         """
         Delete a session from the database.
 
@@ -184,13 +184,14 @@ class DynamoDb(BaseDb):
             Exception: If any error occurs while deleting the session.
         """
         if not session_id:
-            return None
+            return False
 
         try:
             self.client.delete_item(
                 TableName=self.session_table_name,
                 Key={"session_id": {"S": session_id}},
             )
+            return True
 
         except Exception as e:
             log_error(f"Failed to delete session {session_id}: {e}")
@@ -254,28 +255,28 @@ class DynamoDb(BaseDb):
             )
 
             item = response.get("Item")
-            if item:
-                session = deserialize_from_dynamodb_item(item)
+            if not item:
+                return None
 
-                if session_type and session.get("session_type") != session_type.value:
-                    return None
-                if user_id and session.get("user_id") != user_id:
-                    return None
+            session = deserialize_from_dynamodb_item(item)
 
-                if not session:
-                    return None
+            if session_type and session.get("session_type") != session_type.value:
+                return None
+            if user_id and session.get("user_id") != user_id:
+                return None
 
-                if not deserialize:
-                    return session
+            if not session:
+                return None
 
-                if session_type == SessionType.AGENT:
-                    return AgentSession.from_dict(session)
-                elif session_type == SessionType.TEAM:
-                    return TeamSession.from_dict(session)
-                elif session_type == SessionType.WORKFLOW:
-                    return WorkflowSession.from_dict(session)
+            if not deserialize:
+                return session
 
-            return None
+            if session_type == SessionType.AGENT:
+                return AgentSession.from_dict(session)
+            elif session_type == SessionType.TEAM:
+                return TeamSession.from_dict(session)
+            else:
+                return WorkflowSession.from_dict(session)
 
         except Exception as e:
             log_error(f"Failed to get session {session_id}: {e}")
@@ -287,6 +288,8 @@ class DynamoDb(BaseDb):
         user_id: Optional[str] = None,
         component_id: Optional[str] = None,
         session_name: Optional[str] = None,
+        start_timestamp: Optional[int] = None,
+        end_timestamp: Optional[int] = None,
         limit: Optional[int] = None,
         page: Optional[int] = None,
         sort_by: Optional[str] = None,
@@ -314,11 +317,9 @@ class DynamoDb(BaseDb):
                 elif session_type == SessionType.TEAM:
                     component_filter = "#team_id = :component_id"
                     expression_attribute_names["#team_id"] = "team_id"
-                elif session_type == SessionType.WORKFLOW:
+                else:
                     component_filter = "#workflow_id = :component_id"
                     expression_attribute_names["#workflow_id"] = "workflow_id"
-                else:
-                    component_filter = None
 
                 if component_filter:
                     expression_attribute_values[":component_id"] = {"S": component_id}

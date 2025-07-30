@@ -1446,7 +1446,7 @@ class PostgresDb(BaseDb):
                 if result is None:
                     return None
 
-                eval_run_raw = result._mapping
+                eval_run_raw = dict(result._mapping)
                 if not deserialize:
                     return eval_run_raw
 

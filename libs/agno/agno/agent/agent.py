@@ -4837,20 +4837,26 @@ class Agent:
         # -*- Save to storage
         self.save_session(user_id=self.user_id, session_id=session_id)  # type: ignore
 
-    def rename_session(self, session_name: str, session_id: Optional[str] = None) -> Optional[AgentSession]:
-        """Rename the current session and save to storage"""
-
+    def set_session_name(self, session_id: str, autogenerate: bool = False, name: Optional[str] = None) -> None:
+        """Set the session name and save to storage"""
         if self.session_id is None and session_id is None:
             raise Exception("Session ID is not set")
-
         session_id = session_id or self.session_id
+
+        if autogenerate:
+            # -*- Generate name for session
+            session_name = self.generate_session_name(session_id=session_id)
+            log_debug(f"Generated Session Name: {session_name}")
+        elif session_name is None:
+            raise Exception("Session Name is not set")
 
         # -*- Read from storage
         self.get_agent_session(session_id=session_id)  # type: ignore
         # -*- Rename session
         self.session_name = session_name
+
         # -*- Save to storage
-        return self.save_session(user_id=self.user_id, session_id=session_id)  # type: ignore
+        self.save_session(user_id=self.user_id, session_id=session_id)  # type: ignore
 
     def generate_session_name(self, session_id: str) -> str:
         """Generate a name for the session using the first 6 messages from the memory"""
@@ -4882,22 +4888,6 @@ class Agent:
             log_error("Generated name is too long. Trying again.")
             return self.generate_session_name(session_id=session_id)
         return content.replace('"', "").strip()
-
-    def auto_rename_session(self) -> None:
-        """Automatically rename the session and save to storage"""
-
-        if self.session_id is None:
-            raise Exception("Session ID is not set")
-
-        # -*- Read from storage
-        self.get_agent_session(session_id=self.session_id)  # type: ignore
-        # -*- Generate name for session
-        generated_session_name = self.generate_session_name(session_id=self.session_id)
-        log_debug(f"Generated Session Name: {generated_session_name}")
-        # -*- Rename thread
-        self.session_name = generated_session_name
-        # -*- Save to storage
-        self.save_session(user_id=self.user_id, session_id=self.session_id)  # type: ignore
 
     def delete_session(self, session_id: str):
         """Delete the current session and save to storage"""

@@ -6708,18 +6708,43 @@ class Team:
             self.db.upsert_session(session=session)
         return self.team_session
 
-    def rename_session(self, session_name: str, session_id: Optional[str] = None) -> Optional[TeamSession]:
-        """Rename the current session and save to storage"""
-        if self.session_id is None and session_id is None:
-            raise ValueError("Session ID is not initialized")
+    def set_session_name(
+        self, session_id: str, autogenerate: bool = False, session_name: Optional[str] = None
+    ) -> Optional[TeamSession]:
+        """Set the session name either manually or by auto-generating it.
 
-        session_id = session_id or self.session_id
+        Args:
+            session_id: The session ID to rename
+            autogenerate: If True, auto-generate the session name using AI
+            session_name: The name to set (required if autogenerate=False)
 
-        # -*- Read from storage
+        Returns:
+            The updated TeamSession if successful
+
+        Raises:
+            ValueError: If session_id is invalid or parameters are conflicting
+        """
+        # Validate parameters
+        if autogenerate and session_name is not None:
+            raise ValueError("Cannot provide session_name when autogenerate=True")
+        if not autogenerate and session_name is None:
+            raise ValueError("session_name is required when autogenerate=False")
+
+        # Read from storage
         self.get_team_session(session_id=session_id)  # type: ignore
-        # -*- Rename session
-        self.session_name = session_name
-        # -*- Save to storage
+
+        # Determine the session name to use
+        if autogenerate:
+            # TODO: Agentic 
+            import datetime
+
+            generated_name = f"Team Session {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            log_debug(f"Generated Team Session Name: {generated_name}")
+            self.session_name = generated_name
+        else:
+            self.session_name = session_name
+
+        # Save to storage
         return self.save_session(session_id=session_id, user_id=self.user_id)  # type: ignore
 
     def delete_session(self, session_id: str) -> None:

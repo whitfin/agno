@@ -3195,9 +3195,6 @@ class Workflow:
 
     def _collect_workflow_session_state_from_agents_and_teams(self):
         """Collect updated workflow_session_state from agents after step execution"""
-        if self.workflow_session_state is None:
-            self.workflow_session_state = {}
-
         # Collect state from all agents in all steps (including nested primitives)
         if self.steps and not callable(self.steps):
             steps_list = self.steps.steps if isinstance(self.steps, Steps) else self.steps
@@ -3211,6 +3208,9 @@ class Workflow:
         from agno.workflow.v2.parallel import Parallel
         from agno.workflow.v2.router import Router
         from agno.workflow.v2.steps import Steps
+
+        if self.workflow_session_state is None:
+            self.workflow_session_state = {}
 
         for step in steps_list:
             if isinstance(step, Step):

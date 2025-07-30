@@ -4,6 +4,7 @@ from agno.agent.agent import Agent
 from agno.models.openai import OpenAIChat
 from agno.workflow.v2.router import Router
 from agno.workflow.v2.step import Step
+from agno.workflow.v2.steps import Steps
 from agno.workflow.v2.types import StepInput
 from agno.workflow.v2.workflow import Workflow
 from agno.knowledge.text import TextKnowledgeBase
@@ -116,12 +117,38 @@ Be helpful and suggest what kind of details would be useful.
 """,
 )
 
+# Define the predefined step sequences (choices)
+# Branch 1: Need more info (single step)
+need_more_info_branch = Step(name="request_more_info", agent=more_info_requester)
+
+# Branch 2: Knowledge search with nested router (multiple steps)
+knowledge_search_branch = Steps(
+    name="knowledge_search_steps",
+    steps=[
+        Step(name="gather_knowledge", agent=knowledge_search_agent),
+        Router(
+            name="knowledge_result_router",
+            selector=lambda step_input: (
+                knowledge_found_branch if "KNOWLEDGE_FOUND" in (step_input.previous_step_content or "")
+                else knowledge_not_found_branch
+            ),
+            choices=[
+                Step(name="generate_success_response", agent=response_generator),
+                Step(name="generate_not_found_response", agent=not_found_responder)
+            ]
+        )
+    ]
+)
+
+# Define the nested router choices
+knowledge_found_branch = Step(name="generate_success_response", agent=response_generator)
+knowledge_not_found_branch = Step(name="generate_not_found_response", agent=not_found_responder)
+
 # Step functions for routers
-def check_information_completeness(step_input: StepInput) -> List[Step]:
+def check_information_completeness(step_input: StepInput) -> Step:
     """
     Main Router (Step 1): Check if we have enough information to proceed
-    Route 1: If we have relevant info → go to knowledge search branch
-    Route 2: If we don't have enough info → ask for more information
+    Returns ONE of the predefined choices
     """
     message = str(step_input.message or "").lower()
     
@@ -171,38 +198,25 @@ def check_information_completeness(step_input: StepInput) -> List[Step]:
     
     if has_complete_info:
         print("🔍 Route 1: Proceeding to knowledge search branch")
-        # Return the knowledge search branch (multiple steps)
-        return [
-            Step(name="gather_knowledge", agent=knowledge_search_agent),
-            Router(
-                name="knowledge_result_router",
-                selector=check_knowledge_results,
-                choices=[
-                    Step(name="generate_success_response", agent=response_generator),
-                    Step(name="generate_not_found_response", agent=not_found_responder)
-                ]
-            )
-        ]
+        return [knowledge_search_branch] # a list of steps
     else:
         print("❓ Route 2: Need more information")
-        # Return the "need more info" branch (single step)
-        return [Step(name="request_more_info", agent=more_info_requester)]
+        return need_more_info_branch
 
-def check_knowledge_results(step_input: StepInput) -> List[Step]:
+def check_knowledge_results(step_input: StepInput) -> Step:
     """
     Knowledge Router: Check if knowledge search found relevant information
-    Route 1: If knowledge found → generate success response
-    Route 2: If knowledge not found → generate "sorry not found" response
+    Returns ONE of the predefined choices
     """
     # Get the previous step content (from knowledge search)
     previous_content = step_input.previous_step_content or ""
     
     if "KNOWLEDGE_FOUND" in previous_content:
         print("✅ Knowledge found, generating successful response")
-        return [Step(name="generate_success_response", agent=response_generator)]
+        return [knowledge_found_branch]
     else:
         print("❌ Knowledge not found, generating not found response")
-        return [Step(name="generate_not_found_response", agent=not_found_responder)]
+        return [knowledge_not_found_branch]
 
 # Create the multi-level router workflow
 multi_router_workflow = Workflow(
@@ -214,18 +228,8 @@ multi_router_workflow = Workflow(
             name="main_information_router",
             selector=check_information_completeness,
             choices=[
-                # Branch 1: Knowledge search branch (multiple steps)
-                Step(name="gather_knowledge", agent=knowledge_search_agent),
-                Router(
-                    name="knowledge_result_router", 
-                    selector=check_knowledge_results,
-                    choices=[
-                        Step(name="generate_success_response", agent=response_generator),
-                        Step(name="generate_not_found_response", agent=not_found_responder)
-                    ]
-                ),
-                # Branch 2: Need more info branch (single step)
-                Step(name="request_more_info", agent=more_info_requester)
+                need_more_info_branch,      # Branch 1: Need more info
+                knowledge_search_branch,    # Branch 2: Knowledge search with nested router
             ],
             description="Main router that checks if we have enough information to proceed"
         )

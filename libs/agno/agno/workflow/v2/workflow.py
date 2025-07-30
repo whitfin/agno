@@ -3257,3 +3257,59 @@ class Workflow:
 
                             # Set workflow_session_state on team members
                             self._update_executor_workflow_session_state(member)
+
+    def cli_app(
+        self,
+        message: Optional[str] = None,
+        user: str = "User",
+        emoji: str = "🤖",
+        stream: bool = False,
+        markdown: bool = True,
+        exit_on: Optional[List[str]] = None,
+        **kwargs,
+    ) -> None:
+        """Run an interactive command-line interface for the workflow."""
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.prompt import Prompt
+
+        console = Console()
+
+        # Welcome message
+        console.print(
+            Panel.fit(
+                f"[bold blue]Welcome to {self.name or 'Workflow Chat'}![/bold blue]\n"
+                f"[dim]{self.description or 'Interactive workflow assistant'}[/dim]\n\n"
+                f"[yellow]Type your questions and I'll help you through the workflow.[/yellow]\n"
+                f"[dim]Type 'exit', 'quit', or 'bye' to end the conversation.[/dim]",
+                title="🚀 Workflow Chat",
+                border_style="blue",
+            )
+        )
+
+        if message:
+            console.print(f"\n[bold]{emoji} {user}:[/bold] {message}")
+            self.print_response(message=message, stream=stream, markdown=markdown, console=console, **kwargs)
+
+        _exit_on = exit_on or ["exit", "quit", "bye"]
+        session_id = "cli_session"
+
+        while True:
+            try:
+                message = Prompt.ask(f"\n[bold]{emoji} {user}[/bold]")
+                if message.lower().strip() in _exit_on:
+                    console.print("\n[yellow]👋 Thanks for using the workflow chat! Goodbye![/yellow]")
+                    break
+
+                if not message.strip():
+                    continue
+
+                self.print_response(
+                    message=message, stream=stream, markdown=markdown, session_id=session_id, console=console, **kwargs
+                )
+
+            except KeyboardInterrupt:
+                console.print("\n[yellow]👋 Chat interrupted. Goodbye![/yellow]")
+                break
+            except Exception as e:
+                console.print(f"\n[red]❌ Error: {e}[/red]")

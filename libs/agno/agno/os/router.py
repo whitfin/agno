@@ -1,5 +1,5 @@
 import json
-from typing import AsyncGenerator, List, Optional, cast
+from typing import TYPE_CHECKING, AsyncGenerator, List, Optional, cast
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
@@ -44,6 +44,9 @@ from agno.run.response import RunResponse, RunResponseErrorEvent
 from agno.run.team import RunResponseErrorEvent as TeamRunResponseErrorEvent
 from agno.team.team import Team
 from agno.utils.log import log_debug, log_error, log_warning, logger
+
+if TYPE_CHECKING:
+    from agno.os.app import AgentOS
 
 
 async def agent_response_streamer(

@@ -145,7 +145,7 @@ def attach_routes(
                 eval_run_input=eval_run_input, db=db, agent=agent, team=team, default_model=default_model
             )
 
-        elif eval_run_input.eval_type == EvalType.RELIABILITY:
+        else:
             return await run_reliability_eval(
                 eval_run_input=eval_run_input, db=db, agent=agent, team=team, default_model=default_model
             )

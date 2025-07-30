@@ -21,7 +21,7 @@ from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info
 
 try:
-    from google.cloud.firestore import Client, FieldFilter
+    from google.cloud.firestore import Client, FieldFilter  # type: ignore[import-untyped]
 except ImportError:
     raise ImportError(
         "`google-cloud-firestore` not installed. Please install it using `pip install google-cloud-firestore`"
@@ -256,7 +256,7 @@ class FirestoreDb(BaseDb):
                 return AgentSession.from_dict(session)
             elif session_type == SessionType.TEAM:
                 return TeamSession.from_dict(session)
-            elif session_type == SessionType.WORKFLOW:
+            else:
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
@@ -413,7 +413,7 @@ class FirestoreDb(BaseDb):
                 return AgentSession.from_dict(deserialized_session)
             elif session_type == SessionType.TEAM:
                 return TeamSession.from_dict(deserialized_session)
-            elif session_type == SessionType.WORKFLOW:
+            else:
                 return WorkflowSession.from_dict(deserialized_session)
 
         except Exception as e:
@@ -514,7 +514,7 @@ class FirestoreDb(BaseDb):
                 return AgentSession.from_dict(deserialized_session)
             elif isinstance(session, TeamSession):
                 return TeamSession.from_dict(deserialized_session)
-            elif isinstance(session, WorkflowSession):
+            else:
                 return WorkflowSession.from_dict(deserialized_session)
 
         except Exception as e:

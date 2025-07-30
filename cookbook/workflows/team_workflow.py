@@ -62,7 +62,6 @@ class TeamWorkflow(Workflow):
         ],
         success_criteria="The team has reached a consensus.",
         enable_agentic_context=True,
-        show_tool_calls=True,
         markdown=True,
         debug_mode=True,
         show_members_responses=True,

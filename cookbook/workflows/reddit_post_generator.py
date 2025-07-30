@@ -35,7 +35,6 @@ reddit_agent = Agent(
         "6. Structure content for maximum readability",
         "7. Add appropriate tags and flairs if required",
     ],
-    show_tool_calls=True,
 )
 
 post_team = Team(
@@ -48,7 +47,6 @@ post_team = Team(
         "Craft a well-structured post with accurate information and sources",
         "Follow Reddit guidelines and best practices for posting",
     ],
-    show_tool_calls=True,
     markdown=True,
     success_criteria="A post on Reddit with a title and content that is engaging and informative in the subreddit.",
     enable_agentic_context=True,

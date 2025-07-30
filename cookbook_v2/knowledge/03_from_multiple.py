@@ -42,6 +42,5 @@ knowledge.add_contents(
     ],
 )
 
-agent = Agent(knowledge=knowledge, show_tool_calls=True)
 
 agent.print_response("What can you tell me about my documents?", markdown=True)

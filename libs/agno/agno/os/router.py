@@ -1,9 +1,9 @@
 import json
-from typing import AsyncGenerator, Callable, List, Optional, cast
+from typing import TYPE_CHECKING, AsyncGenerator, List, Optional, cast
 from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from agno.agent.agent import Agent
 from agno.db.base import SessionType
@@ -44,6 +44,9 @@ from agno.run.response import RunResponse, RunResponseErrorEvent
 from agno.run.team import RunResponseErrorEvent as TeamRunResponseErrorEvent
 from agno.team.team import Team
 from agno.utils.log import log_debug, log_error, log_warning, logger
+
+if TYPE_CHECKING:
+    from agno.os.app import AgentOS
 
 
 async def agent_response_streamer(
@@ -425,7 +428,7 @@ def get_base_router(
         if agent.db is None:
             raise HTTPException(status_code=404, detail="Agent has no database. Sessions are unavailable.")
 
-        agent.db.delete_session(session_id=session_id, session_type=SessionType.AGENT)
+        agent.db.delete_session(session_id=session_id)
 
     @router.get(
         "/agents",
@@ -673,7 +676,7 @@ def get_base_router(
         if team.db is None:
             raise HTTPException(status_code=404, detail="Team has no database. Sessions are unavailable.")
 
-        team.db.delete_session(session_id=session_id, session_type=SessionType.TEAM)
+        team.db.delete_session(session_id=session_id)
 
     @router.get(
         "/teams",

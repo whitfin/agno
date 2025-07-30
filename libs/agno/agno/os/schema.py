@@ -263,7 +263,7 @@ class AgentSessionDetailSchema(BaseModel):
 
     @classmethod
     def from_session(cls, session: AgentSession) -> "AgentSessionDetailSchema":
-        session_name = get_session_name(session.to_dict())
+        session_name = get_session_name({**session.to_dict(), "session_type": "agent"})
 
         return cls(
             user_id=session.user_id,
@@ -301,7 +301,8 @@ class TeamSessionDetailSchema(BaseModel):
     @classmethod
     def from_session(cls, session: TeamSession) -> "TeamSessionDetailSchema":
         session_dict = session.to_dict()
-        session_name = get_session_name(session_dict)
+        session_name = get_session_name({**session_dict, "session_type": "team"})
+
         return cls(
             session_id=session.session_id,
             team_id=session.team_id,

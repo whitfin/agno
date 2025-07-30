@@ -34,7 +34,7 @@ def get_session_name(session: Dict[str, Any]) -> str:
         runs = session.get("runs", [])
 
         # For teams, identify the first Team run and avoid using the first member's run
-        if session["session_type"] == "team":
+        if session.get("session_type") == "team":
             run = runs[0] if not runs[0].get("agent_id") else runs[1]
         else:
             run = runs[0]

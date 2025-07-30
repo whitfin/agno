@@ -2,7 +2,7 @@ from os import getenv
 from typing import Dict, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from rich import box
 from rich.panel import Panel
@@ -24,7 +24,7 @@ from agno.os.interfaces.base import BaseInterface
 from agno.os.router import get_base_router
 from agno.os.settings import AgnoAPISettings
 from agno.team.team import Team
-from agno.utils.log import log_debug, log_info
+from agno.utils.log import log_debug, log_info, log_warning
 from agno.workflow.workflow import Workflow
 
 
@@ -100,8 +100,6 @@ class AgentOS:
                     workflow.os_id = self.os_id
                 if not workflow.workflow_id:
                     workflow.workflow_id = generate_id(workflow.name)
-    
-    
 
     def _auto_discover_apps(self) -> List[BaseApp]:
         """Auto-discover apps from agents, teams, and workflows."""
@@ -121,7 +119,7 @@ class AgentOS:
                 seen_components[component_type].add(component_id)
                 return True
             return False
-        
+
         def _auto_discover_entity_apps(entity: Union[Agent, Team]) -> List[BaseApp]:
             if entity.db:
                 # Memory app
@@ -147,10 +145,13 @@ class AgentOS:
             if entity.knowledge:
                 if not entity.knowledge.contents_db:
                     log_warning("Knowledge contents_db is required to use knowledge inside AgentOS.")
-                    return
+                    return []
+
                 db = entity.knowledge.contents_db
-                if _add_unique_component("knowledge", f"{db.knowledge_table_name}"):
-                    discovered_apps.append(KnowledgeApp(knowledge=agent.knowledge))
+                if _add_unique_component("knowledge", f"{db.knowledge_table_name}") and entity.knowledge:
+                    discovered_apps.append(KnowledgeApp(knowledge=entity.knowledge))
+
+            return discovered_apps
 
         # Process agents
         if self.agents:

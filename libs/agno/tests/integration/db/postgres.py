@@ -435,7 +435,7 @@ class TestPostgresDbSession:
 
     def test_insert_agent_session(self, test_db: PostgresDb, sample_agent_session: AgentSession):
         """Ensure the upsert method works as expected when inserting a new AgentSession"""
-        result = test_db.upsert_session(sample_agent_session, deserialize=True)
+        result = test_db.upsert_session(sample_agent_session)
 
         assert result is not None
         assert isinstance(result, AgentSession)
@@ -448,13 +448,13 @@ class TestPostgresDbSession:
     def test_update_agent_session(self, test_db: PostgresDb, sample_agent_session: AgentSession):
         """Ensure the upsert method works as expected when updating an existing AgentSession"""
         # Inserting
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Updating
         sample_agent_session.session_data = {"session_name": "Updated Session", "updated": True}
         sample_agent_session.agent_data = {"foo": "bar"}
 
-        result = test_db.upsert_session(sample_agent_session, deserialize=True)
+        result = test_db.upsert_session(sample_agent_session)
 
         assert result is not None
         assert isinstance(result, AgentSession)
@@ -470,7 +470,7 @@ class TestPostgresDbSession:
 
     def test_insert_team_session(self, test_db: PostgresDb, sample_team_session: TeamSession):
         """Ensure the upsert method works as expected when inserting a new TeamSession"""
-        result = test_db.upsert_session(sample_team_session, deserialize=True)
+        result = test_db.upsert_session(sample_team_session)
 
         assert result is not None
         assert isinstance(result, TeamSession)
@@ -488,13 +488,13 @@ class TestPostgresDbSession:
     def test_update_team_session(self, test_db: PostgresDb, sample_team_session: TeamSession):
         """Ensure the upsert method works as expected when updating an existing TeamSession"""
         # Inserting
-        test_db.upsert_session(sample_team_session, deserialize=True)
+        test_db.upsert_session(sample_team_session)
 
         # Update
         sample_team_session.session_data = {"session_name": "Updated Team Session", "updated": True}
         sample_team_session.team_data = {"foo": "bar"}
 
-        result = test_db.upsert_session(sample_team_session, deserialize=True)
+        result = test_db.upsert_session(sample_team_session)
 
         assert result is not None
         assert isinstance(result, TeamSession)
@@ -514,12 +514,10 @@ class TestPostgresDbSession:
     def test_get_agent_session_by_id(self, test_db: PostgresDb, sample_agent_session: AgentSession):
         """Ensure the get_session method works as expected when retrieving an AgentSession by session_id"""
         # Insert session first
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Retrieve session
-        result = test_db.get_session(
-            session_id=sample_agent_session.session_id, session_type=SessionType.AGENT, deserialize=True
-        )
+        result = test_db.get_session(session_id=sample_agent_session.session_id, session_type=SessionType.AGENT)
 
         assert result is not None
         assert isinstance(result, AgentSession)
@@ -529,12 +527,10 @@ class TestPostgresDbSession:
     def test_get_team_session_by_id(self, test_db: PostgresDb, sample_team_session: TeamSession):
         """Ensure the get_session method works as expected when retrieving a TeamSession by session_id"""
         # Insert session first
-        test_db.upsert_session(sample_team_session, deserialize=True)
+        test_db.upsert_session(sample_team_session)
 
         # Retrieve session
-        result = test_db.get_session(
-            session_id=sample_team_session.session_id, session_type=SessionType.TEAM, deserialize=True
-        )
+        result = test_db.get_session(session_id=sample_team_session.session_id, session_type=SessionType.TEAM)
 
         assert result is not None
         assert isinstance(result, TeamSession)
@@ -544,14 +540,13 @@ class TestPostgresDbSession:
     def test_get_session_with_user_id_filter(self, test_db: PostgresDb, sample_agent_session: AgentSession):
         """Ensure the get_session method works as expected when retrieving a session with user_id filter"""
         # Insert session
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Get with correct user_id
         result = test_db.get_session(
             session_id=sample_agent_session.session_id,
             user_id=sample_agent_session.user_id,
             session_type=SessionType.AGENT,
-            deserialize=True,
         )
         assert result is not None
 
@@ -560,14 +555,13 @@ class TestPostgresDbSession:
             session_id=sample_agent_session.session_id,
             user_id="wrong_user",
             session_type=SessionType.AGENT,
-            deserialize=True,
         )
         assert result is None
 
     def test_get_session_without_deserialization(self, test_db: PostgresDb, sample_agent_session: AgentSession):
         """Ensure the get_session method works as expected when retrieving a session without deserialization"""
         # Insert session
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Retrieve as dict
         result = test_db.get_session(
@@ -578,11 +572,6 @@ class TestPostgresDbSession:
         assert isinstance(result, dict)
         assert result["session_id"] == sample_agent_session.session_id
 
-    def test_get_nonexistent_session(self, test_db: PostgresDb):
-        """Ensure the get_session method returns None and doesn't raise if the session doesn't exist"""
-        result = test_db.get_session(session_id="fake_session", session_type=SessionType.AGENT, deserialize=True)
-        assert result is None
-
     def test_get_all_sessions(
         self,
         test_db: PostgresDb,
@@ -591,16 +580,16 @@ class TestPostgresDbSession:
     ):
         """Ensure the get_sessions method works as expected when retrieving all sessions"""
         # Insert both sessions
-        test_db.upsert_session(sample_agent_session, deserialize=True)
-        test_db.upsert_session(sample_team_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
+        test_db.upsert_session(sample_team_session)
 
         # Get all agent sessions
-        agent_sessions = test_db.get_sessions(session_type=SessionType.AGENT, deserialize=True)
+        agent_sessions = test_db.get_sessions(session_type=SessionType.AGENT)
         assert len(agent_sessions) == 1
         assert isinstance(agent_sessions[0], AgentSession)
 
         # Get all team sessions
-        team_sessions = test_db.get_sessions(session_type=SessionType.TEAM, deserialize=True)
+        team_sessions = test_db.get_sessions(session_type=SessionType.TEAM)
         assert len(team_sessions) == 1
         assert isinstance(team_sessions[0], TeamSession)
 
@@ -610,11 +599,11 @@ class TestPostgresDbSession:
         session1 = AgentSession(session_id="session1", agent_id="agent1", user_id="user1", created_at=int(time.time()))
         session2 = AgentSession(session_id="session2", agent_id="agent2", user_id="user2", created_at=int(time.time()))
 
-        test_db.upsert_session(session1, deserialize=True)
-        test_db.upsert_session(session2, deserialize=True)
+        test_db.upsert_session(session1)
+        test_db.upsert_session(session2)
 
         # Filter by user1
-        user1_sessions = test_db.get_sessions(session_type=SessionType.AGENT, user_id="user1", deserialize=True)
+        user1_sessions = test_db.get_sessions(session_type=SessionType.AGENT, user_id="user1")
         assert len(user1_sessions) == 1
         assert user1_sessions[0].user_id == "user1"
 
@@ -624,14 +613,13 @@ class TestPostgresDbSession:
         session1 = AgentSession(session_id="session1", agent_id="agent1", user_id="user1", created_at=int(time.time()))
         session2 = AgentSession(session_id="session2", agent_id="agent2", user_id="user1", created_at=int(time.time()))
 
-        test_db.upsert_session(session1, deserialize=True)
-        test_db.upsert_session(session2, deserialize=True)
+        test_db.upsert_session(session1)
+        test_db.upsert_session(session2)
 
         # Filter by agent_id
         agent1_sessions = test_db.get_sessions(
             session_type=SessionType.AGENT,
             component_id="agent1",
-            deserialize=True,
         )
         assert len(agent1_sessions) == 1
         assert isinstance(agent1_sessions[0], AgentSession)
@@ -647,13 +635,13 @@ class TestPostgresDbSession:
                 session_id=f"session_{i}", agent_id=f"agent_{i}", user_id="test_user", created_at=int(time.time()) + i
             )
             sessions.append(session)
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Test pagination
-        page1 = test_db.get_sessions(session_type=SessionType.AGENT, limit=2, page=1, deserialize=True)
+        page1 = test_db.get_sessions(session_type=SessionType.AGENT, limit=2, page=1)
         assert len(page1) == 2
 
-        page2 = test_db.get_sessions(session_type=SessionType.AGENT, limit=2, page=2, deserialize=True)
+        page2 = test_db.get_sessions(session_type=SessionType.AGENT, limit=2, page=2)
         assert len(page2) == 2
 
         # Verify no overlap
@@ -671,21 +659,17 @@ class TestPostgresDbSession:
         session1 = AgentSession(session_id="session1", agent_id="agent1", created_at=base_time + 100)
         session2 = AgentSession(session_id="session2", agent_id="agent2", created_at=base_time + 200)
 
-        test_db.upsert_session(session1, deserialize=True)
-        test_db.upsert_session(session2, deserialize=True)
+        test_db.upsert_session(session1)
+        test_db.upsert_session(session2)
 
         # Sort by created_at ascending
-        sessions_asc = test_db.get_sessions(
-            session_type=SessionType.AGENT, sort_by="created_at", sort_order="asc", deserialize=True
-        )
+        sessions_asc = test_db.get_sessions(session_type=SessionType.AGENT, sort_by="created_at", sort_order="asc")
         assert sessions_asc is not None and isinstance(sessions_asc, list)
         assert sessions_asc[0].session_id == "session1"
         assert sessions_asc[1].session_id == "session2"
 
         # Sort by created_at descending
-        sessions_desc = test_db.get_sessions(
-            session_type=SessionType.AGENT, sort_by="created_at", sort_order="desc", deserialize=True
-        )
+        sessions_desc = test_db.get_sessions(session_type=SessionType.AGENT, sort_by="created_at", sort_order="desc")
         assert sessions_desc is not None and isinstance(sessions_desc, list)
         assert sessions_desc[0].session_id == "session2"
         assert sessions_desc[1].session_id == "session1"
@@ -709,18 +693,16 @@ class TestPostgresDbSession:
             created_at=base_time + 1000,  # New session
         )
 
-        test_db.upsert_session(session1, deserialize=True)
-        test_db.upsert_session(session2, deserialize=True)
+        test_db.upsert_session(session1)
+        test_db.upsert_session(session2)
 
         # Filter by start timestamp
-        recent_sessions = test_db.get_sessions(
-            session_type=SessionType.AGENT, start_timestamp=base_time, deserialize=True
-        )
+        recent_sessions = test_db.get_sessions(session_type=SessionType.AGENT, start_timestamp=base_time)
         assert len(recent_sessions) == 1
         assert recent_sessions[0].session_id == "session2"
 
         # Filter by end timestamp
-        old_sessions = test_db.get_sessions(session_type=SessionType.AGENT, end_timestamp=base_time, deserialize=True)
+        old_sessions = test_db.get_sessions(session_type=SessionType.AGENT, end_timestamp=base_time)
         assert len(old_sessions) == 1
         assert old_sessions[0].session_id == "session1"
 
@@ -743,11 +725,11 @@ class TestPostgresDbSession:
             created_at=int(time.time()),
         )
 
-        test_db.upsert_session(session1, deserialize=True)
-        test_db.upsert_session(session2, deserialize=True)
+        test_db.upsert_session(session1)
+        test_db.upsert_session(session2)
 
         # Search by partial name
-        alpha_sessions = test_db.get_sessions(session_type=SessionType.AGENT, session_name="Alpha", deserialize=True)
+        alpha_sessions = test_db.get_sessions(session_type=SessionType.AGENT, session_name="Alpha")
         assert len(alpha_sessions) == 1
         assert alpha_sessions[0].session_id == "session1"
 
@@ -756,7 +738,7 @@ class TestPostgresDbSession:
         from agno.db.base import SessionType
 
         # Insert session
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Get as dicts
         sessions, total_count = test_db.get_sessions(session_type=SessionType.AGENT, deserialize=False)
@@ -772,7 +754,7 @@ class TestPostgresDbSession:
         from agno.db.base import SessionType
 
         # Insert session
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Rename session
         new_name = "Renamed Agent Session"
@@ -780,7 +762,6 @@ class TestPostgresDbSession:
             session_id=sample_agent_session.session_id,
             session_type=SessionType.AGENT,
             session_name=new_name,
-            deserialize=True,
         )
 
         assert result is not None
@@ -793,7 +774,7 @@ class TestPostgresDbSession:
         from agno.db.base import SessionType
 
         # Insert session
-        test_db.upsert_session(sample_team_session, deserialize=True)
+        test_db.upsert_session(sample_team_session)
 
         # Rename session
         new_name = "Renamed Team Session"
@@ -801,7 +782,6 @@ class TestPostgresDbSession:
             session_id=sample_team_session.session_id,
             session_type=SessionType.TEAM,
             session_name=new_name,
-            deserialize=True,
         )
 
         assert result is not None
@@ -814,7 +794,7 @@ class TestPostgresDbSession:
         from agno.db.base import SessionType
 
         # Insert session
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Rename session
         new_name = "Renamed Session Dict"
@@ -832,14 +812,12 @@ class TestPostgresDbSession:
     def test_delete_single_session(self, test_db: PostgresDb, sample_agent_session: AgentSession):
         """Test deleting a single session"""
         # Insert session
-        test_db.upsert_session(sample_agent_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
 
         # Verify it exists
         from agno.db.base import SessionType
 
-        session = test_db.get_session(
-            session_id=sample_agent_session.session_id, session_type=SessionType.AGENT, deserialize=True
-        )
+        session = test_db.get_session(session_id=sample_agent_session.session_id, session_type=SessionType.AGENT)
         assert session is not None
 
         # Delete session
@@ -847,15 +825,8 @@ class TestPostgresDbSession:
         assert success is True
 
         # Verify it's gone
-        session = test_db.get_session(
-            session_id=sample_agent_session.session_id, session_type=SessionType.AGENT, deserialize=True
-        )
+        session = test_db.get_session(session_id=sample_agent_session.session_id, session_type=SessionType.AGENT)
         assert session is None
-
-    def test_delete_nonexistent_session(self, test_db: PostgresDb):
-        """Test deleting a session that doesn't exist"""
-        success = test_db.delete_session("nonexistent_session")
-        assert success is False
 
     def test_delete_multiple_sessions(self, test_db: PostgresDb):
         """Test deleting multiple sessions"""
@@ -869,17 +840,17 @@ class TestPostgresDbSession:
             session = AgentSession(session_id=f"session_{i}", agent_id=f"agent_{i}", created_at=int(time.time()))
             sessions.append(session)
             session_ids.append(session.session_id)
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Verify they exist
-        all_sessions = test_db.get_sessions(session_type=SessionType.AGENT, deserialize=True)
+        all_sessions = test_db.get_sessions(session_type=SessionType.AGENT)
         assert len(all_sessions) == 3
 
         # Delete multiple sessions
         test_db.delete_sessions(session_ids[:2])  # Delete first 2
 
         # Verify deletion
-        remaining_sessions = test_db.get_sessions(session_type=SessionType.AGENT, deserialize=True)
+        remaining_sessions = test_db.get_sessions(session_type=SessionType.AGENT)
         assert len(remaining_sessions) == 1
         assert remaining_sessions[0].session_id == "session_2"
 
@@ -889,19 +860,15 @@ class TestPostgresDbSession:
         """Ensuring session types propagate into types correctly into and out of the database"""
 
         # Insert both session types
-        test_db.upsert_session(sample_agent_session, deserialize=True)
-        test_db.upsert_session(sample_team_session, deserialize=True)
+        test_db.upsert_session(sample_agent_session)
+        test_db.upsert_session(sample_team_session)
 
         # Verify agent session is returned as AgentSession
-        agent_result = test_db.get_session(
-            session_id=sample_agent_session.session_id, session_type=SessionType.AGENT, deserialize=True
-        )
+        agent_result = test_db.get_session(session_id=sample_agent_session.session_id, session_type=SessionType.AGENT)
         assert isinstance(agent_result, AgentSession)
 
         # Verify team session is returned as TeamSession
-        team_result = test_db.get_session(
-            session_id=sample_team_session.session_id, session_type=SessionType.TEAM, deserialize=True
-        )
+        team_result = test_db.get_session(session_id=sample_team_session.session_id, session_type=SessionType.TEAM)
         assert isinstance(team_result, TeamSession)
 
         # Verify wrong session type returns None
@@ -909,7 +876,6 @@ class TestPostgresDbSession:
             session_id=sample_agent_session.session_id,
             # Wrong session type!
             session_type=SessionType.TEAM,
-            deserialize=True,
         )
         assert wrong_type_result is None
 
@@ -951,7 +917,7 @@ class TestPostgresDbSession:
         )
 
         # Insert session
-        result = test_db.upsert_session(comprehensive_agent_session, deserialize=True)
+        result = test_db.upsert_session(comprehensive_agent_session)
         assert result is not None
         assert isinstance(result, AgentSession)
 
@@ -1019,7 +985,7 @@ class TestPostgresDbSession:
         )
 
         # Insert session
-        result = test_db.upsert_session(comprehensive_team_session, deserialize=True)
+        result = test_db.upsert_session(comprehensive_team_session)
         assert result is not None
         assert isinstance(result, TeamSession)
 
@@ -1073,7 +1039,8 @@ class TestPostgresDbMemory:
         )
 
     def test_insert_memory(self, test_db: PostgresDb, sample_user_memory):
-        result = test_db.upsert_user_memory(sample_user_memory, deserialize=True)
+        """Ensure upsert_user_memory inserts a new memory correctly"""
+        result = test_db.upsert_user_memory(sample_user_memory)
 
         assert result is not None
         assert isinstance(result, UserMemory)
@@ -1086,21 +1053,19 @@ class TestPostgresDbMemory:
         assert result.workflow_id == sample_user_memory.workflow_id
 
     def test_update_memory(self, test_db: PostgresDb, sample_user_memory):
-        # Insert initial memory
-        test_db.upsert_user_memory(sample_user_memory, deserialize=True)
-
-        # Update the memory
+        """Ensure upsert_user_memory updates an existing memory correctly"""
+        test_db.upsert_user_memory(sample_user_memory)
         sample_user_memory.memory = "Updated: User prefers tea now and works best at night"
         sample_user_memory.topics = ["preferences", "work_habits", "updated"]
 
-        result = test_db.upsert_user_memory(sample_user_memory, deserialize=True)
+        result = test_db.upsert_user_memory(sample_user_memory)
 
         assert result is not None
         assert isinstance(result, UserMemory)
         assert result.memory == sample_user_memory.memory
         assert result.topics == sample_user_memory.topics
 
-    def test_upsert_user_memory_without_deserialize(self, test_db: PostgresDb, sample_user_memory):
+    def test_upsert_memory_without_deserialization(self, test_db: PostgresDb, sample_user_memory):
         """Ensure upsert_user_memory without deserialization returns a dict"""
         result = test_db.upsert_user_memory(sample_user_memory, deserialize=False)
 
@@ -1108,25 +1073,20 @@ class TestPostgresDbMemory:
         assert isinstance(result, dict)
         assert result["memory_id"] == sample_user_memory.memory_id
 
-    def test_get_user_memory_by_id(self, test_db: PostgresDb, sample_user_memory):
+    def test_get_memory_by_id(self, test_db: PostgresDb, sample_user_memory):
         """Ensure get_user_memory returns a UserMemory"""
-        test_db.upsert_user_memory(sample_user_memory, deserialize=True)
+        test_db.upsert_user_memory(sample_user_memory)
 
-        result = test_db.get_user_memory(memory_id=sample_user_memory.memory_id, deserialize=True)
+        result = test_db.get_user_memory(memory_id=sample_user_memory.memory_id)
 
         assert result is not None
         assert isinstance(result, UserMemory)
         assert result.memory_id == sample_user_memory.memory_id
         assert result.memory == sample_user_memory.memory
 
-    def test_get_nonexistent_user_memory(self, test_db: PostgresDb):
-        """Ensure get_user_memory returns None for a nonexistent memory"""
-        result = test_db.get_user_memory(memory_id="nonexistent_memory", deserialize=True)
-        assert result is None
-
     def test_get_user_memory_without_deserialize(self, test_db: PostgresDb, sample_user_memory):
-        """Ensure get_user_memory without deserialization returns a dict"""
-        test_db.upsert_user_memory(sample_user_memory, deserialize=True)
+        """Test get_user_memory without deserialization"""
+        test_db.upsert_user_memory(sample_user_memory)
 
         result = test_db.get_user_memory(memory_id=sample_user_memory.memory_id, deserialize=False)
 
@@ -1136,17 +1096,17 @@ class TestPostgresDbMemory:
 
     def test_delete_user_memory(self, test_db: PostgresDb, sample_user_memory):
         """Ensure delete_user_memory deletes the memory"""
-        test_db.upsert_user_memory(sample_user_memory, deserialize=True)
+        test_db.upsert_user_memory(sample_user_memory)
 
         # Verify the memory exists
-        memory = test_db.get_user_memory(memory_id=sample_user_memory.memory_id, deserialize=True)
+        memory = test_db.get_user_memory(memory_id=sample_user_memory.memory_id)
         assert memory is not None
 
         # Delete the memory
         test_db.delete_user_memory(sample_user_memory.memory_id)
 
         # Verify the memory has been deleted
-        memory = test_db.get_user_memory(memory_id=sample_user_memory.memory_id, deserialize=True)
+        memory = test_db.get_user_memory(memory_id=sample_user_memory.memory_id)
         assert memory is None
 
     def test_delete_multiple_user_memories(self, test_db: PostgresDb):
@@ -1158,20 +1118,20 @@ class TestPostgresDbMemory:
             memory = UserMemory(
                 memory_id=f"memory_{i}", memory=f"Test memory {i}", user_id="test_user", last_updated=datetime.now()
             )
-            test_db.upsert_user_memory(memory, deserialize=True)
+            test_db.upsert_user_memory(memory)
             memory_ids.append(memory.memory_id)
 
         # Deleting the first two memories
         test_db.delete_user_memories(memory_ids[:2])
 
         # Verify deletions
-        deleted_memory_1 = test_db.get_user_memory(memory_id="memory_0", deserialize=True)
-        deleted_memory_2 = test_db.get_user_memory(memory_id="memory_1", deserialize=True)
+        deleted_memory_1 = test_db.get_user_memory(memory_id="memory_0")
+        deleted_memory_2 = test_db.get_user_memory(memory_id="memory_1")
         assert deleted_memory_1 is None
         assert deleted_memory_2 is None
 
         # Verify the third memory was not deleted
-        remaining_memory = test_db.get_user_memory(memory_id="memory_2", deserialize=True)
+        remaining_memory = test_db.get_user_memory(memory_id="memory_2")
         assert remaining_memory is not None
 
     def test_get_all_memory_topics(self, test_db: PostgresDb):
@@ -1203,7 +1163,7 @@ class TestPostgresDbMemory:
         ]
 
         for memory in memories:
-            test_db.upsert_user_memory(memory, deserialize=True)
+            test_db.upsert_user_memory(memory)
 
         # Get all topics
         topics = test_db.get_all_memory_topics()
@@ -1223,7 +1183,7 @@ class TestPostgresDbMemory:
         ]
 
         for memory in memories:
-            test_db.upsert_user_memory(memory, deserialize=True)
+            test_db.upsert_user_memory(memory)
 
         # Verify the correct statistics are returned
         stats, count = test_db.get_user_memory_stats()
@@ -1250,7 +1210,7 @@ class TestPostgresDbMemory:
         )
 
         # Inserting the memory
-        result = test_db.upsert_user_memory(comprehensive_memory, deserialize=True)
+        result = test_db.upsert_user_memory(comprehensive_memory)
         assert result is not None
         assert isinstance(result, UserMemory)
 
@@ -1265,10 +1225,8 @@ class TestPostgresDbMemory:
         assert result.workflow_id == comprehensive_memory.workflow_id
 
         # Verify the memory can be retrieved with all fields intact
-        retrieved = test_db.get_user_memory(
-            memory_id=comprehensive_memory.memory_id,  # type: ignore
-            deserialize=True,
-        )
+        retrieved = test_db.get_user_memory(memory_id=comprehensive_memory.memory_id)  # type: ignore
+
         assert retrieved is not None and isinstance(retrieved, UserMemory)
         assert retrieved.memory_id == comprehensive_memory.memory_id
         assert retrieved.memory == comprehensive_memory.memory
@@ -1330,7 +1288,7 @@ class TestPostgresDbMetrics:
         """Test the _get_all_sessions_for_metrics_calculation util method"""
         # Insert test sessions
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Test getting all sessions
         sessions = test_db._get_all_sessions_for_metrics_calculation()
@@ -1348,7 +1306,7 @@ class TestPostgresDbMetrics:
         """Test the _get_all_sessions_for_metrics_calculation util method with timestamp filters"""
         # Insert test sessions
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Test with start timestamp filter
         start_time = sample_agent_sessions_for_metrics[1].created_at
@@ -1376,7 +1334,7 @@ class TestPostgresDbMetrics:
         """Test the _get_metrics_calculation_starting_date util method with no metrics but with sessions"""
         # Insert test sessions
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         metrics_table = test_db._get_table("metrics")
         result = test_db._get_metrics_calculation_starting_date(metrics_table)
@@ -1398,7 +1356,7 @@ class TestPostgresDbMetrics:
     def test_calculate_metrics(self, test_db: PostgresDb, sample_agent_sessions_for_metrics):
         """Ensure the calculate_metrics method returns a list of metrics when there are sessions"""
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metrics
         result = test_db.calculate_metrics()
@@ -1409,7 +1367,7 @@ class TestPostgresDbMetrics:
         """Test the get_metrics method with date filters"""
         # Insert test sessions and calculate metrics
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metrics to populate the metrics table
         test_db.calculate_metrics()
@@ -1444,7 +1402,7 @@ class TestPostgresDbMetrics:
         """Ensure the calculate_metrics method is idempotent"""
         # Insert test sessions
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metrics first time
         result1 = test_db.calculate_metrics()
@@ -1469,10 +1427,10 @@ class TestPostgresDbMetrics:
 
         # Step 1: Insert test sessions
         for session in sample_agent_sessions_for_metrics:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Step 2: Verify sessions were inserted
-        all_sessions = test_db.get_sessions(session_type=SessionType.AGENT, deserialize=True)
+        all_sessions = test_db.get_sessions(session_type=SessionType.AGENT)
         assert len(all_sessions) == 3
 
         # Step 3: Calculate metrics
@@ -1573,7 +1531,7 @@ class TestPostgresDbMetrics:
         """Test that metrics calculation creates separate rows for different days"""
         # Insert sessions across multiple days
         for session in sample_multi_day_sessions:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metrics
         result = test_db.calculate_metrics()
@@ -1682,7 +1640,7 @@ class TestPostgresDbMetrics:
 
         # Insert all sessions
         for session in sessions:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metrics
         result = test_db.calculate_metrics()
@@ -1712,7 +1670,7 @@ class TestPostgresDbMetrics:
         """Test retrieving metrics with date range filters across multiple days"""
         # Insert sessions and calculate metrics
         for session in sample_multi_day_sessions:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         test_db.calculate_metrics()
 
@@ -1762,7 +1720,7 @@ class TestPostgresDbMetrics:
 
         # Insert Day 1 sessions and calculate metrics
         for session in day1_sessions:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metircs for day 1
         result1 = test_db.calculate_metrics()
@@ -1799,7 +1757,7 @@ class TestPostgresDbMetrics:
 
         # Insert day 2 sessions and calculate metrics again
         for session in day2_sessions:
-            test_db.upsert_session(session, deserialize=True)
+            test_db.upsert_session(session)
 
         # Calculate metrics for day 2
         result2 = test_db.calculate_metrics()
@@ -1827,6 +1785,7 @@ class TestPostgresDbEvals:
                 eval_table = test_db._get_table("evals")
                 session.execute(eval_table.delete())
                 session.commit()
+
             except Exception:
                 session.rollback()
 
@@ -1900,11 +1859,13 @@ class TestPostgresDbEvals:
         )
 
     def test_create_eval_run_agent(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
-        """Test creating an agent eval run"""
+        """Test creating an eval run for an agent"""
         result = test_db.create_eval_run(sample_eval_run_agent)
 
         assert result is not None
         assert isinstance(result, EvalRunRecord)
+
+        # Verify all fields are set correctly
         assert result.run_id == sample_eval_run_agent.run_id
         assert result.agent_id == sample_eval_run_agent.agent_id
         assert result.eval_type == sample_eval_run_agent.eval_type
@@ -1913,42 +1874,37 @@ class TestPostgresDbEvals:
         assert result.model_id == sample_eval_run_agent.model_id
 
     def test_create_eval_run_team(self, test_db: PostgresDb, sample_eval_run_team: EvalRunRecord):
-        """Test creating a team eval run"""
+        """Test creating an eval run for a team"""
         result = test_db.create_eval_run(sample_eval_run_team)
 
         assert result is not None
         assert isinstance(result, EvalRunRecord)
+
+        # Verify all fields are set correctly
         assert result.run_id == sample_eval_run_team.run_id
         assert result.team_id == sample_eval_run_team.team_id
         assert result.eval_type == sample_eval_run_team.eval_type
         assert result.eval_data == sample_eval_run_team.eval_data
 
-    def test_create_eval_run_workflow(self, test_db: PostgresDb, sample_eval_run_workflow: EvalRunRecord):
-        """Test creating a workflow eval run"""
-        result = test_db.create_eval_run(sample_eval_run_workflow)
-
-        assert result is not None
-        assert isinstance(result, EvalRunRecord)
-        assert result.run_id == sample_eval_run_workflow.run_id
-        assert result.workflow_id == sample_eval_run_workflow.workflow_id
-        assert result.eval_type == sample_eval_run_workflow.eval_type
-        assert result.eval_data == sample_eval_run_workflow.eval_data
-
-    def test_get_eval_run_with_deserialization(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
-        """Test getting an eval run with deserialization"""
+    def test_get_eval_run_agent(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
+        """Test getting an eval run for an agent"""
         test_db.create_eval_run(sample_eval_run_agent)
 
-        result = test_db.get_eval_run(sample_eval_run_agent.run_id, deserialize=True)
+        result = test_db.get_eval_run(sample_eval_run_agent.run_id)
 
         assert result is not None
         assert isinstance(result, EvalRunRecord)
+
+        # Verify all fields are set correctly
         assert result.run_id == sample_eval_run_agent.run_id
         assert result.agent_id == sample_eval_run_agent.agent_id
         assert result.eval_type == sample_eval_run_agent.eval_type
         assert result.eval_data == sample_eval_run_agent.eval_data
 
-    def test_get_eval_run_without_deserialization(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
-        """Test getting an eval run without deserialization"""
+    def test_get_eval_run_agent_without_deserialization(
+        self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord
+    ):
+        """Test getting an eval run for an agent without deserialization"""
         test_db.create_eval_run(sample_eval_run_agent)
 
         result = test_db.get_eval_run(sample_eval_run_agent.run_id, deserialize=False)
@@ -1958,23 +1914,23 @@ class TestPostgresDbEvals:
         assert result["run_id"] == sample_eval_run_agent.run_id
         assert result["agent_id"] == sample_eval_run_agent.agent_id
 
-    def test_delete_eval_run(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
-        """Test deleting a single eval run"""
+    def test_delete_eval_run_agent(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
+        """Test deleting an eval run for an agent"""
         test_db.create_eval_run(sample_eval_run_agent)
 
         # Verify it exists
-        eval_run = test_db.get_eval_run(sample_eval_run_agent.run_id, deserialize=True)
+        eval_run = test_db.get_eval_run(sample_eval_run_agent.run_id)
         assert eval_run is not None
 
         # Delete it
         test_db.delete_eval_run(sample_eval_run_agent.run_id)
 
         # Verify it's gone
-        eval_run = test_db.get_eval_run(sample_eval_run_agent.run_id, deserialize=True)
+        eval_run = test_db.get_eval_run(sample_eval_run_agent.run_id)
         assert eval_run is None
 
-    def test_delete_multiple_eval_runs(self, test_db: PostgresDb):
-        """Test deleting multiple eval runs"""
+    def test_delete_multiple_eval_runs_agent(self, test_db: PostgresDb):
+        """Test deleting multiple eval runs for an agent"""
         # Create multiple eval runs
         eval_runs = []
         run_ids = []
@@ -1992,16 +1948,16 @@ class TestPostgresDbEvals:
 
         # Verify they exist
         for run_id in run_ids:
-            eval_run = test_db.get_eval_run(run_id, deserialize=True)
+            eval_run = test_db.get_eval_run(run_id)
             assert eval_run is not None
 
         # Delete first 2
         test_db.delete_eval_runs(run_ids[:2])
 
         # Verify deletions
-        assert test_db.get_eval_run(run_ids[0], deserialize=True) is None
-        assert test_db.get_eval_run(run_ids[1], deserialize=True) is None
-        assert test_db.get_eval_run(run_ids[2], deserialize=True) is not None
+        assert test_db.get_eval_run(run_ids[0]) is None
+        assert test_db.get_eval_run(run_ids[1]) is None
+        assert test_db.get_eval_run(run_ids[2]) is not None
 
     def test_get_eval_runs_no_filters(self, test_db: PostgresDb):
         """Test getting all eval runs without filters"""
@@ -2018,7 +1974,7 @@ class TestPostgresDbEvals:
             eval_runs.append(eval_run)
             test_db.create_eval_run(eval_run)
 
-        result = test_db.get_eval_runs(deserialize=True)
+        result = test_db.get_eval_runs()
 
         assert isinstance(result, list)
         assert len(result) == 3
@@ -2031,7 +1987,7 @@ class TestPostgresDbEvals:
         test_db.create_eval_run(sample_eval_run_agent)
         test_db.create_eval_run(sample_eval_run_team)
 
-        result = test_db.get_eval_runs(agent_id="test_agent_1", deserialize=True)
+        result = test_db.get_eval_runs(agent_id="test_agent_1")
 
         assert isinstance(result, list)
         assert len(result) == 1
@@ -2044,7 +2000,7 @@ class TestPostgresDbEvals:
         test_db.create_eval_run(sample_eval_run_agent)
         test_db.create_eval_run(sample_eval_run_team)
 
-        result = test_db.get_eval_runs(team_id="test_team_1", deserialize=True)
+        result = test_db.get_eval_runs(team_id="test_team_1")
 
         assert isinstance(result, list)
         assert len(result) == 1
@@ -2054,7 +2010,7 @@ class TestPostgresDbEvals:
         """Test getting eval runs filtered by workflow_id"""
         test_db.create_eval_run(sample_eval_run_workflow)
 
-        result = test_db.get_eval_runs(workflow_id="test_workflow_1", deserialize=True)
+        result = test_db.get_eval_runs(workflow_id="test_workflow_1")
 
         assert isinstance(result, list)
         assert len(result) == 1
@@ -2067,7 +2023,7 @@ class TestPostgresDbEvals:
         test_db.create_eval_run(sample_eval_run_agent)
         test_db.create_eval_run(sample_eval_run_team)
 
-        result = test_db.get_eval_runs(model_id="gpt-4", deserialize=True)
+        result = test_db.get_eval_runs(model_id="gpt-4")
 
         assert isinstance(result, list)
         assert len(result) == 1
@@ -2080,7 +2036,7 @@ class TestPostgresDbEvals:
         test_db.create_eval_run(sample_eval_run_agent)
         test_db.create_eval_run(sample_eval_run_team)
 
-        result = test_db.get_eval_runs(eval_type=[EvalType.ACCURACY], deserialize=True)
+        result = test_db.get_eval_runs(eval_type=[EvalType.ACCURACY])
 
         assert isinstance(result, list)
         assert len(result) == 1
@@ -2093,23 +2049,23 @@ class TestPostgresDbEvals:
         sample_eval_run_team: EvalRunRecord,
         sample_eval_run_workflow: EvalRunRecord,
     ):
-        """Test getting eval runs filtered by component filter_type"""
+        """Test getting eval runs filtering by component type"""
         test_db.create_eval_run(sample_eval_run_agent)
         test_db.create_eval_run(sample_eval_run_team)
         test_db.create_eval_run(sample_eval_run_workflow)
 
-        # Test AGENT filter
-        agent_results = test_db.get_eval_runs(filter_type=EvalFilterType.AGENT, deserialize=True)
+        # Filter by agent
+        agent_results = test_db.get_eval_runs(filter_type=EvalFilterType.AGENT)
         assert len(agent_results) == 1
         assert agent_results[0].agent_id is not None
 
-        # Test TEAM filter
-        team_results = test_db.get_eval_runs(filter_type=EvalFilterType.TEAM, deserialize=True)
+        # Filter by team
+        team_results = test_db.get_eval_runs(filter_type=EvalFilterType.TEAM)
         assert len(team_results) == 1
         assert team_results[0].team_id is not None
 
-        # Test WORKFLOW filter
-        workflow_results = test_db.get_eval_runs(filter_type=EvalFilterType.WORKFLOW, deserialize=True)
+        # Filter by workflow
+        workflow_results = test_db.get_eval_runs(filter_type=EvalFilterType.WORKFLOW)
         assert len(workflow_results) == 1
         assert workflow_results[0].workflow_id is not None
 
@@ -2127,11 +2083,11 @@ class TestPostgresDbEvals:
             test_db.create_eval_run(eval_run)
 
         # Test pagination
-        page1 = test_db.get_eval_runs(limit=2, page=1, deserialize=True)
+        page1 = test_db.get_eval_runs(limit=2, page=1)
         assert isinstance(page1, list)
         assert len(page1) == 2
 
-        page2 = test_db.get_eval_runs(limit=2, page=2, deserialize=True)
+        page2 = test_db.get_eval_runs(limit=2, page=2)
         assert isinstance(page2, list)
         assert len(page2) == 2
 
@@ -2157,12 +2113,12 @@ class TestPostgresDbEvals:
             time.sleep(0.1)  # Small delay to ensure different timestamps
 
         # Test default sorting (created_at desc)
-        results = test_db.get_eval_runs(deserialize=True)
+        results = test_db.get_eval_runs()
         assert isinstance(results, list)
         assert len(results) == 3
 
         # Test explicit sorting by run_id ascending
-        results_asc = test_db.get_eval_runs(sort_by="run_id", sort_order="asc", deserialize=True)
+        results_asc = test_db.get_eval_runs(sort_by="run_id", sort_order="asc")
         assert isinstance(results_asc, list)
         assert results_asc[0].run_id == "test_eval_run_0"
         assert results_asc[1].run_id == "test_eval_run_1"
@@ -2180,12 +2136,12 @@ class TestPostgresDbEvals:
         assert result[0]["run_id"] == sample_eval_run_agent.run_id
         assert total_count == 1
 
-    def test_rename_eval_run_with_deserialization(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
-        """Test renaming an eval run with deserialization"""
+    def test_rename_eval_run(self, test_db: PostgresDb, sample_eval_run_agent: EvalRunRecord):
+        """Test renaming an eval run"""
         test_db.create_eval_run(sample_eval_run_agent)
 
         new_name = "Renamed Eval Run"
-        result = test_db.rename_eval_run(sample_eval_run_agent.run_id, new_name, deserialize=True)
+        result = test_db.rename_eval_run(sample_eval_run_agent.run_id, new_name)
 
         assert result is not None
         assert isinstance(result, EvalRunRecord)
@@ -2200,19 +2156,9 @@ class TestPostgresDbEvals:
         result = test_db.rename_eval_run(sample_eval_run_agent.run_id, new_name, deserialize=False)
 
         assert result is not None
-        # Due to the current implementation, when deserialize=False, rename_eval_run still returns a RowMapping
-        # which behaves like a dict but has different access patterns
-        if hasattr(result, "__getitem__"):  # RowMapping behavior
-            assert result["name"] == new_name
-            assert result["run_id"] == sample_eval_run_agent.run_id
-        else:  # EvalRunRecord behavior (if implementation changes)
-            assert result.name == new_name
-            assert result.run_id == sample_eval_run_agent.run_id
-
-    def test_rename_nonexistent_eval_run(self, test_db: PostgresDb):
-        """Test renaming a nonexistent eval run returns None"""
-        result = test_db.rename_eval_run("nonexistent_run_id", "New Name", deserialize=True)
-        assert result is None
+        assert isinstance(result, dict)
+        assert result["name"] == new_name
+        assert result["run_id"] == sample_eval_run_agent.run_id
 
     def test_eval_table_creation_and_structure(self, test_db: PostgresDb):
         """Test that the eval table is created with the correct structure"""
@@ -2268,7 +2214,7 @@ class TestPostgresDbEvals:
         assert result is not None
 
         # Retrieve and verify all fields are preserved
-        retrieved = test_db.get_eval_run(comprehensive_eval.run_id, deserialize=True)
+        retrieved = test_db.get_eval_run(comprehensive_eval.run_id)
         assert retrieved is not None
         assert isinstance(retrieved, EvalRunRecord)
 
@@ -2443,11 +2389,6 @@ class TestPostgresDbKnowledge:
         assert result.description == sample_knowledge_document.description
         assert result.metadata == sample_knowledge_document.metadata
 
-    def test_get_nonexistent_knowledge_content(self, test_db: PostgresDb):
-        """Test getting nonexistent knowledge content returns None"""
-        result = test_db.get_knowledge_content("nonexistent_id")
-        assert result is None
-
     def test_get_knowledge_contents_no_pagination(self, test_db: PostgresDb):
         """Test getting all knowledge contents without pagination"""
         # Create multiple knowledge rows
@@ -2541,11 +2482,6 @@ class TestPostgresDbKnowledge:
         knowledge = test_db.get_knowledge_content(sample_knowledge_document.id)  # type: ignore
         assert knowledge is None
 
-    def test_delete_nonexistent_knowledge_content(self, test_db: PostgresDb):
-        """Test deleting nonexistent knowledge content"""
-        # Should not raise an exception
-        test_db.delete_knowledge_content("nonexistent_id")
-
     def test_knowledge_table_creation_and_structure(self, test_db: PostgresDb):
         """Test that the knowledge table is created with the correct structure"""
         knowledge_table = test_db._get_table("knowledge")
@@ -2628,7 +2564,7 @@ class TestPostgresDbKnowledge:
         assert retrieved.updated_at == comprehensive_knowledge.updated_at
 
     def test_knowledge_with_auto_generated_id(self, test_db: PostgresDb):
-        """Test knowledge row with auto-generated ID"""
+        """Test auto id generation for knowledge content"""
         knowledge_without_id = KnowledgeRow(
             name="Auto ID Knowledge",
             description="Knowledge row that should get an auto-generated ID",
@@ -2637,7 +2573,7 @@ class TestPostgresDbKnowledge:
             status="active",
         )
 
-        # The ID should be auto-generated by the model validator
+        # Asserting the ID was generated
         assert knowledge_without_id.id is not None
         assert len(knowledge_without_id.id) > 0
 

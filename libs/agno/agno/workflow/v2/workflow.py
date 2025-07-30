@@ -3198,23 +3198,46 @@ class Workflow:
         if self.workflow_session_state is None:
             self.workflow_session_state = {}
 
-        # Collect state from all agents in all steps
+        # Collect state from all agents in all steps (including nested primitives)
         if self.steps and not callable(self.steps):
             steps_list = self.steps.steps if isinstance(self.steps, Steps) else self.steps
-            for step in steps_list:
-                if isinstance(step, Step):
-                    executor = step.active_executor
-                    if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
-                        # Merge the agent's session state back into workflow session state
-                        from agno.utils.merge_dict import merge_dictionaries
+            self._collect_session_state_from_steps_recursive(steps_list)
 
-                        merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
+    def _collect_session_state_from_steps_recursive(self, steps_list):
+        """Recursively collect session state from all steps, including nested primitives"""
+        from agno.utils.merge_dict import merge_dictionaries
+        from agno.workflow.v2.condition import Condition
+        from agno.workflow.v2.loop import Loop
+        from agno.workflow.v2.parallel import Parallel
+        from agno.workflow.v2.router import Router
+        from agno.workflow.v2.steps import Steps
 
-                    # If it's a team, collect from all members
-                    if hasattr(executor, "members"):
-                        for member in executor.members:
-                            if hasattr(member, "workflow_session_state") and member.workflow_session_state:
-                                merge_dictionaries(self.workflow_session_state, member.workflow_session_state)
+        for step in steps_list:
+            if isinstance(step, Step):
+                executor = step.active_executor
+                if hasattr(executor, "workflow_session_state") and executor.workflow_session_state:
+                    # Merge the agent's session state back into workflow session state
+                    merge_dictionaries(self.workflow_session_state, executor.workflow_session_state)
+
+                # If it's a team, collect from all members
+                if hasattr(executor, "members"):
+                    for member in executor.members:
+                        if hasattr(member, "workflow_session_state") and member.workflow_session_state:
+                            merge_dictionaries(self.workflow_session_state, member.workflow_session_state)
+
+            elif isinstance(step, Steps):
+                # Recursively handle nested Steps
+                self._collect_session_state_from_steps_recursive(step.steps)
+
+            elif isinstance(step, Router):
+                # Recursively handle Router choices
+                if hasattr(step, "choices") and step.choices:
+                    self._collect_session_state_from_steps_recursive(step.choices)
+
+            elif isinstance(step, (Loop, Parallel, Condition)):
+                # Recursively handle Loop, Parallel, and Condition steps
+                if hasattr(step, "steps") and step.steps:
+                    self._collect_session_state_from_steps_recursive(step.steps)
 
     def _update_executor_workflow_session_state(self, executor) -> None:
         """Update executor with workflow_session_state"""
@@ -3234,29 +3257,52 @@ class Workflow:
         # Initialize steps - only if steps is iterable (not callable)
         if self.steps and not callable(self.steps):
             steps_list = self.steps.steps if isinstance(self.steps, Steps) else self.steps
-            for step in steps_list:
-                # TODO: Handle properly steps inside other primitives
-                if isinstance(step, Step):
-                    active_executor = step.active_executor
+            self._update_session_info_recursive(steps_list)
 
-                    if hasattr(active_executor, "workflow_session_id"):
-                        active_executor.workflow_session_id = self.session_id
-                    if hasattr(active_executor, "workflow_id"):
-                        active_executor.workflow_id = self.workflow_id
+    def _update_session_info_recursive(self, steps_list):
+        """Recursively update session info for all steps, including nested primitives"""
+        from agno.workflow.v2.condition import Condition
+        from agno.workflow.v2.loop import Loop
+        from agno.workflow.v2.parallel import Parallel
+        from agno.workflow.v2.router import Router
+        from agno.workflow.v2.steps import Steps
 
-                    # Set workflow_session_state on agents and teams
-                    self._update_executor_workflow_session_state(active_executor)
+        for step in steps_list:
+            if isinstance(step, Step):
+                active_executor = step.active_executor
 
-                    # If it's a team, update all members
-                    if hasattr(active_executor, "members"):
-                        for member in active_executor.members:
-                            if hasattr(member, "workflow_session_id"):
-                                member.workflow_session_id = self.session_id
-                            if hasattr(member, "workflow_id"):
-                                member.workflow_id = self.workflow_id
+                if hasattr(active_executor, "workflow_session_id"):
+                    active_executor.workflow_session_id = self.session_id
+                if hasattr(active_executor, "workflow_id"):
+                    active_executor.workflow_id = self.workflow_id
 
-                            # Set workflow_session_state on team members
-                            self._update_executor_workflow_session_state(member)
+                # Set workflow_session_state on agents and teams
+                self._update_executor_workflow_session_state(active_executor)
+
+                # If it's a team, update all members
+                if hasattr(active_executor, "members"):
+                    for member in active_executor.members:
+                        if hasattr(member, "workflow_session_id"):
+                            member.workflow_session_id = self.session_id
+                        if hasattr(member, "workflow_id"):
+                            member.workflow_id = self.workflow_id
+
+                        # Set workflow_session_state on team members
+                        self._update_executor_workflow_session_state(member)
+
+            elif isinstance(step, Steps):
+                # Recursively handle nested Steps
+                self._update_session_info_recursive(step.steps)
+
+            elif isinstance(step, Router):
+                # Recursively handle Router choices
+                if hasattr(step, "choices") and step.choices:
+                    self._update_session_info_recursive(step.choices)
+
+            elif isinstance(step, (Loop, Parallel, Condition)):
+                # Recursively handle Loop, Parallel, and Condition steps
+                if hasattr(step, "steps") and step.steps:
+                    self._update_session_info_recursive(step.steps)
 
     def cli_app(
         self,

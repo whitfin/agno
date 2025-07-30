@@ -246,9 +246,7 @@ chat_workflow = Workflow(
         )
     ],
     storage=SqliteStorage(
-        db_file="tmp/chat_workflow.db",
-        table_name="chat_workflow",
-        mode="workflow_v2"
+        db_file="tmp/chat_workflow.db", table_name="chat_workflow", mode="workflow_v2"
     ),
 )
 

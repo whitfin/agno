@@ -57,6 +57,7 @@ def attach_routes(
             workflow_id=workflow_id,
             model_id=model_id,
             eval_type=eval_types,
+            filter_type=filter_type,
             deserialize=False,
         )
 

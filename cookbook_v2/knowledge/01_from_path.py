@@ -5,15 +5,15 @@
 import asyncio
 
 from agno.agent import Agent
-from agno.knowledge.knowledge import Knowledge
-from agno.vectordb.pgvector import PgVector
-from agno.knowledge.reader.pdf_reader import PDFReader
 from agno.db.postgres.postgres import PostgresDb
+from agno.knowledge.knowledge import Knowledge
+from agno.knowledge.reader.pdf_reader import PDFReader
+from agno.vectordb.pgvector import PgVector
 
-contents_db=PostgresDb(
-        db_url="postgresql+psycopg://ai:ai@localhost:5532/ai",
-        knowledge_table="knowledge_contents",
-    )
+contents_db = PostgresDb(
+    db_url="postgresql+psycopg://ai:ai@localhost:5532/ai",
+    knowledge_table="knowledge_contents",
+)
 # Create Knowledge Instance
 knowledge = Knowledge(
     name="Basic SDK Knowledge Base",
@@ -27,9 +27,9 @@ knowledge = Knowledge(
 # Add from local file to the knowledge base
 knowledge.add_content(
     name="CV",
-    path="data/filters",
+    path="cookbook_v2/knowledge/data/filters",
     metadata={"user_tag": "Engineering Candidates"},
-    skip_if_exists=True,
+    skip_if_exists=False,
     upsert=False,
     # include=["*.pdf"],
     # exclude=["*cv_5*"],

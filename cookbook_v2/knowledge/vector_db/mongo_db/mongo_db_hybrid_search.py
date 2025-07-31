@@ -1,6 +1,6 @@
 import typer
 from agno.agent import Agent
-from agno.knowledge.pdf_url import PDFUrlKnowledgeBase
+from agno.knowledge.knowledge import Knowledge
 from agno.vectordb.mongodb import MongoDb
 from agno.vectordb.search import SearchType
 from rich.prompt import Prompt
@@ -20,9 +20,14 @@ vector_db = MongoDb(
     search_type=SearchType.hybrid,
 )
 
-knowledge_base = PDFUrlKnowledgeBase(
-    urls=["https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"],
+knowledge_base = Knowledge(
     vector_db=vector_db,
+)
+
+knowledge_base.add_content(
+    name="Recipes",
+    url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf",
+    metadata={"doc_type": "recipe_book"},
 )
 
 
@@ -42,7 +47,4 @@ def mongodb_agent(user: str = "user"):
 
 
 if __name__ == "__main__":
-    # Comment out after first run
-    knowledge_base.load(recreate=True)
-
     typer.run(mongodb_agent)

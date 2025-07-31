@@ -21,7 +21,7 @@ from agno.session import AgentSession, Session, TeamSession, WorkflowSession
 from agno.utils.log import log_debug, log_error, log_info
 
 try:
-    from google.cloud.firestore import Client, FieldFilter
+    from google.cloud.firestore import Client, FieldFilter  # type: ignore[import-untyped]
 except ImportError:
     raise ImportError(
         "`google-cloud-firestore` not installed. Please install it using `pip install google-cloud-firestore`"
@@ -34,7 +34,7 @@ class FirestoreDb(BaseDb):
         db_client: Optional[Client] = None,
         project_id: Optional[str] = None,
         session_collection: Optional[str] = None,
-        user_memory_collection: Optional[str] = None,
+        memory_collection: Optional[str] = None,
         metrics_collection: Optional[str] = None,
         eval_collection: Optional[str] = None,
         knowledge_collection: Optional[str] = None,
@@ -46,7 +46,7 @@ class FirestoreDb(BaseDb):
             db_client (Optional[Client]): The Firestore client to use.
             project_id (Optional[str]): The GCP project ID for Firestore.
             session_collection (Optional[str]): Name of the collection to store sessions.
-            user_memory_collection (Optional[str]): Name of the collection to store user memories.
+            memory_collection (Optional[str]): Name of the collection to store memories.
             metrics_collection (Optional[str]): Name of the collection to store metrics.
             eval_collection (Optional[str]): Name of the collection to store evaluation runs.
             knowledge_collection (Optional[str]): Name of the collection to store knowledge documents.
@@ -56,7 +56,7 @@ class FirestoreDb(BaseDb):
         """
         super().__init__(
             session_table=session_collection,
-            user_memory_table=user_memory_collection,
+            memory_table=memory_collection,
             metrics_table=metrics_collection,
             eval_table=eval_collection,
             knowledge_table=knowledge_collection,
@@ -91,14 +91,14 @@ class FirestoreDb(BaseDb):
                 )
             return self.session_collection
 
-        if table_type == "user_memories":
-            if not hasattr(self, "user_memory_collection"):
-                if self.user_memory_table_name is None:
-                    raise ValueError("User memory collection was not provided on initialization")
-                self.user_memory_collection = self._get_or_create_collection(
-                    collection_name=self.user_memory_table_name, collection_type="user_memories"
+        if table_type == "memories":
+            if not hasattr(self, "memory_collection"):
+                if self.memory_table_name is None:
+                    raise ValueError("Memory collection was not provided on initialization")
+                self.memory_collection = self._get_or_create_collection(
+                    collection_name=self.memory_table_name, collection_type="memories"
                 )
-            return self.user_memory_collection
+            return self.memory_collection
 
         if table_type == "metrics":
             if not hasattr(self, "metrics_collection"):
@@ -159,6 +159,7 @@ class FirestoreDb(BaseDb):
 
         Args:
             session_id (str): The ID of the session to delete.
+            session_type (SessionType): The type of session to delete. Defaults to SessionType.AGENT.
 
         Returns:
             bool: True if the session was deleted, False otherwise.
@@ -209,10 +210,10 @@ class FirestoreDb(BaseDb):
     def get_session(
         self,
         session_id: str,
+        session_type: SessionType,
         user_id: Optional[str] = None,
-        session_type: Optional[SessionType] = None,
         deserialize: Optional[bool] = True,
-    ) -> Optional[Union[AgentSession, TeamSession, WorkflowSession, Dict[str, Any]]]:
+    ) -> Optional[Union[Session, Dict[str, Any]]]:
         """Read a session from the database.
 
         Args:
@@ -256,7 +257,7 @@ class FirestoreDb(BaseDb):
                 return AgentSession.from_dict(session)
             elif session_type == SessionType.TEAM:
                 return TeamSession.from_dict(session)
-            elif session_type == SessionType.WORKFLOW:
+            else:
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
@@ -276,7 +277,7 @@ class FirestoreDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]:
         """Get all sessions.
 
         Args:
@@ -413,7 +414,7 @@ class FirestoreDb(BaseDb):
                 return AgentSession.from_dict(deserialized_session)
             elif session_type == SessionType.TEAM:
                 return TeamSession.from_dict(deserialized_session)
-            elif session_type == SessionType.WORKFLOW:
+            else:
                 return WorkflowSession.from_dict(deserialized_session)
 
         except Exception as e:
@@ -514,7 +515,7 @@ class FirestoreDb(BaseDb):
                 return AgentSession.from_dict(deserialized_session)
             elif isinstance(session, TeamSession):
                 return TeamSession.from_dict(deserialized_session)
-            elif isinstance(session, WorkflowSession):
+            else:
                 return WorkflowSession.from_dict(deserialized_session)
 
         except Exception as e:
@@ -523,7 +524,7 @@ class FirestoreDb(BaseDb):
 
     # -- Memory methods --
 
-    def delete_user_memory(self, memory_id: str) -> bool:
+    def delete_user_memory(self, memory_id: str):
         """Delete a user memory from the database.
 
         Args:
@@ -536,7 +537,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error deleting the memory.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
             docs = collection_ref.where(filter=FieldFilter("memory_id", "==", memory_id)).stream()
 
             deleted_count = 0
@@ -550,11 +551,8 @@ class FirestoreDb(BaseDb):
             else:
                 log_debug(f"No user memory found with id: {memory_id}")
 
-            return success
-
         except Exception as e:
             log_error(f"Error deleting user memory: {e}")
-            return False
 
     def delete_user_memories(self, memory_ids: List[str]) -> None:
         """Delete user memories from the database.
@@ -566,7 +564,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error deleting the memories.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
             batch = self.db_client.batch()
             deleted_count = 0
 
@@ -579,12 +577,12 @@ class FirestoreDb(BaseDb):
             batch.commit()
 
             if deleted_count == 0:
-                log_info(f"No user memories found with ids: {memory_ids}")
+                log_info(f"No memories found with ids: {memory_ids}")
             else:
-                log_info(f"Successfully deleted {deleted_count} user memories")
+                log_info(f"Successfully deleted {deleted_count} memories")
 
         except Exception as e:
-            log_error(f"Error deleting user memories: {e}")
+            log_error(f"Error deleting memories: {e}")
 
     def get_all_memory_topics(self) -> List[str]:
         """Get all memory topics from the database.
@@ -596,7 +594,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error getting the topics.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
             docs = collection_ref.stream()
 
             all_topics = set()
@@ -628,7 +626,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error getting the memory.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
             docs = collection_ref.where(filter=FieldFilter("memory_id", "==", memory_id)).stream()
 
             result = None
@@ -681,7 +679,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error getting the memories.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
             query = collection_ref
 
             if user_id is not None:
@@ -742,7 +740,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error getting the memories stats.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
             docs = collection_ref.where(filter=FieldFilter("user_id", "!=", None)).stream()
 
             user_stats = {}
@@ -798,7 +796,7 @@ class FirestoreDb(BaseDb):
             Exception: If there is an error upserting the memory.
         """
         try:
-            collection_ref = self._get_collection(table_type="user_memories")
+            collection_ref = self._get_collection(table_type="memories")
 
             if memory.memory_id is None:
                 memory.memory_id = str(uuid4())
@@ -825,6 +823,41 @@ class FirestoreDb(BaseDb):
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")
             return None
+
+    def clear_memories(self) -> None:
+        """Delete all memories from the database.
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
+        try:
+            collection_ref = self._get_collection(table_type="memories")
+
+            # Get all documents in the collection
+            docs = collection_ref.stream()
+
+            # Delete all documents in batches
+            batch = self.db_client.batch()
+            batch_count = 0
+
+            for doc in docs:
+                batch.delete(doc.reference)
+                batch_count += 1
+
+                # Firestore batch has a limit of 500 operations
+                if batch_count >= 500:
+                    batch.commit()
+                    batch = self.db_client.batch()
+                    batch_count = 0
+
+            # Commit remaining operations
+            if batch_count > 0:
+                batch.commit()
+
+        except Exception as e:
+            from agno.utils.log import log_warning
+
+            log_warning(f"Exception deleting all memories: {e}")
 
     # -- Metrics methods --
 
@@ -880,7 +913,7 @@ class FirestoreDb(BaseDb):
             first_session_date = None
 
             if isinstance(first_session_result, list) and len(first_session_result) > 0:
-                first_session_date = first_session_result[0].created_at
+                first_session_date = first_session_result[0].created_at  # type: ignore
             elif isinstance(first_session_result, tuple) and len(first_session_result[0]) > 0:
                 first_session_date = first_session_result[0][0].get("created_at")
 
@@ -984,7 +1017,14 @@ class FirestoreDb(BaseDb):
     # -- Knowledge methods --
 
     def delete_knowledge_content(self, id: str):
-        """Delete a knowledge source by ID."""
+        """Delete a knowledge row from the database.
+
+        Args:
+            id (str): The ID of the knowledge row to delete.
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
         try:
             collection_ref = self._get_collection(table_type="knowledge")
             docs = collection_ref.where(filter=FieldFilter("id", "==", id)).stream()
@@ -996,7 +1036,17 @@ class FirestoreDb(BaseDb):
             log_error(f"Error deleting knowledge source: {e}")
 
     def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
-        """Get a knowledge document by ID."""
+        """Get a knowledge row from the database.
+
+        Args:
+            id (str): The ID of the knowledge row to get.
+
+        Returns:
+            Optional[KnowledgeRow]: The knowledge row, or None if it doesn't exist.
+
+        Raises:
+            Exception: If an error occurs during retrieval.
+        """
         try:
             collection_ref = self._get_collection(table_type="knowledge")
             docs = collection_ref.where(filter=FieldFilter("id", "==", id)).stream()
@@ -1018,7 +1068,20 @@ class FirestoreDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
     ) -> Tuple[List[KnowledgeRow], int]:
-        """Get all knowledge documents from the database."""
+        """Get all knowledge contents from the database.
+
+        Args:
+            limit (Optional[int]): The maximum number of knowledge contents to return.
+            page (Optional[int]): The page number.
+            sort_by (Optional[str]): The column to sort by.
+            sort_order (Optional[str]): The order to sort by.
+
+        Returns:
+            Tuple[List[KnowledgeRow], int]: The knowledge contents and total count.
+
+        Raises:
+            Exception: If an error occurs during retrieval.
+        """
         try:
             collection_ref = self._get_collection(table_type="knowledge")
 
@@ -1045,7 +1108,14 @@ class FirestoreDb(BaseDb):
             return [], 0
 
     def upsert_knowledge_content(self, knowledge_row: KnowledgeRow):
-        """Upsert a knowledge document in the database."""
+        """Upsert knowledge content in the database.
+
+        Args:
+            knowledge_row (KnowledgeRow): The knowledge row to upsert.
+
+        Returns:
+            Optional[KnowledgeRow]: The upserted knowledge row, or None if the operation fails.
+        """
         try:
             collection_ref = self._get_collection(table_type="knowledge")
             update_doc = knowledge_row.model_dump()
@@ -1189,8 +1259,8 @@ class FirestoreDb(BaseDb):
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
-        eval_type: Optional[List[EvalType]] = None,
         filter_type: Optional[EvalFilterType] = None,
+        eval_type: Optional[List[EvalType]] = None,
         deserialize: Optional[bool] = True,
     ) -> Union[List[EvalRunRecord], Tuple[List[Dict[str, Any]], int]]:
         """Get all eval runs from the database.

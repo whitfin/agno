@@ -23,6 +23,7 @@ from agno.knowledge.document import Document
 from agno.knowledge.embedder import Embedder
 from agno.reranker.base import Reranker
 from agno.utils.log import log_debug, log_info, logger
+from agno.utils.string import safe_content_hash
 from agno.vectordb.base import VectorDb
 from agno.vectordb.distance import Distance
 from agno.vectordb.pgvector.index import HNSW, Ivfflat
@@ -230,24 +231,6 @@ class PgVector(VectorDb):
             logger.error(f"Error checking if record exists: {e}")
             return False
 
-    def doc_exists(self, document: Document) -> bool:
-        """
-        Check if a document with the same content hash exists in the table.
-
-        Args:
-            document (Document): The document to check.
-
-        Returns:
-            bool: True if the document exists, False otherwise.
-        """
-        cleaned_content = document.content.replace("\x00", "\ufffd")
-        content_hash = md5(cleaned_content.encode()).hexdigest()
-        return self._record_exists(self.table.c.content_hash, content_hash)
-
-    async def async_doc_exists(self, document: Document) -> bool:
-        """Check if document exists asynchronously by running in a thread."""
-        return await asyncio.to_thread(self.doc_exists, document)
-
     def name_exists(self, name: str) -> bool:
         """
         Check if a document with the given name exists in the table.
@@ -323,6 +306,9 @@ class PgVector(VectorDb):
                                 doc.embed(embedder=self.embedder)
                                 cleaned_content = self._clean_content(doc.content)
                                 record_id = doc.id or content_hash
+
+                                content_hash = safe_content_hash(doc.content)
+                                _id = doc.id or content_hash
 
                                 meta_data = doc.meta_data or {}
                                 if filters:
@@ -418,7 +404,10 @@ class PgVector(VectorDb):
                             try:
                                 doc.embed(embedder=self.embedder)
                                 cleaned_content = self._clean_content(doc.content)
+
                                 record_id = md5(cleaned_content.encode()).hexdigest()
+
+                                content_hash = safe_content_hash(doc.content)
 
                                 meta_data = doc.meta_data or {}
                                 if filters:
@@ -465,9 +454,11 @@ class PgVector(VectorDb):
             logger.error(f"Error upserting documents: {e}")
             raise
 
-    async def async_upsert(self, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
+    async def async_upsert(
+        self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Upsert documents asynchronously by running in a thread."""
-        await asyncio.to_thread(self.upsert, documents, filters)
+        await asyncio.to_thread(self.upsert, content_hash, documents, filters)
 
     def search(self, query: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Document]:
         """

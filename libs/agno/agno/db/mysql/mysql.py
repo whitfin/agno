@@ -21,7 +21,7 @@ from agno.db.schemas.evals import EvalFilterType, EvalRunRecord, EvalType
 from agno.db.schemas.knowledge import KnowledgeRow
 from agno.db.schemas.memory import UserMemory
 from agno.session import AgentSession, Session, TeamSession, WorkflowSession
-from agno.utils.log import log_debug, log_error, log_info, log_warning
+from agno.utils.log import log_debug, log_error, log_info
 
 try:
     from sqlalchemy import TEXT, and_, cast, func, update
@@ -41,7 +41,7 @@ class MySQLDb(BaseDb):
         db_schema: Optional[str] = None,
         db_url: Optional[str] = None,
         session_table: Optional[str] = None,
-        user_memory_table: Optional[str] = None,
+        memory_table: Optional[str] = None,
         metrics_table: Optional[str] = None,
         eval_table: Optional[str] = None,
         knowledge_table: Optional[str] = None,
@@ -59,7 +59,7 @@ class MySQLDb(BaseDb):
             db_engine (Optional[Engine]): The SQLAlchemy database engine to use.
             db_schema (Optional[str]): The database schema to use.
             session_table (Optional[str]): Name of the table to store Agent, Team and Workflow sessions.
-            user_memory_table (Optional[str]): Name of the table to store user memories.
+            memory_table (Optional[str]): Name of the table to store memories.
             metrics_table (Optional[str]): Name of the table to store metrics.
             eval_table (Optional[str]): Name of the table to store evaluation runs data.
             knowledge_table (Optional[str]): Name of the table to store knowledge content.
@@ -70,7 +70,7 @@ class MySQLDb(BaseDb):
         """
         super().__init__(
             session_table=session_table,
-            user_memory_table=user_memory_table,
+            memory_table=memory_table,
             metrics_table=metrics_table,
             eval_table=eval_table,
             knowledge_table=knowledge_table,
@@ -171,13 +171,13 @@ class MySQLDb(BaseDb):
                     idx.create(self.db_engine)
 
                 except Exception as e:
-                    log_warning(f"Error creating index {idx.name}: {e}")
+                    log_error(f"Error creating index {idx.name}: {e}")
 
             log_info(f"Successfully created table {db_schema}.{table_name}")
             return table
 
         except Exception as e:
-            log_warning(f"Could not create table {db_schema}.{table_name}: {e}")
+            log_error(f"Could not create table {db_schema}.{table_name}: {e}")
             raise
 
     def _get_table(self, table_type: str) -> Table:
@@ -191,15 +191,15 @@ class MySQLDb(BaseDb):
                 )
             return self.session_table
 
-        if table_type == "user_memories":
-            if not hasattr(self, "user_memory_table"):
-                if self.user_memory_table_name is None:
-                    raise ValueError("User memory table was not provided on initialization")
+        if table_type == "memories":
+            if not hasattr(self, " memory_table"):
+                if self.memory_table_name is None:
+                    raise ValueError("Memory table was not provided on initialization")
 
-                self.user_memory_table = self._get_or_create_table(
-                    table_name=self.user_memory_table_name, table_type="user_memories", db_schema=self.db_schema
+                self.memory_table = self._get_or_create_table(
+                    table_name=self.memory_table_name, table_type="memories", db_schema=self.db_schema
                 )
-            return self.user_memory_table
+            return self.memory_table
 
         if table_type == "metrics":
             if not hasattr(self, "metrics_table"):
@@ -297,7 +297,7 @@ class MySQLDb(BaseDb):
                     return True
 
         except Exception as e:
-            log_warning(f"Error deleting session: {e}")
+            log_error(f"Error deleting session: {e}")
             return False
 
     def delete_sessions(self, session_ids: List[str]) -> None:
@@ -320,15 +320,15 @@ class MySQLDb(BaseDb):
             log_debug(f"Successfully deleted {result.rowcount} sessions")
 
         except Exception as e:
-            log_warning(f"Error deleting sessions: {e}")
+            log_error(f"Error deleting sessions: {e}")
 
     def get_session(
         self,
         session_id: str,
+        session_type: SessionType,
         user_id: Optional[str] = None,
-        session_type: Optional[SessionType] = None,
         deserialize: Optional[bool] = True,
-    ) -> Optional[Union[AgentSession, TeamSession, WorkflowSession, Dict[str, Any]]]:
+    ) -> Optional[Union[Session, Dict[str, Any]]]:
         """
         Read a session from the database.
 
@@ -372,9 +372,11 @@ class MySQLDb(BaseDb):
                 return TeamSession.from_dict(session)
             elif session_type == SessionType.WORKFLOW:
                 return WorkflowSession.from_dict(session)
+            else:
+                raise ValueError(f"Invalid session type: {session_type}")
 
         except Exception as e:
-            log_warning(f"Exception reading from session table: {e}")
+            log_error(f"Exception reading from session table: {e}")
             return None
 
     def get_sessions(
@@ -468,7 +470,7 @@ class MySQLDb(BaseDb):
                 return [EvalRunRecord.model_validate(row) for row in eval_runs_raw]
 
         except Exception as e:
-            log_warning(f"Exception getting eval runs: {e}")
+            log_error(f"Exception getting eval runs: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_session(
@@ -522,9 +524,11 @@ class MySQLDb(BaseDb):
                 return TeamSession.from_dict(session)
             elif session_type == SessionType.WORKFLOW:
                 return WorkflowSession.from_dict(session)
+            else:
+                raise ValueError(f"Invalid session type: {session_type}")
 
         except Exception as e:
-            log_warning(f"Exception renaming session: {e}")
+            log_error(f"Exception renaming session: {e}")
             return None
 
     def upsert_session(self, session: Session, deserialize: Optional[bool] = True) -> Optional[Session]:
@@ -627,7 +631,7 @@ class MySQLDb(BaseDb):
                         return session
                     return TeamSession.from_dict(session)
 
-            elif isinstance(session, WorkflowSession):
+            else:
                 with self.Session() as sess, sess.begin():
                     stmt = mysql.insert(table).values(
                         session_id=session_dict.get("session_id"),
@@ -666,11 +670,11 @@ class MySQLDb(BaseDb):
                     return WorkflowSession.from_dict(session)
 
         except Exception as e:
-            log_warning(f"Exception upserting into sessions table: {e}")
+            log_error(f"Exception upserting into sessions table: {e}")
             return None
 
     # -- Memory methods --
-    def delete_user_memory(self, memory_id: str) -> bool:
+    def delete_user_memory(self, memory_id: str):
         """Delete a user memory from the database.
 
         Returns:
@@ -680,7 +684,7 @@ class MySQLDb(BaseDb):
             Exception: If an error occurs during deletion.
         """
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
 
             with self.Session() as sess, sess.begin():
                 delete_stmt = table.delete().where(table.c.memory_id == memory_id)
@@ -692,11 +696,8 @@ class MySQLDb(BaseDb):
                 else:
                     log_debug(f"No user memory found with id: {memory_id}")
 
-                return success
-
         except Exception as e:
-            log_warning(f"Error deleting user memory: {e}")
-            return False
+            log_error(f"Error deleting user memory: {e}")
 
     def delete_user_memories(self, memory_ids: List[str]) -> None:
         """Delete user memories from the database.
@@ -708,7 +709,7 @@ class MySQLDb(BaseDb):
             Exception: If an error occurs during deletion.
         """
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
 
             with self.Session() as sess, sess.begin():
                 delete_stmt = table.delete().where(table.c.memory_id.in_(memory_ids))
@@ -717,7 +718,7 @@ class MySQLDb(BaseDb):
                     log_debug(f"No user memories found with ids: {memory_ids}")
 
         except Exception as e:
-            log_warning(f"Error deleting user memories: {e}")
+            log_error(f"Error deleting user memories: {e}")
 
     def get_all_memory_topics(self) -> List[str]:
         """Get all memory topics from the database.
@@ -749,7 +750,7 @@ class MySQLDb(BaseDb):
                 return list(topics_set)
 
         except Exception as e:
-            log_warning(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return []
 
     def get_user_memory(self, memory_id: str, deserialize: Optional[bool] = True) -> Optional[UserMemory]:
@@ -768,7 +769,7 @@ class MySQLDb(BaseDb):
             Exception: If an error occurs during retrieval.
         """
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
 
             with self.Session() as sess, sess.begin():
                 stmt = select(table).where(table.c.memory_id == memory_id)
@@ -783,7 +784,7 @@ class MySQLDb(BaseDb):
             return UserMemory.from_dict(memory_raw)
 
         except Exception as e:
-            log_warning(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return None
 
     def get_user_memories(
@@ -824,7 +825,7 @@ class MySQLDb(BaseDb):
             Exception: If an error occurs during retrieval.
         """
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
 
             with self.Session() as sess, sess.begin():
                 stmt = select(table)
@@ -863,24 +864,24 @@ class MySQLDb(BaseDb):
                 if not result:
                     return [] if deserialize else ([], 0)
 
-                user_memories_raw = [record._mapping for record in result]
+                memories_raw = [record._mapping for record in result]
                 if not deserialize:
-                    return user_memories_raw, total_count
+                    return memories_raw, total_count
 
-            return [UserMemory.from_dict(record) for record in user_memories_raw]
+            return [UserMemory.from_dict(record) for record in memories_raw]
 
         except Exception as e:
-            log_warning(f"Exception reading from memory table: {e}")
+            log_error(f"Exception reading from memory table: {e}")
             return [] if deserialize else ([], 0)
 
     def clear_memories(self) -> None:
         """Clear all user memories from the database."""
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
             with self.Session() as sess, sess.begin():
                 sess.execute(table.delete())
         except Exception as e:
-            log_warning(f"Exception clearing user memories: {e}")
+            log_error(f"Exception clearing user memories: {e}")
 
     def get_user_memory_stats(
         self, limit: Optional[int] = None, page: Optional[int] = None
@@ -907,7 +908,7 @@ class MySQLDb(BaseDb):
         )
         """
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
 
             with self.Session() as sess, sess.begin():
                 stmt = (
@@ -944,7 +945,7 @@ class MySQLDb(BaseDb):
                 ], total_count
 
         except Exception as e:
-            log_warning(f"Exception getting user memory stats: {e}")
+            log_error(f"Exception getting user memory stats: {e}")
             return [], 0
 
     def upsert_user_memory(
@@ -965,7 +966,7 @@ class MySQLDb(BaseDb):
             Exception: If an error occurs during upsert.
         """
         try:
-            table = self._get_table(table_type="user_memories")
+            table = self._get_table(table_type="memories")
 
             with self.Session() as sess, sess.begin():
                 if memory.memory_id is None:
@@ -1000,11 +1001,11 @@ class MySQLDb(BaseDb):
                 if not row:
                     return None
 
-            user_memory_raw = row._mapping
-            if not user_memory_raw or not deserialize:
-                return user_memory_raw
+            memory_raw = row._mapping
+            if not memory_raw or not deserialize:
+                return memory_raw
 
-            return UserMemory.from_dict(user_memory_raw)
+            return UserMemory.from_dict(memory_raw)
 
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")
@@ -1048,7 +1049,7 @@ class MySQLDb(BaseDb):
                 return [record._mapping for record in result]
 
         except Exception as e:
-            log_warning(f"Exception reading from sessions table: {e}")
+            log_error(f"Exception reading from sessions table: {e}")
             return []
 
     def _get_metrics_calculation_starting_date(self, table: Table) -> Optional[date]:
@@ -1143,7 +1144,7 @@ class MySQLDb(BaseDb):
             return results
 
         except Exception as e:
-            log_warning(f"Exception refreshing metrics: {e}")
+            log_error(f"Exception refreshing metrics: {e}")
             return None
 
     def get_metrics(
@@ -1181,28 +1182,55 @@ class MySQLDb(BaseDb):
             return [row._mapping for row in result], latest_updated_at
 
         except Exception as e:
-            log_warning(f"Exception getting metrics: {e}")
+            log_error(f"Exception getting metrics: {e}")
             return [], None
 
     # -- Knowledge methods --
 
     def delete_knowledge_content(self, id: str):
-        table = self._get_table(table_type="knowledge")
-        with self.Session() as sess, sess.begin():
-            stmt = table.delete().where(table.c.id == id)
-            sess.execute(stmt)
+        """Delete a knowledge row from the database.
 
-        return
+        Args:
+            id (str): The ID of the knowledge row to delete.
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
+        table = self._get_table(table_type="knowledge")
+
+        try:
+            with self.Session() as sess, sess.begin():
+                stmt = table.delete().where(table.c.id == id)
+                sess.execute(stmt)
+
+        except Exception as e:
+            log_error(f"Exception deleting knowledge content: {e}")
 
     def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
+        """Get a knowledge row from the database.
+
+        Args:
+            id (str): The ID of the knowledge row to get.
+
+        Returns:
+            Optional[KnowledgeRow]: The knowledge row, or None if it doesn't exist.
+
+        Raises:
+            Exception: If an error occurs during retrieval.
+        """
         table = self._get_table(table_type="knowledge")
-        print(f"Getting knowledge content: {id}, {table}")
-        with self.Session() as sess, sess.begin():
-            stmt = select(table).where(table.c.id == id)
-            result = sess.execute(stmt).fetchone()
-            if result is None:
-                return None
-            return KnowledgeRow.model_validate(result._mapping)
+
+        try:
+            with self.Session() as sess, sess.begin():
+                stmt = select(table).where(table.c.id == id)
+                result = sess.execute(stmt).fetchone()
+                if result is None:
+                    return None
+                return KnowledgeRow.model_validate(result._mapping)
+
+        except Exception as e:
+            log_error(f"Exception getting knowledge content: {e}")
+            return None
 
     def get_knowledge_contents(
         self,
@@ -1220,28 +1248,40 @@ class MySQLDb(BaseDb):
             sort_order (Optional[str]): The order to sort by.
 
         Returns:
-            List[KnowledgeRow]: The knowledge contents.
+            Tuple[List[KnowledgeRow], int]: The knowledge contents and total count.
+
+        Raises:
+            Exception: If an error occurs during retrieval.
         """
         table = self._get_table(table_type="knowledge")
-        with self.Session() as sess, sess.begin():
-            stmt = select(table)
 
-            # Apply sorting
-            if sort_by is not None:
-                stmt = stmt.order_by(getattr(table.c, sort_by) * (1 if sort_order == "asc" else -1))
+        try:
+            with self.Session() as sess, sess.begin():
+                stmt = select(table)
 
-            # Get total count before applying limit and pagination
-            count_stmt = select(func.count()).select_from(stmt.alias())
-            total_count = sess.execute(count_stmt).scalar()
+                # Apply sorting
+                if sort_by is not None:
+                    stmt = stmt.order_by(getattr(table.c, sort_by) * (1 if sort_order == "asc" else -1))
 
-            # Apply pagination after count
-            if limit is not None:
-                stmt = stmt.limit(limit)
-                if page is not None:
-                    stmt = stmt.offset((page - 1) * limit)
+                # Get total count before applying limit and pagination
+                count_stmt = select(func.count()).select_from(stmt.alias())
+                total_count = sess.execute(count_stmt).scalar()
 
-            result = sess.execute(stmt).fetchall()
-            return [KnowledgeRow.model_validate(record._mapping) for record in result], total_count
+                # Apply pagination after count
+                if limit is not None:
+                    stmt = stmt.limit(limit)
+                    if page is not None:
+                        stmt = stmt.offset((page - 1) * limit)
+
+                    result = sess.execute(stmt).fetchall()
+                    if not result:
+                        return [], 0
+
+                return [KnowledgeRow.model_validate(record._mapping) for record in result], total_count
+
+        except Exception as e:
+            log_error(f"Exception getting knowledge contents: {e}")
+            return [], 0
 
     def upsert_knowledge_content(self, knowledge_row: KnowledgeRow):
         """Upsert knowledge content in the database.
@@ -1251,6 +1291,9 @@ class MySQLDb(BaseDb):
 
         Returns:
             Optional[KnowledgeRow]: The upserted knowledge row, or None if the operation fails.
+
+        Raises:
+            Exception: If an error occurs during upsert.
         """
         try:
             table = self._get_table(table_type="knowledge")
@@ -1310,7 +1353,7 @@ class MySQLDb(BaseDb):
             return knowledge_row
 
         except Exception as e:
-            log_warning(f"Error upserting knowledge row: {e}")
+            log_error(f"Error upserting knowledge row: {e}")
             return None
 
     # -- Eval methods --
@@ -1340,7 +1383,7 @@ class MySQLDb(BaseDb):
             return eval_run
 
         except Exception as e:
-            log_warning(f"Error creating eval run: {e}")
+            log_error(f"Error creating eval run: {e}")
             return None
 
     def delete_eval_run(self, eval_run_id: str) -> None:
@@ -1356,12 +1399,12 @@ class MySQLDb(BaseDb):
                 stmt = table.delete().where(table.c.run_id == eval_run_id)
                 result = sess.execute(stmt)
                 if result.rowcount == 0:
-                    log_warning(f"No eval run found with ID: {eval_run_id}")
+                    log_error(f"No eval run found with ID: {eval_run_id}")
                 else:
                     log_debug(f"Deleted eval run with ID: {eval_run_id}")
 
         except Exception as e:
-            log_warning(f"Error deleting eval run {eval_run_id}: {e}")
+            log_error(f"Error deleting eval run {eval_run_id}: {e}")
 
     def delete_eval_runs(self, eval_run_ids: List[str]) -> None:
         """Delete multiple eval runs from the database.
@@ -1376,12 +1419,12 @@ class MySQLDb(BaseDb):
                 stmt = table.delete().where(table.c.run_id.in_(eval_run_ids))
                 result = sess.execute(stmt)
                 if result.rowcount == 0:
-                    log_warning(f"No eval runs found with IDs: {eval_run_ids}")
+                    log_error(f"No eval runs found with IDs: {eval_run_ids}")
                 else:
                     log_debug(f"Deleted {result.rowcount} eval runs")
 
         except Exception as e:
-            log_warning(f"Error deleting eval runs {eval_run_ids}: {e}")
+            log_error(f"Error deleting eval runs {eval_run_ids}: {e}")
 
     def get_eval_run(
         self, eval_run_id: str, deserialize: Optional[bool] = True
@@ -1416,7 +1459,7 @@ class MySQLDb(BaseDb):
                 return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_warning(f"Exception getting eval run {eval_run_id}: {e}")
+            log_error(f"Exception getting eval run {eval_run_id}: {e}")
             return None
 
     def get_eval_runs(
@@ -1429,8 +1472,8 @@ class MySQLDb(BaseDb):
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
-        eval_type: Optional[List[EvalType]] = None,
         filter_type: Optional[EvalFilterType] = None,
+        eval_type: Optional[List[EvalType]] = None,
         deserialize: Optional[bool] = True,
     ) -> Union[List[EvalRunRecord], Tuple[List[Dict[str, Any]], int]]:
         """Get all eval runs from the database.
@@ -1508,7 +1551,7 @@ class MySQLDb(BaseDb):
                 return [EvalRunRecord.model_validate(row) for row in eval_runs_raw]
 
         except Exception as e:
-            log_warning(f"Exception getting eval runs: {e}")
+            log_error(f"Exception getting eval runs: {e}")
             return [] if deserialize else ([], 0)
 
     def rename_eval_run(
@@ -1541,5 +1584,5 @@ class MySQLDb(BaseDb):
             return EvalRunRecord.model_validate(eval_run_raw)
 
         except Exception as e:
-            log_warning(f"Error upserting eval run name {eval_run_id}: {e}")
+            log_error(f"Error upserting eval run name {eval_run_id}: {e}")
             return None

@@ -36,7 +36,7 @@ class MongoDb(BaseDb):
         db_name: Optional[str] = None,
         db_url: Optional[str] = None,
         session_collection: Optional[str] = None,
-        user_memory_collection: Optional[str] = None,
+        memory_collection: Optional[str] = None,
         metrics_collection: Optional[str] = None,
         eval_collection: Optional[str] = None,
         knowledge_collection: Optional[str] = None,
@@ -49,7 +49,7 @@ class MongoDb(BaseDb):
             db_name (Optional[str]): The name of the database to use.
             db_url (Optional[str]): The database URL to connect to.
             session_collection (Optional[str]): Name of the collection to store sessions.
-            user_memory_collection (Optional[str]): Name of the collection to store user memories.
+            memory_collection (Optional[str]): Name of the collection to store memories.
             metrics_collection (Optional[str]): Name of the collection to store metrics.
             eval_collection (Optional[str]): Name of the collection to store evaluation runs.
             knowledge_collection (Optional[str]): Name of the collection to store knowledge documents.
@@ -59,7 +59,7 @@ class MongoDb(BaseDb):
         """
         super().__init__(
             session_table=session_collection,
-            user_memory_table=user_memory_collection,
+            memory_table=memory_collection,
             metrics_table=metrics_collection,
             eval_table=eval_collection,
             knowledge_table=knowledge_collection,
@@ -103,14 +103,14 @@ class MongoDb(BaseDb):
                 )
             return self.session_collection
 
-        if table_type == "user_memories":
-            if not hasattr(self, "user_memory_collection"):
-                if self.user_memory_table_name is None:
-                    raise ValueError("User memory collection was not provided on initialization")
-                self.user_memory_collection = self._get_or_create_collection(
-                    collection_name=self.user_memory_table_name, collection_type="user_memories"
+        if table_type == "memories":
+            if not hasattr(self, "memory_collection"):
+                if self.memory_table_name is None:
+                    raise ValueError("Memory collection was not provided on initialization")
+                self.memory_collection = self._get_or_create_collection(
+                    collection_name=self.memory_table_name, collection_type="memories"
                 )
-            return self.user_memory_collection
+            return self.memory_collection
 
         if table_type == "metrics":
             if not hasattr(self, "metrics_collection"):
@@ -212,10 +212,10 @@ class MongoDb(BaseDb):
     def get_session(
         self,
         session_id: str,
+        session_type: SessionType,
         user_id: Optional[str] = None,
-        session_type: Optional[SessionType] = None,
         deserialize: Optional[bool] = True,
-    ) -> Optional[Union[AgentSession, TeamSession, WorkflowSession, Dict[str, Any]]]:
+    ) -> Optional[Union[Session, Dict[str, Any]]]:
         """Read a session from the database.
 
         Args:
@@ -254,7 +254,7 @@ class MongoDb(BaseDb):
                 return AgentSession.from_dict(session)
             elif session_type == SessionType.TEAM.value:
                 return TeamSession.from_dict(session)
-            elif session_type == SessionType.WORKFLOW.value:
+            else:
                 return WorkflowSession.from_dict(session)
 
         except Exception as e:
@@ -302,7 +302,7 @@ class MongoDb(BaseDb):
             collection = self._get_collection(table_type="sessions")
 
             # Filtering
-            query = {}
+            query: Dict[str, Any] = {}
             if user_id is not None:
                 query["user_id"] = user_id
             if session_type is not None:
@@ -414,7 +414,7 @@ class MongoDb(BaseDb):
                 return AgentSession.from_dict(deserialized_session)
             elif session_type == SessionType.TEAM.value:
                 return TeamSession.from_dict(deserialized_session)
-            elif session_type == SessionType.WORKFLOW.value:
+            else:
                 return WorkflowSession.from_dict(deserialized_session)
 
         except Exception as e:
@@ -509,7 +509,7 @@ class MongoDb(BaseDb):
 
                 return TeamSession.from_dict(session)  # type: ignore
 
-            elif isinstance(session, WorkflowSession):
+            else:
                 record = {
                     "session_id": serialized_session_dict.get("session_id"),
                     "session_type": SessionType.WORKFLOW.value,
@@ -549,7 +549,7 @@ class MongoDb(BaseDb):
 
     # -- Memory methods --
 
-    def delete_user_memory(self, memory_id: str) -> bool:
+    def delete_user_memory(self, memory_id: str):
         """Delete a user memory from the database.
 
         Args:
@@ -562,20 +562,17 @@ class MongoDb(BaseDb):
             Exception: If there is an error deleting the memory.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
             result = collection.delete_one({"memory_id": memory_id})
 
             success = result.deleted_count > 0
             if success:
-                log_debug(f"Successfully deleted user memory id: {memory_id}")
+                log_debug(f"Successfully deleted memory id: {memory_id}")
             else:
-                log_debug(f"No user memory found with id: {memory_id}")
-
-            return success
+                log_debug(f"No memory found with id: {memory_id}")
 
         except Exception as e:
-            log_error(f"Error deleting user memory: {e}")
-            return False
+            log_error(f"Error deleting memory: {e}")
 
     def delete_user_memories(self, memory_ids: List[str]) -> None:
         """Delete user memories from the database.
@@ -587,14 +584,14 @@ class MongoDb(BaseDb):
             Exception: If there is an error deleting the memories.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
             result = collection.delete_many({"memory_id": {"$in": memory_ids}})
 
             if result.deleted_count == 0:
-                log_debug(f"No user memories found with ids: {memory_ids}")
+                log_debug(f"No memories found with ids: {memory_ids}")
 
         except Exception as e:
-            log_error(f"Error deleting user memories: {e}")
+            log_error(f"Error deleting memories: {e}")
 
     def get_all_memory_topics(self) -> List[str]:
         """Get all memory topics from the database.
@@ -606,7 +603,7 @@ class MongoDb(BaseDb):
             Exception: If there is an error getting the topics.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
             topics = collection.distinct("topics")
             return [topic for topic in topics if topic]
 
@@ -630,7 +627,7 @@ class MongoDb(BaseDb):
             Exception: If there is an error getting the memory.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
             result = collection.find_one({"memory_id": memory_id})
             if result is None or not deserialize:
                 return result
@@ -677,9 +674,9 @@ class MongoDb(BaseDb):
             Exception: If there is an error getting the memories.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
 
-            query = {}
+            query: Dict[str, Any] = {}
             if user_id is not None:
                 query["user_id"] = user_id
             if agent_id is not None:
@@ -738,7 +735,7 @@ class MongoDb(BaseDb):
             Exception: If there is an error getting the memories stats.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
 
             pipeline = [
                 {"$match": {"user_id": {"$ne": None}}},
@@ -798,7 +795,7 @@ class MongoDb(BaseDb):
             Exception: If there is an error upserting the memory.
         """
         try:
-            collection = self._get_collection(table_type="user_memories")
+            collection = self._get_collection(table_type="memories")
 
             if memory.memory_id is None:
                 memory.memory_id = str(uuid4())
@@ -827,6 +824,21 @@ class MongoDb(BaseDb):
         except Exception as e:
             log_error(f"Exception upserting user memory: {e}")
             return None
+
+    def clear_memories(self) -> None:
+        """Delete all memories from the database.
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
+        try:
+            collection = self._get_collection(table_type="memories")
+            collection.delete_many({})
+
+        except Exception as e:
+            from agno.utils.log import log_warning
+
+            log_warning(f"Exception deleting all memories: {e}")
 
     # -- Metrics methods --
 
@@ -970,54 +982,74 @@ class MongoDb(BaseDb):
 
     # -- Knowledge methods --
 
-    def delete_knowledge_source(self, id: str):
-        """Delete a knowledge source by ID."""
+    def delete_knowledge_content(self, id: str):
+        """Delete a knowledge row from the database.
+
+        Args:
+            id (str): The ID of the knowledge row to delete.
+
+        Raises:
+            Exception: If an error occurs during deletion.
+        """
         try:
             collection = self._get_collection(table_type="knowledge")
             collection.delete_one({"id": id})
 
-            log_debug(f"Deleted knowledge source with id '{id}'")
+            log_debug(f"Deleted knowledge content with id '{id}'")
 
         except Exception as e:
-            log_error(f"Error deleting knowledge source: {e}")
+            log_error(f"Error deleting knowledge content: {e}")
             raise
 
-    def get_source_status(self, id: str) -> Optional[str]:
-        """Get the status of a knowledge source by ID."""
-        try:
-            collection = self._get_collection(table_type="knowledge")
-            result = collection.find_one({"id": id}, {"status": 1})
-            return result.get("status") if result else None
+    def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
+        """Get a knowledge row from the database.
 
-        except Exception as e:
-            log_error(f"Error getting knowledge source status: {e}")
-            return None
+        Args:
+            id (str): The ID of the knowledge row to get.
 
-    def get_knowledge_source(self, id: str) -> Optional[KnowledgeRow]:
-        """Get a knowledge document by ID."""
+        Returns:
+            Optional[KnowledgeRow]: The knowledge row, or None if it doesn't exist.
+
+        Raises:
+            Exception: If an error occurs during retrieval.
+        """
         try:
             collection = self._get_collection(table_type="knowledge")
             result = collection.find_one({"id": id})
             if result is None:
                 return None
+
             return KnowledgeRow.model_validate(result)
 
         except Exception as e:
-            log_error(f"Error getting knowledge source: {e}")
+            log_error(f"Error getting knowledge content: {e}")
             return None
 
-    def get_knowledge_sources(
+    def get_knowledge_contents(
         self,
         limit: Optional[int] = None,
         page: Optional[int] = None,
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
     ) -> Tuple[List[KnowledgeRow], int]:
-        """Get all knowledge documents from the database."""
+        """Get all knowledge contents from the database.
+
+        Args:
+            limit (Optional[int]): The maximum number of knowledge contents to return.
+            page (Optional[int]): The page number.
+            sort_by (Optional[str]): The column to sort by.
+            sort_order (Optional[str]): The order to sort by.
+
+        Returns:
+            Tuple[List[KnowledgeRow], int]: The knowledge contents and total count.
+
+        Raises:
+            Exception: If an error occurs during retrieval.
+        """
         try:
             collection = self._get_collection(table_type="knowledge")
 
-            query = {}
+            query: Dict[str, Any] = {}
 
             # Get total count
             total_count = collection.count_documents(query)
@@ -1042,11 +1074,21 @@ class MongoDb(BaseDb):
             return knowledge_rows, total_count
 
         except Exception as e:
-            log_error(f"Error getting knowledge sources: {e}")
+            log_error(f"Error getting knowledge contents: {e}")
             return [], 0
 
-    def upsert_knowledge_source(self, knowledge_row: KnowledgeRow):
-        """Upsert a knowledge document in the database."""
+    def upsert_knowledge_content(self, knowledge_row: KnowledgeRow):
+        """Upsert knowledge content in the database.
+
+        Args:
+            knowledge_row (KnowledgeRow): The knowledge row to upsert.
+
+        Returns:
+            Optional[KnowledgeRow]: The upserted knowledge row, or None if the operation fails.
+
+        Raises:
+            Exception: If an error occurs during upsert.
+        """
         try:
             collection = self._get_collection(table_type="knowledge")
 
@@ -1056,7 +1098,7 @@ class MongoDb(BaseDb):
             return knowledge_row
 
         except Exception as e:
-            log_error(f"Error upserting knowledge document: {e}")
+            log_error(f"Error upserting knowledge content: {e}")
             return None
 
     # -- Eval methods --
@@ -1163,8 +1205,8 @@ class MongoDb(BaseDb):
         team_id: Optional[str] = None,
         workflow_id: Optional[str] = None,
         model_id: Optional[str] = None,
-        eval_type: Optional[List[EvalType]] = None,
         filter_type: Optional[EvalFilterType] = None,
+        eval_type: Optional[List[EvalType]] = None,
         deserialize: Optional[bool] = True,
     ) -> Union[List[EvalRunRecord], Tuple[List[Dict[str, Any]], int]]:
         """Get all eval runs from the database.
@@ -1193,7 +1235,7 @@ class MongoDb(BaseDb):
         try:
             collection = self._get_collection(table_type="evals")
 
-            query = {}
+            query: Dict[str, Any] = {}
             if agent_id is not None:
                 query["agent_id"] = agent_id
             if team_id is not None:
@@ -1280,3 +1322,25 @@ class MongoDb(BaseDb):
         except Exception as e:
             log_error(f"Error updating eval run name {eval_run_id}: {e}")
             raise
+
+    def get_knowledge_content(self, id: str) -> Optional[KnowledgeRow]:
+        """Get knowledge content by ID."""
+        raise NotImplementedError
+
+    def get_knowledge_contents(
+        self,
+        limit: Optional[int] = None,
+        page: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+    ) -> Tuple[List[KnowledgeRow], int]:
+        """Get all knowledge content from the database."""
+        raise NotImplementedError
+
+    def upsert_knowledge_content(self, knowledge_row: KnowledgeRow):
+        """Upsert knowledge content in the database."""
+        raise NotImplementedError
+
+    def delete_knowledge_content(self, id: str):
+        """Delete knowledge content by ID."""
+        raise NotImplementedError

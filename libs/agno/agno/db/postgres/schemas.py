@@ -18,6 +18,7 @@ SESSION_TABLE_SCHEMA = {
     "agent_data": {"type": JSON, "nullable": True},
     "team_data": {"type": JSON, "nullable": True},
     "workflow_data": {"type": JSON, "nullable": True},
+    "extra_data": {"type": JSON, "nullable": True},
     "metadata": {"type": JSON, "nullable": True},
     "runs": {"type": JSON, "nullable": True},
     "summary": {"type": JSON, "nullable": True},
@@ -49,7 +50,7 @@ EVAL_TABLE_SCHEMA = {
     "name": {"type": String, "nullable": True},
     "agent_id": {"type": String, "nullable": True},
     "team_id": {"type": String, "nullable": True},
-    "workflow_id": {"type": String, "nullable": True}, # Do we need a workflow_id here?
+    "workflow_id": {"type": String, "nullable": True},  # Do we need a workflow_id here?
     "model_id": {"type": String, "nullable": True},
     "model_provider": {"type": String, "nullable": True},
     "evaluated_component_name": {"type": String, "nullable": True},

@@ -473,7 +473,6 @@ class Team:
         self.debug_level = debug_level
         self.show_members_responses = show_members_responses
 
-        self.monitoring = monitoring
         self.telemetry = telemetry
 
         # --- Params not to be set by user ---

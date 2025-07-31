@@ -66,7 +66,6 @@ def test_session_metrics_with_add_history():
         num_history_runs=3,
         markdown=True,
         telemetry=False,
-        monitoring=False,
     )
 
     response = agent.run("Hi, my name is John")

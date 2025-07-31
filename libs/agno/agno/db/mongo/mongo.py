@@ -743,7 +743,7 @@ class MongoDb(BaseDb):
                     "$group": {
                         "_id": "$user_id",
                         "total_memories": {"$sum": 1},
-                        "last_memory_updated_at": {"$max": "$last_updated"},
+                        "last_memory_updated_at": {"$max": "$updated_at"},
                     }
                 },
                 {"$sort": {"last_memory_updated_at": -1}},
@@ -808,7 +808,7 @@ class MongoDb(BaseDb):
                 "memory_id": memory.memory_id,
                 "memory": memory.memory,
                 "topics": memory.topics,
-                "last_updated": int(time.time()),
+                "updated_at": int(time.time()),
             }
 
             result = collection.replace_one({"memory_id": memory.memory_id}, update_doc, upsert=True)

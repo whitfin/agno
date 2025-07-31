@@ -785,9 +785,9 @@ class RedisDb(BaseDb):
                     }
 
                 user_stats[user_id]["total_memories"] += 1
-                last_updated = memory.get("last_updated", 0)
-                if last_updated > user_stats[user_id]["last_memory_updated_at"]:
-                    user_stats[user_id]["last_memory_updated_at"] = last_updated
+                updated_at = memory.get("updated_at", 0)
+                if updated_at > user_stats[user_id]["last_memory_updated_at"]:
+                    user_stats[user_id]["last_memory_updated_at"] = updated_at
 
             stats_list = list(user_stats.values())
 
@@ -827,7 +827,7 @@ class RedisDb(BaseDb):
                 "memory_id": memory.memory_id,
                 "memory": memory.memory,
                 "topics": memory.topics,
-                "last_updated": int(time.time()),
+                "updated_at": int(time.time()),
             }
 
             success = self._store_record(

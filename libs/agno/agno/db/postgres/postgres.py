@@ -556,7 +556,7 @@ class PostgresDb(BaseDb):
                         agent_data=session_dict.get("agent_data"),
                         session_data=session_dict.get("session_data"),
                         summary=session_dict.get("summary"),
-                        extra_data=session_dict.get("extra_data"),
+                        metadata=session_dict.get("extra_data"),
                         created_at=session_dict.get("created_at"),
                         updated_at=session_dict.get("created_at"),
                     )
@@ -569,7 +569,7 @@ class PostgresDb(BaseDb):
                             agent_data=session_dict.get("agent_data"),
                             session_data=session_dict.get("session_data"),
                             summary=session_dict.get("summary"),
-                            extra_data=session_dict.get("extra_data"),
+                            metadata=session_dict.get("extra_data"),
                             runs=session_dict.get("runs"),
                             updated_at=int(time.time()),
                         ),

@@ -832,7 +832,7 @@ class SingleStoreDb(BaseDb):
                         if isinstance(topic_list, list):
                             topics.extend(topic_list)
 
-                return topics
+                return list(set(topics))
 
         except Exception as e:
             log_error(f"Exception reading from memory table: {e}")
@@ -1054,7 +1054,6 @@ class SingleStoreDb(BaseDb):
                     agent_id=memory.agent_id,
                     team_id=memory.team_id,
                     topics=memory.topics,
-                    workflow_id=memory.workflow_id,
                     updated_at=int(time.time()),
                 )
                 stmt = stmt.on_duplicate_key_update(
@@ -1064,7 +1063,6 @@ class SingleStoreDb(BaseDb):
                     user_id=stmt.inserted.user_id,
                     agent_id=stmt.inserted.agent_id,
                     team_id=stmt.inserted.team_id,
-                    workflow_id=stmt.inserted.workflow_id,
                     updated_at=int(time.time()),
                 )
 

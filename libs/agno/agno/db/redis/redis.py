@@ -823,7 +823,6 @@ class RedisDb(BaseDb):
                 "user_id": memory.user_id,
                 "agent_id": memory.agent_id,
                 "team_id": memory.team_id,
-                "workflow_id": None,
                 "memory_id": memory.memory_id,
                 "memory": memory.memory,
                 "topics": memory.topics,

@@ -427,6 +427,7 @@ class JsonDb(BaseDb):
         """Get all memory topics from the JSON file."""
         try:
             memories = self._read_json_file(self.memory_table_name)
+
             topics = set()
             for memory in memories:
                 memory_topics = memory.get("topics", [])

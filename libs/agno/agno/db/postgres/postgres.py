@@ -731,7 +731,8 @@ class PostgresDb(BaseDb):
             with self.Session() as sess, sess.begin():
                 stmt = select(func.json_array_elements_text(table.c.topics))
                 result = sess.execute(stmt).fetchall()
-                return [record[0] for record in result]
+
+                return list(set([record[0] for record in result]))
 
         except Exception as e:
             log_error(f"Exception reading from memory table: {e}")
@@ -970,7 +971,6 @@ class PostgresDb(BaseDb):
                     agent_id=memory.agent_id,
                     team_id=memory.team_id,
                     topics=memory.topics,
-                    workflow_id=memory.workflow_id,
                     updated_at=int(time.time()),
                 )
                 stmt = stmt.on_conflict_do_update(
@@ -981,7 +981,6 @@ class PostgresDb(BaseDb):
                         input=memory.input,
                         agent_id=memory.agent_id,
                         team_id=memory.team_id,
-                        workflow_id=memory.workflow_id,
                         updated_at=int(time.time()),
                     ),
                 ).returning(table)

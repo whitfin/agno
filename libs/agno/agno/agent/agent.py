@@ -112,7 +112,7 @@ class Agent:
     session_name: Optional[str] = None
     # Session state (stored in the database to persist across runs)
     session_state: Optional[Dict[str, Any]] = None
-    search_previous_sessions_history: Optional[bool] = False
+    search_last_n_sessions: Optional[bool] = False
     num_history_sessions: Optional[int] = None
     # If True, the agent creates/updates session summaries at the end of runs
     enable_session_summaries: bool = False
@@ -333,7 +333,7 @@ class Agent:
         session_id: Optional[str] = None,
         session_name: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
-        search_previous_sessions_history: Optional[bool] = False,
+        search_last_n_sessions: Optional[bool] = False,
         num_history_sessions: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
         add_context: bool = False,
@@ -416,7 +416,7 @@ class Agent:
         self.session_id = session_id
         self.session_name = session_name
         self.session_state = session_state
-        self.search_previous_sessions_history = search_previous_sessions_history
+        self.search_last_n_sessions = search_last_n_sessions
         self.num_history_sessions = num_history_sessions
 
         self.context = context
@@ -3312,7 +3312,7 @@ class Agent:
         if self.read_tool_call_history:
             agent_tools.append(self.get_tool_call_history_function(session_id=session_id))
             self._rebuild_tools = True
-        if self.search_previous_sessions_history:
+        if self.search_last_n_sessions:
             agent_tools.append(
                 self.get_previous_sessions_messages_function(
                     num_history_sessions=self.num_history_sessions, user_id=user_id

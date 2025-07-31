@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import Index, UniqueConstraint
 
 from agno.db.base import BaseDb, SessionType
+from agno.db.postgres.migration_utils import migrate_if_needed
 from agno.db.postgres.schemas import get_table_schema_definition
 from agno.db.postgres.utils import (
     apply_sorting,
@@ -230,6 +231,9 @@ class PostgresDb(BaseDb):
 
         if not table_is_available:
             return self._create_table(table_name=table_name, table_type=table_type, db_schema=db_schema)
+
+        # Check if migrations are needed and apply them if they are
+        migrate_if_needed(engine=self.db_engine, table_name=table_name, table_type=table_type, db_schema=db_schema)
 
         if not is_valid_table(
             db_engine=self.db_engine,

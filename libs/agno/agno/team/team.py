@@ -6996,7 +6996,7 @@ class Team:
         if session_id not in self.team_session_state:
             self.team_session_state[session_id] = {}
         if isinstance(text, dict):
-            if self.team_session_state[session_id].text is not None:
+            if self.team_session_state[session_id].get("text") is not None:
                 try:
                     current_context = self.team_session_state[session_id]
                 except Exception:

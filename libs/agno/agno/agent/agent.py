@@ -4973,7 +4973,7 @@ class Agent:
             raise Exception("Model not set")
 
         gen_session_name_prompt = "Conversation\n"
-        messages_for_generating_session_name = self.agent_session.get_messages_for_session(session_id=session_id)
+        messages_for_generating_session_name = self.agent_session.get_messages_for_session()
 
         for message in messages_for_generating_session_name:
             gen_session_name_prompt += f"{message.role.upper()}: {message.content}\n"
@@ -5793,7 +5793,7 @@ class Agent:
 
             history: List[Dict[str, Any]] = []
             if self.agent_session:
-                all_chats = self.agent_session.get_messages_for_session(session_id=session_id)
+                all_chats = self.agent_session.get_messages_for_session()
 
                 if len(all_chats) == 0:
                     return ""
@@ -7256,8 +7256,6 @@ class Agent:
         if not self.telemetry:
             return
 
-        from agno.api.agent import AgentRunCreate, create_agent_run
-
         try:
             agent_session: Optional[AgentSession] = self.agent_session or self.get_agent_session(
                 session_id=session_id, user_id=user_id
@@ -7277,8 +7275,6 @@ class Agent:
 
         if not self.telemetry:
             return
-
-        from agno.api.agent import AgentRunCreate, acreate_agent_run
 
         try:
             agent_session: Optional[AgentSession] = self.agent_session or self.get_agent_session(

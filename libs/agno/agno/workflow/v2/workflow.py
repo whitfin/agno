@@ -22,6 +22,7 @@ from pydantic import BaseModel
 from agno.agent.agent import Agent
 from agno.media import Audio, AudioArtifact, Image, ImageArtifact, Video, VideoArtifact
 from agno.run.base import RunStatus
+from agno.run.response import Message
 from agno.run.v2.workflow import (
     ConditionExecutionCompletedEvent,
     ConditionExecutionStartedEvent,
@@ -1514,7 +1515,7 @@ class Workflow:
             workflow_name=self.name,
             runs=self.workflow_session.runs if self.workflow_session else [],
             workflow_data=workflow_data,
-            session_data={},
+            session_data=self.workflow_session_state,
         )
 
     def load_workflow_session(self, session: WorkflowSessionV2):
@@ -1591,6 +1592,39 @@ class Workflow:
 
         log_debug(f"New session ID: {self.session_id}")
         self.load_session(force=True)
+
+    def add_run_to_session_state(self, run_response: WorkflowRunResponse) -> None:
+        """Add a run to the session state"""
+        if self.workflow_session_state is None:
+            self.workflow_session_state = {}
+
+        # TODO: Account for Teams
+        log_debug(f"Adding run to session state: {run_response.agent_id}")
+        if self.workflow_session_state.get(run_response.agent_id) is None:
+            self.workflow_session_state[run_response.agent_id] = [run_response.to_dict()]
+        else:
+            self.workflow_session_state[run_response.agent_id].append(run_response.to_dict())
+
+    def get_runs_from_session_state(self, agent_id: str, num_runs: int = 1):
+        """Get a run from the session state"""
+        if self.workflow_session_state is None:
+            return None
+        runs = self.workflow_session_state.get(agent_id)
+        if runs is None:
+            return None
+        return runs[-num_runs:] if len(runs) > num_runs else runs
+
+    def get_messages_from_runs(self, runs) -> List[Message]:
+        """Get messages from runs"""
+        messages = []
+        if runs is None:
+            return messages
+        for run in runs:
+            if run.get("messages"):
+                for message in run.get("messages"):
+                    if not message.get("from_history") and message.get("role") != "system":
+                        messages.append(Message(role=message.get("role"), content=message.get("content")))
+        return messages
 
     def _format_step_content_for_display(self, step_output: StepOutput) -> str:
         """Format content for display, handling structured outputs. Works for both raw content and StepOutput objects."""
@@ -3312,6 +3346,7 @@ class Workflow:
         stream: bool = False,
         markdown: bool = True,
         exit_on: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Run an interactive command-line interface for the workflow."""
@@ -3338,7 +3373,7 @@ class Workflow:
             self.print_response(message=message, stream=stream, markdown=markdown, console=console, **kwargs)
 
         _exit_on = exit_on or ["exit", "quit", "bye"]
-        session_id = "cli_session"
+        session_id = session_id
 
         while True:
             try:

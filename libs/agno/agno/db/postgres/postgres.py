@@ -550,7 +550,6 @@ class PostgresDb(BaseDb):
                         session_id=session_dict.get("session_id"),
                         session_type=SessionType.AGENT.value,
                         agent_id=session_dict.get("agent_id"),
-                        team_session_id=session_dict.get("team_session_id"),
                         user_id=session_dict.get("user_id"),
                         runs=session_dict.get("runs"),
                         agent_data=session_dict.get("agent_data"),
@@ -564,7 +563,6 @@ class PostgresDb(BaseDb):
                         index_elements=["session_id"],
                         set_=dict(
                             agent_id=session_dict.get("agent_id"),
-                            team_session_id=session_dict.get("team_session_id"),
                             user_id=session_dict.get("user_id"),
                             agent_data=session_dict.get("agent_data"),
                             session_data=session_dict.get("session_data"),

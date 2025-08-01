@@ -15,6 +15,7 @@ from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
 from agno.vectordb.pgvector.pgvector import PgVector
+from agno.models.anthropic import Claude
 
 # Database connection
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
@@ -36,7 +37,7 @@ knowledge = Knowledge(
 # Create an Agent
 agno_agent = Agent(
     name="Agno Agent",
-    model=OpenAIChat(id="gpt-4.1"),
+    model=OpenAIChat(id="gpt-4o"),
     db=db,
     enable_user_memories=True,
     knowledge=knowledge,
@@ -45,7 +46,7 @@ agno_agent = Agent(
 
 finance_agent = Agent(
     name="Finance Agent",
-    model=OpenAIChat(id="gpt-4.1"),
+    model=OpenAIChat(id="gpt-4o"),
     db=db,
     tools=[YFinanceTools()],
     markdown=True,

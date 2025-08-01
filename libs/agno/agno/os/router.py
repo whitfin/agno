@@ -27,7 +27,6 @@ from agno.os.schema import (
     TeamSessionDetailSchema,
     TeamSummaryResponse,
     WorkflowResponse,
-    WorkflowRunRequest,
     WorkflowSummaryResponse,
 )
 from agno.os.settings import AgnoAPISettings
@@ -230,7 +229,7 @@ def get_base_router(
         apps_response.metrics = apps_response.metrics or None
 
         return ConfigResponse(
-            os_id=os.os_id,
+            os_id=os.os_id or "Unnamed OS",
             description=os.description,
             interfaces=[
                 InterfaceResponse(type=interface.type, version=interface.version, route=interface.router_prefix)

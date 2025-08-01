@@ -321,6 +321,7 @@ class Agent:
     # --- Debug ---
     # Enable debug logs
     debug_mode: bool = False
+    debug_level: Literal[1, 2] = 1
 
     # --- Telemetry ---
     # telemetry=True logs minimal telemetry for analytics

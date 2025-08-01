@@ -50,7 +50,9 @@ from agno.storage.session.v2.workflow import WorkflowSession as WorkflowSessionV
 from agno.team.team import Team
 from agno.utils.log import (
     log_debug,
-    logger,
+    log_error,
+    log_info,
+    log_warning,
     set_log_level_to_debug,
     set_log_level_to_info,
     use_workflow_logger,
@@ -59,7 +61,7 @@ from agno.workflow.v2.condition import Condition
 from agno.workflow.v2.loop import Loop
 from agno.workflow.v2.parallel import Parallel
 from agno.workflow.v2.router import Router
-from agno.workflow.v2.step import Step
+from agno.workflow.v2.step import ChatStep, Step
 from agno.workflow.v2.steps import Steps
 from agno.workflow.v2.types import (
     StepInput,
@@ -102,6 +104,7 @@ class Workflow:
 
     # Workflow configuration
     steps: Optional[WorkflowSteps] = None
+    chat_step: Optional[ChatStep] = None
 
     storage: Optional[Storage] = None
 
@@ -136,6 +139,7 @@ class Workflow:
         description: Optional[str] = None,
         storage: Optional[Storage] = None,
         steps: Optional[WorkflowSteps] = None,
+        chat_step: Optional[ChatStep] = None,
         session_id: Optional[str] = None,
         session_name: Optional[str] = None,
         workflow_session_state: Optional[Dict[str, Any]] = None,
@@ -151,6 +155,7 @@ class Workflow:
         self.description = description
         self.storage = storage
         self.steps = steps
+        self.chat_step = chat_step
         self.session_id = session_id
         self.session_name = session_name
         self.workflow_session_state = workflow_session_state
@@ -433,10 +438,74 @@ class Workflow:
             return func(**call_kwargs)
         except TypeError as e:
             # If signature inspection fails, fall back to original method
-            logger.warning(
+            log_warning(
                 f"Async function signature inspection failed: {e}. Falling back to original calling convention."
             )
             return func(workflow, execution_input, **kwargs)
+
+    def _execute_chat(
+        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse
+    ) -> bool:
+        """Execute a chat step"""
+
+        # TODO: Instead of just the current execution_input.message, potentially get all user messages for more context
+
+        final_step_outputs: List[StepOutput] = []
+
+        # Step output name is currently broken, so we are appending all responses instead of just the final step
+        if self.workflow_session is not None and len(self.workflow_session.runs) > 0:
+            for run in self.workflow_session.runs:
+                for response in run.step_responses:
+                    final_step_outputs.append(response)
+
+        if len(final_step_outputs) == 0:
+            log_debug(f"No final step outputs found")
+            return False
+
+        formatted_final_step_outputs = "\n".join(
+            [f"=== {output.step_name} ===\n{output.content}" for output in final_step_outputs]
+        )
+
+        from agno.workflow.v2.utils import ChatStepValidation, get_chat_prompt, get_chat_validation_prompt
+
+        if self.chat_step.validation_agent is None:
+            validation_agent = Agent(
+                name="Chat Step Validation Agent",
+                instructions=get_chat_validation_prompt(
+                    execution_input.get_message_as_string(), formatted_final_step_outputs
+                ),
+                response_model=ChatStepValidation,
+            )
+        else:
+            validation_agent = self.chat_step.validation_agent
+
+        if self.chat_step.chat_agent is None:
+            chat_agent = Agent(
+                name="Chat Step Agent",
+                instructions=get_chat_prompt(execution_input.get_message_as_string(), formatted_final_step_outputs),
+            )
+        else:
+            chat_agent = self.chat_step.chat_agent
+
+        validation_response = validation_agent.run(message=execution_input.get_message_as_string())
+
+        if not isinstance(validation_response.content, ChatStepValidation):
+            log_error(f"Validation response is not a ChatStepValidation: {validation_response.content}")
+            return False
+
+        if validation_response.content.relevant:
+            chat_response = chat_agent.run(message=execution_input.get_message_as_string())
+            workflow_run_response.step_responses.append(
+                StepOutput(content=chat_response.content, step_name="Chat Step")
+            )
+
+            workflow_run_response.content = chat_response.content
+            workflow_run_response.status = RunStatus.completed
+
+            self._save_run_to_storage(workflow_run_response)
+            return True
+        else:
+            return False
 
     def _execute(
         self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse, **kwargs: Any
@@ -445,6 +514,11 @@ class Workflow:
         from inspect import isasyncgenfunction, iscoroutinefunction, isgeneratorfunction
 
         workflow_run_response.status = RunStatus.running
+
+        if self.chat_step is not None:
+            if self._execute_chat(execution_input, workflow_run_response):
+                workflow_run_response.status = RunStatus.completed
+                return workflow_run_response
 
         if callable(self.steps):
             if iscoroutinefunction(self.steps) or isasyncgenfunction(self.steps):
@@ -497,13 +571,13 @@ class Workflow:
                         if step_output:
                             previous_step_outputs[step_name] = step_output[-1]
                             if any(output.stop for output in step_output):
-                                logger.info(f"Early termination requested by step {step_name}")
+                                log_info(f"Early termination requested by step {step_name}")
                                 break
                     else:
                         # Single output
                         previous_step_outputs[step_name] = step_output
                         if step_output.stop:
-                            logger.info(f"Early termination requested by step {step_name}")
+                            log_info(f"Early termination requested by step {step_name}")
                             break
 
                     # Update shared media for next step
@@ -550,7 +624,7 @@ class Workflow:
                 import traceback
 
                 traceback.print_exc()
-                logger.error(f"Workflow execution failed: {e}")
+                log_error(f"Workflow execution failed: {e}")
                 # Store error response
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Workflow execution failed: {e}"
@@ -579,6 +653,9 @@ class Workflow:
             session_id=workflow_run_response.session_id,
         )
         yield self._handle_event(workflow_started_event, workflow_run_response)
+
+        # if self.chat_step is not None:
+        # TODO: Implement chat step streaming and async executions
 
         if callable(self.steps):
             if iscoroutinefunction(self.steps) or isasyncgenfunction(self.steps):
@@ -648,7 +725,7 @@ class Workflow:
                             )
 
                             if step_output.stop:
-                                logger.info(f"Early termination requested by step {step_name}")
+                                log_info(f"Early termination requested by step {step_name}")
                                 # Update shared media for next step
                                 shared_images.extend(step_output.images or [])
                                 shared_videos.extend(step_output.videos or [])
@@ -709,7 +786,7 @@ class Workflow:
                 workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
-                logger.error(f"Workflow execution failed: {e}")
+                log_error(f"Workflow execution failed: {e}")
 
                 from agno.run.v2.workflow import WorkflowErrorEvent
 
@@ -780,7 +857,7 @@ class Workflow:
                 return await func(**call_kwargs)  # type: ignore
         except TypeError as e:
             # If signature inspection fails, fall back to original method
-            logger.warning(
+            log_warning(
                 f"Async function signature inspection failed: {e}. Falling back to original calling convention."
             )
             if isasyncgenfunction(func):
@@ -859,13 +936,13 @@ class Workflow:
                         if step_output:
                             previous_step_outputs[step_name] = step_output[-1]
                             if any(output.stop for output in step_output):
-                                logger.info(f"Early termination requested by step {step_name}")
+                                log_info(f"Early termination requested by step {step_name}")
                                 break
                     else:
                         # Single output
                         previous_step_outputs[step_name] = step_output
                         if step_output.stop:
-                            logger.info(f"Early termination requested by step {step_name}")
+                            log_info(f"Early termination requested by step {step_name}")
                             break
 
                     # Update shared media for next step
@@ -909,7 +986,7 @@ class Workflow:
                 workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
-                logger.error(f"Workflow execution failed: {e}")
+                log_error(f"Workflow execution failed: {e}")
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Workflow execution failed: {e}"
 
@@ -1015,7 +1092,7 @@ class Workflow:
                             )
 
                             if step_output.stop:
-                                logger.info(f"Early termination requested by step {step_name}")
+                                log_info(f"Early termination requested by step {step_name}")
                                 # Update shared media for next step
                                 shared_images.extend(step_output.images or [])
                                 shared_videos.extend(step_output.videos or [])
@@ -1076,7 +1153,7 @@ class Workflow:
                 workflow_run_response.status = RunStatus.completed
 
             except Exception as e:
-                logger.error(f"Workflow execution failed: {e}")
+                log_error(f"Workflow execution failed: {e}")
 
                 from agno.run.v2.workflow import WorkflowErrorEvent
 
@@ -1192,7 +1269,7 @@ class Workflow:
                 log_debug(f"Background execution completed with status: {workflow_run_response.status}")
 
             except Exception as e:
-                logger.error(f"Background workflow execution failed: {e}")
+                log_error(f"Background workflow execution failed: {e}")
                 workflow_run_response.status = RunStatus.error
                 workflow_run_response.content = f"Background execution failed: {str(e)}"
                 self._save_run_to_storage(workflow_run_response)

@@ -1363,7 +1363,7 @@ class Workflow:
     ) -> WorkflowRunResponse: ...
 
     @overload
-    async def arun(
+    def arun(
         self,
         message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
@@ -1377,7 +1377,7 @@ class Workflow:
         background: Optional[bool] = False,
     ) -> AsyncIterator[WorkflowRunResponseEvent]: ...
 
-    async def arun(
+    def arun(
         self,
         message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
@@ -1393,7 +1393,7 @@ class Workflow:
     ) -> Union[WorkflowRunResponse, AsyncIterator[WorkflowRunResponseEvent]]:
         """Execute the workflow synchronously with optional streaming"""
         if background:
-            return await self._arun_background(
+            return self._arun_background(
                 message=message,
                 additional_data=additional_data,
                 user_id=user_id,
@@ -1470,7 +1470,7 @@ class Workflow:
                 **kwargs,
             )
         else:
-            return await self._aexecute(execution_input=inputs, workflow_run_response=workflow_run_response, **kwargs)
+            return self._aexecute(execution_input=inputs, workflow_run_response=workflow_run_response, **kwargs)
 
     def _prepare_steps(self):
         """Prepare the steps for execution"""
@@ -2764,7 +2764,7 @@ class Workflow:
             live_log.update(status)
 
             try:
-                async for response in await self.arun(
+                async for response in self.arun(
                     message=message,
                     additional_data=additional_data,
                     user_id=user_id,
@@ -3121,7 +3121,10 @@ class Workflow:
                                 (RunResponseContentEvent, TeamRunResponseContentEvent, WorkflowRunResponseEvent),  # type: ignore
                             ):  # type: ignore
                                 # Extract the content from the streaming event
-                                response_str = response.content  # type: ignore
+                                if hasattr(response, "content"):
+                                    response_str = response.content  # type: ignore
+                                elif hasattr(response, "error"):
+                                    response_str = response.error
 
                                 # Check if this is a team's final structured output
                                 is_structured_output = (

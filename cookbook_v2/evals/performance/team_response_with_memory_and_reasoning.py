@@ -3,11 +3,9 @@ import random
 import uuid
 
 from agno.agent import Agent
+from agno.db.postgres import PostgresDb
 from agno.eval.performance import PerformanceEval
-from agno.memory.v2.db.postgres import PostgresMemoryDb
-from agno.memory.v2.memory import Memory
 from agno.models.openai import OpenAIResponses
-from agno.storage.postgres import PostgresStorage
 from agno.team.team import Team
 from agno.tools.reasoning import ReasoningTools
 from agno.utils.pprint import apprint_run_response
@@ -38,16 +36,9 @@ cities = [
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
-agent_storage = PostgresStorage(
-    table_name="agent_sessions", db_url=db_url, auto_upgrade_schema=True
+db = PostgresDb(
+    db_url=db_url,
 )
-
-team_storage = PostgresStorage(
-    table_name="team_sessions", db_url=db_url, auto_upgrade_schema=True
-)
-agent_memory = Memory(db=PostgresMemoryDb(table_name="agent_memory", db_url=db_url))
-
-team_memory = Memory(db=PostgresMemoryDb(table_name="team_memory", db_url=db_url))
 
 
 def get_weather(city: str) -> str:
@@ -1008,10 +999,9 @@ weather_agent = Agent(
     description="You are a helpful assistant that can answer questions about the weather.",
     instructions="Be concise, reply with one sentence.",
     tools=[ReasoningTools(add_instructions=True), get_weather],
-    memory=agent_memory,
-    # storage=agent_storage,
+    db=db,
     add_history_to_messages=True,
-    num_history_responses=1,
+    num_history_runs=1,
     read_tool_call_history=False,
     stream=True,
     stream_intermediate_steps=True,
@@ -1023,10 +1013,9 @@ activities_agent = Agent(
     description="You are a helpful assistant that can answer questions about activities in a city.",
     instructions="Be concise, reply with one sentence.",
     tools=[ReasoningTools(add_instructions=True), get_activities],
-    memory=agent_memory,
-    # storage=agent_storage,
+    db=db,
     add_history_to_messages=True,
-    num_history_responses=1,
+    num_history_runs=1,
     read_tool_call_history=False,
     stream=True,
     stream_intermediate_steps=True,
@@ -1037,8 +1026,7 @@ team = Team(
     members=[weather_agent, activities_agent],
     tools=[ReasoningTools(add_instructions=True)],
     instructions="Be concise, reply with one sentence.",
-    memory=team_memory,
-    storage=team_storage,
+    db=db,
     markdown=True,
     add_datetime_to_instructions=True,
     enable_user_memories=True,
@@ -1046,8 +1034,6 @@ team = Team(
     add_history_to_messages=True,
     read_team_history=False,
     num_history_runs=1,
-    stream=True,
-    stream_intermediate_steps=True,
     cache_session=False,
 )
 
@@ -1056,10 +1042,12 @@ async def run_team_for_user(user: str, print_responses: bool = False):
     # Make four requests to the team, to build up history
     random_city = random.choice(cities)
     session_id = f"session_{user}_{uuid.uuid4()}"
-    response_iterator = await team.arun(
+    response_iterator = team.arun(
         message=f"I love {random_city}!",
         user_id=user,
         session_id=session_id,
+        stream=True,
+        stream_intermediate_steps=True,
     )
     if print_responses:
         await apprint_run_response(response_iterator)
@@ -1067,10 +1055,12 @@ async def run_team_for_user(user: str, print_responses: bool = False):
         async for _ in response_iterator:
             pass
 
-    response_iterator = await team.arun(
+    response_iterator = team.arun(
         message=f"Create a report on the activities and weather in {random_city}.",
         user_id=user,
         session_id=session_id,
+        stream=True,
+        stream_intermediate_steps=True,
     )
     if print_responses:
         await apprint_run_response(response_iterator)
@@ -1078,10 +1068,12 @@ async def run_team_for_user(user: str, print_responses: bool = False):
         async for _ in response_iterator:
             pass
 
-    response_iterator = await team.arun(
+    response_iterator = team.arun(
         message=f"What else can you tell me about {random_city}?",
         user_id=user,
         session_id=session_id,
+        stream=True,
+        stream_intermediate_steps=True,
     )
     if print_responses:
         await apprint_run_response(response_iterator)
@@ -1089,10 +1081,12 @@ async def run_team_for_user(user: str, print_responses: bool = False):
         async for _ in response_iterator:
             pass
 
-    response_iterator = await team.arun(
+    response_iterator = team.arun(
         message=f"What other cities are similar to {random_city}?",
         user_id=user,
         session_id=session_id,
+        stream=True,
+        stream_intermediate_steps=True,
     )
     if print_responses:
         await apprint_run_response(response_iterator)

@@ -438,7 +438,6 @@ class Knowledge:
 
             return
 
-
         # Validate URL
         try:
             from urllib.parse import urlparse
@@ -460,7 +459,7 @@ class Knowledge:
         file_extension = url_path.suffix.lower()
         try:
             if content.url.endswith("llms-full.txt") or content.url.endswith("llms.txt"):
-                log_info(f"Detected llms, using url reader")
+                log_info("Detected llms, using url reader")
                 reader = content.reader or self.url_reader
                 read_documents = reader.read(url=content.url, name=content.name)
 

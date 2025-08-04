@@ -194,7 +194,7 @@ class StepOutput:
     # For parallel steps: store individual step outputs
     parallel_step_outputs: Optional[Dict[str, "StepOutput"]] = None
 
-    # Link to the run ID of the step execution (instead of storing full response)
+    # Link to the run ID of the step execution
     step_run_id: Optional[str] = None
 
     # Media outputs

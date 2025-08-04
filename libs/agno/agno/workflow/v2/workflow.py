@@ -90,6 +90,8 @@ WorkflowSteps = Union[
         ]
     ],
 ]
+from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 
 
 @dataclass
@@ -135,6 +137,9 @@ class Workflow:
     websocket: Optional[WebSocket] = None
     websocket_handler: Optional[WebSocketHandler] = None
 
+    # Control whether to store member responses (agent/team responses) in flattened runs
+    store_member_responses: bool = True
+
     def __init__(
         self,
         workflow_id: Optional[str] = None,
@@ -152,6 +157,7 @@ class Workflow:
         store_events: bool = False,
         events_to_skip: Optional[List[WorkflowRunEvent]] = None,
         websocket: Optional[WebSocket] = None,
+        store_member_responses: bool = True,
     ):
         self.workflow_id = workflow_id
         self.name = name
@@ -168,6 +174,7 @@ class Workflow:
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
         self.websocket_handler = WebSocketHandler(websocket=websocket) if websocket else None
+        self.store_member_responses = store_member_responses
 
     @property
     def run_parameters(self) -> Dict[str, Any]:
@@ -523,6 +530,18 @@ class Workflow:
 
                     step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)  # type: ignore[union-attr]
 
+                    # Store agent/team responses in member_runs if enabled
+                    if self.store_member_responses and step._executor_type in ["agent", "team"]:
+                        # Get the raw response from the step's active executor
+                        raw_response = getattr(step.active_executor, "run_response", None)
+                        if raw_response and isinstance(raw_response, (RunResponse, TeamRunResponse)):
+                            # Set parent_run_id to link to the workflow run
+                            if hasattr(raw_response, "parent_run_id"):
+                                raw_response.parent_run_id = workflow_run_response.run_id
+
+                            # Add to member_runs
+                            workflow_run_response.member_runs.append(raw_response)
+
                     # Update the workflow-level previous_step_outputs dictionary
                     if isinstance(step_output, list):
                         log_debug(f"Step returned {len(step_output)} outputs")
@@ -671,6 +690,18 @@ class Workflow:
                         if isinstance(event, StepOutput):
                             step_output = event
                             collected_step_outputs.append(step_output)
+
+                            # Store agent/team responses in member_runs if enabled
+                            if self.store_member_responses and step._executor_type in ["agent", "team"]:
+                                # Get the raw response from the step's active executor
+                                raw_response = getattr(step.active_executor, "run_response", None)
+                                if raw_response and isinstance(raw_response, (RunResponse, TeamRunResponse)):
+                                    # Set parent_run_id to link to the workflow run
+                                    if hasattr(raw_response, "parent_run_id"):
+                                        raw_response.parent_run_id = workflow_run_response.run_id
+
+                                    # Add to member_runs
+                                    workflow_run_response.member_runs.append(raw_response)
 
                             # Update the workflow-level previous_step_outputs dictionary
                             previous_step_outputs[step_name] = step_output
@@ -886,6 +917,18 @@ class Workflow:
 
                     step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)  # type: ignore[union-attr]
 
+                    # Store agent/team responses in member_runs if enabled
+                    if self.store_member_responses and step._executor_type in ["agent", "team"]:
+                        # Get the raw response from the step's active executor
+                        raw_response = getattr(step.active_executor, "run_response", None)
+                        if raw_response and isinstance(raw_response, (RunResponse, TeamRunResponse)):
+                            # Set parent_run_id to link to the workflow run
+                            if hasattr(raw_response, "parent_run_id"):
+                                raw_response.parent_run_id = workflow_run_response.run_id
+
+                            # Add to member_runs
+                            workflow_run_response.member_runs.append(raw_response)
+
                     # Update the workflow-level previous_step_outputs dictionary
                     if isinstance(step_output, list):
                         # For multiple outputs (from Loop, Condition, etc.), store the last one
@@ -1038,6 +1081,18 @@ class Workflow:
                         if isinstance(event, StepOutput):
                             step_output = event
                             collected_step_outputs.append(step_output)
+
+                            # Store agent/team responses in member_runs if enabled
+                            if self.store_member_responses and step._executor_type in ["agent", "team"]:
+                                # Get the raw response from the step's active executor
+                                raw_response = getattr(step.active_executor, "run_response", None)
+                                if raw_response and isinstance(raw_response, (RunResponse, TeamRunResponse)):
+                                    # Set parent_run_id to link to the workflow run
+                                    if hasattr(raw_response, "parent_run_id"):
+                                        raw_response.parent_run_id = workflow_run_response.run_id
+
+                                    # Add to member_runs
+                                    workflow_run_response.member_runs.append(raw_response)
 
                             # Update the workflow-level previous_step_outputs dictionary
                             previous_step_outputs[step_name] = step_output

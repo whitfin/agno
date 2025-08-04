@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
 from agno.run.base import RunStatus
+from agno.run.response import RunResponse
+from agno.run.team import TeamRunResponse
 from agno.utils.log import log_error
 
 if TYPE_CHECKING:
@@ -424,6 +426,9 @@ class WorkflowRunResponse:
     # Store actual step execution results as StepOutput objects
     step_responses: List[Union["StepOutput", List["StepOutput"]]] = field(default_factory=list)  # noqa: F821
 
+    # Store agent/team responses separately with parent_run_id references
+    member_runs: List[Union[RunResponse, TeamRunResponse]] = field(default_factory=list)
+
     # Store events from workflow execution
     events: Optional[List[WorkflowRunResponseEvent]] = None
 
@@ -452,6 +457,7 @@ class WorkflowRunResponse:
                 "audio",
                 "response_audio",
                 "step_responses",
+                "member_runs",
                 "events",
                 "workflow_metrics",
             ]
@@ -486,6 +492,9 @@ class WorkflowRunResponse:
                     flattened_responses.append(step_response.to_dict())
             _dict["step_responses"] = flattened_responses
 
+        if self.member_runs:
+            _dict["member_runs"] = [run.to_dict() for run in self.member_runs]
+
         if self.workflow_metrics is not None:
             _dict["workflow_metrics"] = self.workflow_metrics.to_dict()
 
@@ -496,12 +505,6 @@ class WorkflowRunResponse:
             _dict["events"] = [e.to_dict() for e in self.events]
 
         return _dict
-
-    def to_json(self) -> str:
-        import json
-
-        _dict = self.to_dict()
-        return json.dumps(_dict, indent=2)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "WorkflowRunResponse":
@@ -522,6 +525,16 @@ class WorkflowRunResponse:
                 # Reconstruct StepOutput from dict
                 parsed_step_responses.append(StepOutput.from_dict(step_output_dict))
 
+        # Parse member_runs
+        member_runs_data = data.pop("member_runs", [])
+        member_runs: List[Union[RunResponse, TeamRunResponse]] = []
+        if member_runs_data:
+            for run_data in member_runs_data:
+                if "team_id" in run_data or "team_name" in run_data:
+                    member_runs.append(TeamRunResponse.from_dict(run_data))
+                else:
+                    member_runs.append(RunResponse.from_dict(run_data))
+
         extra_data = data.pop("extra_data", None)
 
         images = data.pop("images", [])
@@ -540,6 +553,7 @@ class WorkflowRunResponse:
 
         return cls(
             step_responses=parsed_step_responses,
+            member_runs=member_runs,
             extra_data=extra_data,
             images=images,
             videos=videos,

@@ -531,7 +531,7 @@ class Workflow:
                     step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)  # type: ignore[union-attr]
 
                     # Store agent/team responses in member_runs if enabled
-                    self._store_member_run_if_enabled(step, workflow_run_response)
+                    self._store_member_run(step, workflow_run_response)
 
                     # Update the workflow-level previous_step_outputs dictionary
                     if isinstance(step_output, list):
@@ -683,7 +683,7 @@ class Workflow:
                             collected_step_outputs.append(step_output)
 
                             # Store agent/team responses in member_runs if enabled
-                            self._store_member_run_if_enabled(step, workflow_run_response)
+                            self._store_member_run(step, workflow_run_response)
 
                             # Update the workflow-level previous_step_outputs dictionary
                             previous_step_outputs[step_name] = step_output
@@ -900,7 +900,7 @@ class Workflow:
                     step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)  # type: ignore[union-attr]
 
                     # Store agent/team responses in member_runs if enabled
-                    self._store_member_run_if_enabled(step, workflow_run_response)
+                    self._store_member_run(step, workflow_run_response)
 
                     # Update the workflow-level previous_step_outputs dictionary
                     if isinstance(step_output, list):
@@ -1056,7 +1056,7 @@ class Workflow:
                             collected_step_outputs.append(step_output)
 
                             # Store agent/team responses in member_runs if enabled
-                            self._store_member_run_if_enabled(step, workflow_run_response)
+                            self._store_member_run(step, workflow_run_response)
 
                             # Update the workflow-level previous_step_outputs dictionary
                             previous_step_outputs[step_name] = step_output
@@ -3387,7 +3387,7 @@ class Workflow:
             self.workflow_session.upsert_run(workflow_run_response)
             self.write_to_storage()
 
-    def _store_member_run_if_enabled(self, step: Step, workflow_run_response: WorkflowRunResponse) -> None:
+    def _store_member_run(self, step: Step, workflow_run_response: WorkflowRunResponse) -> None:
         """Store agent/team responses in member_runs if enabled"""
         if self.store_member_responses and step._executor_type in ["agent", "team"]:
             # Get the raw response from the step's active executor

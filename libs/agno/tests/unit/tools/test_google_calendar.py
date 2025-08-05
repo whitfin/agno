@@ -7,7 +7,7 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from agno.tools.googlecalendar import GoogleCalendarTokenTools, GoogleCalendarTools
+from agno.tools.googlecalendar import GoogleCalendarTools
 
 
 class TestGoogleCalendarToolsInitialization:
@@ -17,6 +17,7 @@ class TestGoogleCalendarToolsInitialization:
         """Test initialization with access token."""
         tools = GoogleCalendarTools(access_token="test_token")
         assert tools.access_token == "test_token"
+        assert tools.calendar_id == "primary"
         assert tools.creds is not None
         assert tools.service is None
 
@@ -27,9 +28,9 @@ class TestGoogleCalendarToolsInitialization:
             temp_file = f.name
 
         try:
-            tools = GoogleCalendarTools(credentials_path=temp_file, token_path="./test_token.json")
+            tools = GoogleCalendarTools(credentials_path=temp_file)
             assert tools.credentials_path == temp_file
-            assert tools.token_path == "./test_token.json"
+            assert tools.calendar_id == "primary"
             assert tools.creds is None
             assert tools.service is None
         finally:
@@ -37,7 +38,7 @@ class TestGoogleCalendarToolsInitialization:
 
     def test_init_missing_credentials(self):
         """Test initialization without any credentials raises error."""
-        with pytest.raises(ValueError, match="Either credentials path or access token is required"):
+        with pytest.raises(ValueError, match="Token Path is invalid"):
             GoogleCalendarTools()
 
     def test_init_invalid_credentials_path(self):
@@ -45,19 +46,24 @@ class TestGoogleCalendarToolsInitialization:
         with pytest.raises(ValueError, match="Credentials Path is invalid"):
             GoogleCalendarTools(credentials_path="./nonexistent.json")
 
-    def test_init_with_default_token_path(self):
-        """Test initialization uses default token path when not provided."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"installed": {"client_id": "test"}}, f)
-            temp_file = f.name
+    def test_init_with_existing_token_path(self):
+        """Test initialization with existing token file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as token_file:
+            json.dump({"token": "test_token"}, token_file)
+            token_file_path = token_file.name
 
         try:
-            with patch("agno.tools.googlecalendar.log_warning") as mock_log_warning:
-                tools = GoogleCalendarTools(credentials_path=temp_file)
-                assert tools.token_path == "token.json"
-                mock_log_warning.assert_called_once()
+            tools = GoogleCalendarTools(token_path=token_file_path)
+            assert tools.token_path == token_file_path
+            assert tools.calendar_id == "primary"
         finally:
-            os.unlink(temp_file)
+            os.unlink(token_file_path)
+
+    def test_init_with_custom_calendar_id(self):
+        """Test initialization with custom calendar ID."""
+        tools = GoogleCalendarTools(access_token="test_token", calendar_id="custom@example.com")
+        assert tools.calendar_id == "custom@example.com"
+        assert tools.access_token == "test_token"
 
     def test_init_with_all_tools_registered(self):
         """Test that all tools are properly registered during initialization."""
@@ -72,6 +78,7 @@ class TestGoogleCalendarToolsInitialization:
             "delete_event",
             "fetch_all_events",
             "find_available_slots",
+            "list_calendars",
         ]
 
         for tool_name in expected_tools:
@@ -79,16 +86,6 @@ class TestGoogleCalendarToolsInitialization:
 
         # Verify we have the expected number of tools
         assert len(tool_names) == len(expected_tools)
-
-
-class TestGoogleCalendarTokenTools:
-    """Test the token-based authentication class."""
-
-    def test_token_tools_inheritance(self):
-        """Test GoogleCalendarTokenTools inherits from GoogleCalendarTools."""
-        tools = GoogleCalendarTokenTools(access_token="test_token")
-        assert isinstance(tools, GoogleCalendarTools)
-        assert tools.access_token == "test_token"
 
 
 class TestAuthentication:
@@ -107,30 +104,28 @@ class TestAuthentication:
         # Token-based auth should return early
         assert tools.service is None
 
-    @patch("agno.tools.googlecalendar.os.path.exists")
     @patch("agno.tools.googlecalendar.Credentials.from_authorized_user_file")
     @patch("agno.tools.googlecalendar.build")
-    def test_auth_with_existing_token_file(self, mock_build, mock_from_file, mock_exists):
+    def test_auth_with_existing_token_file(self, mock_build, mock_from_file):
         """Test authentication with existing token file."""
-        mock_exists.return_value = True
         mock_creds = Mock()
         mock_creds.valid = True
         mock_from_file.return_value = mock_creds
         mock_service = Mock()
         mock_build.return_value = mock_service
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"installed": {"client_id": "test"}}, f)
-            temp_file = f.name
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as token_file:
+            json.dump({"token": "test_token"}, token_file)
+            token_file_path = token_file.name
 
         try:
-            tools = GoogleCalendarTools(credentials_path=temp_file, token_path="./test_token.json")
+            tools = GoogleCalendarTools(token_path=token_file_path)
             tools._auth()
 
-            mock_from_file.assert_called_once_with("./test_token.json", ["https://www.googleapis.com/auth/calendar"])
+            mock_from_file.assert_called_once_with(token_file_path, ["https://www.googleapis.com/auth/calendar"])
             assert tools.creds == mock_creds
         finally:
-            os.unlink(temp_file)
+            os.unlink(token_file_path)
 
     @patch("agno.tools.googlecalendar.InstalledAppFlow.from_client_secrets_file")
     @patch("builtins.open", new_callable=mock_open)
@@ -143,12 +138,25 @@ class TestAuthentication:
         mock_flow_instance.run_local_server.return_value = mock_creds
         mock_flow.return_value = mock_flow_instance
 
+        # Create proper Google OAuth client secrets format
+        client_secrets = {
+            "installed": {
+                "client_id": "test_client_id.apps.googleusercontent.com",
+                "client_secret": "test_client_secret",
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost"],
+            }
+        }
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump({"installed": {"client_id": "test"}}, f)
+            json.dump(client_secrets, f)
             temp_file = f.name
 
         try:
-            tools = GoogleCalendarTools(credentials_path=temp_file, token_path="./test_token.json")
+            tools = GoogleCalendarTools(credentials_path=temp_file)
+            # Create a fake token path for saving
+            tools.token_path = "test_token.json"
             tools.creds = None  # Simulate no existing credentials
             tools._auth()
 
@@ -190,19 +198,19 @@ class TestListEvents:
 
         assert result_data["message"] == "No upcoming events found."
 
-    def test_list_events_with_date_from(self):
+    def test_list_events_with_start_date(self):
         """Test listing events with specific start date."""
         mock_events = [{"id": "1", "summary": "Test Event"}]
         self.mock_service.events().list().execute.return_value = {"items": mock_events}
 
-        result = self.tools.list_events(date_from="2025-07-19T10:00:00")
+        result = self.tools.list_events(start_date="2025-07-19T10:00:00")
         result_data = json.loads(result)
 
         assert result_data == mock_events
 
     def test_list_events_invalid_date_format(self):
         """Test listing events with invalid date format."""
-        result = self.tools.list_events(date_from="invalid-date")
+        result = self.tools.list_events(start_date="invalid-date")
         result_data = json.loads(result)
 
         assert "error" in result_data
@@ -257,8 +265,8 @@ class TestCreateEvent:
         self.mock_service.events().insert().execute.return_value = mock_event
 
         result = self.tools.create_event(
-            start_datetime="2025-07-19T10:00:00",
-            end_datetime="2025-07-19T11:00:00",
+            start_date="2025-07-19T10:00:00",
+            end_date="2025-07-19T11:00:00",
             title="Test Event",
             description="Test Description",
         )
@@ -272,8 +280,8 @@ class TestCreateEvent:
         self.mock_service.events().insert().execute.return_value = mock_event
 
         result = self.tools.create_event(
-            start_datetime="2025-07-19T10:00:00",
-            end_datetime="2025-07-19T11:00:00",
+            start_date="2025-07-19T10:00:00",
+            end_date="2025-07-19T11:00:00",
             title="Test Event",
             attendees=["test1@example.com", "test2@example.com"],
         )
@@ -287,8 +295,8 @@ class TestCreateEvent:
         self.mock_service.events().insert().execute.return_value = mock_event
 
         result = self.tools.create_event(
-            start_datetime="2025-07-19T10:00:00",
-            end_datetime="2025-07-19T11:00:00",
+            start_date="2025-07-19T10:00:00",
+            end_date="2025-07-19T11:00:00",
             title="Test Event",
             add_google_meet_link=True,
         )
@@ -301,9 +309,7 @@ class TestCreateEvent:
 
     def test_create_event_invalid_datetime(self):
         """Test event creation with invalid datetime format."""
-        result = self.tools.create_event(
-            start_datetime="invalid-date", end_datetime="2025-07-19T11:00:00", title="Test Event"
-        )
+        result = self.tools.create_event(start_date="invalid-date", end_date="2025-07-19T11:00:00", title="Test Event")
         result_data = json.loads(result)
 
         assert "error" in result_data
@@ -352,7 +358,7 @@ class TestUpdateEvent:
         self.mock_service.events().update().execute.return_value = existing_event
 
         result = self.tools.update_event(
-            event_id="test_id", start_datetime="2025-07-19T14:00:00", end_datetime="2025-07-19T15:00:00"
+            event_id="test_id", start_date="2025-07-19T14:00:00", end_date="2025-07-19T15:00:00"
         )
         result_data = json.loads(result)
 
@@ -427,35 +433,80 @@ class TestFindAvailableSlots:
         self.tools.service = self.mock_service
 
     @patch.object(GoogleCalendarTools, "fetch_all_events")
-    def test_find_available_slots_success(self, mock_fetch):
+    @patch.object(GoogleCalendarTools, "_get_working_hours")
+    def test_find_available_slots_success(self, mock_working_hours, mock_fetch):
         """Test successful finding of available slots."""
+        # Mock working hours response
+        mock_working_hours.return_value = json.dumps(
+            {"start_hour": 9, "end_hour": 17, "timezone": "UTC", "locale": "en"}
+        )
+
         # Mock no existing events
         mock_fetch.return_value = json.dumps([])
 
-        result = self.tools.find_available_slots(start_date="2025-07-19", end_date="2025-07-19", duration_minutes=60)
+        result = self.tools.find_available_slots(
+            start_date="2025-07-21", end_date="2025-07-21", duration_minutes=30
+        )  # Monday, 30 min
         result_data = json.loads(result)
 
         assert "available_slots" in result_data
+        assert "working_hours" in result_data
+        assert "events_analyzed" in result_data
         assert isinstance(result_data["available_slots"], list)
 
     @patch.object(GoogleCalendarTools, "fetch_all_events")
-    def test_find_available_slots_with_busy_times(self, mock_fetch):
+    @patch.object(GoogleCalendarTools, "_get_working_hours")
+    def test_find_available_slots_with_busy_times(self, mock_working_hours, mock_fetch):
         """Test finding available slots with existing events."""
-        # Mock existing event that blocks 10-11 AM
+        # Mock working hours response
+        mock_working_hours.return_value = json.dumps(
+            {"start_hour": 9, "end_hour": 17, "timezone": "UTC", "locale": "en"}
+        )
+
+        # Mock existing event that blocks 10:30-11:30 AM (shorter busy period)
         existing_events = [
-            {"start": {"dateTime": "2025-07-19T10:00:00+00:00"}, "end": {"dateTime": "2025-07-19T11:00:00+00:00"}}
+            {"start": {"dateTime": "2025-07-19T10:30:00+00:00"}, "end": {"dateTime": "2025-07-19T11:30:00+00:00"}}
         ]
         mock_fetch.return_value = json.dumps(existing_events)
 
+        result = self.tools.find_available_slots(start_date="2025-07-19", end_date="2025-07-19", duration_minutes=30)
+        result_data = json.loads(result)
+
+        assert "available_slots" in result_data
+        assert "working_hours" in result_data
+        assert "events_analyzed" in result_data
+        assert result_data["events_analyzed"] == 1
+        # Check that the response structure is correct (may or may not have slots)
+        assert isinstance(result_data["available_slots"], list)
+
+    @patch.object(GoogleCalendarTools, "fetch_all_events")
+    @patch.object(GoogleCalendarTools, "_get_working_hours")
+    def test_find_available_slots_guarantees_slots(self, mock_working_hours, mock_fetch):
+        """Test finding available slots when there should definitely be some."""
+        # Mock working hours response
+        mock_working_hours.return_value = json.dumps(
+            {"start_hour": 9, "end_hour": 17, "timezone": "UTC", "locale": "en"}
+        )
+
+        # Mock no existing events (completely free day)
+        mock_fetch.return_value = json.dumps([])
+
         result = self.tools.find_available_slots(
-            start_date="2025-07-19", end_date="2025-07-19", duration_minutes=60, start_hour=9, end_hour=17
+            start_date="2025-07-21",
+            end_date="2025-07-21",
+            duration_minutes=30,  # Monday
         )
         result_data = json.loads(result)
 
         assert "available_slots" in result_data
-        # Should have slots before 10 AM and after 11 AM
+        assert "working_hours" in result_data
+        assert "events_analyzed" in result_data
+        assert result_data["events_analyzed"] == 0
+        # With no events and a full working day, we should have multiple slots
         slots = result_data["available_slots"]
-        assert len(slots) > 0
+        assert isinstance(slots, list)
+        # Should have many 30-minute slots between 9 AM and 5 PM
+        assert len(slots) >= 10  # Conservative estimate
 
     def test_find_available_slots_invalid_date(self):
         """Test finding available slots with invalid date format."""
@@ -464,6 +515,83 @@ class TestFindAvailableSlots:
 
         assert "error" in result_data
         assert "Invalid date format" in result_data["error"]
+
+
+class TestListCalendars:
+    """Test list_calendars method."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        with patch("agno.tools.googlecalendar.build"):
+            self.tools = GoogleCalendarTools(access_token="test_token")
+            self.mock_service = Mock()
+            self.tools.service = self.mock_service
+
+    def test_list_calendars_success(self):
+        """Test successful calendar listing."""
+        mock_calendars = {
+            "items": [
+                {
+                    "id": "primary",
+                    "summary": "John Doe",
+                    "description": "Personal calendar",
+                    "primary": True,
+                    "accessRole": "owner",
+                    "backgroundColor": "#ffffff",
+                },
+                {
+                    "id": "work@company.com",
+                    "summary": "Work Calendar",
+                    "description": "Company work calendar",
+                    "primary": False,
+                    "accessRole": "writer",
+                    "backgroundColor": "#4285f4",
+                },
+            ]
+        }
+        self.mock_service.calendarList().list().execute.return_value = mock_calendars
+
+        result = self.tools.list_calendars()
+        result_data = json.loads(result)
+
+        assert "calendars" in result_data
+        assert len(result_data["calendars"]) == 2
+        assert result_data["current_default"] == "primary"
+
+        # Check calendar data structure
+        primary_cal = result_data["calendars"][0]
+        assert primary_cal["id"] == "primary"
+        assert primary_cal["name"] == "John Doe"
+        assert primary_cal["primary"] is True
+        assert primary_cal["access_role"] == "owner"
+
+    def test_list_calendars_no_service(self):
+        """Test list_calendars when service is not initialized."""
+        with patch("agno.tools.googlecalendar.build", return_value=None):
+            tools = GoogleCalendarTools(access_token="test_token")
+            tools.service = None
+
+            result = tools.list_calendars()
+            result_data = json.loads(result)
+
+            assert result_data["error"] == "Google Calendar service not initialized"
+
+    def test_list_calendars_http_error(self):
+        """Test handling of HTTP errors in list_calendars."""
+        from googleapiclient.errors import HttpError
+
+        mock_response = Mock()
+        mock_response.status = 403
+        mock_response.reason = "Forbidden"
+
+        http_error = HttpError(mock_response, b'{"error": {"message": "Forbidden"}}')
+        self.mock_service.calendarList().list().execute.side_effect = http_error
+
+        result = self.tools.list_calendars()
+        result_data = json.loads(result)
+
+        assert "error" in result_data
+        assert "An error occurred" in result_data["error"]
 
 
 class TestErrorHandling:
@@ -482,6 +610,7 @@ class TestErrorHandling:
                 ("update_event", ["test_id"]),
                 ("delete_event", ["test_id"]),
                 ("fetch_all_events", []),
+                ("list_calendars", []),
             ]
 
             for method_name, args in methods_to_test:

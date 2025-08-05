@@ -46,11 +46,10 @@ from agno.tools.googlecalendar import GoogleCalendarTools
 agent = Agent(
     tools=[
         GoogleCalendarTools(
-            credentials_path="./credentials.json",  # Path to your downloaded OAuth credentials
+            credentials_path="credentials.json",  # Path to your downloaded OAuth credentials
         )
     ],
-    # show_tool_calls=True,
-    debug_mode=True,
+    show_tool_calls=True,
     instructions=[
         """
 You are a scheduling assistant.
@@ -65,39 +64,43 @@ You should help users to perform these actions in their Google calendar:
     add_datetime_to_instructions=True,
 )
 
-# Basic examples
-print("Getting today's events...")
+# Example 1: List calendar events
 agent.print_response("Give me the list of today's events", markdown=True)
 
-print("\nCreating a test event...")
-agent.print_response(
-    "create an event tomorrow from 9am to 10am, make the title as 'Team Meeting' and description as 'Weekly team sync'",
-    markdown=True,
-)
-
-print("\nFinding available time slots for tomorrow...")
-agent.print_response(
-    "Find available 1-hour time slots for tomorrow between 9 AM and 5 PM",
-    markdown=True,
-)
-
-# Advanced examples (uncomment to test)
-
-# print("\nUpdating the event...")
+# Example 2: Create an event
 # agent.print_response(
-#     "update the 'Team Meeting' event today to run from 5pm to 7pm and change description to 'Extended team sync'",
-#     markdown=True
+#     "create an event tomorrow from 9am to 10am, make the title as 'Team Meeting' and description as 'Weekly team sync'",
+#     markdown=True,
 # )
 
-# print("\nGetting all events for the week...")
-# agent.print_response("Show me all events for this week", markdown=True)
+# Example 3: Find available time slots
+# agent.print_response(
+#     "Find available 1-hour time slots for tomorrow between 9 AM and 5 PM",
+#     markdown=True,
+# )
 
-# print("\nDeleting the test event...")
+# Example 4: List available calendars
+# agent.print_response(
+#     "List all my calendars",
+#     markdown=True,
+# )
+
+# Example 5: Update an event
+# agent.print_response(
+#     "update the 'Team Meeting' event to run from 5pm to 7pm and change description to 'Extended team sync'",
+#     markdown=True,
+# )
+
+# Example 6: Delete an event
 # agent.print_response("delete the 'Team Meeting' event", markdown=True)
 
-# Example using token-based authentication (for apps that already have tokens)
-# from agno.tools.googlecalendar import GoogleCalendarTokenTools
-# agent_with_token = Agent(
-#     tools=[GoogleCalendarTokenTools(access_token="your_access_token_here")],
-#     show_tool_calls=True,
+# # Example 7: Find available time slots for a specific calendar
+# agent.print_response(
+#     "Find available 1-hour time slots for this week between 9 AM and 5 PM in the Appointments calendar",
+#     markdown=True,
+# )
+
+# Example 9: Find available slots using locale-based working hours
+# agent.print_response(
+#     "Find available 60-minute slots for the next 3 days", markdown=True
 # )

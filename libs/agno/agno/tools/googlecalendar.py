@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Any, Dict, List, Optional
 
 from agno.tools import Toolkit
-from agno.utils.log import log_debug, log_error, log_warning
+from agno.utils.log import log_debug, log_error, log_info
 
 try:
     from google.auth.transport.requests import Request
@@ -32,63 +32,46 @@ def authenticate(func):
                 self._auth()
             if not self.service:
                 self.service = build("calendar", "v3", credentials=self.creds)
-        except Exception:
-            # If authentication fails, let the method handle the missing service
-            pass
+        except Exception as e:
+            log_error(f"An error occurred: {e}")
         return func(self, *args, **kwargs)
 
     return wrapper
 
 
 class GoogleCalendarTools(Toolkit):
-    """
-    Enhanced Google Calendar Tools supporting both file-based and token-based authentication.
-    """
-
     def __init__(
         self,
         credentials_path: Optional[str] = None,
-        token_path: Optional[str] = None,
+        token_path: Optional[str] = "token.json",
         access_token: Optional[str] = None,
+        calendar_id: str = "primary",
         port: int = 8080,
         **kwargs,
     ):
-        """
-        Initialize Google Calendar Tools with either file-based or token-based authentication.
-
-        Args:
-            credentials_path (Optional[str]): Path to the credentials.json file for OAuth 2.0 flow
-            token_path (Optional[str]): Path to store/retrieve the token.json file
-            access_token (Optional[str]): Direct OAuth 2.0 access token for token-based authentication
-            port (Optional[int]): Port to use for OAuth authentication. Default is 8080.
-        """
-
         self.creds: Optional[Credentials] = None
-        self.service: Optional[Any] = None  # Google Calendar service object
+        self.service: Optional[Any] = None
+        self.calendar_id: str = calendar_id
         self.port: int = port
 
         # Token-based authentication
         if access_token:
             self.access_token = access_token
             self.creds = Credentials(access_token)
+
         # File-based authentication
         elif credentials_path:
             if not os.path.exists(credentials_path):
-                log_error(
-                    "Google Calendar Tool: Credential file path is invalid, please provide the full path of the credentials json file"
-                )
                 raise ValueError("Credentials Path is invalid")
 
-            if not token_path:
-                log_warning(
-                    f"Google Calendar Tool: Token path is not provided, using {os.getcwd()}/token.json as default path"
-                )
-                token_path = "token.json"
-
             self.credentials_path = credentials_path
+        elif token_path:
+            if not os.path.exists(token_path):
+                raise ValueError("Token Path is invalid")
             self.token_path = token_path
+
         else:
-            log_error("Google Calendar Tool: Please provide either valid credentials path or access token")
+            log_error("Google calendar tool authentication requires credentials path or access token")
             raise ValueError("Either credentials path or access token is required")
 
         super().__init__(
@@ -100,6 +83,7 @@ class GoogleCalendarTools(Toolkit):
                 self.delete_event,
                 self.fetch_all_events,
                 self.find_available_slots,
+                self.list_calendars,
             ],
             **kwargs,
         )
@@ -108,6 +92,7 @@ class GoogleCalendarTools(Toolkit):
         """Authenticate with Google Calendar API"""
         # Handle token-based authentication
         if hasattr(self, "access_token"):
+            self.creds = Credentials(self.access_token)
             return
 
         # Handle file-based authentication
@@ -130,27 +115,32 @@ class GoogleCalendarTools(Toolkit):
                 if self.creds:
                     with open(self.token_path, "w") as token:
                         token.write(self.creds.to_json())
+                        log_info(
+                            f"Authenticated successfully and token saved to {self.token_path}. Use this token to authenticate in future."
+                        )
 
     @authenticate
-    def list_events(self, limit: int = 10, date_from: Optional[str] = None, calendar_id: str = "primary") -> str:
+    def list_events(self, limit: int = 10, start_date: Optional[str] = None) -> str:
         """
-        List events from the user's calendar.
+        List upcoming events from the user's Google Calendar.
 
         Args:
             limit (Optional[int]): Number of events to return, default value is 10
-            date_from (Optional[str]): The start date to return events from in date isoformat. Defaults to current datetime.
-            calendar_id (Optional[str]): Calendar ID to fetch events from. Default is 'primary'.
+            start_date (Optional[str]): The start date to return events from in ISO format (YYYY-MM-DDTHH:MM:SS). Defaults to current datetime.
 
         Returns:
-            str: JSON string containing the events or error message
+            str: JSON string containing the Google Calendar events or error message
         """
-        if date_from is None:
-            date_from = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        elif isinstance(date_from, str):
+        if start_date is None:
+            start_date = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            log_debug(f"No start date provided, using current datetime: {start_date}")
+        elif isinstance(start_date, str):
             try:
-                date_from = datetime.datetime.fromisoformat(date_from).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                start_date = datetime.datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
             except ValueError:
-                return json.dumps({"error": f"Invalid date format: {date_from}. Use ISO format (YYYY-MM-DDTHH:MM:SS)."})
+                return json.dumps(
+                    {"error": f"Invalid date format: {start_date}. Use ISO format (YYYY-MM-DDTHH:MM:SS)."}
+                )
 
         try:
             if not self.service:
@@ -159,8 +149,8 @@ class GoogleCalendarTools(Toolkit):
             events_result = (
                 self.service.events()
                 .list(
-                    calendarId=calendar_id,
-                    timeMin=date_from,
+                    calendarId=self.calendar_id,
+                    timeMin=start_date,
                     maxResults=limit,
                     singleEvents=True,
                     orderBy="startTime",
@@ -178,42 +168,30 @@ class GoogleCalendarTools(Toolkit):
     @authenticate
     def create_event(
         self,
-        start_datetime: str,
-        end_datetime: str,
+        start_date: str,
+        end_date: str,
         title: Optional[str] = None,
         description: Optional[str] = None,
         location: Optional[str] = None,
         timezone: Optional[str] = "UTC",
         attendees: Optional[List[str]] = None,
-        calendar_id: str = "primary",
-        send_updates: str = "none",
-        visibility: str = "default",
-        transparency: str = "opaque",
-        recurrence: Optional[List[str]] = None,
-        reminders: Optional[Dict] = None,
         add_google_meet_link: Optional[bool] = False,
     ) -> str:
         """
-        Create a new event in the calendar.
+        Create a new event in the Google Calendar.
 
         Args:
-            start_datetime (str): Start date and time of the event (ISO format)
-            end_datetime (str): End date and time of the event (ISO format)
-            title (Optional[str]): Title/summary of the Event
+            start_date (str): Start date and time of the event in ISO format (YYYY-MM-DDTHH:MM:SS)
+            end_date (str): End date and time of the event in ISO format (YYYY-MM-DDTHH:MM:SS)
+            title (Optional[str]): Title/summary of the event
             description (Optional[str]): Detailed description of the event
             location (Optional[str]): Location of the event
-            timezone (Optional[str]): Timezone for the event
-            attendees (Optional[List[str]]): List of emails of the attendees
-            calendar_id (Optional[str]): Calendar ID to create event in. Default is 'primary'.
-            send_updates (Optional[str]): What kind of updates to send attendees ("all", "externalOnly", "none")
-            visibility (Optional[str]): Visibility of the event ("default", "public", "private")
-            transparency (Optional[str]): Whether the event blocks time ("opaque", "transparent")
-            recurrence (Optional[List[str]]): Recurrence rules for repeating events
-            reminders (Optional[Dict]): Reminder settings for the event
-            add_google_meet_link (Optional[bool]): Whether to add a google meet link to the event
+            timezone (Optional[str]): Timezone for the event (default: UTC)
+            attendees (Optional[List[str]]): List of email addresses of the attendees
+            add_google_meet_link (Optional[bool]): Whether to add a Google Meet video link to the event
 
         Returns:
-            str: JSON string containing the created event or error message
+            str: JSON string containing the created Google Calendar event or error message
         """
         try:
             # Format attendees if provided
@@ -221,23 +199,19 @@ class GoogleCalendarTools(Toolkit):
 
             # Convert ISO string to datetime and format as required
             try:
-                start_time = datetime.datetime.fromisoformat(start_datetime).strftime("%Y-%m-%dT%H:%M:%S")
-                end_time = datetime.datetime.fromisoformat(end_datetime).strftime("%Y-%m-%dT%H:%M:%S")
+                start_time = datetime.datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S")
+                end_time = datetime.datetime.fromisoformat(end_date).strftime("%Y-%m-%dT%H:%M:%S")
             except ValueError:
                 return json.dumps({"error": "Invalid datetime format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."})
 
             # Create event dictionary
-            event = {
+            event: Dict[str, Any] = {
                 "summary": title,
                 "location": location,
                 "description": description,
                 "start": {"dateTime": start_time, "timeZone": timezone},
                 "end": {"dateTime": end_time, "timeZone": timezone},
                 "attendees": attendees_list,
-                "recurrence": recurrence,
-                "reminders": reminders,
-                "visibility": visibility if visibility != "default" else None,
-                "transparency": transparency if transparency != "opaque" else None,
             }
 
             # Add Google Meet link if requested
@@ -255,14 +229,13 @@ class GoogleCalendarTools(Toolkit):
             event_result = (
                 self.service.events()
                 .insert(
-                    calendarId=calendar_id,
+                    calendarId=self.calendar_id,
                     body=event,
-                    sendUpdates=send_updates,
                     conferenceDataVersion=1 if add_google_meet_link else 0,
                 )
                 .execute()
             )
-            log_debug(f"Event created successfully in calendar {calendar_id}. Event ID: {event_result['id']}")
+            log_debug(f"Event created successfully in calendar {self.calendar_id}. Event ID: {event_result['id']}")
             return json.dumps(event_result)
         except HttpError as error:
             log_error(f"An error occurred: {error}")
@@ -272,40 +245,36 @@ class GoogleCalendarTools(Toolkit):
     def update_event(
         self,
         event_id: str,
-        calendar_id: str = "primary",
         title: Optional[str] = None,
         description: Optional[str] = None,
         location: Optional[str] = None,
-        start_datetime: Optional[str] = None,
-        end_datetime: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
         timezone: Optional[str] = None,
         attendees: Optional[List[str]] = None,
-        send_updates: str = "none",
     ) -> str:
         """
-        Update an existing event in the calendar.
+        Update an existing event in the Google Calendar.
 
         Args:
             event_id (str): ID of the event to update
-            calendar_id (Optional[str]): Calendar ID containing the event. Default is 'primary'.
             title (Optional[str]): New title/summary of the event
             description (Optional[str]): New description of the event
             location (Optional[str]): New location of the event
-            start_datetime (Optional[str]): New start date and time (ISO format)
-            end_datetime (Optional[str]): New end date and time (ISO format)
+            start_date (Optional[str]): New start date and time in ISO format (YYYY-MM-DDTHH:MM:SS)
+            end_date (Optional[str]): New end date and time in ISO format (YYYY-MM-DDTHH:MM:SS)
             timezone (Optional[str]): New timezone for the event
-            attendees (Optional[List[str]]): Updated list of attendee emails
-            send_updates (Optional[str]): What kind of updates to send attendees
+            attendees (Optional[List[str]]): Updated list of attendee email addresses
 
         Returns:
-            str: JSON string containing the updated event or error message
+            str: JSON string containing the updated Google Calendar event or error message
         """
         try:
             if not self.service:
                 return json.dumps({"error": "Google Calendar service not initialized"})
 
             # First get the existing event to preserve its structure
-            event = self.service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+            event = self.service.events().get(calendarId=self.calendar_id, eventId=event_id).execute()
 
             # Update only the fields that are provided
             if title is not None:
@@ -318,29 +287,27 @@ class GoogleCalendarTools(Toolkit):
                 event["attendees"] = [{"email": attendee} for attendee in attendees]
 
             # Handle datetime updates
-            if start_datetime:
+            if start_date:
                 try:
-                    start_time = datetime.datetime.fromisoformat(start_datetime).strftime("%Y-%m-%dT%H:%M:%S")
+                    start_time = datetime.datetime.fromisoformat(start_date).strftime("%Y-%m-%dT%H:%M:%S")
                     event["start"]["dateTime"] = start_time
                     if timezone:
                         event["start"]["timeZone"] = timezone
                 except ValueError:
-                    return json.dumps({"error": f"Invalid start datetime format: {start_datetime}. Use ISO format."})
+                    return json.dumps({"error": f"Invalid start datetime format: {start_date}. Use ISO format."})
 
-            if end_datetime:
+            if end_date:
                 try:
-                    end_time = datetime.datetime.fromisoformat(end_datetime).strftime("%Y-%m-%dT%H:%M:%S")
+                    end_time = datetime.datetime.fromisoformat(end_date).strftime("%Y-%m-%dT%H:%M:%S")
                     event["end"]["dateTime"] = end_time
                     if timezone:
                         event["end"]["timeZone"] = timezone
                 except ValueError:
-                    return json.dumps({"error": f"Invalid end datetime format: {end_datetime}. Use ISO format."})
+                    return json.dumps({"error": f"Invalid end datetime format: {end_date}. Use ISO format."})
 
             # Update the event
             updated_event = (
-                self.service.events()
-                .update(calendarId=calendar_id, eventId=event_id, body=event, sendUpdates=send_updates)
-                .execute()
+                self.service.events().update(calendarId=self.calendar_id, eventId=event_id, body=event).execute()
             )
 
             log_debug(f"Event {event_id} updated successfully.")
@@ -350,14 +317,12 @@ class GoogleCalendarTools(Toolkit):
             return json.dumps({"error": f"An error occurred: {error}"})
 
     @authenticate
-    def delete_event(self, event_id: str, calendar_id: str = "primary", send_updates: str = "none") -> str:
+    def delete_event(self, event_id: str) -> str:
         """
-        Delete an event from the calendar.
+        Delete an event from the Google Calendar.
 
         Args:
             event_id (str): ID of the event to delete
-            calendar_id (Optional[str]): Calendar ID containing the event. Default is 'primary'.
-            send_updates (Optional[str]): What kind of updates to send attendees
 
         Returns:
             str: JSON string containing success message or error message
@@ -366,7 +331,7 @@ class GoogleCalendarTools(Toolkit):
             if not self.service:
                 return json.dumps({"error": "Google Calendar service not initialized"})
 
-            self.service.events().delete(calendarId=calendar_id, eventId=event_id, sendUpdates=send_updates).execute()
+            self.service.events().delete(calendarId=self.calendar_id, eventId=event_id).execute()
 
             log_debug(f"Event {event_id} deleted successfully.")
             return json.dumps({"success": True, "message": f"Event {event_id} deleted successfully."})
@@ -377,68 +342,61 @@ class GoogleCalendarTools(Toolkit):
     @authenticate
     def fetch_all_events(
         self,
-        calendar_id: str = "primary",
-        max_results: int = 250,
-        include_past: bool = True,
-        time_min: Optional[str] = None,
-        time_max: Optional[str] = None,
+        max_results: int = 10,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
     ) -> str:
         """
-        Fetch all events, including past events if specified.
+        Fetch all Google Calendar events in a given date range.
 
         Args:
-            calendar_id (Optional[str]): Calendar ID to fetch events from. Default is 'primary'.
-            max_results (Optional[int]): Maximum number of results per page. Default is 250.
-            include_past (Optional[bool]): Whether to include past events. Default is True.
-            time_min (Optional[str]): The minimum time to include events from (ISO format).
-            time_max (Optional[str]): The maximum time to include events up to (ISO format).
+            start_date (Optional[str]): The minimum date to include events from in ISO format (YYYY-MM-DDTHH:MM:SS).
+            end_date (Optional[str]): The maximum date to include events up to in ISO format (YYYY-MM-DDTHH:MM:SS).
 
         Returns:
-            str: JSON string containing all events or error message
+            str: JSON string containing all Google Calendar events or error message
         """
         try:
             if not self.service:
                 return json.dumps({"error": "Google Calendar service not initialized"})
 
             params = {
-                "calendarId": calendar_id,
-                "maxResults": min(max_results, 2500),
+                "calendarId": self.calendar_id,
+                "maxResults": min(max_results, 100),
                 "singleEvents": True,
                 "orderBy": "startTime",
             }
 
             # Set time parameters if provided
-            if time_min:
+            if start_date:
                 # Accept both string and already formatted ISO strings
-                if isinstance(time_min, str):
+                if isinstance(start_date, str):
                     try:
                         # Try to parse and reformat to ensure proper timezone format
-                        dt = datetime.datetime.fromisoformat(time_min)
+                        dt = datetime.datetime.fromisoformat(start_date)
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=datetime.timezone.utc)
                         params["timeMin"] = dt.isoformat()
                     except ValueError:
                         # If it's already a valid ISO string, use it directly
-                        params["timeMin"] = time_min
+                        params["timeMin"] = start_date
                 else:
-                    params["timeMin"] = time_min
-            elif not include_past:
-                params["timeMin"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    params["timeMin"] = start_date
 
-            if time_max:
+            if end_date:
                 # Accept both string and already formatted ISO strings
-                if isinstance(time_max, str):
+                if isinstance(end_date, str):
                     try:
                         # Try to parse and reformat to ensure proper timezone format
-                        dt = datetime.datetime.fromisoformat(time_max)
+                        dt = datetime.datetime.fromisoformat(end_date)
                         if dt.tzinfo is None:
                             dt = dt.replace(tzinfo=datetime.timezone.utc)
                         params["timeMax"] = dt.isoformat()
                     except ValueError:
                         # If it's already a valid ISO string, use it directly
-                        params["timeMax"] = time_max
+                        params["timeMax"] = end_date
                 else:
-                    params["timeMax"] = time_max
+                    params["timeMax"] = end_date
 
             # Handle pagination
             all_events = []
@@ -455,7 +413,7 @@ class GoogleCalendarTools(Toolkit):
                 if not page_token:
                     break
 
-            log_debug(f"Fetched {len(all_events)} events from calendar: {calendar_id}")
+            log_debug(f"Fetched {len(all_events)} events from calendar: {self.calendar_id}")
 
             if not all_events:
                 return json.dumps({"message": "No events found."})
@@ -469,38 +427,32 @@ class GoogleCalendarTools(Toolkit):
         self,
         start_date: str,
         end_date: str,
-        duration_minutes: int = 60,
-        calendar_id: str = "primary",
-        start_hour: int = 9,
-        end_hour: int = 17,
-        timezone: str = "UTC",
+        duration_minutes: int = 30,
     ) -> str:
         """
         Find available time slots within a date range.
 
+        This method fetches your actual calendar events to determine busy periods,
+        then finds available slots within standard working hours (9 AM - 5 PM).
+
         Args:
-            start_date (str): Start date to search from (ISO format date)
-            end_date (str): End date to search to (ISO format date)
-            duration_minutes (int): Length of the desired slot in minutes
-            calendar_id (str): Calendar ID to check
-            start_hour (int): Start of working hours (24-hour format)
-            end_hour (int): End of working hours (24-hour format)
-            timezone (str): Timezone for the search
+            start_date (str): Start date to search from in ISO format (YYYY-MM-DD)
+            end_date (str): End date to search to in ISO format (YYYY-MM-DD)
+            duration_minutes (int): Length of the desired slot in minutes (default: 30 minutes)
 
         Returns:
-            str: JSON string containing available slots or error message
+            str: JSON string containing available Google Calendar time slots or error message
         """
         try:
-            # Convert string dates to datetime objects
+            if not self.service:
+                return json.dumps({"error": "Google Calendar service not initialized"})
+
+            # Parse dates
             try:
                 start_dt = datetime.datetime.fromisoformat(start_date)
                 end_dt = datetime.datetime.fromisoformat(end_date)
 
-                # Set the time to the beginning and end of the day with timezone
-                start_dt = start_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-                end_dt = end_dt.replace(hour=23, minute=59, second=59, microsecond=0)
-
-                # Ensure timezone awareness for Google Calendar API
+                # Ensure dates are timezone-aware (use UTC if no timezone specified)
                 if start_dt.tzinfo is None:
                     start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
                 if end_dt.tzinfo is None:
@@ -509,90 +461,198 @@ class GoogleCalendarTools(Toolkit):
             except ValueError:
                 return json.dumps({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)."})
 
-            # Get all events in the date range with proper RFC3339 format
-            events_json = self.fetch_all_events(
-                calendar_id=calendar_id, time_min=start_dt.isoformat(), time_max=end_dt.isoformat()
-            )
+            # Get working hours from user settings
+            working_hours_json = self._get_working_hours()
+            working_hours_data = json.loads(working_hours_json)
 
+            if "error" not in working_hours_data:
+                working_hours_start = working_hours_data["start_hour"]
+                working_hours_end = working_hours_data["end_hour"]
+                timezone = working_hours_data["timezone"]
+                locale = working_hours_data["locale"]
+                log_debug(
+                    f"Using working hours from settings: {working_hours_start}:00-{working_hours_end}:00 ({locale})"
+                )
+            else:
+                # Fallback defaults
+                working_hours_start, working_hours_end = 9, 17
+                timezone = "UTC"
+                locale = "en"
+                log_debug("Using default working hours: 9:00-17:00")
+
+            # Fetch actual calendar events to determine busy periods
+            events_json = self.fetch_all_events(start_date=start_date, end_date=end_date)
             events_data = json.loads(events_json)
+
             if "error" in events_data:
                 return json.dumps({"error": events_data["error"]})
 
             events = events_data if isinstance(events_data, list) else events_data.get("items", [])
 
-            # Process events to get busy times
-            busy_times = []
+            # Extract busy periods from actual calendar events
+            busy_periods = []
             for event in events:
-                # Skip events with transparency=transparent (non-blocking)
+                # Skip all-day events and transparent events
                 if event.get("transparency") == "transparent":
                     continue
 
-                start = event.get("start", {})
-                end = event.get("end", {})
+                start_info = event.get("start", {})
+                end_info = event.get("end", {})
 
-                # Handle all-day events
-                if "date" in start:
-                    start_time = datetime.datetime.fromisoformat(start["date"])
-                    end_time = datetime.datetime.fromisoformat(end["date"])
-                else:
-                    # Handle regular events
-                    start_time = datetime.datetime.fromisoformat(start.get("dateTime", "").replace("Z", "+00:00"))
-                    end_time = datetime.datetime.fromisoformat(end.get("dateTime", "").replace("Z", "+00:00"))
+                # Only process timed events (not all-day)
+                if "dateTime" in start_info and "dateTime" in end_info:
+                    try:
+                        start_time = datetime.datetime.fromisoformat(start_info["dateTime"].replace("Z", "+00:00"))
+                        end_time = datetime.datetime.fromisoformat(end_info["dateTime"].replace("Z", "+00:00"))
+                        busy_periods.append((start_time, end_time))
+                    except (ValueError, KeyError) as e:
+                        log_debug(f"Skipping invalid event: {e}")
+                        continue
 
-                busy_times.append((start_time, end_time))
-
-            # Find available slots
+            # Generate available slots within working hours
             available_slots = []
-            current_date = start_dt
+            current_date = start_dt.replace(hour=working_hours_start, minute=0, second=0, microsecond=0)
+            end_search = end_dt.replace(hour=working_hours_end, minute=0, second=0, microsecond=0)
 
-            while current_date <= end_dt:
-                # Set working hours for the day
-                day_start = current_date.replace(hour=start_hour, minute=0, second=0)
-                day_end = current_date.replace(hour=end_hour, minute=0, second=0)
+            while current_date <= end_search:
+                # Skip weekends if not in working hours
+                if current_date.weekday() >= 5:  # Saturday=5, Sunday=6
+                    current_date = (current_date + datetime.timedelta(days=1)).replace(
+                        hour=working_hours_start, minute=0, second=0, microsecond=0
+                    )
+                    continue
 
-                # Create potential slots
-                slot_start = day_start
-                while slot_start < day_end:
-                    slot_end = slot_start + datetime.timedelta(minutes=duration_minutes)
-                    if slot_end > day_end:
+                slot_end = current_date + datetime.timedelta(minutes=duration_minutes)
+
+                # Check if this slot conflicts with any busy period
+                is_available = True
+                for busy_start, busy_end in busy_periods:
+                    if not (slot_end <= busy_start or current_date >= busy_end):
+                        is_available = False
                         break
 
-                    # Check if slot overlaps with any busy time
-                    is_available = True
-                    for busy_start, busy_end in busy_times:
-                        # If there's any overlap, mark as unavailable
-                        if not (slot_end <= busy_start or slot_start >= busy_end):
-                            is_available = False
-                            break
+                # Only add slots within working hours
+                if is_available and slot_end.hour <= working_hours_end:
+                    available_slots.append({"start": current_date.isoformat(), "end": slot_end.isoformat()})
 
-                    if is_available:
-                        available_slots.append({"start": slot_start.isoformat(), "end": slot_end.isoformat()})
+                # Move to next slot (30-minute intervals)
+                current_date += datetime.timedelta(minutes=30)
 
-                    # Move to next potential slot (30-minute increments)
-                    slot_start += datetime.timedelta(minutes=30)
+                # Skip to next day at working hours start if past working hours end
+                if current_date.hour >= working_hours_end:
+                    current_date = (current_date + datetime.timedelta(days=1)).replace(
+                        hour=working_hours_start, minute=0, second=0, microsecond=0
+                    )
 
-                # Move to next day
-                current_date += datetime.timedelta(days=1)
+            result = {
+                "available_slots": available_slots,
+                "duration_minutes": duration_minutes,
+                "working_hours": {"start": f"{working_hours_start:02d}:00", "end": f"{working_hours_end:02d}:00"},
+                "timezone": timezone,
+                "locale": locale,
+                "events_analyzed": len(busy_periods),
+            }
 
-            return json.dumps(
-                {"available_slots": available_slots, "timezone": timezone, "duration_minutes": duration_minutes}
-            )
+            log_debug(f"Found {len(available_slots)} available slots")
+            return json.dumps(result)
 
         except Exception as e:
             log_error(f"An error occurred while finding available slots: {e}")
             return json.dumps({"error": f"An error occurred: {str(e)}"})
 
-
-class GoogleCalendarTokenTools(GoogleCalendarTools):
-    """
-    Backward compatibility class for token-based authentication.
-    """
-
-    def __init__(self, access_token: str, **kwargs):
+    @authenticate
+    def _get_working_hours(self) -> str:
         """
-        Initialize with access token for backward compatibility.
+        Get working hours based on user's calendar settings and locale.
+
+        Returns:
+            str: JSON string containing working hours information
+        """
+        try:
+            if not self.service:
+                return json.dumps({"error": "Google Calendar service not initialized"})
+
+            # Get all user settings
+            settings_result = self.service.settings().list().execute()
+            settings = settings_result.get("items", [])
+
+            # Process settings into a more usable format
+            user_prefs = {}
+            for setting in settings:
+                user_prefs[setting["id"]] = setting["value"]
+
+            # Extract relevant settings
+            timezone = user_prefs.get("timezone", "UTC")
+            locale = user_prefs.get("locale", "en")
+            week_start = int(user_prefs.get("weekStart", "0"))  # 0=Sunday, 1=Monday, 6=Saturday
+            hide_weekends = user_prefs.get("hideWeekends", "false") == "true"
+
+            # Determine working hours based on locale/culture
+            if locale.startswith(("es", "it", "pt")):  # Spain, Italy, Portugal
+                start_hour, end_hour = 9, 18
+            elif locale.startswith(("de", "nl", "dk", "se", "no")):  # Northern Europe
+                start_hour, end_hour = 8, 17
+            elif locale.startswith(("ja", "ko")):  # East Asia
+                start_hour, end_hour = 9, 18
+            else:  # Default US/International
+                start_hour, end_hour = 9, 17
+
+            working_hours = {
+                "start_hour": start_hour,
+                "end_hour": end_hour,
+                "start_time": f"{start_hour:02d}:00",
+                "end_time": f"{end_hour:02d}:00",
+                "timezone": timezone,
+                "locale": locale,
+                "week_start": week_start,
+                "hide_weekends": hide_weekends,
+            }
+
+            log_debug(f"Working hours for locale {locale}: {start_hour}:00-{end_hour}:00")
+            return json.dumps(working_hours)
+
+        except HttpError as error:
+            log_error(f"An error occurred while getting working hours: {error}")
+            return json.dumps({"error": f"An error occurred: {error}"})
+
+    @authenticate
+    def list_calendars(self) -> str:
+        """
+        List all available Google Calendars for the authenticated user.
 
         Args:
-            access_token (str): OAuth 2.0 access token
+            None
+
+        Returns:
+            str: JSON string containing available calendars with their IDs and names
         """
-        super().__init__(access_token=access_token, **kwargs)
+        try:
+            if not self.service:
+                return json.dumps({"error": "Google Calendar service not initialized"})
+
+            calendar_list = self.service.calendarList().list().execute()
+            calendars = calendar_list.get("items", [])
+
+            all_calendars = []
+            for calendar in calendars:
+                calendar_info = {
+                    "id": calendar.get("id"),
+                    "name": calendar.get("summary", "Unnamed Calendar"),
+                    "description": calendar.get("description", ""),
+                    "primary": calendar.get("primary", False),
+                    "access_role": calendar.get("accessRole", "unknown"),
+                    "color": calendar.get("backgroundColor", "#ffffff"),
+                }
+                all_calendars.append(calendar_info)
+
+            log_debug(f"Found {len(all_calendars)} calendars for user")
+            return json.dumps(
+                {
+                    "calendars": all_calendars,
+                    "current_default": self.calendar_id,
+                }
+            )
+
+        except HttpError as error:
+            log_error(f"An error occurred while listing calendars: {error}")
+            return json.dumps({"error": f"An error occurred: {error}"})

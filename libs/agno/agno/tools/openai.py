@@ -197,55 +197,50 @@ class OpenAITools(Toolkit):
         """
         try:
             log_debug(f"Performing web search for: {query}")
-            
+
             search_context_size = context_size or self.web_search_context_size
-            
+
             web_search_tool = {
                 "type": "web_search_preview",
                 "search_context_size": search_context_size,
             }
-            
+
             if location:
                 location_parts = [part.strip() for part in location.split(",")]
                 if len(location_parts) >= 2:
                     web_search_tool["user_location"] = {
                         "type": "approximate",
                         "country": location_parts[-1],
-                        "city": location_parts[0] if len(location_parts) > 1 else None
+                        "city": location_parts[0] if len(location_parts) > 1 else None,
                     }
                 else:
-                    web_search_tool["user_location"] = {
-                        "type": "approximate",
-                        "country": location_parts[0]
-                    }
-            
+                    web_search_tool["user_location"] = {"type": "approximate", "country": location_parts[0]}
+
             response = OpenAIClient(api_key=self.api_key).responses.create(
-                model=self.web_search_model,
-                input=query,
-                tools=[web_search_tool]
+                model=self.web_search_model, input=query, tools=[web_search_tool]
             )
-            
+
             # Extract the final response text
-            if hasattr(response, 'output_text') and response.output_text:
+            if hasattr(response, "output_text") and response.output_text:
                 result = response.output_text
-                log_debug(f"Web search completed successfully")
+                log_debug("Web search completed successfully")
                 return result
             elif response.output and len(response.output) > 0:
                 # Handle case where output_text is not available but output array exists
                 for output_item in response.output:
-                    if hasattr(output_item, 'content') and output_item.content:
+                    if hasattr(output_item, "content") and output_item.content:
                         for content_item in output_item.content:
-                            if hasattr(content_item, 'text'):
+                            if hasattr(content_item, "text"):
                                 result = content_item.text
-                                log_debug(f"Web search completed successfully")
+                                log_debug("Web search completed successfully")
                                 return result
-                
+
                 log_warning("Web search response received but no text content found")
                 return "Web search completed but no text content was returned."
             else:
                 log_warning("Web search response received but no output found")
                 return "Web search completed but no output was returned."
-                
+
         except Exception as e:
             log_error(f"Failed to perform web search: {str(e)}")
             return f"Failed to perform web search: {str(e)}"

@@ -12,12 +12,7 @@ from agno.tools.openai import OpenAITools
 simple_agent = Agent(
     name="New Reporter Agent",
     model=OpenAIChat(id="gpt-4o"),
-    tools=[
-        OpenAITools(
-            enable_web_search=True,
-            web_search_context_size="medium"
-        )
-    ],
+    tools=[OpenAITools(enable_web_search=True, web_search_context_size="medium")],
     instructions=dedent("""\
         You are an enthusiastic news reporter with a flair for storytelling! 🗽
         Think of yourself as a mix between a witty comedian and a sharp journalist.
@@ -40,4 +35,7 @@ simple_agent = Agent(
 )
 
 if __name__ == "__main__":
-    simple_agent.print_response("What's the latest breaking news happening in NYC and San Francisco today?", stream=True)
+    simple_agent.print_response(
+        "What's the latest breaking news happening in NYC and San Francisco today?",
+        stream=True,
+    )

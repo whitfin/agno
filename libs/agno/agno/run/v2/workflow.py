@@ -427,7 +427,7 @@ class WorkflowRunResponse:
     step_results: List[Union["StepOutput", List["StepOutput"]]] = field(default_factory=list)  # noqa: F821
 
     # Store agent/team responses separately with parent_run_id references
-    step_member_runs: List[Union[RunResponse, TeamRunResponse]] = field(default_factory=list)
+    step_member_runs: Optional[List[Union[RunResponse, TeamRunResponse]]] = None
 
     # Store events from workflow execution
     events: Optional[List[WorkflowRunResponseEvent]] = None

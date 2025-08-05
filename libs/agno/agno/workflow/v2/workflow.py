@@ -559,6 +559,7 @@ class Workflow:
                         session_id=self.session_id,
                         user_id=self.user_id,
                         workflow_run_response=workflow_run_response,
+                        store_executor_responses=self.store_executor_responses,
                     )  # type: ignore[union-attr]
 
                     # Update the workflow-level previous_step_outputs dictionary
@@ -704,6 +705,7 @@ class Workflow:
                         stream_intermediate_steps=stream_intermediate_steps,
                         workflow_run_response=workflow_run_response,
                         step_index=i,
+                        store_executor_responses=self.store_executor_responses,
                     ):
                         # Handle events
                         if isinstance(event, StepOutput):
@@ -928,6 +930,7 @@ class Workflow:
                         session_id=self.session_id,
                         user_id=self.user_id,
                         workflow_run_response=workflow_run_response,
+                        store_executor_responses=self.store_executor_responses,
                     )  # type: ignore[union-attr]
 
                     # Update the workflow-level previous_step_outputs dictionary
@@ -1079,6 +1082,7 @@ class Workflow:
                         stream_intermediate_steps=stream_intermediate_steps,
                         workflow_run_response=workflow_run_response,
                         step_index=i,
+                        store_executor_responses=self.store_executor_responses,
                     ):
                         if isinstance(event, StepOutput):
                             step_output = event

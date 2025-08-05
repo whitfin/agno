@@ -168,11 +168,11 @@ class Team:
     # Memory manager to use for this agent
     memory_manager: Optional[MemoryManager] = None
 
-    # --- User provided context ---
-    # User provided context
-    context: Optional[Dict[str, Any]] = None
-    # If True, add the context to the user prompt
-    add_context: bool = False
+    # --- User provided dependencies ---
+    # User provided dependencies
+    dependencies: Optional[Dict[str, Any]] = None
+    # If True, add the dependencies to the user prompt
+    add_dependencies_to_context: bool = False
 
     # --- Agent Knowledge ---
     knowledge: Optional[Knowledge] = None
@@ -252,8 +252,8 @@ class Team:
     add_session_summary_references: Optional[bool] = None
 
     # --- Team History ---
-    # add_history_to_messages=true adds messages from the chat history to the messages list sent to the Model.
-    add_history_to_messages: bool = False
+    # add_history_to_context=true adds messages from the chat history to the messages list sent to the Model.
+    add_history_to_context: bool = False
     # Number of historical runs to include in the messages
     num_history_runs: int = 3
 
@@ -322,8 +322,8 @@ class Team:
         add_member_tools_to_system_message: bool = True,
         system_message: Optional[Union[str, Callable, Message]] = None,
         system_message_role: str = "system",
-        context: Optional[Dict[str, Any]] = None,
-        add_context: bool = False,
+        dependencies: Optional[Dict[str, Any]] = None,
+        add_dependencies_to_context: bool = False,
         knowledge: Optional[Knowledge] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         add_references: bool = False,
@@ -351,7 +351,7 @@ class Team:
         enable_session_summaries: bool = False,
         session_summary_manager: Optional[SessionSummaryManager] = None,
         add_session_summary_references: Optional[bool] = None,
-        add_history_to_messages: bool = False,
+        add_history_to_context: bool = False,
         num_history_runs: int = 3,
         extra_data: Optional[Dict[str, Any]] = None,
         reasoning: bool = False,
@@ -399,8 +399,8 @@ class Team:
         self.system_message = system_message
         self.system_message_role = system_message_role
 
-        self.context = context
-        self.add_context = add_context
+        self.dependencies = dependencies
+        self.add_dependencies_to_context = add_dependencies_to_context
 
         self.knowledge = knowledge
         self.knowledge_filters = knowledge_filters
@@ -434,7 +434,7 @@ class Team:
         self.enable_session_summaries = enable_session_summaries
         self.session_summary_manager = session_summary_manager
         self.add_session_summary_references = add_session_summary_references
-        self.add_history_to_messages = add_history_to_messages
+        self.add_history_to_context = add_history_to_context
         self.num_history_runs = num_history_runs
 
         self.extra_data = extra_data
@@ -950,8 +950,8 @@ class Team:
             raise ValueError("Team session is not a TeamSession")
 
         # Read existing session from storage
-        if self.context is not None:
-            self._resolve_run_context()
+        if self.dependencies is not None:
+            self._resolve_run_dependencies()
 
         # Configure the model for runs
         self._set_default_model()
@@ -1334,8 +1334,8 @@ class Team:
         self.get_team_session(session_id=session_id, user_id=user_id)
 
         # Read existing session from storage
-        if self.context is not None:
-            self._resolve_run_context()
+        if self.dependencies is not None:
+            self._resolve_run_dependencies()
 
         # Configure the model for runs
         self._set_default_model()
@@ -4645,13 +4645,13 @@ class Team:
             rr.created_at = created_at
         return rr
 
-    def _resolve_run_context(self) -> None:
+    def _resolve_run_dependencies(self) -> None:
         from inspect import signature
 
-        log_debug("Resolving context")
-        if self.context is not None:
-            if isinstance(self.context, dict):
-                for ctx_key, ctx_value in self.context.items():
+        log_debug("Resolving dependencies")
+        if self.dependencies is not None:
+            if isinstance(self.dependencies, dict):
+                for ctx_key, ctx_value in self.dependencies.items():
                     if callable(ctx_value):
                         try:
                             sig = signature(ctx_value)
@@ -4660,13 +4660,13 @@ class Team:
                             else:
                                 resolved_ctx_value = ctx_value()
                             if resolved_ctx_value is not None:
-                                self.context[ctx_key] = resolved_ctx_value
+                                self.dependencies[ctx_key] = resolved_ctx_value
                         except Exception as e:
-                            log_warning(f"Failed to resolve context for {ctx_key}: {e}")
+                            log_warning(f"Failed to resolve dependencies for {ctx_key}: {e}")
                     else:
-                        self.context[ctx_key] = ctx_value
+                        self.dependencies[ctx_key] = ctx_value
             else:
-                log_warning("Context is not a dict")
+                log_warning("Dependencies is not a dict")
 
     def determine_tools_for_model(
         self,
@@ -5198,7 +5198,7 @@ class Team:
             run_messages.messages.append(system_message)
 
         # 2. Add history to run_messages
-        if self.add_history_to_messages:
+        if self.add_history_to_context:
             from copy import deepcopy
 
             history = self.team_session.get_messages_from_last_n_runs(
@@ -5315,9 +5315,9 @@ class Team:
                 user_message_content += self._convert_documents_to_string(references.references) + "\n"
                 user_message_content += "</references>"
             # Add context to user message
-            if self.add_context and self.context is not None:
+            if self.add_dependencies_to_context and self.dependencies is not None:
                 user_message_content += "\n\n<context>\n"
-                user_message_content += self._convert_context_to_string(self.context) + "\n"
+                user_message_content += self._convert_dependencies_to_string(self.dependencies) + "\n"
                 user_message_content += "</context>"
 
             return Message(
@@ -5409,7 +5409,7 @@ class Team:
             self.session_state or {},
             self.team_session_state or {},
             self.workflow_session_state or {},
-            self.context or {},
+            self.dependencies or {},
             self.extra_data or {},
             {"user_id": user_id} if user_id is not None else {},
         )
@@ -5429,7 +5429,7 @@ class Team:
             log_warning(f"Template substitution failed: {e}")
             return message
 
-    def _convert_context_to_string(self, context: Dict[str, Any]) -> str:
+    def _convert_dependencies_to_string(self, context: Dict[str, Any]) -> str:
         """Convert the context dictionary to a string representation.
 
         Args:
@@ -5754,7 +5754,7 @@ class Team:
 
                 # Add history for the member if enabled
                 history = None
-                if member_agent.add_history_to_messages:
+                if member_agent.add_history_to_context:
                     history = self._get_history_for_member_agent(member_agent, session_id)
                     if history:
                         history.append(Message(role="user", content=member_agent_task))
@@ -5877,7 +5877,7 @@ class Team:
 
                 # Add history for the member if enabled
                 history = None
-                if member_agent.add_history_to_messages:
+                if member_agent.add_history_to_context:
                     history = self._get_history_for_member_agent(member_agent, session_id)
                     if history:
                         history.append(Message(role="user", content=member_agent_task))
@@ -6041,7 +6041,7 @@ class Team:
             )
 
             # 4. Add history for the member if enabled
-            if member_agent.add_history_to_messages:
+            if member_agent.add_history_to_context:
                 history = self._get_history_for_member_agent(member_agent, session_id)
                 if history:
                     history.append(Message(role="user", content=member_agent_task))
@@ -6187,7 +6187,7 @@ class Team:
             )
 
             # 4. Add history for the member if enabled
-            if member_agent.add_history_to_messages:
+            if member_agent.add_history_to_context:
                 history = self._get_history_for_member_agent(member_agent, session_id)
                 if history:
                     history.append(Message(role="user", content=member_agent_task))
@@ -6427,7 +6427,7 @@ class Team:
             member_agent_task = message.get_content_string()
 
             # Add history for the member if enabled
-            if member_agent.add_history_to_messages:
+            if member_agent.add_history_to_context:
                 history = self._get_history_for_member_agent(member_agent, session_id)
                 if history:
                     history.append(Message(role="user", content=member_agent_task))
@@ -6567,7 +6567,7 @@ class Team:
             member_agent_task = message.get_content_string()
 
             # Add history for the member if enabled
-            if member_agent.add_history_to_messages:
+            if member_agent.add_history_to_context:
                 history = self._get_history_for_member_agent(member_agent, session_id)
                 if history:
                     history.append(Message(role="user", content=member_agent_task))

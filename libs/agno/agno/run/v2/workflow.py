@@ -529,6 +529,7 @@ class WorkflowRunResponse:
         step_member_runs_data = data.pop("step_member_runs", [])
         step_member_runs: List[Union[RunResponse, TeamRunResponse]] = []
         if step_member_runs_data:
+            step_member_runs = []
             for run_data in step_member_runs_data:
                 if "team_id" in run_data or "team_name" in run_data:
                     step_member_runs.append(TeamRunResponse.from_dict(run_data))

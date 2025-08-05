@@ -270,9 +270,6 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing the updated Google Calendar event or error message
         """
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             # First get the existing event to preserve its structure
             event = self.service.events().get(calendarId=self.calendar_id, eventId=event_id).execute()
 
@@ -328,9 +325,6 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing success message or error message
         """
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             self.service.events().delete(calendarId=self.calendar_id, eventId=event_id).execute()
 
             log_debug(f"Event {event_id} deleted successfully.")
@@ -357,9 +351,6 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing all Google Calendar events or error message
         """
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             params = {
                 "calendarId": self.calendar_id,
                 "maxResults": min(max_results, 100),
@@ -444,22 +435,13 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing available Google Calendar time slots or error message
         """
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
-            # Parse dates
-            try:
-                start_dt = datetime.datetime.fromisoformat(start_date)
-                end_dt = datetime.datetime.fromisoformat(end_date)
-
-                # Ensure dates are timezone-aware (use UTC if no timezone specified)
-                if start_dt.tzinfo is None:
-                    start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
-                if end_dt.tzinfo is None:
-                    end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
-
-            except ValueError:
-                return json.dumps({"error": "Invalid date format. Use ISO format (YYYY-MM-DD)."})
+            start_dt = datetime.datetime.fromisoformat(start_date)
+            end_dt = datetime.datetime.fromisoformat(end_date)
+            # Ensure dates are timezone-aware (use UTC if no timezone specified)
+            if start_dt.tzinfo is None:
+                start_dt = start_dt.replace(tzinfo=datetime.timezone.utc)
+            if end_dt.tzinfo is None:
+                end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
 
             # Get working hours from user settings
             working_hours_json = self._get_working_hours()
@@ -569,9 +551,6 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing working hours information
         """
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             # Get all user settings
             settings_result = self.service.settings().list().execute()
             settings = settings_result.get("items", [])
@@ -620,16 +599,10 @@ class GoogleCalendarTools(Toolkit):
         """
         List all available Google Calendars for the authenticated user.
 
-        Args:
-            None
-
         Returns:
             str: JSON string containing available calendars with their IDs and names
         """
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             calendar_list = self.service.calendarList().list().execute()
             calendars = calendar_list.get("items", [])
 

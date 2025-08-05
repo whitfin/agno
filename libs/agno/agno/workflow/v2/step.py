@@ -158,7 +158,11 @@ class Step:
         return None
 
     def execute(
-        self, step_input: StepInput, session_id: Optional[str] = None, user_id: Optional[str] = None
+        self,
+        step_input: StepInput,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        workflow_run_response: Optional["WorkflowRunResponse"] = None,
     ) -> StepOutput:
         """Execute the step with StepInput, returning final StepOutput (non-streaming)"""
         log_debug(f"Executing step: {self.name}")
@@ -238,6 +242,11 @@ class Step:
                             session_id=session_id,
                             user_id=user_id,
                         )
+
+                        if self._executor_type in ["agent", "team"]:
+                            self.active_executor.run_response.parent_run_id = workflow_run_response.run_id
+
+                        self._store_member_run(workflow_run_response)
 
                         # Switch back to workflow logger after execution
                         use_workflow_logger()
@@ -365,6 +374,11 @@ class Step:
                             stream_intermediate_steps=stream_intermediate_steps,
                         )
 
+                        if self._executor_type in ["agent", "team"]:
+                            self.active_executor.run_response.parent_run_id = workflow_run_response.run_id
+
+                        self._store_member_run(workflow_run_response)
+
                         for event in response_stream:
                             yield event  # type: ignore[misc]
                         final_response = self._process_step_output(self.active_executor.run_response)  # type: ignore
@@ -416,7 +430,11 @@ class Step:
         return
 
     async def aexecute(
-        self, step_input: StepInput, session_id: Optional[str] = None, user_id: Optional[str] = None
+        self,
+        step_input: StepInput,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        workflow_run_response: Optional["WorkflowRunResponse"] = None,
     ) -> StepOutput:
         """Execute the step with StepInput, returning final StepOutput (non-streaming)"""
         logger.info(f"Executing async step (non-streaming): {self.name}")
@@ -513,6 +531,11 @@ class Step:
                             session_id=session_id,
                             user_id=user_id,
                         )
+
+                        if self._executor_type in ["agent", "team"]:
+                            self.active_executor.run_response.parent_run_id = workflow_run_response.run_id
+
+                        self._store_member_run(workflow_run_response)
 
                         # Switch back to workflow logger after execution
                         use_workflow_logger()
@@ -658,6 +681,11 @@ class Step:
                             stream_intermediate_steps=stream_intermediate_steps,
                         )
 
+                        if self._executor_type in ["agent", "team"]:
+                            self.active_executor.run_response.parent_run_id = workflow_run_response.run_id
+
+                        self._store_member_run(workflow_run_response)
+
                         async for event in response_stream:
                             log_debug(f"Received async event from agent: {type(event).__name__}")
                             yield event  # type: ignore[misc]
@@ -705,6 +733,15 @@ class Step:
                         raise e
 
         return
+
+    def _store_member_run(self, workflow_run_response: "WorkflowRunResponse") -> None:
+        """Store agent/team responses in step_member_runs if enabled"""
+        if self._executor_type in ["agent", "team"]:
+            # Get the raw response from the step's active executor
+            raw_response = getattr(self.active_executor, "run_response", None)
+            if raw_response and isinstance(raw_response, (RunResponse, TeamRunResponse)):
+                # Add to step_member_runs
+                workflow_run_response.step_member_runs.append(raw_response)
 
     def _prepare_message(
         self,

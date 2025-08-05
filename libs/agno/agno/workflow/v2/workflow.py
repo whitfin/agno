@@ -554,13 +554,12 @@ class Workflow:
                         shared_audio=shared_audio,
                     )
 
-                    step_output = step.execute(step_input, session_id=self.session_id, user_id=self.user_id)  # type: ignore[union-attr]
-
-                    if step._executor_type in ["agent", "team"]:
-                        step.active_executor.run_response.parent_run_id = workflow_run_response.run_id
-
-                    # Store agent/team responses in step_member_runs if enabled
-                    self._store_member_run(step, workflow_run_response)
+                    step_output = step.execute(
+                        step_input,
+                        session_id=self.session_id,
+                        user_id=self.user_id,
+                        workflow_run_response=workflow_run_response,
+                    )  # type: ignore[union-attr]
 
                     # Update the workflow-level previous_step_outputs dictionary
                     if isinstance(step_output, list):
@@ -711,9 +710,6 @@ class Workflow:
                             step_output = event
                             collected_step_outputs.append(step_output)
 
-                            # Store agent/team responses in step_member_runs if enabled
-                            self._store_member_run(step, workflow_run_response)
-
                             # Update the workflow-level previous_step_outputs dictionary
                             previous_step_outputs[step_name] = step_output
 
@@ -758,9 +754,6 @@ class Workflow:
                         else:
                             # Yield other internal events
                             yield self._handle_event(event, workflow_run_response)  # type: ignore
-
-                    if step._executor_type in ["agent", "team"]:
-                        step.active_executor.run_response.parent_run_id = workflow_run_response.run_id
 
                     # Break out of main step loop if early termination was requested
                     if "early_termination" in locals() and early_termination:
@@ -930,13 +923,12 @@ class Workflow:
                         shared_audio=shared_audio,
                     )
 
-                    step_output = await step.aexecute(step_input, session_id=self.session_id, user_id=self.user_id)  # type: ignore[union-attr]
-
-                    if step._executor_type in ["agent", "team"]:
-                        step.active_executor.run_response.parent_run_id = workflow_run_response.run_id
-
-                    # Store agent/team responses in step_member_runs if enabled
-                    self._store_member_run(step, workflow_run_response)
+                    step_output = await step.aexecute(
+                        step_input,
+                        session_id=self.session_id,
+                        user_id=self.user_id,
+                        workflow_run_response=workflow_run_response,
+                    )  # type: ignore[union-attr]
 
                     # Update the workflow-level previous_step_outputs dictionary
                     if isinstance(step_output, list):
@@ -1092,9 +1084,6 @@ class Workflow:
                             step_output = event
                             collected_step_outputs.append(step_output)
 
-                            # Store agent/team responses in step_member_runs if enabled
-                            self._store_member_run(step, workflow_run_response)
-
                             # Update the workflow-level previous_step_outputs dictionary
                             previous_step_outputs[step_name] = step_output
 
@@ -1138,9 +1127,6 @@ class Workflow:
                         else:
                             # Yield other internal events
                             yield self._handle_event(event, workflow_run_response, websocket_handler=websocket_handler)  # type: ignore
-
-                    if step._executor_type in ["agent", "team"]:
-                        step.active_executor.run_response.parent_run_id = workflow_run_response.run_id
 
                     # Break out of main step loop if early termination was requested
                     if "early_termination" in locals() and early_termination:
@@ -3442,15 +3428,6 @@ class Workflow:
         if self.workflow_session:
             self.workflow_session.upsert_run(workflow_run_response)
             self.write_to_storage()
-
-    def _store_member_run(self, step: Step, workflow_run_response: WorkflowRunResponse) -> None:
-        """Store agent/team responses in step_member_runs if enabled"""
-        if self.store_executor_responses and step._executor_type in ["agent", "team"]:
-            # Get the raw response from the step's active executor
-            raw_response = getattr(step.active_executor, "run_response", None)
-            if raw_response and isinstance(raw_response, (RunResponse, TeamRunResponse)):
-                # Add to step_member_runs
-                workflow_run_response.step_member_runs.append(raw_response)
 
     def update_agents_and_teams_session_info(self):
         """Update agents and teams with workflow session information"""

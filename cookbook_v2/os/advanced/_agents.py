@@ -1,15 +1,16 @@
-from textwrap import dedent
-from agno.agent import Agent
-from agno.db.postgres import PostgresDb
-from agno.models.anthropic.claude import Claude
-from agno.models.openai.chat import OpenAIChat
-from agno.tools.exa import ExaTools
-from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.tools.file import FileTools
 from datetime import datetime
 from pathlib import Path
+from textwrap import dedent
+
+from agno.agent import Agent
+from agno.db.postgres import PostgresDb
 from agno.knowledge.embedder.openai import OpenAIEmbedder
 from agno.knowledge.knowledge import Knowledge
+from agno.models.anthropic.claude import Claude
+from agno.models.openai.chat import OpenAIChat
+from agno.tools.duckduckgo import DuckDuckGoTools
+from agno.tools.exa import ExaTools
+from agno.tools.file import FileTools
 from agno.vectordb.pgvector.pgvector import PgVector
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
@@ -127,10 +128,10 @@ sage = Agent(
     # Allow Sage to read both chat history and tool call history for better context.
     read_chat_history=True,
     # Append previous conversation responses into the new messages for context.
-    add_history_to_messages=True,
+    add_history_to_context=True,
     num_history_runs=5,
-    add_datetime_to_instructions=True,
-    add_name_to_instructions=True,
+    add_datetime_to_context=True,
+    add_name_to_context=True,
     enable_user_memories=True,
     description=AGENT_DESCRIPTION,
     instructions=AGENT_INSTRUCTIONS,
@@ -155,7 +156,7 @@ agno_assist = Agent(
     instructions="Search your knowledge before answering the question.",
     knowledge=knowledge,
     db=PostgresDb(db_url=db_url, session_table="agno_assist_sessions"),
-    add_history_to_messages=True,
-    add_datetime_to_instructions=True,
+    add_history_to_context=True,
+    add_datetime_to_context=True,
     markdown=True,
 )

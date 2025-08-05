@@ -54,6 +54,12 @@ def attach_routes(router: APIRouter, db: BaseDb) -> APIRouter:
         sort_by: Optional[str] = Query(default="updated_at", description="Field to sort by"),
         sort_order: Optional[SortOrder] = Query(default="desc", description="Sort order (asc or desc)"),
     ) -> PaginatedResponse[UserMemorySchema]:
+
+        if topics:
+            topics = [topic.strip() for topic in topics if topic.strip()]
+            if not topics:
+                topics = None
+        
         user_memories, total_count = db.get_user_memories(
             limit=limit,
             page=page,

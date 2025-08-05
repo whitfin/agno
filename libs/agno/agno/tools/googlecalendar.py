@@ -1,8 +1,9 @@
 import datetime
 import json
-import os.path
 import uuid
 from functools import wraps
+from os import getenv
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agno.tools import Toolkit
@@ -12,8 +13,9 @@ try:
     from google.auth.transport.requests import Request
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import InstalledAppFlow
-    from googleapiclient.discovery import build
+    from googleapiclient.discovery import Resource, build
     from googleapiclient.errors import HttpError
+
 except ImportError:
     raise ImportError(
         "Google client libraries not found, Please install using `pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib`"
@@ -40,39 +42,34 @@ def authenticate(func):
 
 
 class GoogleCalendarTools(Toolkit):
+    # Default scopes for Google Calendar API access
+    DEFAULT_SCOPES = {
+        "read": "https://www.googleapis.com/auth/calendar.readonly",
+        "write": "https://www.googleapis.com/auth/calendar",
+    }
+
+    service: Optional[Resource]
+
     def __init__(
         self,
+        scopes: Optional[List[str]] = None,
         credentials_path: Optional[str] = None,
         token_path: Optional[str] = "token.json",
         access_token: Optional[str] = None,
         calendar_id: str = "primary",
         oauth_port: int = 8080,
+        allow_update: bool = False,
         **kwargs,
     ):
         self.creds: Optional[Credentials] = None
-        self.service: Optional[Any] = None
+        self.service: Optional[Resource] = None
         self.calendar_id: str = calendar_id
         self.oauth_port: int = oauth_port
-
-        # Token-based authentication
-        if access_token:
-            self.access_token = access_token
-            self.creds = Credentials(access_token)
-
-        # File-based authentication
-        elif credentials_path:
-            if not os.path.exists(credentials_path):
-                raise ValueError("Credentials Path is invalid")
-
-            self.credentials_path = credentials_path
-        elif token_path:
-            if not os.path.exists(token_path):
-                raise ValueError("Token Path is invalid")
-            self.token_path = token_path
-
-        else:
-            log_error("Google calendar tool authentication requires credentials path or access token")
-            raise ValueError("Either credentials path or access token is required")
+        self.access_token = access_token
+        self.credentials_path = credentials_path
+        self.token_path = token_path
+        self.allow_update = allow_update
+        self.scopes = scopes or []
 
         super().__init__(
             name="google_calendar_tools",
@@ -87,37 +84,61 @@ class GoogleCalendarTools(Toolkit):
             ],
             **kwargs,
         )
+        if not self.scopes:
+            # Add read permission by default
+            self.scopes.append(self.DEFAULT_SCOPES["read"])
+            # Add write permission if allow_update is True
+            if self.allow_update:
+                self.scopes.append(self.DEFAULT_SCOPES["write"])
+
+        # Validate that required scopes are present for requested operations
+        if self.allow_update and self.DEFAULT_SCOPES["write"] not in self.scopes:
+            raise ValueError(f"The scope {self.DEFAULT_SCOPES['write']} is required for write operations")
+        if self.DEFAULT_SCOPES["read"] not in self.scopes and self.DEFAULT_SCOPES["write"] not in self.scopes:
+            raise ValueError(
+                f"Either {self.DEFAULT_SCOPES['read']} or {self.DEFAULT_SCOPES['write']} is required for read operations"
+            )
 
     def _auth(self) -> None:
-        """Authenticate with Google Calendar API"""
-        # Handle token-based authentication
-        if hasattr(self, "access_token"):
-            self.creds = Credentials(self.access_token)
+        """
+        Authenticate with Google Calendar API
+        """
+        if self.creds and self.creds.valid:
             return
 
-        # Handle file-based authentication
-        if hasattr(self, "token_path") and os.path.exists(self.token_path):
-            self.creds = Credentials.from_authorized_user_file(self.token_path, SCOPES)
+        token_file = Path(self.token_path or "token.json")
+        creds_file = Path(self.credentials_path or "credentials.json")
+
+        if token_file.exists():
+            self.creds = Credentials.from_authorized_user_file(str(token_file), self.DEFAULT_SCOPES)
 
         if not self.creds or not self.creds.valid:
             if self.creds and self.creds.expired and self.creds.refresh_token:
                 self.creds.refresh(Request())
             else:
-                flow = InstalledAppFlow.from_client_secrets_file(self.credentials_path, SCOPES)
-                try:
-                    log_debug(f"Attempting OAuth authentication on port {self.oauth_port}")
-                    self.creds = flow.run_local_server(port=self.oauth_port)
-                except Exception as e:
-                    log_error(f"An error occurred: {e}")
-                    return
+                client_config = {
+                    "installed": {
+                        "client_id": getenv("GOOGLE_CLIENT_ID"),
+                        "client_secret": getenv("GOOGLE_CLIENT_SECRET"),
+                        "project_id": getenv("GOOGLE_PROJECT_ID"),
+                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                        "redirect_uris": [getenv("GOOGLE_REDIRECT_URI", "http://localhost")],
+                    }
+                }
+                # File based authentication
+                if creds_file.exists():
+                    flow = InstalledAppFlow.from_client_secrets_file(str(creds_file), self.scopes)
+                else:
+                    flow = InstalledAppFlow.from_client_config(client_config, self.scopes)
+                # Opens up a browser window for OAuth authentication
+                self.creds = flow.run_local_server(port=self.oauth_port)
 
-                # Save the credentials for future use
-                if self.creds:
-                    with open(self.token_path, "w") as token:
-                        token.write(self.creds.to_json())
-                        log_info(
-                            f"Authenticated successfully and token saved to {self.token_path}. Use this token to authenticate in future."
-                        )
+        if self.creds:
+            token_file.write_text(self.creds.to_json())
+            log_debug("Successfully authenticated with Google Calendar API.")
+            log_info(f"Token file path: {token_file}")
 
     @authenticate
     def list_events(self, limit: int = 10, start_date: Optional[str] = None) -> str:
@@ -126,7 +147,7 @@ class GoogleCalendarTools(Toolkit):
 
         Args:
             limit (Optional[int]): Number of events to return, default value is 10
-            start_date (Optional[str]): The start date to return events from in ISO format (YYYY-MM-DDTHH:MM:SS). Defaults to current datetime.
+            start_date (Optional[str]): The start date to return events from in ISO format (YYYY-MM-DDTHH:MM:SS)
 
         Returns:
             str: JSON string containing the Google Calendar events or error message
@@ -143,11 +164,8 @@ class GoogleCalendarTools(Toolkit):
                 )
 
         try:
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             events_result = (
-                self.service.events()
+                self.service.events()  # type: ignore
                 .list(
                     calendarId=self.calendar_id,
                     timeMin=start_date,
@@ -223,11 +241,8 @@ class GoogleCalendarTools(Toolkit):
             # Remove None values
             event = {k: v for k, v in event.items() if v is not None}
 
-            if not self.service:
-                return json.dumps({"error": "Google Calendar service not initialized"})
-
             event_result = (
-                self.service.events()
+                self.service.events()  # type: ignore
                 .insert(
                     calendarId=self.calendar_id,
                     body=event,
@@ -271,7 +286,7 @@ class GoogleCalendarTools(Toolkit):
         """
         try:
             # First get the existing event to preserve its structure
-            event = self.service.events().get(calendarId=self.calendar_id, eventId=event_id).execute()
+            event = self.service.events().get(calendarId=self.calendar_id, eventId=event_id).execute()  # type: ignore
 
             # Update only the fields that are provided
             if title is not None:
@@ -304,7 +319,7 @@ class GoogleCalendarTools(Toolkit):
 
             # Update the event
             updated_event = (
-                self.service.events().update(calendarId=self.calendar_id, eventId=event_id, body=event).execute()
+                self.service.events().update(calendarId=self.calendar_id, eventId=event_id, body=event).execute()  # type: ignore
             )
 
             log_debug(f"Event {event_id} updated successfully.")
@@ -325,7 +340,7 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing success message or error message
         """
         try:
-            self.service.events().delete(calendarId=self.calendar_id, eventId=event_id).execute()
+            self.service.events().delete(calendarId=self.calendar_id, eventId=event_id).execute()  # type: ignore
 
             log_debug(f"Event {event_id} deleted successfully.")
             return json.dumps({"success": True, "message": f"Event {event_id} deleted successfully."})
@@ -397,7 +412,7 @@ class GoogleCalendarTools(Toolkit):
                 if page_token:
                     params["pageToken"] = page_token
 
-                events_result = self.service.events().list(**params).execute()
+                events_result = self.service.events().list(**params).execute()  # type: ignore
                 all_events.extend(events_result.get("items", []))
 
                 page_token = events_result.get("nextPageToken")
@@ -552,7 +567,7 @@ class GoogleCalendarTools(Toolkit):
         """
         try:
             # Get all user settings
-            settings_result = self.service.settings().list().execute()
+            settings_result = self.service.settings().list().execute()  # type: ignore
             settings = settings_result.get("items", [])
 
             # Process settings into a more usable format
@@ -603,7 +618,7 @@ class GoogleCalendarTools(Toolkit):
             str: JSON string containing available calendars with their IDs and names
         """
         try:
-            calendar_list = self.service.calendarList().list().execute()
+            calendar_list = self.service.calendarList().list().execute()  # type: ignore
             calendars = calendar_list.get("items", [])
 
             all_calendars = []

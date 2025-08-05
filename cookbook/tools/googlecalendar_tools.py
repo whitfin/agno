@@ -46,27 +46,29 @@ from agno.tools.googlecalendar import GoogleCalendarTools
 agent = Agent(
     tools=[
         GoogleCalendarTools(
-            credentials_path="credentials.json",  # Path to your downloaded OAuth credentials
+            # credentials_path="credentials.json",  # Path to your downloaded OAuth credentials
+            # token_path="token.json",  # Path to your downloaded OAuth credentials
             oauth_port=8080,  # port used for oauth authentication
+            allow_update=True,
         )
     ],
     show_tool_calls=True,
     instructions=[
         """
-You are a scheduling assistant.
-You should help users to perform these actions in their Google calendar:
-    - get their scheduled events from a certain date and time
-    - create events based on provided details
-    - update existing events
-    - delete events
-    - find available time slots for scheduling
-"""
+    You are a scheduling assistant.
+    You should help users to perform these actions in their Google calendar:
+        - get their scheduled events from a certain date and time
+        - create events based on provided details
+        - update existing events
+        - delete events
+        - find available time slots for scheduling
+    """
     ],
     add_datetime_to_instructions=True,
 )
 
 # Example 1: List calendar events
-agent.print_response("Give me the list of today's events", markdown=True)
+agent.print_response("Give me the list of tomorrow's events", markdown=True)
 
 # Example 2: Create an event
 # agent.print_response(

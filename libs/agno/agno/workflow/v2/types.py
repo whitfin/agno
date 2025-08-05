@@ -224,6 +224,7 @@ class StepOutput:
 
         return {
             "content": content_dict,
+            "step_name": self.step_name,
             "response": self.response.to_dict() if self.response else None,
             "images": [img.to_dict() for img in self.images] if self.images else None,
             "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,

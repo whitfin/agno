@@ -619,6 +619,71 @@ class Team:
         self.run_messages = None
         self.run_response = None
 
+    def _initialize_session_state(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> None:
+        self.session_state = self.session_state or {}
+
+        if user_id is not None:
+            self.session_state["current_user_id"] = user_id
+            if self.team_session_state is not None:
+                self.team_session_state["current_user_id"] = user_id
+            if self.workflow_session_state is not None:
+                self.workflow_session_state["current_user_id"] = user_id
+
+        if session_id is not None:
+            self.session_state["current_session_id"] = session_id
+            if self.team_session_state is not None:
+                self.team_session_state["current_session_id"] = session_id
+            if self.workflow_session_state is not None:
+                self.workflow_session_state["current_user_id"] = user_id
+
+    def _reset_session_state(self) -> None:
+        """Reset the session state for the agent."""
+        if self.team_session_state is not None:
+            self.team_session_state.pop("current_session_id", None)
+            self.team_session_state.pop("current_user_id", None)
+        if self.session_state is not None:
+            self.session_state.pop("current_session_id", None)
+            self.session_state.pop("current_user_id", None)
+
+    def _initialize_session(
+        self,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None,
+        session_state: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Initialize the session for the agent."""
+
+        self._reset_run_state()
+
+        # Determine the session_id
+        if session_id is not None and session_id != "":
+            # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
+            # Only reset session state if the session_id is different from the current session_id
+            if self.session_id is not None and session_id != self.session_id:
+                self._reset_session()
+
+            self.session_id = session_id
+        else:
+            if not (self.session_id is None or self.session_id == ""):
+                session_id = self.session_id
+            else:
+                # Generate a new session_id and store it in the agent
+                self.session_id = session_id = str(uuid4())
+
+        # Use the default user_id when necessary
+        if user_id is not None and user_id != "":
+            user_id = user_id
+        else:
+            user_id = self.user_id
+
+        # Determine the session_state
+        if session_state is not None:
+            self.session_state = session_state
+
+        self._initialize_session_state(user_id=user_id, session_id=session_id)
+
+        return session_id, user_id
+
     def initialize_team(self, session_id: Optional[str] = None) -> None:
         self._set_default_model()
 
@@ -775,71 +840,6 @@ class Team:
         self.save_session(session_id=session_id, user_id=user_id)
 
         log_debug(f"Team Run End: {self.run_id}", center=True, symbol="*")
-
-    def _initialize_session_state(self, user_id: Optional[str] = None, session_id: Optional[str] = None) -> None:
-        self.session_state = self.session_state or {}
-
-        if user_id is not None:
-            self.session_state["current_user_id"] = user_id
-            if self.team_session_state is not None:
-                self.team_session_state["current_user_id"] = user_id
-            if self.workflow_session_state is not None:
-                self.workflow_session_state["current_user_id"] = user_id
-
-        if session_id is not None:
-            self.session_state["current_session_id"] = session_id
-            if self.team_session_state is not None:
-                self.team_session_state["current_session_id"] = session_id
-            if self.workflow_session_state is not None:
-                self.workflow_session_state["current_user_id"] = user_id
-
-    def _reset_session_state(self) -> None:
-        """Reset the session state for the agent."""
-        if self.team_session_state is not None:
-            self.team_session_state.pop("current_session_id", None)
-            self.team_session_state.pop("current_user_id", None)
-        if self.session_state is not None:
-            self.session_state.pop("current_session_id", None)
-            self.session_state.pop("current_user_id", None)
-
-    def _initialize_session(
-        self,
-        session_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-        session_state: Optional[Dict[str, Any]] = None,
-    ) -> Tuple[str, Optional[str]]:
-        """Initialize the session for the agent."""
-
-        self._reset_run_state()
-
-        # Determine the session_id
-        if session_id is not None and session_id != "":
-            # Reset session state if a session_id is provided. Session name and session state will be loaded from storage.
-            # Only reset session state if the session_id is different from the current session_id
-            if self.session_id is not None and session_id != self.session_id:
-                self._reset_session()
-
-            self.session_id = session_id
-        else:
-            if not (self.session_id is None or self.session_id == ""):
-                session_id = self.session_id
-            else:
-                # Generate a new session_id and store it in the agent
-                self.session_id = session_id = str(uuid4())
-
-        # Use the default user_id when necessary
-        if user_id is not None and user_id != "":
-            user_id = user_id
-        else:
-            user_id = self.user_id
-
-        # Determine the session_state
-        if session_state is not None:
-            self.session_state = session_state
-
-        self._initialize_session_state(user_id=user_id, session_id=session_id)
-
-        return session_id, user_id
 
     @overload
     def run(

@@ -31,6 +31,16 @@ agent = Agent(
     show_tool_calls=True,
 )
 
+web_search_agent = Agent(
+    tools=[OpenAITools(enable_web_search=True, web_search_context_size="medium")],
+    markdown=True,
+    show_tool_calls=True,
+)
+
+web_search_agent.print_response(
+    "What's the latest news about AI in San Francisco?",
+)
+
 response = agent.run(
     "Generate a photorealistic image of a cozy coffee shop interior",
 )

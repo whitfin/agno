@@ -17,6 +17,7 @@ except (ModuleNotFoundError, ImportError):
 OpenAIVoice = Literal["alloy", "echo", "fable", "onyx", "nova", "shimmer"]
 OpenAITTSModel = Literal["tts-1", "tts-1-hd"]
 OpenAITTSFormat = Literal["mp3", "opus", "aac", "flac", "wav", "pcm"]
+WebSearchContextSize = Literal["low", "medium", "high"]
 
 
 class OpenAITools(Toolkit):
@@ -28,6 +29,7 @@ class OpenAITools(Toolkit):
         enable_transcription: bool = True,
         enable_image_generation: bool = True,
         enable_speech_generation: bool = True,
+        enable_web_search: bool = True,
         transcription_model: str = "whisper-1",
         text_to_speech_voice: OpenAIVoice = "alloy",
         text_to_speech_model: OpenAITTSModel = "tts-1",
@@ -36,6 +38,8 @@ class OpenAITools(Toolkit):
         image_quality: Optional[str] = None,
         image_size: Optional[Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"]] = None,
         image_style: Optional[Literal["vivid", "natural"]] = None,
+        web_search_model: str = "gpt-4o",
+        web_search_context_size: WebSearchContextSize = "medium",
         **kwargs,
     ):
         self.api_key = api_key or getenv("OPENAI_API_KEY")
@@ -51,6 +55,8 @@ class OpenAITools(Toolkit):
         self.image_quality = image_quality
         self.image_style = image_style
         self.image_size = image_size
+        self.web_search_model = web_search_model
+        self.web_search_context_size = web_search_context_size
 
         tools: List[Any] = []
         if enable_transcription:
@@ -59,6 +65,8 @@ class OpenAITools(Toolkit):
             tools.append(self.generate_image)
         if enable_speech_generation:
             tools.append(self.generate_speech)
+        if enable_web_search:
+            tools.append(self.web_search)
 
         super().__init__(name="openai_tools", tools=tools, **kwargs)
 
@@ -174,3 +182,70 @@ class OpenAITools(Toolkit):
             return f"Speech generated successfully with ID: {media_id}"
         except Exception as e:
             return f"Failed to generate speech: {str(e)}"
+
+    def web_search(
+        self,
+        query: str,
+        context_size: Optional[WebSearchContextSize] = None,
+        location: Optional[str] = None,
+    ) -> str:
+        """Search the web using OpenAI's web search capability.
+        Args:
+            query (str): The search query to perform.
+            context_size (Optional[WebSearchContextSize]): Size of search context ("low", "medium", "high").
+            location (Optional[str]): Location for location-specific searches (e.g., "New York, US").
+        """
+        try:
+            log_debug(f"Performing web search for: {query}")
+            
+            search_context_size = context_size or self.web_search_context_size
+            
+            web_search_tool = {
+                "type": "web_search_preview",
+                "search_context_size": search_context_size,
+            }
+            
+            if location:
+                location_parts = [part.strip() for part in location.split(",")]
+                if len(location_parts) >= 2:
+                    web_search_tool["user_location"] = {
+                        "type": "approximate",
+                        "country": location_parts[-1],
+                        "city": location_parts[0] if len(location_parts) > 1 else None
+                    }
+                else:
+                    web_search_tool["user_location"] = {
+                        "type": "approximate",
+                        "country": location_parts[0]
+                    }
+            
+            response = OpenAIClient(api_key=self.api_key).responses.create(
+                model=self.web_search_model,
+                input=query,
+                tools=[web_search_tool]
+            )
+            
+            # Extract the final response text
+            if hasattr(response, 'output_text') and response.output_text:
+                result = response.output_text
+                log_debug(f"Web search completed successfully")
+                return result
+            elif response.output and len(response.output) > 0:
+                # Handle case where output_text is not available but output array exists
+                for output_item in response.output:
+                    if hasattr(output_item, 'content') and output_item.content:
+                        for content_item in output_item.content:
+                            if hasattr(content_item, 'text'):
+                                result = content_item.text
+                                log_debug(f"Web search completed successfully")
+                                return result
+                
+                log_warning("Web search response received but no text content found")
+                return "Web search completed but no text content was returned."
+            else:
+                log_warning("Web search response received but no output found")
+                return "Web search completed but no output was returned."
+                
+        except Exception as e:
+            log_error(f"Failed to perform web search: {str(e)}")
+            return f"Failed to perform web search: {str(e)}"

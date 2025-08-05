@@ -47,6 +47,7 @@ agent = Agent(
     tools=[
         GoogleCalendarTools(
             credentials_path="credentials.json",  # Path to your downloaded OAuth credentials
+            oauth_port=8080,  # port used for oauth authentication
         )
     ],
     show_tool_calls=True,

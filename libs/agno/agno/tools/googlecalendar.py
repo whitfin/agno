@@ -46,13 +46,13 @@ class GoogleCalendarTools(Toolkit):
         token_path: Optional[str] = "token.json",
         access_token: Optional[str] = None,
         calendar_id: str = "primary",
-        port: int = 8080,
+        oauth_port: int = 8080,
         **kwargs,
     ):
         self.creds: Optional[Credentials] = None
         self.service: Optional[Any] = None
         self.calendar_id: str = calendar_id
-        self.port: int = port
+        self.oauth_port: int = oauth_port
 
         # Token-based authentication
         if access_token:
@@ -105,8 +105,8 @@ class GoogleCalendarTools(Toolkit):
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(self.credentials_path, SCOPES)
                 try:
-                    log_debug(f"Attempting OAuth authentication on port {self.port}")
-                    self.creds = flow.run_local_server(port=self.port)
+                    log_debug(f"Attempting OAuth authentication on port {self.oauth_port}")
+                    self.creds = flow.run_local_server(port=self.oauth_port)
                 except Exception as e:
                     log_error(f"An error occurred: {e}")
                     return

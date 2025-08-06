@@ -48,17 +48,21 @@ def get_session_name(session: Dict[str, Any]) -> str:
         if session.get("session_type") == "team":
             run = runs[0] if not runs[0].get("agent_id") else runs[1]
 
-        # TODO: we need messages or run_input somewhere
+        # For workflows, pass along the first step_executor_run
         elif session.get("session_type") == "workflow":
-            return ""
+            try:
+                run = session["runs"][0]["step_executor_runs"][0]
+            except (KeyError, IndexError, TypeError):
+                return ""
 
+        # For agents, use the first run
         else:
             run = runs[0]
 
         if not isinstance(run, dict):
             run = run.to_dict()
 
-        if run and run["messages"]:
+        if run and run.get("messages"):
             for message in run["messages"]:
                 if message["role"] == "user":
                     return message["content"]

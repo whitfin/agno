@@ -14,12 +14,21 @@ from agno.utils.log import logger
 from agno.workflow.v2.workflow import Workflow
 
 
-def get_run_input(run_dict: Dict[str, Any]) -> str:
+def get_run_input(run_dict: Dict[str, Any], is_workflow_run: bool = False) -> str:
     """Get the run input from the given run dictionary"""
+
+    if is_workflow_run:
+        step_member_runs = run_dict.get("step_member_runs", [])
+        if step_member_runs:
+            for message in step_member_runs[0].get("messages", []):
+                if message.get("role") == "user":
+                    return message.get("content", "")
+
     if run_dict.get("messages") is not None:
         for message in run_dict["messages"]:
             if message.get("role") == "user":
                 return message.get("content", "")
+
     return ""
 
 

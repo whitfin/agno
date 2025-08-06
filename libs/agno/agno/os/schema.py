@@ -449,6 +449,7 @@ class TeamRunSchema(BaseModel):
 
 class WorkflowRunSchema(BaseModel):
     run_id: str
+    run_input: Optional[str]
     user_id: Optional[str]
     content: Optional[str]
     content_type: Optional[str]
@@ -460,8 +461,10 @@ class WorkflowRunSchema(BaseModel):
 
     @classmethod
     def from_dict(cls, run_response: Dict[str, Any]) -> "WorkflowRunSchema":
+        run_input = get_run_input(run_response, is_workflow_run=True)
         return cls(
             run_id=run_response.get("run_id", ""),
+            run_input=run_input,
             user_id=run_response.get("user_id", ""),
             content=run_response.get("content", ""),
             content_type=run_response.get("content_type", ""),

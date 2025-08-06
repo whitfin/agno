@@ -18,9 +18,9 @@ def get_run_input(run_dict: Dict[str, Any], is_workflow_run: bool = False) -> st
     """Get the run input from the given run dictionary"""
 
     if is_workflow_run:
-        step_member_runs = run_dict.get("step_member_runs", [])
-        if step_member_runs:
-            for message in step_member_runs[0].get("messages", []):
+        step_executor_runs = run_dict.get("step_executor_runs", [])
+        if step_executor_runs:
+            for message in step_executor_runs[0].get("messages", []):
                 if message.get("role") == "user":
                     return message.get("content", "")
 
@@ -48,7 +48,8 @@ def get_session_name(session: Dict[str, Any]) -> str:
         if session.get("session_type") == "team":
             run = runs[0] if not runs[0].get("agent_id") else runs[1]
         elif session.get("session_type") == "workflow":
-            run = runs[0]["step_member_runs"][0]
+            run = runs[0]["step_executor_runs"][0]
+            breakpoint()
         else:
             run = runs[0]
 

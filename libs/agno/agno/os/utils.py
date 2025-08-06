@@ -47,9 +47,11 @@ def get_session_name(session: Dict[str, Any]) -> str:
         # For teams, identify the first Team run and avoid using the first member's run
         if session.get("session_type") == "team":
             run = runs[0] if not runs[0].get("agent_id") else runs[1]
+
+        # TODO: we need messages or run_input somewhere
         elif session.get("session_type") == "workflow":
-            run = runs[0]["step_executor_runs"][0]
-            breakpoint()
+            return ""
+
         else:
             run = runs[0]
 

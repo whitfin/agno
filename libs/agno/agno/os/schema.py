@@ -154,7 +154,7 @@ class TeamResponse(BaseModel):
     instructions: Optional[Union[List[str], str]] = None
     members: Optional[List[Union[AgentResponse, "TeamResponse"]]] = None
     expected_output: Optional[str] = None
-    context: Optional[str] = None
+    dependencies: Optional[str] = None
     enable_agentic_context: Optional[bool] = None
     memory: Optional[Dict[str, Any]] = None
     knowledge: Optional[Dict[str, Any]] = None
@@ -218,7 +218,7 @@ class TeamResponse(BaseModel):
             description=team.description,
             tools=formatted_tools,
             expected_output=team.expected_output,
-            context=json.dumps(team.context) if isinstance(team.context, dict) else team.context,
+            dependencies=json.dumps(team.dependencies) if isinstance(team.dependencies, dict) else team.dependencies,
             enable_agentic_context=team.enable_agentic_context,
             mode=team.mode,
             memory=memory_info,
@@ -247,8 +247,6 @@ class WorkflowRunRequest(BaseModel):
     input: Dict[str, Any]
     user_id: Optional[str] = None
     session_id: Optional[str] = None
-    background: Optional[bool] = True
-    connection_id: Optional[str] = None
 
 
 class SessionSchema(BaseModel):
@@ -280,14 +278,11 @@ class DeleteSessionRequest(BaseModel):
 class AgentSessionDetailSchema(BaseModel):
     user_id: Optional[str]
     agent_session_id: str
-    workspace_id: Optional[str]
     session_id: str
     session_name: str
     session_summary: Optional[dict]
     agent_id: Optional[str]
     agent_data: Optional[dict]
-    agent_sessions: list
-    response_latency_avg: Optional[float]
     total_tokens: Optional[int]
     metrics: Optional[dict]
     chat_history: Optional[List[dict]]
@@ -301,14 +296,11 @@ class AgentSessionDetailSchema(BaseModel):
         return cls(
             user_id=session.user_id,
             agent_session_id=session.session_id,
-            workspace_id=None,
             session_id=session.session_id,
             session_name=session_name,
             session_summary=session.summary.to_dict() if session.summary else None,
             agent_id=session.agent_id if session.agent_id else None,
             agent_data=session.agent_data,
-            agent_sessions=[],
-            response_latency_avg=0,
             total_tokens=session.session_data.get("session_metrics", {}).get("total_tokens")
             if session.session_data
             else None,
@@ -361,13 +353,11 @@ class WorkflowSessionDetailSchema(BaseModel):
 class RunSchema(BaseModel):
     run_id: str
     agent_session_id: Optional[str]
-    workspace_id: Optional[str]
     user_id: Optional[str]
     run_input: Optional[str]
     content: Optional[str]
     run_response_format: Optional[str]
     reasoning_content: Optional[str]
-    run_review: Optional[dict]
     metrics: Optional[dict]
     messages: Optional[List[dict]]
     tools: Optional[List[dict]]
@@ -381,9 +371,7 @@ class RunSchema(BaseModel):
         return cls(
             run_id=run_dict.get("run_id", ""),
             agent_session_id=run_dict.get("session_id", ""),
-            workspace_id=None,
-            user_id=None,
-            run_review=None,
+            user_id=run_dict.get("user_id", ""),
             run_input=run_input,
             content=run_dict.get("content", ""),
             run_response_format=run_response_format,
@@ -434,7 +422,6 @@ class TeamRunSchema(BaseModel):
 
 class WorkflowRunSchema(BaseModel):
     run_id: str
-    workspace_id: Optional[str]
     user_id: Optional[str]
     run_input: Optional[str]
     run_response_format: Optional[str]
@@ -446,8 +433,7 @@ class WorkflowRunSchema(BaseModel):
     def from_dict(cls, run_response: Dict[str, Any]) -> "WorkflowRunSchema":
         return cls(
             run_id=run_response.get("run_id", ""),
-            workspace_id=None,
-            user_id=None,
+            user_id=run_response.get("user_id", ""),
             run_input="",
             run_response_format="",
             run_review=None,

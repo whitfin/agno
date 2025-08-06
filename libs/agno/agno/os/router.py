@@ -1,5 +1,5 @@
 import json
-from typing import TYPE_CHECKING, AsyncGenerator, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Union, cast
 from uuid import uuid4
 
 from fastapi import (
@@ -14,6 +14,7 @@ from fastapi import (
     WebSocket,
 )
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import BaseModel
 
 from agno.agent.agent import Agent
 from agno.db.base import SessionType
@@ -46,6 +47,7 @@ from agno.os.utils import (
     get_agent_by_id,
     get_team_by_id,
     get_workflow_by_id,
+    get_workflow_input_schema_dict,
     process_audio,
     process_document,
     process_image,
@@ -253,9 +255,10 @@ async def handle_workflow_via_websocket(websocket: WebSocket, message: dict, os:
 
 async def workflow_response_streamer(
     workflow: Workflow,
-    message: Optional[str] = None,
+    message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
     session_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    **kwargs: Any,
 ) -> AsyncGenerator:
     try:
         run_response = await workflow.arun(
@@ -264,6 +267,7 @@ async def workflow_response_streamer(
             user_id=user_id,
             stream=True,
             stream_intermediate_steps=True,
+            **kwargs,
         )
 
         async for run_response_chunk in run_response:
@@ -1003,7 +1007,7 @@ def get_base_router(
                 await websocket_manager.disconnect_by_run_id(run_id)
 
     @router.get(
-        "/workflows",
+        "/workflows/",
         response_model=List[WorkflowResponse],
         response_model_exclude_none=True,
     )
@@ -1016,12 +1020,13 @@ def get_base_router(
                 workflow_id=str(workflow.workflow_id),
                 name=workflow.name,
                 description=workflow.description,
+                input_schema=get_workflow_input_schema_dict(workflow),
             )
             for workflow in os.workflows
         ]
 
     @router.get(
-        "/workflows/{workflow_id}",
+        "/workflows/{workflow_id}/",
         response_model=WorkflowResponse,
     )
     async def get_workflow(workflow_id: str):
@@ -1038,6 +1043,7 @@ def get_base_router(
         stream: bool = Form(True),
         session_id: Optional[str] = Form(None),
         user_id: Optional[str] = Form(None),
+        **kwargs: Any,
     ):
         # Retrieve the workflow by ID
         workflow = get_workflow_by_id(workflow_id, os.workflows)
@@ -1059,6 +1065,7 @@ def get_base_router(
                         message=message,
                         session_id=session_id,
                         user_id=user_id,
+                        **kwargs,
                     ),
                     media_type="text/event-stream",
                 )
@@ -1068,6 +1075,7 @@ def get_base_router(
                     session_id=session_id,
                     user_id=user_id,
                     stream=False,
+                    **kwargs,
                 )
                 return run_response.to_dict()
         except Exception as e:

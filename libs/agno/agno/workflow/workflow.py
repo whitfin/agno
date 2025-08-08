@@ -287,7 +287,6 @@ class Workflow:
         if self.session_id is None:
             return f"Workflow Session - {datetime.now().strftime('%Y-%m-%d %H:%M')}"
 
-        workflow_session = self.get_workflow_session()
         datetime_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         new_session_name = f"Workflow Session-{datetime_str}"
 

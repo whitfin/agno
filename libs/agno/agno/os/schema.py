@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -211,7 +211,7 @@ class TeamResponse(BaseModel):
         memory_table = team.db.memory_table_name if team.db and team.enable_user_memories else None
         knowledge_table = team.db.knowledge_table_name if team.db and team.knowledge else None
 
-        team_instructions = team.instructions() if isinstance(team.instructions, Callable) else team.instructions
+        team_instructions = team.instructions() if team.instructions and callable(team.instructions) else team.instructions
 
         return TeamResponse(
             team_id=team.team_id,

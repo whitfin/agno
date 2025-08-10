@@ -963,12 +963,12 @@ class MongoDb(BaseDb):
 
             query = {}
             if starting_date:
-                query["date"] = {"$gte": starting_date}
+                query["date"] = {"$gte": starting_date.isoformat()}
             if ending_date:
                 if "date" in query:
-                    query["date"]["$lte"] = ending_date
+                    query["date"]["$lte"] = ending_date.isoformat()
                 else:
-                    query["date"] = {"$lte": ending_date}
+                    query["date"] = {"$lte": ending_date.isoformat()}
 
             records = list(collection.find(query))
             if not records:

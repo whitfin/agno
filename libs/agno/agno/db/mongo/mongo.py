@@ -467,7 +467,7 @@ class MongoDb(BaseDb):
 
                 session = deserialize_session_json_fields(result)  # type: ignore
 
-                log_debug(f"Upserted session with id '{session.session_id}'")
+                log_debug("Upserted session'")
 
                 if not deserialize:
                     return session
@@ -885,8 +885,8 @@ class MongoDb(BaseDb):
                     return result_date
 
             # No metrics records. Return the date of the first recorded session.
-            first_session_result = self.get_sessions(sort_by="created_at", sort_order="asc", limit=1)
-            first_session_date = first_session_result[0].created_at if first_session_result[0] else None  # type: ignore
+            first_session_result = self.get_sessions(sort_by="created_at", sort_order="asc", limit=1, deserialize=False)
+            first_session_date = first_session_result[0][0]["created_at"] if first_session_result[0] else None  # type: ignore
 
             if first_session_date is None:
                 return None

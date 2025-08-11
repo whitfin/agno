@@ -1070,10 +1070,10 @@ class Model(ABC):
             if stream_data.response_image is None:
                 stream_data.response_image = model_response_delta.image
 
-        if model_response_delta.metadata is not None:
+        if model_response_delta.extra is not None:
             if stream_data.metadata is None:
                 stream_data.metadata = {}
-            stream_data.metadata.update(model_response_delta.metadata)
+            stream_data.metadata.update(model_response_delta.extra)
 
         if model_response_delta.response_usage is not None:
             _add_usage_metrics_to_assistant_message(

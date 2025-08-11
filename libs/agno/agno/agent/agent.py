@@ -4160,7 +4160,7 @@ class Agent:
                     system_message_content += f"\n- {_memory.memory}"
                 system_message_content += "\n</memories_from_previous_interactions>\n\n"
                 system_message_content += (
-                    "Note: this information is from previous interactions and may be updated in this conversation. "
+                    "Note: <memories_from_previous_interactions> are from previous interactions and may be updated in this conversation. "
                     "You should always prefer information from this conversation over the past memories.\n"
                 )
             else:

@@ -211,7 +211,9 @@ class TeamResponse(BaseModel):
         memory_table = team.db.memory_table_name if team.db and team.enable_user_memories else None
         knowledge_table = team.db.knowledge_table_name if team.db and team.knowledge else None
 
-        team_instructions = team.instructions() if team.instructions and callable(team.instructions) else team.instructions
+        team_instructions = (
+            team.instructions() if team.instructions and callable(team.instructions) else team.instructions
+        )
 
         return TeamResponse(
             team_id=team.team_id,
@@ -283,6 +285,7 @@ class WorkflowRunRequest(BaseModel):
 class SessionSchema(BaseModel):
     session_id: str
     session_name: str
+    session_state: Optional[dict]
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -292,6 +295,7 @@ class SessionSchema(BaseModel):
         return cls(
             session_id=session.get("session_id", ""),
             session_name=session_name,
+            session_state=session.get("session_data", {}).get("session_state", None),
             created_at=datetime.fromtimestamp(session.get("created_at", 0), tz=timezone.utc)
             if session.get("created_at")
             else None,

@@ -171,7 +171,7 @@ def get_component_memory_app(
 
     # Find the memory app that has the same database as the component
     for os_app in os_apps:
-        if isinstance(os_app, MemoryApp) and os_app.db == component.db:
+        if isinstance(os_app, MemoryApp) and os_app.db.db_url == component.db.db_url:
             return os_app
 
     return None

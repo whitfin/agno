@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from os import getenv
 from textwrap import dedent
 from typing import TYPE_CHECKING, Callable, List, Optional, Union
@@ -9,6 +10,11 @@ from pydantic import BaseModel, Field
 from agno.agent import Agent
 from agno.api.schemas.evals import EvalType
 from agno.eval.utils import async_log_eval_run, log_eval_run, store_result_in_file
+from agno.eval.utils.prompts import (
+    accuracy_agentic_mode_system_prompt,
+    accuracy_evaluator_input,
+    accuracy_reasoning_mode_system_prompt,
+)
 from agno.exceptions import EvalError
 from agno.models.base import Model
 from agno.team.team import Team
@@ -23,13 +29,28 @@ class AccuracyAgentResponse(BaseModel):
     accuracy_reason: str = Field(..., description="Detailed reasoning for the accuracy score.")
 
 
+class AccuracyEvalMode(str, Enum):
+    """
+    The complexity mode used for the evaluation.
+
+    BASIC: The evaluation is performed using a simple comparison of the expected output and the Agent's output.
+    AGENTIC: The evaluation is performed by the evaluator agent, comparing the Agent's output and the expected output.
+    REASONING: The evaluation is performed by the evaluator agent, analyzing the Agent's output rationale, completeness and correctness, apart from accuracy.
+    """
+
+    BASIC = "basic"
+    AGENTIC = "agentic"
+    REASONING = "reasoning"
+
+
 @dataclass
 class AccuracyEvaluation:
     input: str
     output: str
-    expected_output: str
+    expected_output: Union[str, list[str]]
     score: int
     reason: str
+    passing_score: int
 
     def print_eval(self, console: Optional["Console"] = None):
         from rich.box import ROUNDED
@@ -50,7 +71,9 @@ class AccuracyEvaluation:
         )
         results_table.add_row("Input", self.input)
         results_table.add_row("Output", self.output)
-        results_table.add_row("Expected Output", self.expected_output)
+        passed = "[green]Passed[/green]" if self.score >= self.passing_score else "[red]Failed[/red]"
+        results_table.add_row("Result", passed)
+        results_table.add_row("Expected Output", str(self.expected_output))
         results_table.add_row("Accuracy Score", f"{str(self.score)}/10")
         results_table.add_row("Accuracy Reason", Markdown(self.reason))
         console.print(results_table)
@@ -58,6 +81,8 @@ class AccuracyEvaluation:
 
 @dataclass
 class AccuracyResult:
+    passing_score: int
+
     results: List[AccuracyEvaluation] = field(default_factory=list)
     avg_score: float = field(init=False)
     mean_score: float = field(init=False)
@@ -96,6 +121,8 @@ class AccuracyResult:
             title_justify="center",
         )
         summary_table.add_row("Number of Runs", f"{len(self.results)}")
+        passed = "[green]Passed[/green]" if self.avg_score >= self.passing_score else "[red]Failed[/red]"
+        summary_table.add_row("Result", passed)
         summary_table.add_row("Average Score", f"{self.avg_score:.2f}")
         summary_table.add_row("Mean Score", f"{self.mean_score:.2f}")
         summary_table.add_row("Minimum Score", f"{self.min_score:.2f}")
@@ -122,9 +149,13 @@ class AccuracyResult:
         for result in self.results:
             results_table.add_row("Input", result.input)
             results_table.add_row("Output", result.output)
-            results_table.add_row("Expected Output", result.expected_output)
+            results_table.add_row("Expected Output(s)", str(result.expected_output))
+            passed = "[green]Passed[/green]" if result.score >= result.passing_score else "[red]Failed[/red]"
+            results_table.add_row("Result", passed)
             results_table.add_row("Accuracy Score", f"{str(result.score)}/10")
-            results_table.add_row("Accuracy Reason", result.reason)
+
+            if result.reason:
+                results_table.add_row("Accuracy Reason", result.reason)
         console.print(results_table)
 
 
@@ -135,9 +166,11 @@ class AccuracyEval:
     # Input to evaluate
     input: Union[str, Callable]
     # Expected answer to the input
-    expected_output: Union[str, Callable]
+    expected_output: Union[str, Callable, list[str]]
     # Agent to evaluate
     agent: Optional[Agent] = None
+    # Mode defining how the evaluation is performed
+    mode: AccuracyEvalMode = AccuracyEvalMode.REASONING
     # Team to evaluate
     team: Optional[Team] = None
 
@@ -159,6 +192,8 @@ class AccuracyEval:
     # Additional context to the evaluator agent
     additional_context: Optional[str] = None
 
+    # Score (from 1 to 10) from which the evaluation is considered passed
+    passing_score: int = 7
     # Print summary of results
     print_summary: bool = False
     # Print detailed results
@@ -169,6 +204,23 @@ class AccuracyEval:
     debug_mode: bool = getenv("AGNO_DEBUG", "false").lower() == "true"
     # Log the results to the Agno platform. On by default.
     monitoring: bool = getenv("AGNO_MONITOR", "true").lower() == "true"
+
+    def _warn_configuration_conflicts(self):
+        """Handle validation of the evaluation configuration and warnings."""
+        if self.passing_score < 1 or self.passing_score > 10:
+            raise EvalError("The passing score must be between 1 and 10.")
+
+        if self.mode != AccuracyEvalMode.REASONING and (self.evaluator_agent is not None or self.model is not None):
+            logger.warning(
+                f"The provided evaluation mode ({self.mode}) is not compatible with having a custom evaluator agent or model. The custom evaluator agent or model will be ignored."
+            )
+
+        if self.mode in [AccuracyEvalMode.AGENTIC, AccuracyEvalMode.BASIC] and (
+            self.additional_context is not None or self.additional_guidelines is not None
+        ):
+            logger.warning(
+                f"The provided evaluation mode ({self.mode}) is not compatible with having additional context or guidelines. The additional context or guidelines will be ignored."
+            )
 
     def get_evaluator_agent(self) -> Agent:
         """Return the evaluator agent. If not provided, build it based on the evaluator fields and default instructions."""
@@ -202,44 +254,22 @@ class AccuracyEval:
             additional_context += self.additional_context
             additional_context += "\n"
 
+        if self.mode == AccuracyEvalMode.AGENTIC:
+            agent_description = accuracy_agentic_mode_system_prompt
+        else:
+            agent_description = accuracy_reasoning_mode_system_prompt.substitute(
+                additional_guidelines=additional_guidelines,
+                additional_context=additional_context,
+            )
+
         return Agent(
             model=model,
-            description=f"""\
-You are an expert judge tasked with comparing the quality of an AI Agent’s output to a user-provided expected output. You must assume the expected_output is correct - even if you personally disagree.
-
-## Evaluation Inputs
-- agent_input: The original task or query given to the Agent.
-- expected_output: The correct response to the task (provided by the user).
-    - NOTE: You must assume the expected_output is correct - even if you personally disagree.
-- agent_output: The response generated by the Agent.
-
-## Evaluation Criteria
-- Accuracy: How closely does the agent_output match the expected_output?
-- Completeness: Does the agent_output include all the key elements of the expected_output?
-
-## Instructions
-1. Compare the agent_output only to the expected_output, not what you think the expected_output should be.
-2. Do not judge the correctness of the expected_output itself. Your role is only to compare the two outputs, the user provided expected_output is correct.
-3. Follow the additional guidelines if provided.
-4. Provide a detailed analysis including:
-    - Specific similarities and differences
-    - Important points included or omitted
-    - Any inaccuracies, paraphrasing errors, or structural differences
-5. Reference the criteria explicitly in your reasoning.
-6. Assign a score from 1 to 10 (whole numbers only):
-   1-2: Completely incorrect or irrelevant.
-   3-4: Major inaccuracies or missing key information.
-   5-6: Partially correct, but with significant issues.
-   7-8: Mostly accurate and complete, with minor issues
-   9-10: Highly accurate and complete, matching the expected answer and given guidelines closely.
-{additional_guidelines}{additional_context}
-Remember: You must only compare the agent_output to the expected_output. The expected_output is correct as it was provided by the user.
-""",
+            description=agent_description,
             response_model=AccuracyAgentResponse,
             structured_outputs=True,
         )
 
-    def get_eval_expected_output(self) -> str:
+    def get_eval_expected_output(self) -> Union[str, list[str]]:
         """Return the eval expected answer. If it is a callable, call it and return the resulting string"""
         if callable(self.expected_output):
             _output = self.expected_output()
@@ -262,25 +292,42 @@ Remember: You must only compare the agent_output to the expected_output. The exp
     def evaluate_answer(
         self,
         input: str,
-        evaluator_agent: Agent,
-        evaluation_input: str,
-        evaluator_expected_output: str,
+        evaluator_input: str,
+        expected_output: Union[str, list[str]],
         agent_output: str,
+        evaluator_agent: Optional[Agent] = None,
     ) -> Optional[AccuracyEvaluation]:
         """Orchestrate the evaluation process."""
         try:
-            accuracy_agent_response = evaluator_agent.run(evaluation_input).content
-            if accuracy_agent_response is None or not isinstance(accuracy_agent_response, AccuracyAgentResponse):
-                raise EvalError(f"Evaluator Agent returned an invalid response: {accuracy_agent_response}")
-            return AccuracyEvaluation(
-                input=input,
-                output=agent_output,
-                expected_output=evaluator_expected_output,
-                score=accuracy_agent_response.accuracy_score,
-                reason=accuracy_agent_response.accuracy_reason,
-            )
+            if self.mode == AccuracyEvalMode.BASIC:
+                if isinstance(expected_output, list):
+                    score = 10 if agent_output in expected_output else 0
+                else:
+                    score = 10 if agent_output == expected_output else 0
+                return AccuracyEvaluation(
+                    input=input,
+                    output=agent_output,
+                    expected_output=expected_output,
+                    score=score,
+                    reason="",
+                    passing_score=self.passing_score,
+                )
+            else:
+                if evaluator_agent is None:
+                    raise EvalError("Evaluator agent is required for the reasoning mode.")
+                accuracy_agent_response = evaluator_agent.run(evaluator_input).content
+                if accuracy_agent_response is None or not isinstance(accuracy_agent_response, AccuracyAgentResponse):
+                    raise EvalError(f"Evaluator Agent returned an invalid response: {accuracy_agent_response}")
+                return AccuracyEvaluation(
+                    input=input,
+                    output=agent_output,
+                    expected_output=expected_output,
+                    score=accuracy_agent_response.accuracy_score,
+                    reason=accuracy_agent_response.accuracy_reason,
+                    passing_score=self.passing_score,
+                )
         except Exception as e:
-            logger.exception(f"Failed to evaluate accuracy: {e}")
+            logger.exception(f"Failed to perform the evaluation: {e}")
             return None
 
     async def aevaluate_answer(
@@ -303,6 +350,7 @@ Remember: You must only compare the agent_output to the expected_output. The exp
                 expected_output=evaluator_expected_output,
                 score=accuracy_agent_response.accuracy_score,
                 reason=accuracy_agent_response.accuracy_reason,
+                passing_score=self.passing_score,
             )
         except Exception as e:
             logger.exception(f"Failed to evaluate accuracy asynchronously: {e}")
@@ -325,15 +373,15 @@ Remember: You must only compare the agent_output to the expected_output. The exp
         from rich.status import Status
 
         set_log_level_to_debug() if self.debug_mode else set_log_level_to_info()
-
-        self.result = AccuracyResult()
+        self._warn_configuration_conflicts()
+        self.result = AccuracyResult(passing_score=self.passing_score)
 
         logger.debug(f"************ Evaluation Start: {self.eval_id} ************")
 
-        # Add a spinner while running the evaluations
         console = Console()
+
         with Live(console=console, transient=True) as live_log:
-            evaluator_agent = self.get_evaluator_agent()
+            evaluator_agent = self.get_evaluator_agent() if self.mode != AccuracyEvalMode.BASIC else None
             eval_input = self.get_eval_input()
             eval_expected_output = self.get_eval_expected_output()
 
@@ -350,25 +398,16 @@ Remember: You must only compare the agent_output to the expected_output. The exp
                     logger.error(f"Failed to generate a valid answer on iteration {i + 1}: {output}")
                     continue
 
-                evaluation_input = dedent(f"""\
-                    <agent_input>
-                    {eval_input}
-                    </agent_input>
-
-                    <expected_output>
-                    {eval_expected_output}
-                    </expected_output>
-
-                    <agent_output>
-                    {output}
-                    </agent_output>\
-                    """)
+                evaluator_input = accuracy_evaluator_input.substitute(
+                    eval_input=eval_input, eval_expected_output=str(eval_expected_output), agent_output=output
+                )
                 logger.debug(f"Agent output #{i + 1}: {output}")
+
                 result = self.evaluate_answer(
                     input=eval_input,
+                    evaluator_input=evaluator_input,
                     evaluator_agent=evaluator_agent,
-                    evaluation_input=evaluation_input,
-                    evaluator_expected_output=eval_expected_output,
+                    expected_output=eval_expected_output,
                     agent_output=output,
                 )
                 if result is None:
@@ -444,7 +483,7 @@ Remember: You must only compare the agent_output to the expected_output. The exp
 
         set_log_level_to_debug() if self.debug_mode else set_log_level_to_info()
 
-        self.result = AccuracyResult()
+        self.result = AccuracyResult(passing_score=self.passing_score)
 
         logger.debug(f"************ Evaluation Start: {self.eval_id} ************")
 
@@ -543,34 +582,23 @@ Remember: You must only compare the agent_output to the expected_output. The exp
     ) -> Optional[AccuracyResult]:
         """Run the evaluation logic against the given answer, instead of generating an answer with the Agent"""
         set_log_level_to_debug() if self.debug_mode else set_log_level_to_info()
-
-        self.result = AccuracyResult()
+        self._warn_configuration_conflicts()
+        self.result = AccuracyResult(passing_score=self.passing_score)
 
         logger.debug(f"************ Evaluation Start: {self.eval_id} ************")
 
-        evaluator_agent = self.get_evaluator_agent()
+        evaluator_agent = self.get_evaluator_agent() if self.mode != AccuracyEvalMode.BASIC else None
         eval_input = self.get_eval_input()
         eval_expected_output = self.get_eval_expected_output()
 
-        evaluation_input = dedent(f"""\
-            <agent_input>
-            {eval_input}
-            </agent_input>
-
-            <expected_output>
-            {eval_expected_output}
-            </expected_output>
-
-            <agent_output>
-            {output}
-            </agent_output>\
-            """)
-
+        evaluator_input = accuracy_evaluator_input.substitute(
+            eval_input=eval_input, eval_expected_output=str(eval_expected_output), agent_output=output
+        )
         result = self.evaluate_answer(
             input=eval_input,
+            evaluator_input=evaluator_input,
             evaluator_agent=evaluator_agent,
-            evaluation_input=evaluation_input,
-            evaluator_expected_output=eval_expected_output,
+            expected_output=eval_expected_output,
             agent_output=output,
         )
 
@@ -638,7 +666,7 @@ Remember: You must only compare the agent_output to the expected_output. The exp
         """Run the evaluation logic against the given answer, instead of generating an answer with the Agent"""
         set_log_level_to_debug() if self.debug_mode else set_log_level_to_info()
 
-        self.result = AccuracyResult()
+        self.result = AccuracyResult(passing_score=self.passing_score)
 
         logger.debug(f"************ Evaluation Start: {self.eval_id} ************")
 
@@ -664,7 +692,7 @@ Remember: You must only compare the agent_output to the expected_output. The exp
             input=eval_input,
             evaluator_agent=evaluator_agent,
             evaluation_input=evaluation_input,
-            evaluator_expected_output=eval_expected_output,
+            evaluator_expected_output=str(eval_expected_output),
             agent_output=output,
         )
 

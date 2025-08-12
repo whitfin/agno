@@ -1,8 +1,8 @@
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
-from agno.workflow.v2.workflow import Workflow
+from agno.workflow.workflow import Workflow
 from agno.db.postgres import PostgresDb
-from agno.workflow.v2.types import StepInput
+from agno.workflow.types import StepInput
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 

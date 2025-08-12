@@ -1,8 +1,8 @@
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
-from agno.workflow.workflow import Workflow
 from agno.db.postgres import PostgresDb
+from agno.models.openai import OpenAIChat
 from agno.workflow.types import StepInput
+from agno.workflow.workflow import Workflow
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
@@ -17,6 +17,7 @@ story_formatter = Agent(
     instructions="You are tasked with breaking down a short story in prelogues, body and epilogue",
 )
 
+
 def add_references(step_input: StepInput):
     """Add references to the story"""
 
@@ -24,19 +25,22 @@ def add_references(step_input: StepInput):
 
     if isinstance(previous_output, str):
         return previous_output + "\n\nReferences: https://www.agno.com"
-    
+
+
 workflow_agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
     instructions="You are tasked with chatting to the user",
     db=PostgresDb(db_url),
-    add_history_to_messages=True,
-    # TODO: Look into Agent db when using it as a part of a workflow
-    # Likely add another category to WorkflowRunResponse to store the agent messages
-    session_id="workflow_agent_session",
+    add_history_to_context=True,
 )
 
-workflow = Workflow(agent=workflow_agent, steps=[story_writer, story_formatter, add_references], session_id="workflow_session", db=PostgresDb(db_url))
+workflow = Workflow(
+    agent=workflow_agent,
+    steps=[story_writer, story_formatter, add_references],
+    session_id="workflow_session",
+    db=PostgresDb(db_url),
+)
 
 
-# workflow.print_response("Can you please add references to the story?")
-workflow.print_response("Tell me a story about a lhasa apso")
+workflow.print_response("Tell me a story about a husky names Max")
+workflow.print_response("What was Max like?")

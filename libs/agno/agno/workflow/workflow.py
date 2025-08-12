@@ -2,6 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from os import getenv
+from types import FunctionType
 from typing import (
     Any,
     AsyncIterator,
@@ -51,6 +52,7 @@ from agno.session.workflow import WorkflowSession
 from agno.team.team import Team
 from agno.utils.log import (
     log_debug,
+    log_error,
     logger,
     set_log_level_to_debug,
     set_log_level_to_info,
@@ -80,6 +82,10 @@ STEP_TYPE_MAPPING = {
     Parallel: StepType.PARALLEL,
     Condition: StepType.CONDITION,
     Router: StepType.ROUTER,
+    Agent: StepType.AGENT,
+    Team: StepType.TEAM,
+    Callable: StepType.CALLABLE,
+    FunctionType: StepType.CALLABLE,
 }
 
 WorkflowSteps = Union[
@@ -1442,7 +1448,8 @@ class Workflow:
                         return run
 
         return None
-    
+
+    # NOTE: Models have a bias towards always running tools, even when explicitly told not to
     def run_step(self, step_name: str, step_input: str) -> StepOutput:
         """Run a step"""
         step_output: Optional[StepOutput] = None
@@ -1451,7 +1458,7 @@ class Workflow:
                 step_output = step.execute(StepInput(message=step_input))
 
         return step_output
-    
+
     def _get_step_information(self):
         """Get the step information to provide to the workflow agent"""
         from inspect import isfunction
@@ -1464,76 +1471,80 @@ class Workflow:
                     step_information[step.name] = step.agent.instructions
                 elif isfunction(step.executor):
                     step_information[step.name] = step.executor.__doc__ or "No description provided"
-
-            log_debug(f"Step information: {step_information}")
+                # TODO: Cover all other step types
 
         return step_information
-    
+
     def _initialize_agent(self):
         """Initialize the agent"""
         import json
-        from agno.workflow.v2.utils import WorkflowResponse
+
+        from agno.workflow.utils import WorkflowResponse
 
         self.agent.response_model = WorkflowResponse
         step_information = self._get_step_information()
-        if self.agent.instructions is None:
-            self.agent.instructions = ""
-        else:
-            self.agent.instructions += "\n\n"
+        self.agent.session_id = f"agent_{self.session_id}"
 
-        self.agent.instructions += f"""
-        You are a multi-step workflow and you have the power to either:
-        - Respond directly to the user's message
-        - Continue the workflow
-        - Ask for more information
-        - Run a specific step using a tool call. 
+        instructions = f"""
+            You are controlling a multi-step workflow. For each user message, choose one action:
 
-        Here is some information about the steps in the workflow:
-        {json.dumps(step_information, indent=2)}
-        """
-        results = self._get_messages_from_session()
-        if results:
-            # TODO: Make sure its pretty printed on the CLI
+            1. **respond_directly** – Answer the question using available information
+            2. **ask_for_more_information** – Request clarification when the query is unclear
+            3. **continue_workflow** – Execute the next workflow step
+            - MUST include `workflow_input` as a simple string with essential information only
 
-            self.agent.instructions += f"""
-            You also have the following results from previous steps in the workflow:
-            {json.dumps(results, indent=2)}
-
-            Use these results to assist with the query. If the question can be answered with the results, respond directly.
-            If the question cannot be answered with the results, continue the workflow.
-            If the query demands more information, ask for more information.
-
-            By default, you should always run the entire workflow. But if the user asks to run a specific step, you can use the following tool:
-            - run_step
+            Steps in the workflow:
+            {json.dumps(step_information, indent=2)}
             """
 
-        self.agent.tools = [self.run_step]
+        results = self._get_messages_from_session()
+        if results:
+            instructions += f"""
+            Previous results from workflow:
+            {json.dumps(results, indent=2)}
+
+            Decision guidelines:
+            - Question answered by these results → **respond_directly**
+            - User query is unrelated to past results → **continue_workflow** 
+            - Query unclear or incomplete → **ask_for_more_information**
+            """
+        else:
+            instructions += """
+            No previous results available.
+
+            Decision guidelines:
+            - Can answer the question now → **respond_directly**
+            - User wants workflow execution → **continue_workflow**
+            - Query unclear or incomplete → **ask_for_more_information**
+            """
+
+        self.agent.instructions = instructions
 
     def _get_messages_from_session(self):
         """Get the messages from the session"""
         if self.workflow_session is None:
             return None
-        
-        messages = []
 
+        messages = []
         for run in self.workflow_session.runs:
             messages.append(run.content)
+        # TODO: Add ability to add individual results from steps to the workflow agent context
 
         return messages
-    
+
     def _execute_agent(self, inputs: WorkflowExecutionInput):
         """Execute the agent"""
-        from agno.workflow.v2.utils import WorkflowResponse, WorkflowAction
+        from agno.workflow.utils import WorkflowAction, WorkflowResponse
 
         response = self.agent.run(message=inputs.message).content
 
         if isinstance(response, WorkflowResponse):
             if response.action == WorkflowAction.respond_directly:
-                return response.model_dump_json(exclude_none=True), False
+                return response.model_dump(exclude_none=True), False
             elif response.action == WorkflowAction.continue_workflow:
-                return response.model_dump_json(exclude_none=True), True
+                return response.model_dump(exclude_none=True), True
             elif response.action == WorkflowAction.ask_for_more_information:
-                return response.model_dump_json(exclude_none=True), False
+                return response.model_dump(exclude_none=True), False
         else:
             log_error(f"Invalid response from Workflow Agent: {response}. Continuing workflow")
             return None, False
@@ -1661,6 +1672,10 @@ class Workflow:
 
             if not continue_workflow:
                 return workflow_run_response
+            else:
+                # If the workflow_input is provided, use it as input for the workflow
+                if content.get("workflow_input") is not None:
+                    inputs.message = content.get("workflow_input")
 
         if stream:
             return self._execute_stream(

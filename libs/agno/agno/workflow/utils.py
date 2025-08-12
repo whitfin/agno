@@ -1,6 +1,7 @@
 from enum import Enum
+from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class WorkflowAction(Enum):
@@ -12,3 +13,7 @@ class WorkflowAction(Enum):
 class WorkflowResponse(BaseModel):
     action: WorkflowAction
     content: str
+    workflow_input: Optional[str] = Field(
+        default=None,
+        description="Required when action is continue_workflow",
+    )

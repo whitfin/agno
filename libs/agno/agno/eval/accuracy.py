@@ -2,7 +2,7 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from os import getenv
 from textwrap import dedent
-from typing import TYPE_CHECKING, Callable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Union
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -104,13 +104,17 @@ class AccuracyResult:
             self.max_score = max(_results)
             self.std_dev_score = statistics.stdev(_results) if len(_results) > 1 else 0
 
-    def print_summary(self, console: Optional["Console"] = None):
+    def print_summary(self, console: Optional["Console"] = None, custom_response: bool = False):
         from rich.box import ROUNDED
         from rich.console import Console
         from rich.table import Table
 
         if console is None:
             console = Console()
+
+        # If we are using a custom response for the evaluation, we skip generating the default results summary.
+        if custom_response:
+            return
 
         summary_table = Table(
             box=ROUNDED,
@@ -205,6 +209,12 @@ class AccuracyEval:
     # Log the results to the Agno platform. On by default.
     monitoring: bool = getenv("AGNO_MONITOR", "true").lower() == "true"
 
+    def _using_custom_response(self) -> bool:
+        """Check if the evaluator agent is using a custom response model"""
+        if not self.evaluator_agent:
+            return False
+        return not isinstance(self.evaluator_agent.response_model, AccuracyAgentResponse)
+
     def _warn_configuration_conflicts(self):
         """Handle validation of the evaluation configuration and warnings."""
         if self.passing_score < 1 or self.passing_score > 10:
@@ -222,9 +232,45 @@ class AccuracyEval:
                 f"The provided evaluation mode ({self.mode}) is not compatible with having additional context or guidelines. The additional context or guidelines will be ignored."
             )
 
+    def parse_additional_guidelines(self) -> str:
+        """Parse the user-provided additional guidelines into a prompt-ready string"""
+        if not self.additional_guidelines:
+            return ""
+        additional_guidelines = "\n## Additional Guidelines\n"
+        if isinstance(self.additional_guidelines, str):
+            additional_guidelines += self.additional_guidelines
+        else:
+            additional_guidelines += "\n- ".join(self.additional_guidelines)
+        additional_guidelines += "\n"
+        return additional_guidelines
+
+    def parse_additional_context(self) -> str:
+        """Parse the user-provided additional context into a prompt-ready string"""
+        if not self.additional_context:
+            return ""
+        additional_context = "\n## Additional Context\n"
+        if isinstance(self.additional_context, str):
+            additional_context += self.additional_context
+        else:
+            additional_context += "\n- ".join(self.additional_context)
+        additional_context += "\n"
+        return additional_context
+
     def get_evaluator_agent(self) -> Agent:
         """Return the evaluator agent. If not provided, build it based on the evaluator fields and default instructions."""
+
         if self.evaluator_agent is not None:
+            # Adding user-provided guidelines and context to the evaluator agent description
+            if self.additional_guidelines is not None or self.additional_context is not None:
+                self.evaluator_agent.description = (
+                    (self.evaluator_agent.description or "")
+                    + self.parse_additional_guidelines()
+                    + self.parse_additional_context()
+                )
+            if self.evaluator_agent.response_model is not AccuracyAgentResponse:
+                logger.warning(
+                    "The evaluator agent is not using the AccuracyAgentResponse response model. This means a complete Accuracy result won't be available, stored or monitored."
+                )
             return self.evaluator_agent
 
         model = self.model
@@ -239,20 +285,8 @@ class AccuracyEval:
                     "Agno uses `openai` as the default model provider. Please run `pip install openai` to use the default evaluator."
                 )
 
-        additional_guidelines = ""
-        if self.additional_guidelines is not None:
-            additional_guidelines = "\n## Additional Guidelines\n"
-            if isinstance(self.additional_guidelines, str):
-                additional_guidelines += self.additional_guidelines
-            else:
-                additional_guidelines += "\n- ".join(self.additional_guidelines)
-            additional_guidelines += "\n"
-
-        additional_context = ""
-        if self.additional_context is not None and len(self.additional_context) > 0:
-            additional_context = "\n## Additional Context\n"
-            additional_context += self.additional_context
-            additional_context += "\n"
+        additional_guidelines = self.parse_additional_guidelines()
+        additional_context = self.parse_additional_context()
 
         if self.mode == AccuracyEvalMode.AGENTIC:
             agent_description = accuracy_agentic_mode_system_prompt
@@ -296,7 +330,7 @@ class AccuracyEval:
         expected_output: Union[str, list[str]],
         agent_output: str,
         evaluator_agent: Optional[Agent] = None,
-    ) -> Optional[AccuracyEvaluation]:
+    ) -> Optional[Any]:
         """Orchestrate the evaluation process."""
         try:
             if self.mode == AccuracyEvalMode.BASIC:
@@ -316,6 +350,8 @@ class AccuracyEval:
                 if evaluator_agent is None:
                     raise EvalError("Evaluator agent is required for the reasoning mode.")
                 accuracy_agent_response = evaluator_agent.run(evaluator_input).content
+                if self._using_custom_response():
+                    return accuracy_agent_response
                 if accuracy_agent_response is None or not isinstance(accuracy_agent_response, AccuracyAgentResponse):
                     raise EvalError(f"Evaluator Agent returned an invalid response: {accuracy_agent_response}")
                 return AccuracyEvaluation(
@@ -337,11 +373,13 @@ class AccuracyEval:
         evaluation_input: str,
         evaluator_expected_output: str,
         agent_output: str,
-    ) -> Optional[AccuracyEvaluation]:
+    ) -> Optional[Any]:
         """Orchestrate the evaluation process asynchronously."""
         try:
             response = await evaluator_agent.arun(evaluation_input)
             accuracy_agent_response = response.content
+            if self._using_custom_response():
+                return accuracy_agent_response
             if accuracy_agent_response is None or not isinstance(accuracy_agent_response, AccuracyAgentResponse):
                 raise EvalError(f"Evaluator Agent returned an invalid response: {accuracy_agent_response}")
             return AccuracyEvaluation(
@@ -413,6 +451,9 @@ class AccuracyEval:
                 if result is None:
                     logger.error(f"Failed to evaluate accuracy on iteration {i + 1}")
                     continue
+                if self._using_custom_response():
+                    console.print(f"Evaluator Agent response on iteration {i + 1}: \n{result}")
+                    continue
 
                 self.result.results.append(result)
                 self.result.compute_stats()
@@ -433,7 +474,7 @@ class AccuracyEval:
         if self.print_results or print_results:
             self.result.print_results(console)
         if self.print_summary or print_summary:
-            self.result.print_summary(console)
+            self.result.print_summary(console, custom_response=self._using_custom_response())
 
         # Log results to the Agno platform if requested
         if self.agent is not None:
@@ -449,7 +490,7 @@ class AccuracyEval:
             model_provider = self.team.model.provider if self.team.model is not None else None
             evaluated_entity_name = self.team.name
 
-        if self.monitoring:
+        if self.monitoring and not self._using_custom_response():
             log_eval_run(
                 run_id=self.eval_id,  # type: ignore
                 run_data=asdict(self.result),
@@ -527,15 +568,18 @@ class AccuracyEval:
                     input=eval_input,
                     evaluator_agent=evaluator_agent,
                     evaluation_input=evaluation_input,
-                    evaluator_expected_output=eval_expected_output,
+                    evaluator_expected_output=str(eval_expected_output),
                     agent_output=output,
                 )
                 if result is None:
                     logger.error(f"Failed to evaluate accuracy on iteration {i + 1}")
                     continue
-
-                self.result.results.append(result)
-                self.result.compute_stats()
+                if self._using_custom_response():
+                    console.print(f"Evaluator Agent response on iteration {i + 1}: \n{result}")
+                    continue
+                else:
+                    self.result.results.append(result)  # type: ignore
+                    self.result.compute_stats()
                 status.update(f"Eval iteration {i + 1} finished")
 
             status.stop()
@@ -549,14 +593,15 @@ class AccuracyEval:
                 result=self.result,
             )
 
-        # Print results if requested
-        if self.print_results or print_results:
-            self.result.print_results(console)
-        if self.print_summary or print_summary:
-            self.result.print_summary(console)
+        if not self._using_custom_response():
+            # Print results if requested
+            if self.print_results or print_results:
+                self.result.print_results(console)
+            if self.print_summary or print_summary:
+                self.result.print_summary(console, custom_response=self._using_custom_response())
 
         # Log results to the Agno platform if requested
-        if self.monitoring:
+        if self.monitoring and not self._using_custom_response():
             await async_log_eval_run(
                 run_id=self.eval_id,  # type: ignore
                 run_data=asdict(self.result),
@@ -603,14 +648,18 @@ class AccuracyEval:
         )
 
         if result is not None:
-            self.result.results.append(result)
+            if self._using_custom_response():
+                logger.info(f"Evaluator Agent response: {result}")
+                return None
+
+            self.result.results.append(result)  # type: ignore
             self.result.compute_stats()
 
             # Print results if requested
             if self.print_results or print_results:
                 self.result.print_results()
             if self.print_summary or print_summary:
-                self.result.print_summary()
+                self.result.print_summary(custom_response=self._using_custom_response())
 
             # Save result to file if requested
             if self.file_path_to_save_results is not None:
@@ -704,7 +753,7 @@ class AccuracyEval:
             if self.print_results or print_results:
                 self.result.print_results()
             if self.print_summary or print_summary:
-                self.result.print_summary()
+                self.result.print_summary(custom_response=self._using_custom_response())
 
             # Save result to file if requested
             if self.file_path_to_save_results is not None:

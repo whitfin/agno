@@ -37,7 +37,7 @@ from agno.models.message import Citations, Message, MessageReferences
 from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse, ModelResponseEvent, ToolExecution
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
-from agno.run.base import RunResponseExtraData, RunStatus
+from agno.run.base import RunResponseMetaData, RunStatus
 from agno.run.messages import RunMessages
 from agno.run.response import (
     RunEvent,
@@ -117,8 +117,8 @@ class Agent:
     num_history_sessions: Optional[int] = None
     # If True, the agent creates/updates session summaries at the end of runs
     enable_session_summaries: bool = False
-    # If True, the agent adds a reference to the session summaries in the response
-    add_session_summary_references: Optional[bool] = None
+    # If True, the agent adds session summaries to the context
+    add_session_summary_to_context: Optional[bool] = None
     # Session summary manager
     session_summary_manager: Optional[SessionSummaryManager] = None
     # If True, cache the session in memory
@@ -138,9 +138,9 @@ class Agent:
     # If True, the agent creates/updates user memories at the end of runs
     enable_user_memories: bool = False
     # If True, the agent adds a reference to the user memories in the response
-    add_memory_references: Optional[bool] = None
-    # Extra data stored with this agent
-    extra_data: Optional[Dict[str, Any]] = None
+    add_memories_to_context: Optional[bool] = None
+    # Metadata stored with this agent
+    metadata: Optional[Dict[str, Any]] = None
 
     # --- Database ---
     # Database to use for this agent
@@ -159,13 +159,13 @@ class Agent:
     knowledge_filters: Optional[Dict[str, Any]] = None
     # Let the agent choose the knowledge filters
     enable_agentic_knowledge_filters: Optional[bool] = False
-    add_references: bool = False
+    add_knowledge_to_context: bool = False
     # Retrieval function to get references
     # This function, if provided, is used instead of the default search_knowledge function
     # Signature:
-    # def retriever(agent: Agent, query: str, num_documents: Optional[int], **kwargs) -> Optional[list[dict]]:
+    # def knowledge_retriever(agent: Agent, query: str, num_documents: Optional[int], **kwargs) -> Optional[list[dict]]:
     #     ...
-    retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None
+    knowledge_retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None
     references_format: Literal["json", "yaml"] = "json"
 
     # --- Agent Tools ---
@@ -343,19 +343,19 @@ class Agent:
         memory_manager: Optional[MemoryManager] = None,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
-        add_memory_references: Optional[bool] = None,
+        add_memories_to_context: Optional[bool] = None,
         enable_session_summaries: bool = False,
-        add_session_summary_references: Optional[bool] = None,
+        add_session_summary_to_context: Optional[bool] = None,
         session_summary_manager: Optional[SessionSummaryManager] = None,
         add_history_to_context: bool = False,
         num_history_runs: int = 3,
         knowledge: Optional[Knowledge] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         enable_agentic_knowledge_filters: Optional[bool] = None,
-        add_references: bool = False,
-        retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None,
+        add_knowledge_to_context: bool = False,
+        knowledge_retriever: Optional[Callable[..., Optional[List[Union[Dict, str]]]]] = None,
         references_format: Literal["json", "yaml"] = "json",
-        extra_data: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         tools: Optional[List[Union[Toolkit, Callable, Function, Dict]]] = None,
         tool_call_limit: Optional[int] = None,
         tool_choice: Optional[Union[str, Dict[str, Any]]] = None,
@@ -427,11 +427,11 @@ class Agent:
         self.memory_manager = memory_manager
         self.enable_agentic_memory = enable_agentic_memory
         self.enable_user_memories = enable_user_memories
-        self.add_memory_references = add_memory_references
+        self.add_memories_to_context = add_memories_to_context
 
         self.session_summary_manager = session_summary_manager
         self.enable_session_summaries = enable_session_summaries
-        self.add_session_summary_references = add_session_summary_references
+        self.add_session_summary_to_context = add_session_summary_to_context
 
         self.add_history_to_context = add_history_to_context
         self.num_history_runs = num_history_runs
@@ -439,11 +439,11 @@ class Agent:
         self.knowledge = knowledge
         self.knowledge_filters = knowledge_filters
         self.enable_agentic_knowledge_filters = enable_agentic_knowledge_filters
-        self.add_references = add_references
-        self.retriever = retriever
+        self.add_knowledge_to_context = add_knowledge_to_context
+        self.knowledge_retriever = knowledge_retriever
         self.references_format = references_format
 
-        self.extra_data = extra_data
+        self.metadata = metadata
 
         self.tools = tools
         self.tool_call_limit = tool_call_limit
@@ -582,8 +582,8 @@ class Agent:
             if self.memory_manager.db is None:
                 self.memory_manager.db = self.db
 
-        if self.add_memory_references is None:
-            self.add_memory_references = (
+        if self.add_memories_to_context is None:
+            self.add_memories_to_context = (
                 self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None
             )
 
@@ -595,8 +595,8 @@ class Agent:
             if self.session_summary_manager.model is None:
                 self.session_summary_manager.model = self.model
 
-        if self.add_session_summary_references is None:
-            self.add_session_summary_references = (
+        if self.add_session_summary_to_context is None:
+            self.add_session_summary_to_context = (
                 self.enable_session_summaries or self.session_summary_manager is not None
             )
 
@@ -807,6 +807,7 @@ class Agent:
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
         refresh_session_before_write: Optional[bool] = False,
+        workflow_context: Optional[Dict] = None,
     ) -> Iterator[RunResponseEvent]:
         """Run the Agent and yield the RunResponse.
 
@@ -823,7 +824,7 @@ class Agent:
 
         # Start the Run by yielding a RunStarted event
         if stream_intermediate_steps:
-            yield self._handle_event(create_run_response_started_event(run_response), run_response)
+            yield self._handle_event(create_run_response_started_event(run_response), run_response, workflow_context)
 
         # 1. Reason about the task if reasoning is enabled
         yield from self._handle_reasoning_stream(run_messages=run_messages)
@@ -834,6 +835,7 @@ class Agent:
             run_messages=run_messages,
             response_format=response_format,
             stream_intermediate_steps=stream_intermediate_steps,
+            workflow_context=workflow_context,
         ):
             yield event
 
@@ -868,7 +870,9 @@ class Agent:
         self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
-            yield self._handle_event(create_run_response_completed_event(from_run_response=run_response), run_response)
+            yield self._handle_event(
+                create_run_response_completed_event(from_run_response=run_response), run_response, workflow_context
+            )
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -952,6 +956,9 @@ class Agent:
 
         log_debug(f"Session ID: {session_id}", center=True)
 
+        # Extract workflow context from kwargs if present
+        workflow_context = kwargs.pop("workflow_context", None)
+
         # Initialize Knowledge Filters
         effective_filters = knowledge_filters
 
@@ -1022,15 +1029,14 @@ class Agent:
         for attempt in range(num_attempts):
             try:
                 # Set run_input
-                if message is not None:
-                    if isinstance(message, str):
-                        self.run_input = message
-                    elif isinstance(message, Message):
-                        self.run_input = message.to_dict()
-                    else:
-                        self.run_input = message
-                elif messages is not None:
+                if messages is not None:
                     self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
+                if message is not None:
+                    formatted_message = message.to_dict() if isinstance(message, Message) else message
+                    if self.run_input is not None:
+                        self.run_input.append(formatted_message)
+                    else:
+                        self.run_input = formatted_message
 
                 # Prepare run messages
                 run_messages: RunMessages = self.get_run_messages(
@@ -1059,6 +1065,7 @@ class Agent:
                         response_format=response_format,
                         stream_intermediate_steps=stream_intermediate_steps,
                         refresh_session_before_write=refresh_session_before_write,
+                        workflow_context=workflow_context,
                     )
                     return response_iterator
                 else:
@@ -1204,6 +1211,7 @@ class Agent:
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
         refresh_session_before_write: Optional[bool] = False,
+        workflow_context: Optional[Dict] = None,
     ) -> AsyncIterator[RunResponseEvent]:
         """Run the Agent and yield the RunResponse.
 
@@ -1219,7 +1227,7 @@ class Agent:
         log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
         # Start the Run by yielding a RunStarted event
         if stream_intermediate_steps:
-            yield self._handle_event(create_run_response_started_event(run_response), run_response)
+            yield self._handle_event(create_run_response_started_event(run_response), run_response, workflow_context)
 
         # 1. Reason about the task if reasoning is enabled
         async for item in self._ahandle_reasoning_stream(run_messages=run_messages):
@@ -1231,6 +1239,7 @@ class Agent:
             run_messages=run_messages,
             response_format=response_format,
             stream_intermediate_steps=stream_intermediate_steps,
+            workflow_context=workflow_context,
         ):
             yield event
 
@@ -1268,7 +1277,9 @@ class Agent:
         self.run_response.status = RunStatus.completed
 
         if stream_intermediate_steps:
-            yield self._handle_event(create_run_response_completed_event(from_run_response=run_response), run_response)
+            yield self._handle_event(
+                create_run_response_completed_event(from_run_response=run_response), run_response, workflow_context
+            )
 
         # 6. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -1349,6 +1360,9 @@ class Agent:
         # Initialize the Agent
         self.initialize_agent(debug_mode=debug_mode)
 
+        # Extract workflow context from kwargs if present
+        workflow_context = kwargs.pop("workflow_context", None)
+
         effective_filters = knowledge_filters
         # When filters are passed manually
         if self.knowledge_filters or knowledge_filters:
@@ -1417,15 +1431,14 @@ class Agent:
         for attempt in range(num_attempts):
             try:
                 # Set run_input
-                if message is not None:
-                    if isinstance(message, str):
-                        self.run_input = message
-                    elif isinstance(message, Message):
-                        self.run_input = message.to_dict()
-                    else:
-                        self.run_input = message
-                elif messages is not None:
+                if messages is not None:
                     self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
+                if message is not None:
+                    formatted_message = message.to_dict() if isinstance(message, Message) else message
+                    if self.run_input is not None:
+                        self.run_input.append(formatted_message)
+                    else:
+                        self.run_input = formatted_message
 
                 # Prepare run messages
                 run_messages: RunMessages = self.get_run_messages(
@@ -1455,6 +1468,7 @@ class Agent:
                         response_format=response_format,
                         stream_intermediate_steps=stream_intermediate_steps,
                         refresh_session_before_write=refresh_session_before_write,
+                        workflow_context=workflow_context,
                     )  # type: ignore[assignment]
                 else:
                     return self._arun(
@@ -2764,6 +2778,7 @@ class Agent:
         run_messages: RunMessages,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
     ) -> Iterator[RunResponseEvent]:
         self.model = cast(Model, self.model)
 
@@ -2794,16 +2809,17 @@ class Agent:
                 reasoning_state=reasoning_state,
                 parse_structured_output=self.should_parse_structured_output,
                 stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
             )
 
         # Determine reasoning completed
         if stream_intermediate_steps and reasoning_state["reasoning_started"]:
             all_reasoning_steps: List[ReasoningStep] = []
-            if run_response and run_response.extra_data and hasattr(run_response.extra_data, "reasoning_steps"):
-                all_reasoning_steps = cast(List[ReasoningStep], run_response.extra_data.reasoning_steps)
+            if run_response and run_response.metadata and hasattr(run_response.metadata, "reasoning_steps"):
+                all_reasoning_steps = cast(List[ReasoningStep], run_response.metadata.reasoning_steps)
 
             if all_reasoning_steps:
-                self._add_reasoning_metrics_to_extra_data(reasoning_state["reasoning_time_taken"])
+                self._add_reasoning_metrics_to_metadata(reasoning_state["reasoning_time_taken"])
                 yield self._handle_event(
                     create_reasoning_completed_event(
                         from_run_response=run_response,
@@ -2831,6 +2847,7 @@ class Agent:
         run_messages: RunMessages,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
     ) -> AsyncIterator[RunResponseEvent]:
         self.model = cast(Model, self.model)
 
@@ -2863,16 +2880,17 @@ class Agent:
                 reasoning_state=reasoning_state,
                 parse_structured_output=self.should_parse_structured_output,
                 stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
             ):
                 yield event
 
         if stream_intermediate_steps and reasoning_state["reasoning_started"]:
             all_reasoning_steps: List[ReasoningStep] = []
-            if run_response and run_response.extra_data and hasattr(run_response.extra_data, "reasoning_steps"):
-                all_reasoning_steps = cast(List[ReasoningStep], run_response.extra_data.reasoning_steps)
+            if run_response and run_response.metadata and hasattr(run_response.metadata, "reasoning_steps"):
+                all_reasoning_steps = cast(List[ReasoningStep], run_response.metadata.reasoning_steps)
 
             if all_reasoning_steps:
-                self._add_reasoning_metrics_to_extra_data(reasoning_state["reasoning_time_taken"])
+                self._add_reasoning_metrics_to_metadata(reasoning_state["reasoning_time_taken"])
                 yield self._handle_event(
                     create_reasoning_completed_event(
                         from_run_response=run_response,
@@ -2902,6 +2920,7 @@ class Agent:
         reasoning_state: Optional[Dict[str, Any]] = None,
         parse_structured_output: bool = False,
         stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
     ) -> Iterator[RunResponseEvent]:
         if isinstance(model_response_event, tuple(get_args(RunResponseEvent))) or isinstance(
             model_response_event, tuple(get_args(TeamRunResponseEvent))
@@ -2953,6 +2972,7 @@ class Agent:
                             content_type=content_type,
                         ),
                         run_response,
+                        workflow_context=workflow_context,
                     )
                 elif (
                     model_response_event.content is not None
@@ -2969,6 +2989,7 @@ class Agent:
                             citations=model_response_event.citations,
                         ),
                         run_response,
+                        workflow_context=workflow_context,
                     )
 
                 # Process audio
@@ -3005,6 +3026,7 @@ class Agent:
                             response_audio=run_response.response_audio,
                         ),
                         run_response,
+                        workflow_context=workflow_context,
                     )
 
                 if model_response_event.image is not None:
@@ -3016,6 +3038,7 @@ class Agent:
                             image=model_response_event.image,
                         ),
                         run_response,
+                        workflow_context=workflow_context,
                     )
 
             # Handle tool interruption events
@@ -3133,12 +3156,12 @@ class Agent:
         videos = None
         model = None
         messages = None
-        extra_data = None
+        metadata = None
 
         if run_response:
             model = run_response.model
             messages = run_response.messages
-            extra_data = run_response.extra_data
+            metadata = run_response.metadata
             if not content:
                 content = run_response.content
                 content_type = run_response.content_type
@@ -3173,8 +3196,8 @@ class Agent:
             rr.created_at = created_at
         if messages is not None:
             rr.messages = messages
-        if extra_data is not None:
-            rr.extra_data = extra_data
+        if metadata is not None:
+            rr.metadata = metadata
         if model is not None:
             rr.model = model
         return rr
@@ -3425,13 +3448,13 @@ class Agent:
             self._rebuild_tools = True
 
         # Add tools for accessing knowledge
-        if self.knowledge is not None or self.retriever is not None:
-            # Check if retriever is an async function but used in sync mode
+        if self.knowledge is not None or self.knowledge_retriever is not None:
+            # Check if knowledge retriever is an async function but used in sync mode
             from inspect import iscoroutinefunction
 
-            if not async_mode and self.retriever and iscoroutinefunction(self.retriever):
+            if not async_mode and self.knowledge_retriever and iscoroutinefunction(self.knowledge_retriever):
                 log_warning(
-                    "Async retriever function is being used with synchronous agent.run() or agent.print_response(). "
+                    "Async knowledge retriever function is being used with synchronous agent.run() or agent.print_response(). "
                     "It is recommended to use agent.arun() or agent.aprint_response() instead."
                 )
 
@@ -3791,14 +3814,14 @@ class Agent:
                         self.audio = []
                     self.audio.extend([AudioArtifact.model_validate(aud) for aud in audio_from_db])
 
-        # Read extra_data from the database
-        if session.extra_data is not None:
-            # If extra_data is set in the agent, update the database extra_data with the agent's extra_data
-            if self.extra_data is not None:
-                # Updates agent_session.extra_data in place
-                merge_dictionaries(session.extra_data, self.extra_data)
-            # Update the current extra_data with the extra_data from the database which is updated in place
-            self.extra_data = session.extra_data
+        # Read metadata from the database
+        if session.metadata is not None:
+            # If metadata is set in the agent, update the database metadata with the agent's metadata
+            if self.metadata is not None:
+                # Updates agent's session metadata in place
+                merge_dictionaries(session.metadata, self.metadata)
+            # Update the current metadata with the metadata from the database which is updated in place
+            self.metadata = session.metadata
 
         log_debug(f"-*- AgentSession loaded: {session.session_id}")
 
@@ -3844,7 +3867,7 @@ class Agent:
             team_session_id=self.team_session_id,
             agent_data=self.get_agent_data(),
             session_data=self.get_agent_session_data(),
-            extra_data=self.extra_data,
+            metadata=self.metadata,
             created_at=int(time()),
         )
         return self.agent_session
@@ -3856,8 +3879,8 @@ class Agent:
             Optional[AgentSession]: The saved AgentSession or None if not saved.
         """
 
-        # If the agent is a member of a team, do not save the session to the database
-        if self.db is not None and self.team_id is None:
+        # If the agent is a member of a team or a workflow, do not save the session to the database
+        if self.db is not None and self.team_id is None and self.workflow_id is None:
             session = self.get_agent_session(session_id=session_id, user_id=user_id)
 
             if session is None:
@@ -3939,7 +3962,7 @@ class Agent:
             self.team_session_state or {},
             self.workflow_session_state or {},
             self.dependencies or {},
-            self.extra_data or {},
+            self.metadata or {},
             {"user_id": self.user_id} if self.user_id is not None else {},
         )
         converted_msg = msg
@@ -4120,7 +4143,7 @@ class Agent:
         if self.additional_context is not None:
             system_message_content += f"{self.additional_context}\n"
         # 3.3.9 Then add memories to the system prompt
-        if self.add_memory_references:
+        if self.add_memories_to_context:
             _memory_manager_not_set = False
             if not user_id:
                 user_id = "default"
@@ -4162,7 +4185,7 @@ class Agent:
 
         # 3.3.11 Then add a summary of the interaction to the system prompt
         if (
-            self.add_session_summary_references
+            self.add_session_summary_to_context
             and self.agent_session is not None
             and self.agent_session.summary is not None
         ):
@@ -4223,14 +4246,14 @@ class Agent:
         # Get references from the knowledge base to use in the user message
         references = None
         self.run_response = cast(RunResponse, self.run_response)
-        if self.add_references and message:
+        if self.add_knowledge_to_context and message:
             message_str: str
             if isinstance(message, str):
                 message_str = message
             elif callable(message):
                 message_str = message(agent=self)
             else:
-                raise Exception("message must be a string or a callable when add_references is True")
+                raise Exception("message must be a string or a callable when add_knowledge_to_context is True")
 
             try:
                 retrieval_timer = Timer()
@@ -4243,11 +4266,11 @@ class Agent:
                         query=message_str, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                     )
                     # Add the references to the run_response
-                    if self.run_response.extra_data is None:
-                        self.run_response.extra_data = RunResponseExtraData()
-                    if self.run_response.extra_data.references is None:
-                        self.run_response.extra_data.references = []
-                    self.run_response.extra_data.references.append(references)
+                    if self.run_response.metadata is None:
+                        self.run_response.metadata = RunResponseMetaData()
+                    if self.run_response.metadata.references is None:
+                        self.run_response.metadata.references = []
+                    self.run_response.metadata.references.append(references)
                 retrieval_timer.stop()
                 log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
             except Exception as e:
@@ -4335,7 +4358,7 @@ class Agent:
 
         # 4.1 Add references to user message
         if (
-            self.add_references
+            self.add_knowledge_to_context
             and references is not None
             and references.references is not None
             and len(references.references) > 0
@@ -4434,15 +4457,15 @@ class Agent:
             # Add the extra messages to the run_response
             if len(messages_to_add_to_run_response) > 0:
                 log_debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
-                if self.run_response.extra_data is None:
-                    self.run_response.extra_data = RunResponseExtraData(
+                if self.run_response.metadata is None:
+                    self.run_response.metadata = RunResponseMetaData(
                         additional_messages=messages_to_add_to_run_response
                     )
                 else:
-                    if self.run_response.extra_data.additional_messages is None:
-                        self.run_response.extra_data.additional_messages = messages_to_add_to_run_response
+                    if self.run_response.metadata.additional_messages is None:
+                        self.run_response.metadata.additional_messages = messages_to_add_to_run_response
                     else:
-                        self.run_response.extra_data.additional_messages.extend(messages_to_add_to_run_response)
+                        self.run_response.metadata.additional_messages.extend(messages_to_add_to_run_response)
 
         # 3. Add history to run_messages
         if self.add_history_to_context and self.agent_session is not None:
@@ -4726,27 +4749,27 @@ class Agent:
                 if not filters:
                     log_warning("No valid filters remain after validation. Search will proceed without filters.")
 
-        if self.retriever is not None and callable(self.retriever):
+        if self.knowledge_retriever is not None and callable(self.knowledge_retriever):
             from inspect import signature
 
             try:
-                sig = signature(self.retriever)
-                retriever_kwargs: Dict[str, Any] = {}
+                sig = signature(self.knowledge_retriever)
+                knowledge_retriever_kwargs: Dict[str, Any] = {}
                 if "agent" in sig.parameters:
-                    retriever_kwargs = {"agent": self}
+                    knowledge_retriever_kwargs = {"agent": self}
                 if "filters" in sig.parameters:
-                    retriever_kwargs["filters"] = filters
-                retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
-                return self.retriever(**retriever_kwargs)
+                    knowledge_retriever_kwargs["filters"] = filters
+                knowledge_retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
+                return self.knowledge_retriever(**knowledge_retriever_kwargs)
             except Exception as e:
-                log_warning(f"Retriever failed: {e}")
+                log_warning(f"Knowledge retriever failed: {e}")
                 raise e
 
         # Use knowledge base search
         try:
             if self.knowledge is None or (
                 (getattr(self.knowledge, "vector_db", None)) is None
-                and getattr(self.knowledge, "retriever", None) is None
+                and getattr(self.knowledge, "knowledge_retriever", None) is None
             ):
                 return None
 
@@ -4789,32 +4812,32 @@ class Agent:
                 if not filters:
                     log_warning("No valid filters remain after validation. Search will proceed without filters.")
 
-        if self.retriever is not None and callable(self.retriever):
+        if self.knowledge_retriever is not None and callable(self.knowledge_retriever):
             from inspect import isawaitable, signature
 
             try:
-                sig = signature(self.retriever)
-                retriever_kwargs: Dict[str, Any] = {}
+                sig = signature(self.knowledge_retriever)
+                knowledge_retriever_kwargs: Dict[str, Any] = {}
                 if "agent" in sig.parameters:
-                    retriever_kwargs = {"agent": self}
+                    knowledge_retriever_kwargs = {"agent": self}
                 if "filters" in sig.parameters:
-                    retriever_kwargs["filters"] = filters
-                retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
-                result = self.retriever(**retriever_kwargs)
+                    knowledge_retriever_kwargs["filters"] = filters
+                knowledge_retriever_kwargs.update({"query": query, "num_documents": num_documents, **kwargs})
+                result = self.knowledge_retriever(**knowledge_retriever_kwargs)
 
                 if isawaitable(result):
                     result = await result
 
                 return result
             except Exception as e:
-                log_warning(f"Retriever failed: {e}")
+                log_warning(f"Knowledge retriever failed: {e}")
                 raise e
 
         # Use knowledge base search
         try:
             if self.knowledge is None or (
                 getattr(self.knowledge, "vector_db", None) is None
-                and getattr(self.knowledge, "retriever", None) is None
+                and getattr(self.knowledge, "knowledge_retriever", None) is None
             ):
                 return None
 
@@ -4919,22 +4942,22 @@ class Agent:
         self, reasoning_steps: List[ReasoningStep], reasoning_agent_messages: List[Message]
     ) -> None:
         self.run_response = cast(RunResponse, self.run_response)
-        if self.run_response.extra_data is None:
-            self.run_response.extra_data = RunResponseExtraData()
+        if self.run_response.metadata is None:
+            self.run_response.metadata = RunResponseMetaData()
 
-        extra_data = self.run_response.extra_data
+        metadata = self.run_response.metadata
 
         # Update reasoning_steps
-        if extra_data.reasoning_steps is None:
-            extra_data.reasoning_steps = reasoning_steps
+        if metadata.reasoning_steps is None:
+            metadata.reasoning_steps = reasoning_steps
         else:
-            extra_data.reasoning_steps.extend(reasoning_steps)
+            metadata.reasoning_steps.extend(reasoning_steps)
 
         # Update reasoning_messages
-        if extra_data.reasoning_messages is None:
-            extra_data.reasoning_messages = reasoning_agent_messages
+        if metadata.reasoning_messages is None:
+            metadata.reasoning_messages = reasoning_agent_messages
         else:
-            extra_data.reasoning_messages.extend(reasoning_agent_messages)
+            metadata.reasoning_messages.extend(reasoning_agent_messages)
 
         # Create and store reasoning_content
         reasoning_content = ""
@@ -5736,7 +5759,16 @@ class Agent:
             else:
                 log_warning("A response model is required to parse the response with a parser model")
 
-    def _handle_event(self, event: RunResponseEvent, run_response: RunResponse):
+    def _handle_event(
+        self, event: RunResponseEvent, run_response: RunResponse, workflow_context: Optional[Dict] = None
+    ):
+        if workflow_context:
+            event.workflow_id = workflow_context.get("workflow_id")
+            event.workflow_run_id = workflow_context.get("workflow_run_id")
+            event.step_id = workflow_context.get("step_id")
+            event.step_name = workflow_context.get("step_name")
+            event.step_index = workflow_context.get("step_index")
+
         # We only store events that are not run_response_content events
         events_to_skip = [event.value for event in self.events_to_skip] if self.events_to_skip else []
         if self.store_events and event.event not in events_to_skip:
@@ -5881,11 +5913,11 @@ class Agent:
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
                 # Add the references to the run_response
-                if self.run_response.extra_data is None:
-                    self.run_response.extra_data = RunResponseExtraData()
-                if self.run_response.extra_data.references is None:
-                    self.run_response.extra_data.references = []
-                self.run_response.extra_data.references.append(references)
+                if self.run_response.metadata is None:
+                    self.run_response.metadata = RunResponseMetaData()
+                if self.run_response.metadata.references is None:
+                    self.run_response.metadata.references = []
+                self.run_response.metadata.references.append(references)
             retrieval_timer.stop()
             from agno.utils.log import log_debug
 
@@ -5912,11 +5944,11 @@ class Agent:
                 references = MessageReferences(
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
-                if self.run_response.extra_data is None:
-                    self.run_response.extra_data = RunResponseExtraData()
-                if self.run_response.extra_data.references is None:
-                    self.run_response.extra_data.references = []
-                self.run_response.extra_data.references.append(references)
+                if self.run_response.metadata is None:
+                    self.run_response.metadata = RunResponseMetaData()
+                if self.run_response.metadata.references is None:
+                    self.run_response.metadata.references = []
+                self.run_response.metadata.references.append(references)
             retrieval_timer.stop()
             log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
@@ -5958,11 +5990,11 @@ class Agent:
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
                 # Add the references to the run_response
-                if self.run_response.extra_data is None:
-                    self.run_response.extra_data = RunResponseExtraData()
-                if self.run_response.extra_data.references is None:
-                    self.run_response.extra_data.references = []
-                self.run_response.extra_data.references.append(references)
+                if self.run_response.metadata is None:
+                    self.run_response.metadata = RunResponseMetaData()
+                if self.run_response.metadata.references is None:
+                    self.run_response.metadata.references = []
+                self.run_response.metadata.references.append(references)
             retrieval_timer.stop()
             from agno.utils.log import log_debug
 
@@ -5992,11 +6024,11 @@ class Agent:
                 references = MessageReferences(
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
-                if self.run_response.extra_data is None:
-                    self.run_response.extra_data = RunResponseExtraData()
-                if self.run_response.extra_data.references is None:
-                    self.run_response.extra_data.references = []
-                self.run_response.extra_data.references.append(references)
+                if self.run_response.metadata is None:
+                    self.run_response.metadata = RunResponseMetaData()
+                if self.run_response.metadata.references is None:
+                    self.run_response.metadata.references = []
+                self.run_response.metadata.references.append(references)
             retrieval_timer.stop()
             log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
@@ -6182,11 +6214,11 @@ class Agent:
                             if hasattr(resp, "thinking") and resp.thinking is not None:
                                 _response_thinking += resp.thinking
                         if (
-                            hasattr(resp, "extra_data")
-                            and resp.extra_data is not None
-                            and resp.extra_data.reasoning_steps is not None
+                            hasattr(resp, "metadata")
+                            and resp.metadata is not None
+                            and resp.metadata.reasoning_steps is not None
                         ):
-                            reasoning_steps = resp.extra_data.reasoning_steps
+                            reasoning_steps = resp.metadata.reasoning_steps
 
                     response_content_stream: str = _response_content
                     # Escape special tags before markdown conversion
@@ -6385,10 +6417,10 @@ class Agent:
 
                 if (
                     isinstance(run_response, RunResponse)
-                    and run_response.extra_data is not None
-                    and run_response.extra_data.reasoning_steps is not None
+                    and run_response.metadata is not None
+                    and run_response.metadata.reasoning_steps is not None
                 ):
-                    reasoning_steps = run_response.extra_data.reasoning_steps
+                    reasoning_steps = run_response.metadata.reasoning_steps
 
                 if len(reasoning_steps) > 0 and show_reasoning:
                     # Create panels for reasoning steps
@@ -6630,11 +6662,11 @@ class Agent:
                                 _response_thinking += resp.thinking
 
                         if (
-                            hasattr(resp, "extra_data")
-                            and resp.extra_data is not None
-                            and resp.extra_data.reasoning_steps is not None
+                            hasattr(resp, "metadata")
+                            and resp.metadata is not None
+                            and resp.metadata.reasoning_steps is not None
                         ):
-                            reasoning_steps = resp.extra_data.reasoning_steps
+                            reasoning_steps = resp.metadata.reasoning_steps
 
                     response_content_stream: str = _response_content
                     # Escape special tags before markdown conversion
@@ -6833,10 +6865,10 @@ class Agent:
                 reasoning_steps = []
                 if (
                     isinstance(run_response, RunResponse)
-                    and run_response.extra_data is not None
-                    and run_response.extra_data.reasoning_steps is not None
+                    and run_response.metadata is not None
+                    and run_response.metadata.reasoning_steps is not None
                 ):
-                    reasoning_steps = run_response.extra_data.reasoning_steps
+                    reasoning_steps = run_response.metadata.reasoning_steps
 
                 if len(reasoning_steps) > 0 and show_reasoning:
                     # Create panels for reasoning steps
@@ -6986,7 +7018,7 @@ class Agent:
             )
 
             # Add the step to the run response
-            self._add_reasoning_step_to_extra_data(reasoning_step)
+            self._add_reasoning_step_to_metadata(reasoning_step)
 
             formatted_content = f"## {title}\n{thought}\n"
             if action:
@@ -7023,7 +7055,7 @@ class Agent:
             )
 
             # Add the step to the run response
-            self._add_reasoning_step_to_extra_data(reasoning_step)
+            self._add_reasoning_step_to_metadata(reasoning_step)
 
             formatted_content = f"## {title}\n"
             if result:
@@ -7048,7 +7080,7 @@ class Agent:
                 confidence=None,
             )
             formatted_content = f"## Thinking\n{thought}\n\n"
-            self._add_reasoning_step_to_extra_data(reasoning_step)
+            self._add_reasoning_step_to_metadata(reasoning_step)
             self._append_to_reasoning_content(formatted_content)
             return reasoning_step
 
@@ -7061,29 +7093,29 @@ class Agent:
         else:
             self.run_response.reasoning_content += content  # type: ignore
 
-    def _add_reasoning_step_to_extra_data(self, reasoning_step: ReasoningStep) -> None:
+    def _add_reasoning_step_to_metadata(self, reasoning_step: ReasoningStep) -> None:
         if hasattr(self, "run_response") and self.run_response is not None:
-            if self.run_response.extra_data is None:
-                from agno.run.response import RunResponseExtraData
+            if self.run_response.metadata is None:
+                from agno.run.response import RunResponseMetaData
 
-                self.run_response.extra_data = RunResponseExtraData()
+                self.run_response.metadata = RunResponseMetaData()
 
-            if self.run_response.extra_data.reasoning_steps is None:
-                self.run_response.extra_data.reasoning_steps = []
+            if self.run_response.metadata.reasoning_steps is None:
+                self.run_response.metadata.reasoning_steps = []
 
-            self.run_response.extra_data.reasoning_steps.append(reasoning_step)
+            self.run_response.metadata.reasoning_steps.append(reasoning_step)
 
-    def _add_reasoning_metrics_to_extra_data(self, reasoning_time_taken: float) -> None:
+    def _add_reasoning_metrics_to_metadata(self, reasoning_time_taken: float) -> None:
         try:
             if hasattr(self, "run_response") and self.run_response is not None:
-                if self.run_response.extra_data is None:
-                    from agno.run.response import RunResponseExtraData
+                if self.run_response.metadata is None:
+                    from agno.run.response import RunResponseMetaData
 
-                    self.run_response.extra_data = RunResponseExtraData()
+                    self.run_response.metadata = RunResponseMetaData()
 
                 # Initialize reasoning_messages if it doesn't exist
-                if self.run_response.extra_data.reasoning_messages is None:
-                    self.run_response.extra_data.reasoning_messages = []
+                if self.run_response.metadata.reasoning_messages is None:
+                    self.run_response.metadata.reasoning_messages = []
 
                 metrics_message = Message(
                     role="assistant",
@@ -7092,13 +7124,13 @@ class Agent:
                 )
 
                 # Add the metrics message to the reasoning_messages
-                self.run_response.extra_data.reasoning_messages.append(metrics_message)
+                self.run_response.metadata.reasoning_messages.append(metrics_message)
 
         except Exception as e:
             # Log the error but don't crash
             from agno.utils.log import log_error
 
-            log_error(f"Failed to add reasoning metrics to extra_data: {str(e)}")
+            log_error(f"Failed to add reasoning metrics to metadata: {str(e)}")
 
     def _get_effective_filters(self, knowledge_filters: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """

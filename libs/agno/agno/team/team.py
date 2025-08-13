@@ -52,11 +52,11 @@ from agno.utils.events import (
     create_team_reasoning_completed_event,
     create_team_reasoning_started_event,
     create_team_reasoning_step_event,
-    create_team_run_response_cancelled_event,
-    create_team_run_response_completed_event,
-    create_team_run_response_content_event,
-    create_team_run_response_error_event,
-    create_team_run_response_started_event,
+    create_team_run_output_cancelled_event,
+    create_team_run_output_completed_event,
+    create_team_run_output_content_event,
+    create_team_run_output_error_event,
+    create_team_run_output_started_event,
     create_team_tool_call_completed_event,
     create_team_tool_call_started_event,
 )
@@ -80,7 +80,7 @@ from agno.utils.response import (
     escape_markdown_tags,
     format_tool_calls,
     generator_wrapper,
-    update_run_response_with_reasoning,
+    update_run_output_with_reasoning,
 )
 from agno.utils.safe_formatter import SafeFormatter
 from agno.utils.string import is_valid_uuid, parse_response_model_str, url_safe_string
@@ -827,9 +827,7 @@ class Team:
 
         # Start the Run by yielding a RunStarted event
         if stream_intermediate_steps:
-            yield self._handle_event(
-                create_team_run_response_started_event(run_response), run_response, workflow_context
-            )
+            yield self._handle_event(create_team_run_output_started_event(run_response), run_response, workflow_context)
 
         # 2. Get a response from the model
         yield from self._handle_model_response_stream(
@@ -851,8 +849,8 @@ class Team:
 
         if stream_intermediate_steps:
             yield self._handle_event(
-                create_team_run_response_completed_event(
-                    from_run_response=run_response,
+                create_team_run_output_completed_event(
+                    from_run_output=run_response,
                 ),
                 run_response,
                 workflow_context,
@@ -1117,13 +1115,13 @@ class Team:
             except (KeyboardInterrupt, RunCancelledException):
                 if stream:
                     return generator_wrapper(
-                        create_team_run_response_cancelled_event(run_response, "Operation cancelled by user")
+                        create_team_run_output_cancelled_event(run_response, "Operation cancelled by user")
                     )
                 else:
-                    return self._create_run_response(
+                    return self._create_run_output(
                         run_state=RunStatus.cancelled,
                         content="Operation cancelled by user",
-                        from_run_response=run_response,
+                        from_run_output=run_response,
                         session_id=session_id,
                     )
             finally:
@@ -1135,12 +1133,12 @@ class Team:
                 f"Failed after {num_attempts} attempts. Last error using {last_exception.model_name}({last_exception.model_id})"
             )
             if stream:
-                return generator_wrapper(create_team_run_response_error_event(run_response, error=str(last_exception)))
+                return generator_wrapper(create_team_run_output_error_event(run_response, error=str(last_exception)))
 
             raise last_exception
         else:
             if stream:
-                return generator_wrapper(create_team_run_response_error_event(run_response, error=str(last_exception)))
+                return generator_wrapper(create_team_run_output_error_event(run_response, error=str(last_exception)))
 
             raise Exception(f"Failed after {num_attempts} attempts.")
 
@@ -1237,7 +1235,7 @@ class Team:
         # Start the Run by yielding a RunStarted event
         if stream_intermediate_steps:
             yield self._handle_event(
-                create_team_run_response_started_event(from_run_response=run_response), run_response, workflow_context
+                create_team_run_output_started_event(from_run_output=run_response), run_response, workflow_context
             )
 
         # 2. Get a response from the model
@@ -1268,7 +1266,7 @@ class Team:
 
         if stream_intermediate_steps:
             yield self._handle_event(
-                create_team_run_response_completed_event(from_run_response=run_response), run_response, workflow_context
+                create_team_run_output_completed_event(from_run_output=run_response), run_response, workflow_context
             )
 
         # 5. Calculate session metrics
@@ -1518,13 +1516,13 @@ class Team:
             except (KeyboardInterrupt, RunCancelledException):
                 if stream:
                     return async_generator_wrapper(
-                        create_team_run_response_cancelled_event(run_response, "Operation cancelled by user")
+                        create_team_run_output_cancelled_event(run_response, "Operation cancelled by user")
                     )
                 else:
-                    return self._create_run_response(
+                    return self._create_run_output(
                         run_state=RunStatus.cancelled,
                         content="Operation cancelled by user",
-                        from_run_response=run_response,
+                        from_run_output=run_response,
                         session_id=session_id,
                     )
             finally:
@@ -1537,14 +1535,14 @@ class Team:
             )
             if stream:
                 return async_generator_wrapper(
-                    create_team_run_response_error_event(run_response, error=str(last_exception))
+                    create_team_run_output_error_event(run_response, error=str(last_exception))
                 )
 
             raise last_exception
         else:
             if stream:
                 return async_generator_wrapper(
-                    create_team_run_response_error_event(run_response, error=str(last_exception))
+                    create_team_run_output_error_event(run_response, error=str(last_exception))
                 )
 
             raise Exception(f"Failed after {num_attempts} attempts.")
@@ -1678,7 +1676,7 @@ class Team:
                 self._add_reasoning_metrics_to_metadata(run_response, reasoning_state["reasoning_time_taken"])
                 yield self._handle_event(
                     create_team_reasoning_completed_event(
-                        from_run_response=run_response,
+                        from_run_output=run_response,
                         content=ReasoningSteps(reasoning_steps=all_reasoning_steps),
                         content_type=ReasoningSteps.__name__,
                     ),
@@ -1774,7 +1772,7 @@ class Team:
                 self._add_reasoning_metrics_to_metadata(run_response, reasoning_state["reasoning_time_taken"])
                 yield self._handle_event(
                     create_team_reasoning_completed_event(
-                        from_run_response=run_response,
+                        from_run_output=run_response,
                         content=ReasoningSteps(reasoning_steps=all_reasoning_steps),
                         content_type=ReasoningSteps.__name__,
                     ),
@@ -1868,8 +1866,8 @@ class Team:
                 if should_yield:
                     if content_type == "str":
                         yield self._handle_event(
-                            create_team_run_response_content_event(
-                                from_run_response=run_response,
+                            create_team_run_output_content_event(
+                                from_run_output=run_response,
                                 content=model_response_event.content,
                                 thinking=model_response_event.thinking,
                                 redacted_thinking=model_response_event.redacted_thinking,
@@ -1882,8 +1880,8 @@ class Team:
                         )
                     else:
                         yield self._handle_event(
-                            create_team_run_response_content_event(
-                                from_run_response=run_response,
+                            create_team_run_output_content_event(
+                                from_run_output=run_response,
                                 content=full_model_response.content,
                                 content_type=content_type,
                             ),
@@ -1905,7 +1903,7 @@ class Team:
                     for tool in tool_executions_list:
                         yield self._handle_event(
                             create_team_tool_call_started_event(
-                                from_run_response=run_response,
+                                from_run_output=run_response,
                                 tool=tool,
                             ),
                             run_response,
@@ -1951,7 +1949,7 @@ class Team:
 
                         yield self._handle_event(
                             create_team_tool_call_completed_event(
-                                from_run_response=run_response,
+                                from_run_output=run_response,
                                 tool=tool_call,
                                 content=model_response_event.content,
                             ),
@@ -1963,7 +1961,7 @@ class Team:
                         if reasoning_state is not None and not reasoning_state["reasoning_started"]:
                             yield self._handle_event(
                                 create_team_reasoning_started_event(
-                                    from_run_response=run_response,
+                                    from_run_output=run_response,
                                 ),
                                 run_response,
                             )
@@ -1971,7 +1969,7 @@ class Team:
 
                         yield self._handle_event(
                             create_team_reasoning_step_event(
-                                from_run_response=run_response,
+                                from_run_output=run_response,
                                 reasoning_step=reasoning_step,
                                 reasoning_content=run_response.reasoning_content or "",
                             ),
@@ -2055,7 +2053,7 @@ class Team:
             if futures:
                 if self.stream_intermediate_steps:
                     yield self._handle_event(
-                        create_team_memory_update_started_event(from_run_response=self.run_response), self.run_response
+                        create_team_memory_update_started_event(from_run_output=self.run_response), self.run_response
                     )
 
                 # Wait for all operations to complete and handle any errors
@@ -2067,7 +2065,7 @@ class Team:
 
                 if self.stream_intermediate_steps:
                     yield self._handle_event(
-                        create_team_memory_update_completed_event(from_run_response=self.run_response),
+                        create_team_memory_update_completed_event(from_run_output=self.run_response),
                         self.run_response,
                     )
 
@@ -2091,7 +2089,7 @@ class Team:
         if tasks:
             if self.stream_intermediate_steps:
                 yield self._handle_event(
-                    create_team_memory_update_started_event(from_run_response=self.run_response), self.run_response
+                    create_team_memory_update_started_event(from_run_output=self.run_response), self.run_response
                 )
 
             # Execute all tasks concurrently and handle any errors
@@ -2102,7 +2100,7 @@ class Team:
 
             if self.stream_intermediate_steps:
                 yield self._handle_event(
-                    create_team_memory_update_completed_event(from_run_response=self.run_response), self.run_response
+                    create_team_memory_update_completed_event(from_run_output=self.run_response), self.run_response
                 )
 
     def _get_response_format(self, model: Optional[Model] = None) -> Optional[Union[Dict, Type[BaseModel]]]:
@@ -4248,7 +4246,7 @@ class Team:
         run_messages: RunMessages,
     ) -> Iterator[TeamRunResponseEvent]:
         if self.stream_intermediate_steps:
-            yield self._handle_event(create_team_reasoning_started_event(from_run_response=run_response), run_response)
+            yield self._handle_event(create_team_reasoning_started_event(from_run_output=run_response), run_response)
 
         use_default_reasoning = False
 
@@ -4323,7 +4321,7 @@ class Team:
 
                 run_messages.messages.append(reasoning_message)
                 # Add reasoning step to the Agent's run_response
-                update_run_response_with_reasoning(
+                update_run_output_with_reasoning(
                     run_response=run_response,
                     reasoning_steps=[ReasoningStep(result=reasoning_message.content)],
                     reasoning_agent_messages=[reasoning_message],
@@ -4331,7 +4329,7 @@ class Team:
                 if self.stream_intermediate_steps:
                     yield self._handle_event(
                         create_team_reasoning_completed_event(
-                            from_run_response=run_response,
+                            from_run_output=run_response,
                             content=ReasoningSteps(reasoning_steps=[ReasoningStep(result=reasoning_message.content)]),
                             content_type=ReasoningSteps.__name__,
                         ),
@@ -4411,7 +4409,7 @@ class Team:
 
                             yield self._handle_event(
                                 create_team_reasoning_step_event(
-                                    from_run_response=run_response,
+                                    from_run_output=run_response,
                                     reasoning_step=reasoning_step,
                                     reasoning_content=updated_reasoning_content,
                                 ),
@@ -4427,7 +4425,7 @@ class Team:
                     reasoning_messages = reasoning_agent_response.messages[first_assistant_index:]
 
                     # Add reasoning step to the Agent's run_response
-                    update_run_response_with_reasoning(
+                    update_run_output_with_reasoning(
                         run_response=run_response,
                         reasoning_steps=reasoning_steps,
                         reasoning_agent_messages=reasoning_agent_response.messages,
@@ -4454,7 +4452,7 @@ class Team:
             if self.stream_intermediate_steps:
                 yield self._handle_event(
                     create_team_reasoning_completed_event(
-                        from_run_response=run_response,
+                        from_run_output=run_response,
                         content=ReasoningSteps(reasoning_steps=all_reasoning_steps),
                         content_type=ReasoningSteps.__name__,
                     ),
@@ -4467,7 +4465,7 @@ class Team:
         run_messages: RunMessages,
     ) -> AsyncIterator[TeamRunResponseEvent]:
         if self.stream_intermediate_steps:
-            yield self._handle_event(create_team_reasoning_started_event(from_run_response=run_response), run_response)
+            yield self._handle_event(create_team_reasoning_started_event(from_run_output=run_response), run_response)
 
         use_default_reasoning = False
 
@@ -4541,7 +4539,7 @@ class Team:
                     return
                 run_messages.messages.append(reasoning_message)
                 # Add reasoning step to the Agent's run_response
-                update_run_response_with_reasoning(
+                update_run_output_with_reasoning(
                     run_response=run_response,
                     reasoning_steps=[ReasoningStep(result=reasoning_message.content)],
                     reasoning_agent_messages=[reasoning_message],
@@ -4549,7 +4547,7 @@ class Team:
                 if self.stream_intermediate_steps:
                     yield self._handle_event(
                         create_team_reasoning_completed_event(
-                            from_run_response=run_response,
+                            from_run_output=run_response,
                             content=ReasoningSteps(reasoning_steps=[ReasoningStep(result=reasoning_message.content)]),
                             content_type=ReasoningSteps.__name__,
                         ),
@@ -4629,7 +4627,7 @@ class Team:
 
                             yield self._handle_event(
                                 create_team_reasoning_step_event(
-                                    from_run_response=run_response,
+                                    from_run_output=run_response,
                                     reasoning_step=reasoning_step,
                                     reasoning_content=updated_reasoning_content,
                                 ),
@@ -4645,7 +4643,7 @@ class Team:
                     reasoning_messages = reasoning_agent_response.messages[first_assistant_index:]
 
                     # Add reasoning step to the Agent's run_response
-                    update_run_response_with_reasoning(
+                    update_run_output_with_reasoning(
                         run_response=run_response,
                         reasoning_steps=reasoning_steps,
                         reasoning_agent_messages=reasoning_agent_response.messages,
@@ -4672,14 +4670,14 @@ class Team:
             if self.stream_intermediate_steps:
                 yield self._handle_event(
                     create_team_reasoning_completed_event(
-                        from_run_response=run_response,
+                        from_run_output=run_response,
                         content=ReasoningSteps(reasoning_steps=all_reasoning_steps),
                         content_type=ReasoningSteps.__name__,
                     ),
                     run_response,
                 )
 
-    def _create_run_response(
+    def _create_run_output(
         self,
         session_id: str,
         content: Optional[Any] = None,
@@ -4696,24 +4694,24 @@ class Team:
         model: Optional[str] = None,
         messages: Optional[List[Message]] = None,
         created_at: Optional[int] = None,
-        from_run_response: Optional[TeamRunResponse] = None,
-    ) -> TeamRunResponse:
+        from_run_output: Optional[TeamRunOutput] = None,
+    ) -> TeamRunOutput:
         metadata = None
         formatted_tool_calls = None
-        if from_run_response:
-            content = from_run_response.content
-            content_type = from_run_response.content_type
-            audio = from_run_response.audio
-            images = from_run_response.images
-            videos = from_run_response.videos
-            response_audio = from_run_response.response_audio
-            model = from_run_response.model
-            messages = from_run_response.messages
-            metadata = from_run_response.metadata
-            citations = from_run_response.citations
-            tools = from_run_response.tools
-            formatted_tool_calls = from_run_response.formatted_tool_calls
-            reasoning_content = from_run_response.reasoning_content
+        if from_run_output:
+            content = from_run_output.content
+            content_type = from_run_output.content_type
+            audio = from_run_output.audio
+            images = from_run_output.images
+            videos = from_run_output.videos
+            response_audio = from_run_output.response_audio
+            model = from_run_output.model
+            messages = from_run_output.messages
+            metadata = from_run_output.metadata
+            citations = from_run_output.citations
+            tools = from_run_output.tools
+            formatted_tool_calls = from_run_output.formatted_tool_calls
+            reasoning_content = from_run_output.reasoning_content
 
         rr = TeamRunResponse(
             run_id=self.run_id,
@@ -5959,7 +5957,7 @@ class Team:
                         history.append(Message(role="user", content=member_agent_task))
 
                 if stream:
-                    member_agent_run_response_stream = member_agent.run(
+                    member_agent_run_output_stream = member_agent.run(
                         message=member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
@@ -5973,7 +5971,7 @@ class Team:
                         stream_intermediate_steps=stream_intermediate_steps,
                         workflow_context=workflow_context,
                     )
-                    for member_agent_run_response_chunk in member_agent_run_response_stream:
+                    for member_agent_run_response_chunk in member_agent_run_output_stream:
                         check_if_run_cancelled(member_agent_run_response_chunk)
                         yield member_agent_run_response_chunk
                 else:
@@ -6264,7 +6262,7 @@ class Team:
                 member_agent.enable_agentic_knowledge_filters = self.enable_agentic_knowledge_filters
 
             if stream:
-                member_agent_run_response_stream = member_agent.run(
+                member_agent_run_output_stream = member_agent.run(
                     message=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
@@ -6281,11 +6279,11 @@ class Team:
                     if not member_agent.knowledge_filters and member_agent.knowledge
                     else None,
                 )
-                for member_agent_run_response_event in member_agent_run_response_stream:
-                    check_if_run_cancelled(member_agent_run_response_event)
+                for member_agent_run_output_event in member_agent_run_output_stream:
+                    check_if_run_cancelled(member_agent_run_output_event)
 
                     # Yield the member event directly
-                    yield member_agent_run_response_event
+                    yield member_agent_run_output_event
             else:
                 member_agent_run_response = member_agent.run(
                     message=member_agent_task if history is None else None,
@@ -6415,7 +6413,7 @@ class Team:
                 member_agent.enable_agentic_knowledge_filters = self.enable_agentic_knowledge_filters
 
             if stream:
-                member_agent_run_response_stream = member_agent.arun(
+                member_agent_run_output_stream = member_agent.arun(
                     message=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
@@ -6433,9 +6431,9 @@ class Team:
                     else None,
                     refresh_session_before_write=True,
                 )
-                async for member_agent_run_response_event in member_agent_run_response_stream:
-                    check_if_run_cancelled(member_agent_run_response_event)
-                    yield member_agent_run_response_event
+                async for member_agent_run_output_event in member_agent_run_output_stream:
+                    check_if_run_cancelled(member_agent_run_output_event)
+                    yield member_agent_run_output_event
             else:
                 member_agent_run_response = await member_agent.arun(
                     message=member_agent_task if history is None else None,
@@ -6664,7 +6662,7 @@ class Team:
 
             # 2. Get the response from the member agent
             if stream:
-                member_agent_run_response_stream = member_agent.run(
+                member_agent_run_output_stream = member_agent.run(
                     message=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
@@ -6681,7 +6679,7 @@ class Team:
                     if not member_agent.knowledge_filters and member_agent.knowledge
                     else None,
                 )
-                for member_agent_run_response_chunk in member_agent_run_response_stream:
+                for member_agent_run_response_chunk in member_agent_run_output_stream:
                     check_if_run_cancelled(member_agent_run_response_chunk)
                     yield member_agent_run_response_chunk
             else:
@@ -6809,7 +6807,7 @@ class Team:
 
             # 2. Get the response from the member agent
             if stream:
-                member_agent_run_response_stream = member_agent.arun(
+                member_agent_run_output_stream = member_agent.arun(
                     message=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
@@ -6827,9 +6825,9 @@ class Team:
                     else None,
                     refresh_session_before_write=True,
                 )
-                async for member_agent_run_response_event in member_agent_run_response_stream:
-                    check_if_run_cancelled(member_agent_run_response_event)
-                    yield member_agent_run_response_event
+                async for member_agent_run_output_event in member_agent_run_output_stream:
+                    check_if_run_cancelled(member_agent_run_output_event)
+                    yield member_agent_run_output_event
             else:
                 member_agent_run_response = await member_agent.arun(
                     message=member_agent_task if history is None else None,

@@ -24,9 +24,9 @@ from ag_ui.core import (
 from ag_ui.core.types import Message as AGUIMessage
 
 from agno.models.message import Message
-from agno.run.response import RunEvent, RunResponseContentEvent, RunResponseEvent, RunResponsePausedEvent
-from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
-from agno.run.team import TeamRunEvent, TeamRunResponseEvent
+from agno.run.response import RunContentEvent, RunEvent, RunOutputEvent, RunPausedEvent
+from agno.run.team import RunContentEvent as TeamRunContentEvent
+from agno.run.team import TeamRunEvent, TeamRunOutputEvent
 
 
 @dataclass
@@ -89,18 +89,18 @@ def convert_agui_messages_to_agno_messages(messages: List[AGUIMessage]) -> List[
     return result
 
 
-def extract_team_response_chunk_content(response: TeamRunResponseContentEvent) -> str:
+def extract_team_response_chunk_content(response: TeamRunContentEvent) -> str:
     """Given a response stream chunk, find and extract the content."""
 
     # Handle Team members' responses
     members_content = []
     if hasattr(response, "member_responses") and response.member_responses:  # type: ignore
         for member_resp in response.member_responses:  # type: ignore
-            if isinstance(member_resp, RunResponseContentEvent):
+            if isinstance(member_resp, RunContentEvent):
                 member_content = extract_response_chunk_content(member_resp)
                 if member_content:
                     members_content.append(f"Team member: {member_content}")
-            elif isinstance(member_resp, TeamRunResponseContentEvent):
+            elif isinstance(member_resp, TeamRunContentEvent):
                 member_content = extract_team_response_chunk_content(member_resp)
                 if member_content:
                     members_content.append(f"Team member: {member_content}")
@@ -109,7 +109,7 @@ def extract_team_response_chunk_content(response: TeamRunResponseContentEvent) -
     return str(response.content) + members_response
 
 
-def extract_response_chunk_content(response: RunResponseContentEvent) -> str:
+def extract_response_chunk_content(response: RunContentEvent) -> str:
     """Given a response stream chunk, find and extract the content."""
     if hasattr(response, "messages") and response.messages:  # type: ignore
         for msg in reversed(response.messages):  # type: ignore
@@ -237,7 +237,7 @@ def _create_completion_events(
         events_to_emit.append(end_message_event)
 
     # emit frontend tool calls, i.e. external_execution=True
-    if isinstance(chunk, RunResponsePausedEvent) and chunk.tools is not None:
+    if isinstance(chunk, RunPausedEvent) and chunk.tools is not None:
         for tool in chunk.tools:
             if tool.tool_call_id is None or tool.tool_name is None:
                 continue

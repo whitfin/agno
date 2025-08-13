@@ -6143,6 +6143,7 @@ class Team:
                     )
                     for member_agent_run_response_chunk in member_agent_run_response_stream:
                         check_if_run_cancelled(member_agent_run_response_chunk)
+                        # Always yield the events - the Model's run_function_call method will handle them
                         yield member_agent_run_response_chunk
                 else:
                     member_agent_run_response = member_agent.run(
@@ -6215,7 +6216,7 @@ class Team:
 
         async def arun_member_agents(
             task_description: str, expected_output: Optional[str] = None
-        ) -> AsyncIterator[str]:
+        ) -> AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent, str]]:
             """
             Send the same task to all the member agents and return the responses.
 
@@ -6224,7 +6225,7 @@ class Team:
                 expected_output (str): The expected output from the member agents.
 
             Returns:
-                str: The responses from the member agents.
+                Union[RunResponseEvent, TeamRunResponseEvent, str]: The responses from the member agents.
             """
             # Make sure for the member agent, we are using the agent logger
             use_agent_logger()
@@ -6235,24 +6236,22 @@ class Team:
                 session_id, images, videos, audio
             )
 
-            # Create tasks for all member agents
-            tasks = []
-            for member_agent_index, member_agent in enumerate(self.members):
-                # We cannot stream responses with async gather
-                current_agent = member_agent  # Create a reference to the current agent
-                current_index = member_agent_index  # Create a reference to the current index
-                self._initialize_member(current_agent, session_id=session_id)
+            # Check if streaming is enabled - if so, run agents sequentially to support streaming
+            if stream:
+                # Run agents sequentially with streaming support
+                for member_agent_index, member_agent in enumerate(self.members):
+                    self._initialize_member(member_agent, session_id=session_id)
 
-                # Don't override the expected output of a member agent
-                if current_agent.expected_output is not None:
-                    expected_output = None
+                    # Don't override the expected output of a member agent
+                    if member_agent.expected_output is not None:
+                        expected_output = None
 
-                member_agent_task = self._format_member_agent_task(
-                    task_description, expected_output, team_context_str, team_member_interactions_str
-                )
+                    member_agent_task = self._format_member_agent_task(
+                        task_description, expected_output, team_context_str, team_member_interactions_str
+                    )
 
-                async def run_member_agent(agent=current_agent, idx=current_index) -> str:
-                    response = await agent.arun(
+                    # Stream the member agent response
+                    member_agent_run_response_stream = await member_agent.arun(
                         member_agent_task,
                         user_id=user_id,
                         # All members have the same session_id
@@ -6261,17 +6260,21 @@ class Team:
                         videos=videos,
                         audio=audio,
                         files=files,
-                        stream=False,
-                        refresh_session_before_write=True,
+                        stream=True,
+                        stream_intermediate_steps=stream_intermediate_steps,
                     )
-                    check_if_run_cancelled(response)
+                    
+                    async for member_agent_run_response_chunk in member_agent_run_response_stream:
+                        check_if_run_cancelled(member_agent_run_response_chunk)
+                        # Always yield the events - the Model's run_function_call method will handle them
+                        yield member_agent_run_response_chunk
 
-                    member_name = agent.name if agent.name else f"agent_{idx}"
-                    self.memory = cast(TeamMemory, self.memory)
+                    # Update memory and team state after agent completes
+                    member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
                     if isinstance(self.memory, TeamMemory):
                         self.memory = cast(TeamMemory, self.memory)
                         self.memory.add_interaction_to_team_context(
-                            member_name=member_name, task=task_description, run_response=agent.run_response
+                            member_name=member_name, task=task_description, run_response=member_agent.run_response
                         )
                     else:
                         self.memory = cast(Memory, self.memory)
@@ -6279,48 +6282,107 @@ class Team:
                             session_id=session_id,
                             member_name=member_name,
                             task=task_description,
-                            run_response=agent.run_response,
+                            run_response=member_agent.run_response,
                         )
 
                     # Add the member run to the team run response
                     self.run_response = cast(TeamRunResponse, self.run_response)
-                    self.run_response.add_member_run(agent.run_response)
+                    self.run_response.add_member_run(member_agent.run_response)
 
                     # Update team session state
-                    self._update_team_session_state(current_agent)
-
-                    self._update_workflow_session_state(current_agent)
+                    self._update_team_session_state(member_agent)
+                    self._update_workflow_session_state(member_agent)
 
                     # Update the team media
-                    self._update_team_media(agent.run_response)
+                    self._update_team_media(member_agent.run_response)
+            else:
+                # Use concurrent execution when streaming is disabled
+                # Create tasks for all member agents
+                tasks = []
+                for member_agent_index, member_agent in enumerate(self.members):
+                    # We cannot stream responses with async gather
+                    current_agent = member_agent  # Create a reference to the current agent
+                    current_index = member_agent_index  # Create a reference to the current index
+                    self._initialize_member(current_agent, session_id=session_id)
 
-                    try:
-                        if response.content is None and (response.tools is None or len(response.tools) == 0):
-                            return f"Agent {member_name}: No response from the member agent."
-                        elif isinstance(response.content, str):
-                            if len(response.content.strip()) > 0:
-                                return f"Agent {member_name}: {response.content}"
-                            elif response.tools is not None and len(response.tools) > 0:
-                                return (
-                                    f"Agent {member_name}: {','.join([tool.get('content') for tool in response.tools])}"
-                                )
-                        elif issubclass(type(response.content), BaseModel):
-                            return f"Agent {member_name}: {response.content.model_dump_json(indent=2)}"  # type: ignore
+                    # Don't override the expected output of a member agent
+                    if current_agent.expected_output is not None:
+                        expected_output = None
+
+                    member_agent_task = self._format_member_agent_task(
+                        task_description, expected_output, team_context_str, team_member_interactions_str
+                    )
+
+                    async def run_member_agent(agent=current_agent, idx=current_index) -> str:
+                        response = await agent.arun(
+                            member_agent_task,
+                            user_id=user_id,
+                            # All members have the same session_id
+                            session_id=session_id,
+                            images=images,
+                            videos=videos,
+                            audio=audio,
+                            files=files,
+                            stream=False,
+                            refresh_session_before_write=True,
+                        )
+                        check_if_run_cancelled(response)
+
+                        member_name = agent.name if agent.name else f"agent_{idx}"
+                        self.memory = cast(TeamMemory, self.memory)
+                        if isinstance(self.memory, TeamMemory):
+                            self.memory = cast(TeamMemory, self.memory)
+                            self.memory.add_interaction_to_team_context(
+                                member_name=member_name, task=task_description, run_response=agent.run_response
+                            )
                         else:
-                            import json
+                            self.memory = cast(Memory, self.memory)
+                            self.memory.add_interaction_to_team_context(
+                                session_id=session_id,
+                                member_name=member_name,
+                                task=task_description,
+                                run_response=agent.run_response,
+                            )
 
-                            return f"Agent {member_name}: {json.dumps(response.content, indent=2)}"
-                    except Exception as e:
-                        return f"Agent {member_name}: Error - {str(e)}"
+                        # Add the member run to the team run response
+                        self.run_response = cast(TeamRunResponse, self.run_response)
+                        self.run_response.add_member_run(agent.run_response)
 
-                    return f"Agent {member_name}: No Response"
+                        # Update team session state
+                        self._update_team_session_state(current_agent)
 
-                tasks.append(run_member_agent)
+                        self._update_workflow_session_state(current_agent)
 
-            # Need to collect and process yielded values from each task
-            results = await asyncio.gather(*[task() for task in tasks])
-            for result in results:
-                yield result
+                        # Update the team media
+                        self._update_team_media(agent.run_response)
+
+                        try:
+                            if response.content is None and (response.tools is None or len(response.tools) == 0):
+                                return f"Agent {member_name}: No response from the member agent."
+                            elif isinstance(response.content, str):
+                                if len(response.content.strip()) > 0:
+                                    return f"Agent {member_name}: {response.content}"
+                                elif response.tools is not None and len(response.tools) > 0:
+                                    return (
+                                        f"Agent {member_name}: {','.join([tool.get('content') for tool in response.tools])}"
+                                    )
+                            elif issubclass(type(response.content), BaseModel):
+                                return f"Agent {member_name}: {response.content.model_dump_json(indent=2)}"  # type: ignore
+                            else:
+                                import json
+
+                                return f"Agent {member_name}: {json.dumps(response.content, indent=2)}"
+                        except Exception as e:
+                            return f"Agent {member_name}: Error - {str(e)}"
+
+                        return f"Agent {member_name}: No Response"
+
+                    tasks.append(run_member_agent)
+
+                # Need to collect and process yielded values from each task
+                results = await asyncio.gather(*[task() for task in tasks])
+                for result in results:
+                    yield result
 
             # Afterward, switch back to the team logger
             use_team_logger()

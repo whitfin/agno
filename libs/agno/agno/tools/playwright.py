@@ -1,10 +1,13 @@
 import json
 from typing import Any, List, Optional
 
-from playwright.sync_api import Browser, Page, Playwright, sync_playwright
+try:
+    from playwright.sync_api import Browser, Page, Playwright, sync_playwright
+except ImportError:
+    raise ImportError("Playwright is not installed. Please install it with 'pip install playwright'.")
 
 from agno.tools import Toolkit
-from agno.utils.log import log_debug, logger
+from agno.utils.log import log_debug, log_error
 
 
 class PlaywrightTools(Toolkit):
@@ -60,7 +63,7 @@ class PlaywrightTools(Toolkit):
             log_debug("Local Playwright browser initialized")
 
         except Exception as e:
-            logger.error(f"Failed to initialize playwright browser: {str(e)}")
+            log_error(f"Failed to initialize playwright browser: {str(e)}")
             self._cleanup_resources()
             raise
 

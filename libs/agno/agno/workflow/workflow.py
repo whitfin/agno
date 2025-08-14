@@ -43,8 +43,8 @@ from agno.run.workflow import (
     StepStartedEvent,
     WorkflowCompletedEvent,
     WorkflowRunEvent,
-    WorkflowRunResponse,
-    WorkflowRunResponseEvent,
+    WorkflowRunOutput,
+    WorkflowRunOutputEvent,
     WorkflowStartedEvent,
 )
 from agno.session.workflow import WorkflowSession
@@ -126,7 +126,7 @@ class Workflow:
 
     # Runtime state
     run_id: Optional[str] = None
-    run_response: Optional[WorkflowRunResponse] = None
+    run_response: Optional[WorkflowRunOutput] = None
 
     # Workflow session for storage
     workflow_session: Optional[WorkflowSession] = None
@@ -323,10 +323,10 @@ class Workflow:
 
     def _handle_event(
         self,
-        event: "WorkflowRunResponseEvent",
-        workflow_run_response: WorkflowRunResponse,
+        event: "WorkflowRunOutputEvent",
+        workflow_run_response: WorkflowRunOutput,
         websocket_handler: Optional[WebSocketHandler] = None,
-    ) -> "WorkflowRunResponseEvent":
+    ) -> "WorkflowRunOutputEvent":
         """Handle workflow events for storage - similar to Team._handle_event"""
         if self.store_events:
             # Check if this event type should be skipped
@@ -361,7 +361,7 @@ class Workflow:
         return event
 
     def _transform_step_output_to_event(
-        self, step_output: StepOutput, workflow_run_response: WorkflowRunResponse, step_index: Optional[int] = None
+        self, step_output: StepOutput, workflow_run_response: WorkflowRunOutput, step_index: Optional[int] = None
     ) -> StepOutputEvent:
         """Transform a StepOutput object into a StepOutputEvent for consistent streaming interface"""
         return StepOutputEvent(
@@ -525,8 +525,8 @@ class Workflow:
             return func(workflow, execution_input, **kwargs)
 
     def _execute(
-        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse, **kwargs: Any
-    ) -> WorkflowRunResponse:
+        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunOutput, **kwargs: Any
+    ) -> WorkflowRunOutput:
         """Execute a specific pipeline by name synchronously"""
         from inspect import isasyncgenfunction, iscoroutinefunction, isgeneratorfunction
 
@@ -642,10 +642,10 @@ class Workflow:
     def _execute_stream(
         self,
         execution_input: WorkflowExecutionInput,
-        workflow_run_response: WorkflowRunResponse,
+        workflow_run_response: WorkflowRunOutput,
         stream_intermediate_steps: bool = False,
         **kwargs: Any,
-    ) -> Iterator[WorkflowRunResponseEvent]:
+    ) -> Iterator[WorkflowRunOutputEvent]:
         """Execute a specific pipeline by name with event streaming"""
         from inspect import isasyncgenfunction, iscoroutinefunction, isgeneratorfunction
 
@@ -757,7 +757,7 @@ class Workflow:
                             if getattr(step, "executor_type", None) == "function":
                                 yield step_output_event
 
-                        elif isinstance(event, WorkflowRunResponseEvent):  # type: ignore
+                        elif isinstance(event, WorkflowRunOutputEvent):  # type: ignore
                             yield self._handle_event(event, workflow_run_response)  # type: ignore
 
                         else:
@@ -878,8 +878,8 @@ class Workflow:
                 return await func(**call_kwargs)  # type: ignore
 
     async def _aexecute(
-        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunResponse, **kwargs: Any
-    ) -> WorkflowRunResponse:
+        self, execution_input: WorkflowExecutionInput, workflow_run_response: WorkflowRunOutput, **kwargs: Any
+    ) -> WorkflowRunOutput:
         """Execute a specific pipeline by name asynchronously"""
         from inspect import isasyncgenfunction, iscoroutinefunction, isgeneratorfunction
 
@@ -1002,11 +1002,11 @@ class Workflow:
     async def _aexecute_stream(
         self,
         execution_input: WorkflowExecutionInput,
-        workflow_run_response: WorkflowRunResponse,
+        workflow_run_response: WorkflowRunOutput,
         stream_intermediate_steps: bool = False,
         websocket_handler: Optional[WebSocketHandler] = None,
         **kwargs: Any,
-    ) -> AsyncIterator[WorkflowRunResponseEvent]:
+    ) -> AsyncIterator[WorkflowRunOutputEvent]:
         """Execute a specific pipeline by name with event streaming"""
         from inspect import isasyncgenfunction, iscoroutinefunction, isgeneratorfunction
 
@@ -1126,7 +1126,7 @@ class Workflow:
                             if getattr(step, "executor_type", None) == "function":
                                 yield step_output_event
 
-                        elif isinstance(event, WorkflowRunResponseEvent):  # type: ignore
+                        elif isinstance(event, WorkflowRunOutputEvent):  # type: ignore
                             yield self._handle_event(event, workflow_run_response, websocket_handler=websocket_handler)  # type: ignore
 
                         else:
@@ -1225,7 +1225,7 @@ class Workflow:
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
         **kwargs: Any,
-    ) -> WorkflowRunResponse:
+    ) -> WorkflowRunOutput:
         """Execute workflow in background using asyncio.create_task()"""
 
         if user_id is not None:
@@ -1243,7 +1243,7 @@ class Workflow:
         self._prepare_steps()
 
         # Create workflow run response with PENDING status
-        workflow_run_response = WorkflowRunResponse(
+        workflow_run_response = WorkflowRunOutput(
             run_id=self.run_id,
             session_id=self.session_id,
             workflow_id=self.id,
@@ -1304,7 +1304,7 @@ class Workflow:
         stream_intermediate_steps: bool = False,
         websocket_handler: Optional[WebSocketHandler] = None,
         **kwargs: Any,
-    ) -> WorkflowRunResponse:
+    ) -> WorkflowRunOutput:
         """Execute workflow in background with streaming and WebSocket broadcasting"""
 
         if user_id is not None:
@@ -1322,7 +1322,7 @@ class Workflow:
         self._prepare_steps()
 
         # Create workflow run response with PENDING status
-        workflow_run_response = WorkflowRunResponse(
+        workflow_run_response = WorkflowRunOutput(
             run_id=self.run_id,
             session_id=self.session_id,
             workflow_id=self.id,
@@ -1381,7 +1381,7 @@ class Workflow:
         # Return SAME object that will be updated by background execution
         return workflow_run_response
 
-    def get_run(self, run_id: str) -> Optional[WorkflowRunResponse]:
+    def get_run(self, run_id: str) -> Optional[WorkflowRunOutput]:
         """Get the status and details of a background workflow run - SIMPLIFIED"""
         if self.db is not None and self.session_id is not None:
             session = self.db.get_session(session_id=self.session_id, session_type=SessionType.WORKFLOW)
@@ -1406,7 +1406,7 @@ class Workflow:
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
-    ) -> WorkflowRunResponse: ...
+    ) -> WorkflowRunOutput: ...
 
     @overload
     def run(
@@ -1421,7 +1421,7 @@ class Workflow:
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
-    ) -> Iterator[WorkflowRunResponseEvent]: ...
+    ) -> Iterator[WorkflowRunOutputEvent]: ...
 
     def run(
         self,
@@ -1436,7 +1436,7 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
         **kwargs: Any,
-    ) -> Union[WorkflowRunResponse, Iterator[WorkflowRunResponseEvent]]:
+    ) -> Union[WorkflowRunOutput, Iterator[WorkflowRunOutputEvent]]:
         """Execute the workflow synchronously with optional streaming"""
 
         validated_input = self._validate_input(message)
@@ -1482,7 +1482,7 @@ class Workflow:
         self._prepare_steps()
 
         # Create workflow run response that will be updated by reference
-        workflow_run_response = WorkflowRunResponse(
+        workflow_run_response = WorkflowRunOutput(
             run_id=self.run_id,
             session_id=self.session_id,
             workflow_id=self.id,
@@ -1528,7 +1528,7 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
         websocket: Optional[WebSocket] = None,
-    ) -> WorkflowRunResponse: ...
+    ) -> WorkflowRunOutput: ...
 
     @overload
     async def arun(
@@ -1544,7 +1544,7 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
         websocket: Optional[WebSocket] = None,
-    ) -> AsyncIterator[WorkflowRunResponseEvent]: ...
+    ) -> AsyncIterator[WorkflowRunOutputEvent]: ...
 
     async def arun(
         self,
@@ -1560,7 +1560,7 @@ class Workflow:
         background: Optional[bool] = False,
         websocket: Optional[WebSocket] = None,
         **kwargs: Any,
-    ) -> Union[WorkflowRunResponse, AsyncIterator[WorkflowRunResponseEvent]]:
+    ) -> Union[WorkflowRunOutput, AsyncIterator[WorkflowRunOutputEvent]]:
         """Execute the workflow synchronously with optional streaming"""
 
         validated_input = self._validate_input(message)
@@ -1640,7 +1640,7 @@ class Workflow:
         self._prepare_steps()
 
         # Create workflow run response that will be updated by reference
-        workflow_run_response = WorkflowRunResponse(
+        workflow_run_response = WorkflowRunOutput(
             run_id=self.run_id,
             session_id=self.session_id,
             workflow_id=self.id,
@@ -2033,7 +2033,7 @@ class Workflow:
 
             try:
                 # Execute workflow and get the response directly
-                workflow_response: WorkflowRunResponse = self.run(
+                workflow_response: WorkflowRunOutput = self.run(
                     message=message,
                     user_id=user_id,
                     session_id=session_id,
@@ -2559,8 +2559,8 @@ class Workflow:
                         elif isinstance(response, StepOutputEvent):
                             response_str = response.content or ""  # type: ignore
                         else:
-                            from agno.run.response import RunResponseContentEvent
-                            from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
+                            from agno.run.response import RunContentEvent
+                            from agno.run.team import RunContentEvent as TeamRunContentEvent
 
                             current_step_executor_type = None
                             # Handle both integer and tuple step indices for parallel execution
@@ -2578,16 +2578,16 @@ class Workflow:
                                     current_step_executor_type = step.executor_type
 
                             # Check if this is a streaming content event from agent or team
-                            if isinstance(response, (TeamRunResponseContentEvent, WorkflowRunResponseEvent)):  # type: ignore
+                            if isinstance(response, (TeamRunContentEvent, WorkflowRunOutputEvent)):  # type: ignore
                                 # Check if this is a team's final structured output
                                 is_structured_output = (
-                                    isinstance(response, TeamRunResponseContentEvent)
+                                    isinstance(response, TeamRunContentEvent)
                                     and hasattr(response, "content_type")
                                     and response.content_type != "str"
                                     and response.content_type != ""
                                 )
                                 response_str = response.content  # type: ignore
-                            elif isinstance(response, RunResponseContentEvent) and current_step_executor_type != "team":
+                            elif isinstance(response, RunContentEvent) and current_step_executor_type != "team":
                                 response_str = response.content  # type: ignore
                             else:
                                 continue
@@ -2784,7 +2784,7 @@ class Workflow:
 
             try:
                 # Execute workflow and get the response directly
-                workflow_response: WorkflowRunResponse = await self.arun(
+                workflow_response: WorkflowRunOutput = await self.arun(
                     message=message,
                     additional_data=additional_data,
                     user_id=user_id,
@@ -3332,8 +3332,8 @@ class Workflow:
                             # Handle StepOutputEvent objects yielded from workflow
                             response_str = response.content or ""  # type: ignore
                         else:
-                            from agno.run.response import RunResponseContentEvent
-                            from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
+                            from agno.run.response import RunContentEvent
+                            from agno.run.team import RunContentEvent as TeamRunContentEvent
 
                             current_step_executor_type = None
                             # Handle both integer and tuple step indices for parallel execution
@@ -3348,19 +3348,19 @@ class Workflow:
                             # Check if this is a streaming content event from agent or team
                             if isinstance(
                                 response,
-                                (RunResponseContentEvent, TeamRunResponseContentEvent, WorkflowRunResponseEvent),  # type: ignore
+                                (RunContentEvent, TeamRunContentEvent, WorkflowRunOutputEvent),  # type: ignore
                             ):  # type: ignore
                                 # Extract the content from the streaming event
                                 response_str = response.content  # type: ignore
 
                                 # Check if this is a team's final structured output
                                 is_structured_output = (
-                                    isinstance(response, TeamRunResponseContentEvent)
+                                    isinstance(response, TeamRunContentEvent)
                                     and hasattr(response, "content_type")
                                     and response.content_type != "str"
                                     and response.content_type != ""
                                 )
-                            elif isinstance(response, RunResponseContentEvent) and current_step_executor_type != "team":
+                            elif isinstance(response, RunContentEvent) and current_step_executor_type != "team":
                                 response_str = response.content  # type: ignore
                             else:
                                 continue
@@ -3472,7 +3472,7 @@ class Workflow:
             # Update session_state with workflow_session_state
             executor.workflow_session_state = self.workflow_session_state
 
-    def _save_run_to_storage(self, workflow_run_response: WorkflowRunResponse) -> None:
+    def _save_run_to_storage(self, workflow_run_response: WorkflowRunOutput) -> None:
         """Helper method to save workflow run response to storage"""
         if self.workflow_session:
             self.workflow_session.upsert_run(workflow_run_response)

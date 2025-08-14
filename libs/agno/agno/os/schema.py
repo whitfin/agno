@@ -42,25 +42,33 @@ class AppsResponse(BaseModel):
 
 
 class AgentSummaryResponse(BaseModel):
-    agent_id: Optional[str] = None
+    id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
 
     @classmethod
     def from_agent(cls, agent: Agent) -> "AgentSummaryResponse":
-        return cls(agent_id=agent.id, name=agent.name, description=agent.description)
+        return cls(id=agent.id, name=agent.name, description=agent.description)
 
 
 class TeamSummaryResponse(BaseModel):
-    team_id: Optional[str] = None
+    id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+
+    @classmethod
+    def from_team(cls, team: Team) -> "TeamSummaryResponse":
+        return cls(id=team.id, name=team.name, description=team.description)
 
 
 class WorkflowSummaryResponse(BaseModel):
-    workflow_id: Optional[str] = None
+    id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+
+    @classmethod
+    def from_workflow(cls, workflow: Workflow) -> "WorkflowSummaryResponse":
+        return cls(id=workflow.id, name=workflow.name, description=workflow.description)
 
 
 class ConfigResponse(BaseModel):

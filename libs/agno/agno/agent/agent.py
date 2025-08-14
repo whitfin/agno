@@ -789,7 +789,7 @@ class Agent:
             run_response.metrics.stop_timer()
 
         # 6. Add the RunOutput to Agent Session
-        self.add_run_to_session(run_response=run_response)
+        self._add_run_to_session(run_response=run_response)
 
         # 7. Save session to memory
         self.save_session(user_id=user_id, session_id=session_id)
@@ -883,7 +883,7 @@ class Agent:
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
         # 6. Add RunOutput to Agent Session
-        self.add_run_to_session(run_response=run_response)
+        self._add_run_to_session(run_response=run_response)
 
         # 7. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -1204,7 +1204,7 @@ class Agent:
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
         # 7. Add RunOutput to Agent Session
-        self.add_run_to_session(run_response=run_response)
+        self._add_run_to_session(run_response=run_response)
 
         # 8. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)
@@ -1298,7 +1298,7 @@ class Agent:
         self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
 
         # 6. Add RunOutput to Agent Session
-        self.add_run_to_session(run_response=run_response)
+        self._add_run_to_session(run_response=run_response)
 
         # 7. Save session to storage
         self.save_session(user_id=user_id, session_id=session_id)

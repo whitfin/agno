@@ -1,13 +1,12 @@
 """Run `pip install openai exa_py duckduckgo-search yfinance pypdf sqlalchemy 'fastapi[standard]' youtube-transcript-api python-docx agno` to install dependencies."""
 
-import asyncio
 from textwrap import dedent
 
 from agno.agent import Agent
-from agno.db.sqlite import SqliteStorage
+from agno.db.postgres import PostgresDb
 from agno.knowledge.knowledge import Knowledge
 from agno.models.openai import OpenAIChat
-from agno.playground import Playground
+from agno.os import AgentOS
 from agno.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.knowledge import KnowledgeTools
@@ -16,10 +15,8 @@ from agno.tools.thinking import ThinkingTools
 from agno.tools.yfinance import YFinanceTools
 from agno.vectordb.lancedb import LanceDb, SearchType
 
-agent_storage_file: str = "tmp/agents.db"
-image_agent_storage_file: str = "tmp/image_agent.db"
-
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+db = PostgresDb(db_url)
 
 
 finance_agent = Agent(
@@ -36,11 +33,9 @@ finance_agent = Agent(
         )
     ],
     instructions=["Always use tables to display data"],
-    storage=SqliteStorage(
-        table_name="finance_agent", db_file=agent_storage_file, auto_upgrade_schema=True
-    ),
+    db=db,
     add_history_to_context=True,
-    num_history_responses=5,
+    num_history_runs=5,
     add_datetime_to_context=True,
     markdown=True,
 )
@@ -50,11 +45,9 @@ cot_agent = Agent(
     role="Answer basic questions",
     id="cot-agent",
     model=OpenAIChat(id="gpt-4o-mini"),
-    storage=SqliteStorage(
-        table_name="cot_agent", db_file=agent_storage_file, auto_upgrade_schema=True
-    ),
+    db=db,
     add_history_to_context=True,
-    num_history_responses=3,
+    num_history_runs=3,
     add_datetime_to_context=True,
     markdown=True,
     reasoning=True,
@@ -68,12 +61,7 @@ reasoning_model_agent = Agent(
     reasoning_model=OpenAIChat(id="o3-mini"),
     instructions=["You are a reasoning agent that can reason about math."],
     markdown=True,
-    debug_mode=True,
-    storage=SqliteStorage(
-        table_name="reasoning_model_agent",
-        db_file=agent_storage_file,
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 
 reasoning_tool_agent = Agent(
@@ -81,13 +69,9 @@ reasoning_tool_agent = Agent(
     role="Answer basic questions",
     id="reasoning-tool-agent",
     model=OpenAIChat(id="gpt-4o-mini"),
-    storage=SqliteStorage(
-        table_name="reasoning_tool_agent",
-        db_file=agent_storage_file,
-        auto_upgrade_schema=True,
-    ),
+    db=db,
     add_history_to_context=True,
-    num_history_responses=3,
+    num_history_runs=3,
     add_datetime_to_context=True,
     markdown=True,
     tools=[ReasoningTools()],
@@ -102,11 +86,7 @@ web_agent = Agent(
     tools=[DuckDuckGoTools()],
     instructions="Always include sources",
     add_datetime_to_context=True,
-    storage=SqliteStorage(
-        table_name="web_agent",
-        db_file=agent_storage_file,
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 
 thinking_tool_agent = Agent(
@@ -150,11 +130,7 @@ thinking_tool_agent = Agent(
     add_datetime_to_context=True,
     markdown=True,
     stream_intermediate_steps=True,
-    storage=SqliteStorage(
-        table_name="thinking_tool_agent",
-        db_file=agent_storage_file,
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 
 
@@ -166,7 +142,6 @@ agno_docs = Knowledge(
         search_type=SearchType.hybrid,
     ),
 )
-
 agno_docs.add_content(name="Agno Docs", url="https://www.paulgraham.com/read.html")
 
 knowledge_tools = KnowledgeTools(
@@ -182,11 +157,7 @@ knowledge_agent = Agent(
     model=OpenAIChat(id="gpt-4o"),
     tools=[knowledge_tools],
     markdown=True,
-    storage=SqliteStorage(
-        table_name="knowledge_agent",
-        db_file=agent_storage_file,
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 
 reasoning_finance_team = Team(
@@ -202,7 +173,6 @@ reasoning_finance_team = Team(
     # uncomment it to use knowledge tools
     # tools=[knowledge_tools],
     id="reasoning_finance_team",
-    debug_mode=True,
     instructions=[
         "Only output the final answer, no other text.",
         "Use tables to display data",
@@ -211,39 +181,25 @@ reasoning_finance_team = Team(
     show_members_responses=True,
     enable_agentic_context=True,
     add_datetime_to_context=True,
-    storage=SqliteStorage(
-        table_name="reasoning_finance_team",
-        db_file=agent_storage_file,
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 
 
-playground = Playground(
+# Setup our AgentOS app
+agent_os = AgentOS(
+    description="Example OS setup",
+    os_id="basic-app",
     agents=[
+        finance_agent,
         cot_agent,
-        reasoning_tool_agent,
         reasoning_model_agent,
+        reasoning_tool_agent,
         knowledge_agent,
-        thinking_tool_agent,
     ],
     teams=[reasoning_finance_team],
-    name="Reasoning Demo",
-    app_id="reasoning-demo",
-    description="A playground for reasoning",
 )
-app = playground.get_app()
+app = agent_os.get_app()
+
 
 if __name__ == "__main__":
-    asyncio.run(agno_docs.aload(recreate=True))
-    playground.serve(app="reasoning_demo:app", reload=True)
-
-
-# reasoning_tool_agent
-# Solve this logic puzzle: A man has to take a fox, a chicken, and a sack of grain across a river.
-# The boat is only big enough for the man and one item. If left unattended together,
-# the fox will eat the chicken, and the chicken will eat the grain. How can the man get everything across safely?
-
-
-# knowledge_agent prompt
-# What does Paul Graham explain here with respect to need to read?
+    agent_os.serve(app="reasoning_demo:app", reload=True)

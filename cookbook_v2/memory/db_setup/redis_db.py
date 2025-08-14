@@ -11,7 +11,9 @@ user_id = "redis_user"
 
 agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
+    # Pass the database to the agent
     db=db,
+    # Enable memory
     enable_user_memories=True,
     enable_session_summaries=True,
 )

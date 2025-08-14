@@ -152,7 +152,7 @@ agno_support = Agent(
 
 # Setup our AgentOS app
 agent_os = AgentOS(
-    description="Example app for basic agent with playground capabilities",
+    description="Example OS setup",
     os_id="agno-assist",
     agents=[agno_support],
     interfaces=[Whatsapp(agent=agno_support), Slack(agent=agno_support)],

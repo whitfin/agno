@@ -11,8 +11,11 @@ user_id = "sqlite_user"
 
 agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
+    # Pass the database to the agent
     db=db,
+    # Enable memory
     enable_user_memories=True,
+    # Enable session summaries
     enable_session_summaries=True,
 )
 

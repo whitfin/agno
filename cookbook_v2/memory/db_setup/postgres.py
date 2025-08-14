@@ -1,18 +1,21 @@
 from agno.agent.agent import Agent
-from agno.db.mongo import MongoDb
-from agno.models.openai import OpenAIChat
+from agno.db.postgres import PostgresDb
+from agno.models.openai.chat import OpenAIChat
 
-# Set up MongoDB database
-db_url = "mongodb://mongoadmin:secret@localhost:27017"
-db = MongoDb(db_url=db_url)
+# Set up Postgres database
+db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
+db = PostgresDb(db_url=db_url)
 
-session_id = "mongodb_memories"
-user_id = "mongodb_user"
+session_id = "postgres_memories"
+user_id = "postgres_user"
 
 agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
+    # Pass the database to the agent
     db=db,
+    # Enable memory
     enable_user_memories=True,
+    # Enable session summaries
     enable_session_summaries=True,
 )
 

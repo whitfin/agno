@@ -1,34 +1,23 @@
 from agno.agent import Agent
-from agno.db.postgres import PostgresStorage
-from agno.memory import Memory
-from agno.memory.db.postgres import PostgresMemoryDb
+from agno.db.postgres import PostgresDb
 from agno.models.anthropic import Claude
 from agno.models.google.gemini import Gemini
 from agno.models.openai import OpenAIChat
-from agno.playground import Playground
+from agno.os import AgentOS
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.exa import ExaTools
 from agno.tools.yfinance import YFinanceTools
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
-
-memory_db = PostgresMemoryDb(table_name="memory", db_url=db_url)
-
-# No need to set the model, it gets set by the agent to the agent's model
-memory = Memory(db=memory_db)
-
-agent_storage = PostgresStorage(
-    table_name="agent_sessions", db_url=db_url, auto_upgrade_schema=True
-)
+db = PostgresDb(db_url)
 
 file_agent = Agent(
     name="File Upload Agent",
     id="file-upload-agent",
     role="Answer questions about the uploaded files",
     model=Claude(id="claude-3-7-sonnet-latest"),
-    storage=agent_storage,
-    memory=memory,
+    db=db,
     enable_user_memories=True,
     instructions=[
         "You are an AI agent that can analyze files.",
@@ -42,8 +31,7 @@ video_agent = Agent(
     model=Gemini(id="gemini-2.0-flash"),
     id="video-understanding-agent",
     role="Answer questions about video files",
-    storage=agent_storage,
-    memory=memory,
+    db=db,
     enable_user_memories=True,
     add_history_to_context=True,
     add_datetime_to_context=True,
@@ -55,8 +43,7 @@ audio_agent = Agent(
     id="audio-understanding-agent",
     role="Answer questions about audio files",
     model=OpenAIChat(id="gpt-4o-audio-preview"),
-    storage=agent_storage,
-    memory=memory,
+    db=db,
     enable_user_memories=True,
     add_history_to_context=True,
     add_datetime_to_context=True,
@@ -72,10 +59,9 @@ web_agent = Agent(
     instructions=[
         "You are an experienced web researcher and news analyst! 🔍",
     ],
-    memory=memory,
     enable_user_memories=True,
     markdown=True,
-    storage=agent_storage,
+    db=db,
 )
 
 finance_agent = Agent(
@@ -94,10 +80,9 @@ finance_agent = Agent(
         "Include key metrics: P/E ratio, market cap, 52-week range",
         "Analyze trading patterns and volume trends",
     ],
-    memory=memory,
     enable_user_memories=True,
     markdown=True,
-    storage=agent_storage,
+    db=db,
 )
 
 simple_agent = Agent(
@@ -106,9 +91,8 @@ simple_agent = Agent(
     id="simple_agent",
     model=OpenAIChat(id="gpt-4o"),
     instructions=["You are a simple agent"],
-    memory=memory,
     enable_user_memories=True,
-    storage=agent_storage,
+    db=db,
 )
 
 research_agent = Agent(
@@ -118,9 +102,8 @@ research_agent = Agent(
     model=OpenAIChat(id="gpt-4o"),
     instructions=["You are a research agent"],
     tools=[DuckDuckGoTools(), ExaTools()],
-    memory=memory,
     enable_user_memories=True,
-    storage=agent_storage,
+    db=db,
 )
 
 research_team = Team(
@@ -133,17 +116,11 @@ research_team = Team(
     instructions=[
         "You are the lead researcher of a research team! 🔍",
     ],
-    memory=memory,
     enable_user_memories=True,
     add_datetime_to_context=True,
     markdown=True,
     enable_agentic_context=True,
-    storage=PostgresStorage(
-        table_name="research_team",
-        db_url=db_url,
-        mode="team",
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 
 multimodal_team = Team(
@@ -156,14 +133,8 @@ multimodal_team = Team(
     instructions=[
         "You are the lead editor of a prestigious financial news desk! 📰",
     ],
-    memory=memory,
     enable_user_memories=True,
-    storage=PostgresStorage(
-        table_name="multimodal_team",
-        db_url=db_url,
-        mode="team",
-        auto_upgrade_schema=True,
-    ),
+    db=db,
 )
 financial_news_team = Team(
     name="Financial News Team",
@@ -191,26 +162,26 @@ financial_news_team = Team(
     markdown=True,
     enable_agentic_context=True,
     show_members_responses=True,
-    storage=PostgresStorage(
-        table_name="financial_news_team",
-        db_url=db_url,
-        mode="team",
-        auto_upgrade_schema=True,
-    ),
-    memory=memory,
+    db=db,
     enable_user_memories=True,
     expected_output="A good financial news report.",
 )
 
 
-playground = Playground(
-    agents=[simple_agent, web_agent, finance_agent, research_agent],
+# Setup our AgentOS app
+agent_os = AgentOS(
+    description="Example OS setup",
+    os_id="basic-app",
+    agents=[
+        simple_agent,
+        web_agent,
+        finance_agent,
+        research_agent,
+    ],
     teams=[research_team, multimodal_team, financial_news_team],
-    app_id="teams-demo-playground-app",
-    name="Teams Demo Playground",
-    description="A playground for teams and agents",
 )
-app = playground.get_app()
+app = agent_os.get_app()
+
 
 if __name__ == "__main__":
-    playground.serve(app="teams_demo:app", reload=True)
+    agent_os.serve(app="teams_demo:app", reload=True)

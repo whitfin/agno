@@ -64,7 +64,7 @@ finance_agent_with_memory = Agent(
 
 # Initialize the Playground with the workflows
 agent_os = AgentOS(
-    description="Example app for basic agent with playground capabilities",
+    description="Example OS setup",
     os_id="basic-app",
     agents=[finance_agent_with_memory],
 )

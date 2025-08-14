@@ -241,7 +241,7 @@ class Agent:
     # A list of extra messages added after the system message and before the user message.
     # Use these for few-shot learning or to provide additional context to the Model.
     # Note: these are not retained in memory, they are added directly to the messages sent to the model.
-    additional_messages: Optional[List[Union[Dict, Message]]] = None
+    additional_input: Optional[List[Union[str, Dict, BaseModel, Message]]] = None
     # --- User message settings ---
     # Provide the user message as a string, list, dict, or function
     # Note: this will ignore the message sent to the run function
@@ -382,7 +382,7 @@ class Agent:
         add_location_to_context: bool = False,
         timezone_identifier: Optional[str] = None,
         add_state_in_messages: bool = False,
-        additional_messages: Optional[List[Union[Dict, Message]]] = None,
+        additional_input: Optional[List[Union[str, Dict, BaseModel, Message]]] = None,
         user_message: Optional[Union[List, Dict, str, Callable, Message]] = None,
         user_message_role: str = "user",
         build_user_context: bool = True,
@@ -475,7 +475,7 @@ class Agent:
         self.add_location_to_context = add_location_to_context
         self.timezone_identifier = timezone_identifier
         self.add_state_in_messages = add_state_in_messages
-        self.additional_messages = additional_messages
+        self.additional_input = additional_input
 
         self.user_message = user_message
         self.user_message_role = user_message_role
@@ -795,7 +795,7 @@ class Agent:
         self.save_session(user_id=user_id, session_id=session_id)
 
         # 8. Optional: Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
@@ -880,7 +880,7 @@ class Agent:
             run_response.metrics.stop_timer()
 
         # 5. Optional: Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # 6. Add RunOutput to Agent Session
         self._add_run_to_session(run_response=run_response)
@@ -893,7 +893,7 @@ class Agent:
     @overload
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
@@ -904,7 +904,6 @@ class Agent:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: Optional[bool] = None,
@@ -915,7 +914,7 @@ class Agent:
     @overload
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
@@ -926,7 +925,6 @@ class Agent:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: Optional[bool] = None,
@@ -936,7 +934,7 @@ class Agent:
 
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
@@ -947,7 +945,6 @@ class Agent:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: Optional[bool] = None,
@@ -1041,25 +1038,22 @@ class Agent:
         for attempt in range(num_attempts):
             try:
                 # Set run_input
-                if messages is not None:
-                    self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
-                if message is not None:
-                    formatted_message = message.to_dict() if isinstance(message, Message) else message
-                    if self.run_input is not None:
-                        self.run_input.append(formatted_message)
+                if input is not None:
+                    if isinstance(input, list):
+                        self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in input]
                     else:
-                        self.run_input = formatted_message
+                        formatted_input = input.to_dict() if isinstance(input, Message) else input
+                        self.run_input = formatted_input
 
                 # Prepare run messages
                 run_messages: RunMessages = self.get_run_messages(
-                    message=message,
+                    input=input,
                     session_id=session_id,
                     user_id=user_id,
                     audio=audio,
                     images=images,
                     videos=videos,
                     files=files,
-                    messages=messages,
                     knowledge_filters=effective_filters,
                     **kwargs,
                 )
@@ -1201,7 +1195,7 @@ class Agent:
             run_response.metrics.stop_timer()
 
         # 6. Optional: Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # 7. Add RunOutput to Agent Session
         self._add_run_to_session(run_response=run_response)
@@ -1295,7 +1289,7 @@ class Agent:
             run_response.metrics.stop_timer()
 
         # 5. Optional: Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # 6. Add RunOutput to Agent Session
         self._add_run_to_session(run_response=run_response)
@@ -1308,7 +1302,7 @@ class Agent:
     @overload
     async def arun(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Literal[False] = False,
         user_id: Optional[str] = None,
@@ -1317,7 +1311,6 @@ class Agent:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: Optional[bool] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
@@ -1326,9 +1319,9 @@ class Agent:
     ) -> RunOutput: ...
 
     @overload
-    def arun(
+    async def arun(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Literal[True] = True,
         user_id: Optional[str] = None,
@@ -1337,7 +1330,6 @@ class Agent:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: Optional[bool] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
@@ -1345,9 +1337,9 @@ class Agent:
         **kwargs: Any,
     ) -> AsyncIterator[RunOutputEvent]: ...
 
-    def arun(
+    async def arun(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Optional[bool] = None,
         user_id: Optional[str] = None,
@@ -1357,7 +1349,6 @@ class Agent:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         stream_intermediate_steps: Optional[bool] = None,
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
@@ -1451,25 +1442,22 @@ class Agent:
         for attempt in range(num_attempts):
             try:
                 # Set run_input
-                if messages is not None:
-                    self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
-                if message is not None:
-                    formatted_message = message.to_dict() if isinstance(message, Message) else message
-                    if self.run_input is not None:
-                        self.run_input.append(formatted_message)
+                if input is not None:
+                    if isinstance(input, list):
+                        self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in input]
                     else:
-                        self.run_input = formatted_message
+                        formatted_input = input.to_dict() if isinstance(input, Message) else input
+                        self.run_input = formatted_input
 
                 # Prepare run messages
                 run_messages: RunMessages = self.get_run_messages(
-                    message=message,
+                    input=input,
                     session_id=session_id,
                     user_id=user_id,
                     audio=audio,
                     images=images,
                     videos=videos,
                     files=files,
-                    messages=messages,
                     knowledge_filters=effective_filters,
                     **kwargs,
                 )
@@ -1491,7 +1479,7 @@ class Agent:
                         workflow_context=workflow_context,
                     )  # type: ignore[assignment]
                 else:
-                    return self._arun(
+                    return await self._arun(
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -1709,7 +1697,7 @@ class Agent:
 
             # Prepare run messages
             self.run_messages = self.get_continue_run_messages(
-                messages=messages,
+                input=input,
             )
 
             # Set run_input
@@ -1849,7 +1837,7 @@ class Agent:
             run_response.metrics.stop_timer()
 
         # 5. Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # Log Agent Run
         self._log_agent_run(user_id=user_id, session_id=session_id)
@@ -1928,7 +1916,7 @@ class Agent:
             run_response.metrics.stop_timer()
 
         # 5. Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # 6. Add the run to memory
         self._add_run_to_session(run_response=run_response)
@@ -2126,7 +2114,7 @@ class Agent:
 
             # Prepare run messages
             run_messages: RunMessages = self.get_continue_run_messages(
-                messages=messages,
+                input=input,
             )
 
             # Reset the run paused state
@@ -2257,7 +2245,7 @@ class Agent:
         self.save_session(user_id=user_id, session_id=session_id)
 
         # 7. Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # Log Agent Run
         await self._alog_agent_run(user_id=user_id, session_id=session_id)
@@ -2339,7 +2327,7 @@ class Agent:
         self.save_session(user_id=user_id, session_id=session_id)
 
         # 6. Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -2362,7 +2350,7 @@ class Agent:
         log_debug(f"Agent Run Paused: {run_response.run_id}", center=True, symbol="*")
 
         # Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         # We return and await confirmation/completion for the tools that require it
         return run_response
@@ -2393,7 +2381,7 @@ class Agent:
         self.save_session(user_id=user_id, session_id=session_id)
 
         # Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(message=run_messages.user_message, session_id=session_id)
+        self.save_run_response_to_file(input=run_messages.user_message, session_id=session_id)
 
         log_debug(f"Agent Run Paused: {run_response.run_id}", center=True, symbol="*")
 
@@ -2760,7 +2748,7 @@ class Agent:
         )
 
     def _add_run_to_session(self, run_response: RunOutput):
-        """Add the given RunResponse to memory, together with some calculated data"""
+        """Add the given RunOutput to memory, together with some calculated data"""
         if self.agent_session is not None:
             self.agent_session.add_run(run=run_response)
 
@@ -4273,7 +4261,7 @@ class Agent:
     def get_user_message(
         self,
         *,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
@@ -4327,7 +4315,7 @@ class Agent:
 
             user_message_content = self.user_message
             if callable(self.user_message):
-                user_message_kwargs = {"agent": self, "message": message, "references": references}
+                user_message_kwargs = {"agent": self, "message": input, "references": references}
                 user_message_content = self.user_message(**user_message_kwargs)
                 if not isinstance(user_message_content, str):
                     raise Exception("user_message must return a string")
@@ -4345,11 +4333,11 @@ class Agent:
                 **kwargs,
             )
 
-        # 2. If build_user_context is False or message is a list, return the message as is.
-        if not self.build_user_context or isinstance(message, list):
+        # 2. If build_user_context is False or input is a list, return the input as is.
+        if not self.build_user_context or isinstance(input, list):
             return Message(
                 role=self.user_message_role,
-                content=message,
+                content=input,
                 images=images,
                 audio=audio,
                 videos=videos,
@@ -4358,12 +4346,12 @@ class Agent:
             )
 
         # Handle list messages by converting to string
-        if isinstance(message, list):
+        if isinstance(input, list):
             # Convert list to string (join with newlines if all elements are strings)
-            if all(isinstance(item, str) for item in message):
-                message_content = "\n".join(message)
+            if all(isinstance(item, str) for item in input):
+                message_content = "\n".join(input)
             else:
-                message_content = str(message)
+                message_content = str(input)
 
             return Message(
                 role=self.user_message_role,
@@ -4376,7 +4364,7 @@ class Agent:
             )
 
         # 3. Build the default user message for the Agent
-        if message is None:
+        if input is None:
             # If we have any media, return a message with empty content
             if images is not None or audio is not None or videos is not None or files is not None:
                 return Message(
@@ -4389,13 +4377,13 @@ class Agent:
                     **kwargs,
                 )
             else:
-                # If the message is None, return None
+                # If the input is None, return None
                 return None
 
-        user_msg_content = message
-        # Format the message with the session state variables
+        user_msg_content = input
+        # Format the input with the session state variables
         if self.add_state_in_messages:
-            user_msg_content = self.format_message_with_state_variables(message)
+            user_msg_content = self.format_message_with_state_variables(input)
 
         # Convert to string for concatenation operations
         user_msg_content_str = get_text_from_message(user_msg_content) if user_msg_content is not None else ""
@@ -4434,14 +4422,13 @@ class Agent:
     def get_run_messages(
         self,
         *,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         session_id: str,
         user_id: Optional[str] = None,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> RunMessages:
@@ -4454,8 +4441,8 @@ class Agent:
         1. Add system message to run_messages
         2. Add extra messages to run_messages if provided
         3. Add history to run_messages
-        4. Add user message to run_messages
-        5. Add messages to run_messages if provided
+        4. Add user message to run_messages (if input is single content)
+        5. Add input messages to run_messages if provided (if input is List[Message])
 
         Returns:
             RunMessages object with the following attributes:
@@ -4465,7 +4452,7 @@ class Agent:
 
         Typical usage:
         run_messages = self.get_run_messages(
-            message=message, session_id=session_id, user_id=user_id, audio=audio, images=images, videos=videos, files=files, messages=messages, **kwargs
+            input=input, session_id=session_id, user_id=user_id, audio=audio, images=images, videos=videos, files=files, **kwargs
         )
         """
 
@@ -4480,12 +4467,12 @@ class Agent:
             run_messages.messages.append(system_message)
 
         # 2. Add extra messages to run_messages if provided
-        if self.additional_messages is not None:
+        if self.additional_input is not None:
             messages_to_add_to_run_response: List[Message] = []
             if run_messages.extra_messages is None:
                 run_messages.extra_messages = []
 
-            for _m in self.additional_messages:
+            for _m in self.additional_input:
                 if isinstance(_m, Message):
                     messages_to_add_to_run_response.append(_m)
                     run_messages.messages.append(_m)
@@ -4502,12 +4489,12 @@ class Agent:
             if len(messages_to_add_to_run_response) > 0:
                 log_debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
                 if self.run_response.metadata is None:
-                    self.run_response.metadata = RunOutputMetaData(additional_messages=messages_to_add_to_run_response)
+                    self.run_response.metadata = RunOutputMetaData(additional_input=messages_to_add_to_run_response)
                 else:
-                    if self.run_response.metadata.additional_messages is None:
-                        self.run_response.metadata.additional_messages = messages_to_add_to_run_response
+                    if self.run_response.metadata.additional_input is None:
+                        self.run_response.metadata.additional_input = messages_to_add_to_run_response
                     else:
-                        self.run_response.metadata.additional_messages.extend(messages_to_add_to_run_response)
+                        self.run_response.metadata.additional_input.extend(messages_to_add_to_run_response)
 
         # 3. Add history to run_messages
         if self.add_history_to_context and self.agent_session is not None:
@@ -4533,12 +4520,22 @@ class Agent:
 
                 run_messages.messages += history_copy
 
-        # 4.Add user message to run_messages
+        # 4. Add user message to run_messages
         user_message: Optional[Message] = None
-        # 4.1 Build user message if message is None, str or list
-        if message is None or isinstance(message, str) or isinstance(message, list) and messages is None:
+        # 4.1 Build user message if input is None, str or list and not a list of Message/dict objects
+        if (
+            input is None
+            or isinstance(input, str)
+            or (
+                isinstance(input, list)
+                and not (
+                    len(input) > 0
+                    and (isinstance(input[0], Message) or (isinstance(input[0], dict) and "role" in input[0]))
+                )
+            )
+        ):
             user_message = self.get_user_message(
-                message=message,
+                input=input,
                 audio=audio,
                 images=images,
                 videos=videos,
@@ -4546,20 +4543,20 @@ class Agent:
                 knowledge_filters=knowledge_filters,
                 **kwargs,
             )
-        # 4.2 If message is provided as a Message, use it directly
-        elif isinstance(message, Message):
-            user_message = message
-        # 4.3 If message is provided as a dict, try to validate it as a Message
-        elif isinstance(message, dict):
+        # 4.2 If input is provided as a Message, use it directly
+        elif isinstance(input, Message):
+            user_message = input
+        # 4.3 If input is provided as a dict, try to validate it as a Message
+        elif isinstance(input, dict):
             try:
-                user_message = Message.model_validate(message)
+                user_message = Message.model_validate(input)
             except Exception as e:
                 log_warning(f"Failed to validate message: {e}")
-        # 4.4 If message is provided as a BaseModel, convert it to a Message
-        elif isinstance(message, BaseModel):
+        # 4.4 If input is provided as a BaseModel, convert it to a Message
+        elif isinstance(input, BaseModel):
             try:
                 # Create a user message with the BaseModel content
-                content = message.model_dump_json(indent=2, exclude_none=True)
+                content = input.model_dump_json(indent=2, exclude_none=True)
                 user_message = Message(role=self.user_message_role, content=content)
             except Exception as e:
                 log_warning(f"Failed to convert BaseModel to message: {e}")
@@ -4568,9 +4565,13 @@ class Agent:
             run_messages.user_message = user_message
             run_messages.messages.append(user_message)
 
-        # 5. Add messages to run_messages if provided
-        if messages is not None and len(messages) > 0:
-            for _m in messages:
+        # 5. Add input messages to run_messages if provided (List[Message] or List[Dict])
+        if (
+            isinstance(input, list)
+            and len(input) > 0
+            and (isinstance(input[0], Message) or (isinstance(input[0], dict) and "role" in input[0]))
+        ):
+            for _m in input:
                 if isinstance(_m, Message):
                     run_messages.messages.append(_m)
                     if run_messages.extra_messages is None:
@@ -4578,10 +4579,11 @@ class Agent:
                     run_messages.extra_messages.append(_m)
                 elif isinstance(_m, dict):
                     try:
-                        run_messages.messages.append(Message.model_validate(_m))
+                        msg = Message.model_validate(_m)
+                        run_messages.messages.append(msg)
                         if run_messages.extra_messages is None:
                             run_messages.extra_messages = []
-                        run_messages.extra_messages.append(Message.model_validate(_m))
+                        run_messages.extra_messages.append(msg)
                     except Exception as e:
                         log_warning(f"Failed to validate message: {e}")
 
@@ -4949,15 +4951,15 @@ class Agent:
                 return str(context)
 
     def save_run_response_to_file(
-        self, message: Optional[Union[str, List, Dict, Message]] = None, session_id: Optional[str] = None
+        self, input: Optional[Union[str, List, Dict, Message, List[Message]]] = None, session_id: Optional[str] = None
     ) -> None:
         if self.save_response_to_file is not None and self.run_response is not None:
             message_str = None
-            if message is not None:
-                if isinstance(message, str):
-                    message_str = message
+            if input is not None:
+                if isinstance(input, str):
+                    message_str = input
                 else:
-                    log_warning("Did not use message in output file name: message is not a string")
+                    log_warning("Did not use input in output file name: input is not a string")
             try:
                 from pathlib import Path
 
@@ -6146,12 +6148,11 @@ class Agent:
 
     def print_response(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         *,
         session_id: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
-        messages: Optional[List[Union[Dict, Message]]] = None,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
@@ -6202,10 +6203,10 @@ class Agent:
                 # Panels to be rendered
                 panels = [status]
                 # First render the message panel if the message is not None
-                if message and show_message:
+                if input and show_message:
                     render = True
                     # Convert message to a panel
-                    message_content = get_text_from_message(message)
+                    message_content = get_text_from_message(input)
                     message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
@@ -6216,8 +6217,7 @@ class Agent:
                     live_log.update(Group(*panels))
 
                 for resp in self.run(
-                    message=message,
-                    messages=messages,
+                    input=input,
                     session_id=session_id,
                     session_state=session_state,
                     user_id=user_id,
@@ -6270,10 +6270,10 @@ class Agent:
                         response_content_batch = Markdown(escaped_content)
                     panels = [status]
 
-                    if message and show_message:
+                    if input and show_message:
                         render = True
                         # Convert message to a panel
-                        message_content = get_text_from_message(message)
+                        message_content = get_text_from_message(input)
                         message_panel = create_panel(
                             content=Text(message_content, style="green"),
                             title="Message",
@@ -6420,9 +6420,9 @@ class Agent:
                 # Panels to be rendered
                 panels = [status]
                 # First render the message panel if the message is not None
-                if message and show_message:
+                if input and show_message:
                     # Convert message to a panel
-                    message_content = get_text_from_message(message)
+                    message_content = get_text_from_message(input)
                     message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
@@ -6433,8 +6433,7 @@ class Agent:
 
                 # Run the agent
                 run_response = self.run(
-                    message=message,
-                    messages=messages,
+                    input=input,
                     session_id=session_id,
                     session_state=session_state,
                     user_id=user_id,
@@ -6592,9 +6591,8 @@ class Agent:
 
     async def aprint_response(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         *,
-        messages: Optional[List[Union[Dict, Message]]] = None,
         session_id: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
@@ -6648,10 +6646,10 @@ class Agent:
                 # Panels to be rendered
                 panels = [status]
                 # First render the message panel if the message is not None
-                if message and show_message:
+                if input and show_message:
                     render = True
                     # Convert message to a panel
-                    message_content = get_text_from_message(message)
+                    message_content = get_text_from_message(input)
                     message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
@@ -6662,8 +6660,7 @@ class Agent:
                     live_log.update(Group(*panels))
 
                 result = self.arun(
-                    message=message,
-                    messages=messages,
+                    input=input,
                     session_id=session_id,
                     session_state=session_state,
                     user_id=user_id,
@@ -6719,10 +6716,10 @@ class Agent:
 
                     panels = [status]
 
-                    if message and show_message:
+                    if input and show_message:
                         render = True
                         # Convert message to a panel
-                        message_content = get_text_from_message(message)
+                        message_content = get_text_from_message(input)
                         message_panel = create_panel(
                             content=Text(message_content, style="green"),
                             title="Message",
@@ -6869,9 +6866,9 @@ class Agent:
                 # Panels to be rendered
                 panels = [status]
                 # First render the message panel if the message is not None
-                if message and show_message:
+                if input and show_message:
                     # Convert message to a panel
-                    message_content = get_text_from_message(message)
+                    message_content = get_text_from_message(input)
                     message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
@@ -6882,8 +6879,7 @@ class Agent:
 
                 # Run the agent
                 run_response = await self.arun(
-                    message=message,
-                    messages=messages,
+                    input=input,
                     session_id=session_id,
                     session_state=session_state,
                     user_id=user_id,
@@ -7264,7 +7260,7 @@ class Agent:
 
     def cli_app(
         self,
-        message: Optional[str] = None,
+        input: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         user: str = "User",
@@ -7288,9 +7284,9 @@ class Agent:
                 if tool.__class__.__name__ in ["MCPTools", "MultiMCPTools"]:
                     raise NotImplementedError("Use `acli_app` to use MCP tools.")
 
-        if message:
+        if input:
             self.print_response(
-                message=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
+                input=input, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
             )
 
         _exit_on = exit_on or ["exit", "quit", "bye"]
@@ -7300,12 +7296,12 @@ class Agent:
                 break
 
             self.print_response(
-                message=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
+                input=input, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
             )
 
     async def acli_app(
         self,
-        message: Optional[str] = None,
+        input: Optional[str] = None,
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         user: str = "User",
@@ -7321,9 +7317,9 @@ class Agent:
         """
         from rich.prompt import Prompt
 
-        if message:
+        if input:
             await self.aprint_response(
-                message=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
+                input=input, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
             )
 
         _exit_on = exit_on or ["exit", "quit", "bye"]
@@ -7333,7 +7329,7 @@ class Agent:
                 break
 
             await self.aprint_response(
-                message=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
+                input=input, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
             )
 
     ###########################################################################

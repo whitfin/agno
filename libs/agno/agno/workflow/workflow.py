@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from agno.agent.agent import Agent
 from agno.db.base import BaseDb, SessionType
 from agno.media import Audio, AudioArtifact, Image, ImageArtifact, Video, VideoArtifact
+from agno.models.message import Message
 from agno.run.base import RunStatus
 from agno.run.workflow import (
     ConditionExecutionCompletedEvent,
@@ -42,6 +43,7 @@ from agno.run.workflow import (
     StepsExecutionStartedEvent,
     StepStartedEvent,
     WorkflowCompletedEvent,
+    WorkflowErrorEvent,
     WorkflowRunEvent,
     WorkflowRunOutput,
     WorkflowRunOutputEvent,
@@ -187,32 +189,32 @@ class Workflow:
         self.input_schema = input_schema
 
     def _validate_input(
-        self, message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]]
+        self, input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]]
     ) -> Optional[BaseModel]:
         """Parse and validate input against input_schema if provided"""
         if self.input_schema is None:
             return None
 
-        if message is None:
+        if input is None:
             raise ValueError("Input required when input_schema is set")
 
         # Case 1: Message is already a BaseModel instance
-        if isinstance(message, BaseModel):
-            if isinstance(message, self.input_schema):
+        if isinstance(input, BaseModel):
+            if isinstance(input, self.input_schema):
                 try:
                     # Re-validate to catch any field validation errors
-                    message.model_validate(message.model_dump())
-                    return message
+                    input.model_validate(input.model_dump())
+                    return input
                 except Exception as e:
                     raise ValueError(f"BaseModel validation failed: {str(e)}")
             else:
                 # Different BaseModel types
-                raise ValueError(f"Expected {self.input_schema.__name__} but got {type(message).__name__}")
+                raise ValueError(f"Expected {self.input_schema.__name__} but got {type(input).__name__}")
 
         # Case 2: Message is a dict
-        elif isinstance(message, dict):
+        elif isinstance(input, dict):
             try:
-                validated_model = self.input_schema(**message)
+                validated_model = self.input_schema(**input)
                 return validated_model
             except Exception as e:
                 raise ValueError(f"Failed to parse dict into {self.input_schema.__name__}: {str(e)}")
@@ -220,7 +222,7 @@ class Workflow:
         # Case 3: Other types not supported for structured input
         else:
             raise ValueError(
-                f"Cannot validate {type(message)} against input_schema. Expected dict or {self.input_schema.__name__} instance."
+                f"Cannot validate {type(input)} against input_schema. Expected dict or {self.input_schema.__name__} instance."
             )
 
     @property
@@ -433,7 +435,7 @@ class Workflow:
             log_debug(f"Using previous step content from: {list(previous_step_outputs.keys())[-1]}")
 
         return StepInput(
-            message=execution_input.message,
+            input=execution_input.input,
             previous_step_content=previous_step_content,
             previous_step_outputs=previous_step_outputs,
             additional_data=execution_input.additional_data,
@@ -1217,7 +1219,7 @@ class Workflow:
 
     async def _arun_background(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1257,7 +1259,7 @@ class Workflow:
 
         # Prepare execution input
         inputs = WorkflowExecutionInput(
-            message=message,
+            input=input,
             additional_data=additional_data,
             audio=audio,  # type: ignore
             images=images,  # type: ignore
@@ -1294,7 +1296,7 @@ class Workflow:
 
     async def _arun_background_stream(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1336,7 +1338,7 @@ class Workflow:
 
         # Prepare execution input
         inputs = WorkflowExecutionInput(
-            message=message,
+            input=input,
             additional_data=additional_data,
             audio=audio,  # type: ignore
             images=images,  # type: ignore
@@ -1396,7 +1398,7 @@ class Workflow:
     @overload
     def run(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1411,7 +1413,7 @@ class Workflow:
     @overload
     def run(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1425,7 +1427,7 @@ class Workflow:
 
     def run(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1439,9 +1441,9 @@ class Workflow:
     ) -> Union[WorkflowRunOutput, Iterator[WorkflowRunOutputEvent]]:
         """Execute the workflow synchronously with optional streaming"""
 
-        validated_input = self._validate_input(message)
+        validated_input = self._validate_input(input)
         if validated_input is not None:
-            message = validated_input
+            input = validated_input
 
         if background:
             raise RuntimeError("Background execution is not supported for sync run()")
@@ -1492,7 +1494,7 @@ class Workflow:
         self.run_response = workflow_run_response
 
         inputs = WorkflowExecutionInput(
-            message=message,
+            input=input,
             additional_data=additional_data,
             audio=audio,  # type: ignore
             images=images,  # type: ignore
@@ -1517,7 +1519,7 @@ class Workflow:
     @overload
     async def arun(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1533,7 +1535,7 @@ class Workflow:
     @overload
     async def arun(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1548,7 +1550,7 @@ class Workflow:
 
     async def arun(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1563,9 +1565,9 @@ class Workflow:
     ) -> Union[WorkflowRunOutput, AsyncIterator[WorkflowRunOutputEvent]]:
         """Execute the workflow synchronously with optional streaming"""
 
-        validated_input = self._validate_input(message)
+        validated_input = self._validate_input(input)
         if validated_input is not None:
-            message = validated_input
+            input = validated_input
 
         websocket_handler = None
         if websocket:
@@ -1577,7 +1579,7 @@ class Workflow:
             if stream and websocket:
                 # Background + Streaming + WebSocket = Real-time events
                 return await self._arun_background_stream(
-                    message=message,
+                    input=input,
                     additional_data=additional_data,
                     user_id=user_id,
                     session_id=session_id,
@@ -1594,7 +1596,7 @@ class Workflow:
             else:
                 # Background + Non-streaming = Polling (existing)
                 return await self._arun_background(
-                    message=message,
+                    input=input,
                     additional_data=additional_data,
                     user_id=user_id,
                     session_id=session_id,
@@ -1650,7 +1652,7 @@ class Workflow:
         self.run_response = workflow_run_response
 
         inputs = WorkflowExecutionInput(
-            message=message,
+            input=input,
             additional_data=additional_data,
             audio=audio,  # type: ignore
             images=images,  # type: ignore
@@ -1858,7 +1860,7 @@ class Workflow:
 
     def print_response(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -1896,7 +1898,7 @@ class Workflow:
 
         if stream:
             self._print_response_stream(
-                message=message,
+                input=input,
                 user_id=user_id,
                 session_id=session_id,
                 additional_data=additional_data,
@@ -1912,7 +1914,7 @@ class Workflow:
             )
         else:
             self._print_response(
-                message=message,
+                input=input,
                 user_id=user_id,
                 session_id=session_id,
                 additional_data=additional_data,
@@ -1958,7 +1960,7 @@ class Workflow:
 
     def _print_response(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         additional_data: Optional[Dict[str, Any]] = None,
@@ -1996,19 +1998,19 @@ class Workflow:
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
-        if message:
-            if isinstance(message, str):
-                workflow_info += f"""\n\n**Message:** {message}"""
+        if input:
+            if isinstance(input, str):
+                workflow_info += f"""\n\n**Message:** {input}"""
             else:
                 # Handle structured input message
-                if isinstance(message, BaseModel):
-                    data_display = message.model_dump_json(indent=2, exclude_none=True)
-                elif isinstance(message, (dict, list)):
+                if isinstance(input, BaseModel):
+                    data_display = input.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(input, (dict, list)):
                     import json
 
-                    data_display = json.dumps(message, indent=2, default=str)
+                    data_display = json.dumps(input, indent=2, default=str)
                 else:
-                    data_display = str(message)
+                    data_display = str(input)
                 workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
@@ -2034,7 +2036,7 @@ class Workflow:
             try:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunOutput = self.run(
-                    message=message,
+                    input=input,
                     user_id=user_id,
                     session_id=session_id,
                     additional_data=additional_data,
@@ -2093,7 +2095,7 @@ class Workflow:
 
     def _print_response_stream(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         additional_data: Optional[Dict[str, Any]] = None,
@@ -2135,19 +2137,19 @@ class Workflow:
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
-        if message:
-            if isinstance(message, str):
-                workflow_info += f"""\n\n**Message:** {message}"""
+        if input:
+            if isinstance(input, str):
+                workflow_info += f"""\n\n**Message:** {input}"""
             else:
                 # Handle structured input message
-                if isinstance(message, BaseModel):
-                    data_display = message.model_dump_json(indent=2, exclude_none=True)
-                elif isinstance(message, (dict, list)):
+                if isinstance(input, BaseModel):
+                    data_display = input.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(input, (dict, list)):
                     import json
 
-                    data_display = json.dumps(message, indent=2, default=str)
+                    data_display = json.dumps(input, indent=2, default=str)
                 else:
-                    data_display = str(message)
+                    data_display = str(input)
                 workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
@@ -2222,7 +2224,7 @@ class Workflow:
 
             try:
                 for response in self.run(
-                    message=message,
+                    input=input,
                     user_id=user_id,
                     session_id=session_id,
                     additional_data=additional_data,
@@ -2643,7 +2645,7 @@ class Workflow:
 
     async def aprint_response(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -2677,7 +2679,7 @@ class Workflow:
         """
         if stream:
             await self._aprint_response_stream(
-                message=message,
+                input=input,
                 additional_data=additional_data,
                 user_id=user_id,
                 session_id=session_id,
@@ -2693,7 +2695,7 @@ class Workflow:
             )
         else:
             await self._aprint_response(
-                message=message,
+                input=input,
                 additional_data=additional_data,
                 user_id=user_id,
                 session_id=session_id,
@@ -2709,7 +2711,7 @@ class Workflow:
 
     async def _aprint_response(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -2747,19 +2749,19 @@ class Workflow:
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
-        if message:
-            if isinstance(message, str):
-                workflow_info += f"""\n\n**Message:** {message}"""
+        if input:
+            if isinstance(input, str):
+                workflow_info += f"""\n\n**Message:** {input}"""
             else:
                 # Handle structured input message
-                if isinstance(message, BaseModel):
-                    data_display = message.model_dump_json(indent=2, exclude_none=True)
-                elif isinstance(message, (dict, list)):
+                if isinstance(input, BaseModel):
+                    data_display = input.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(input, (dict, list)):
                     import json
 
-                    data_display = json.dumps(message, indent=2, default=str)
+                    data_display = json.dumps(input, indent=2, default=str)
                 else:
-                    data_display = str(message)
+                    data_display = str(input)
                 workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
@@ -2785,7 +2787,7 @@ class Workflow:
             try:
                 # Execute workflow and get the response directly
                 workflow_response: WorkflowRunOutput = await self.arun(
-                    message=message,
+                    input=input,
                     additional_data=additional_data,
                     user_id=user_id,
                     session_id=session_id,
@@ -2866,7 +2868,7 @@ class Workflow:
 
     async def _aprint_response_stream(
         self,
-        message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+        input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
         additional_data: Optional[Dict[str, Any]] = None,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
@@ -2908,19 +2910,19 @@ class Workflow:
         if self.description:
             workflow_info += f"""\n\n**Description:** {self.description}"""
         workflow_info += f"""\n\n**Steps:** {self._get_step_count()} steps"""
-        if message:
-            if isinstance(message, str):
-                workflow_info += f"""\n\n**Message:** {message}"""
+        if input:
+            if isinstance(input, str):
+                workflow_info += f"""\n\n**Message:** {input}"""
             else:
                 # Handle structured input message
-                if isinstance(message, BaseModel):
-                    data_display = message.model_dump_json(indent=2, exclude_none=True)
-                elif isinstance(message, (dict, list)):
+                if isinstance(input, BaseModel):
+                    data_display = input.model_dump_json(indent=2, exclude_none=True)
+                elif isinstance(input, (dict, list)):
                     import json
 
-                    data_display = json.dumps(message, indent=2, default=str)
+                    data_display = json.dumps(input, indent=2, default=str)
                 else:
-                    data_display = str(message)
+                    data_display = str(input)
                 workflow_info += f"""\n\n**Structured Input:**\n```json\n{data_display}\n```"""
         if user_id:
             workflow_info += f"""\n\n**User ID:** {user_id}"""
@@ -2995,7 +2997,7 @@ class Workflow:
 
             try:
                 async for response in await self.arun(
-                    message=message,
+                    input=input,
                     additional_data=additional_data,
                     user_id=user_id,
                     session_id=session_id,
@@ -3350,17 +3352,21 @@ class Workflow:
                                 response,
                                 (RunContentEvent, TeamRunContentEvent, WorkflowRunOutputEvent),  # type: ignore
                             ):  # type: ignore
-                                # Extract the content from the streaming event
-                                response_str = response.content  # type: ignore
+                                # Handle WorkflowErrorEvent specifically
+                                if isinstance(response, WorkflowErrorEvent):  # type: ignore
+                                    response_str = response.error or "Workflow execution error"  # type: ignore
+                                else:
+                                    # Extract the content from the streaming event
+                                    response_str = response.content  # type: ignore
 
-                                # Check if this is a team's final structured output
-                                is_structured_output = (
-                                    isinstance(response, TeamRunContentEvent)
-                                    and hasattr(response, "content_type")
-                                    and response.content_type != "str"
-                                    and response.content_type != ""
-                                )
-                            elif isinstance(response, RunContentEvent) and current_step_executor_type != "team":
+                                    # Check if this is a team's final structured output
+                                    is_structured_output = (
+                                        isinstance(response, TeamRunOutputContentEvent)
+                                        and hasattr(response, "content_type")
+                                        and response.content_type != "str"
+                                        and response.content_type != ""
+                                    )
+                            elif isinstance(response, RunOutputContentEvent) and current_step_executor_type != "team":
                                 response_str = response.content  # type: ignore
                             else:
                                 continue

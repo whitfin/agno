@@ -167,7 +167,7 @@ class Team:
     # A list of extra messages added after the system message and before the user message.
     # Use these for few-shot learning or to provide additional context to the Model.
     # Note: these are not retained in memory, they are added directly to the messages sent to the model.
-    additional_messages: Optional[List[Union[Dict, Message]]] = None
+    additional_input: Optional[List[Union[str, Dict, BaseModel, Message]]] = None
 
     # --- Database ---
     # Database to use for this agent
@@ -289,7 +289,7 @@ class Team:
     store_events: bool = False
     # List of events to skip from the Team
     events_to_skip: Optional[List[Union[RunEvent, TeamRunEvent]]] = None
-    # Store member agent runs inside the team's RunResponse
+    # Store member agent runs inside the team's RunOutput
     store_member_responses: bool = False
 
     # Optional app ID. Indicates this team is part of an app.
@@ -335,7 +335,7 @@ class Team:
         add_member_tools_to_context: bool = True,
         system_message: Optional[Union[str, Callable, Message]] = None,
         system_message_role: str = "system",
-        additional_messages: Optional[List[Union[Dict, Message]]] = None,
+        additional_input: Optional[List[Union[str, Dict, BaseModel, Message]]] = None,
         dependencies: Optional[Dict[str, Any]] = None,
         add_dependencies_to_context: bool = False,
         knowledge: Optional[Knowledge] = None,
@@ -416,7 +416,7 @@ class Team:
         self.add_member_tools_to_context = add_member_tools_to_context
         self.system_message = system_message
         self.system_message_role = system_message_role
-        self.additional_messages = additional_messages
+        self.additional_input = additional_input
 
         self.dependencies = dependencies
         self.add_dependencies_to_context = add_dependencies_to_context
@@ -867,7 +867,7 @@ class Team:
     @overload
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
@@ -879,7 +879,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         store_member_responses: Optional[bool] = None,
         **kwargs: Any,
@@ -888,7 +887,7 @@ class Team:
     @overload
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
@@ -900,7 +899,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         store_member_responses: Optional[bool] = None,
         **kwargs: Any,
@@ -908,7 +906,7 @@ class Team:
 
     def run(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
@@ -920,7 +918,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         store_member_responses: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -1001,7 +998,6 @@ class Team:
             user_id=user_id,
             async_mode=False,
             knowledge_filters=effective_filters,
-            message=message,
             images=images,
             videos=videos,
             audio=audio,
@@ -1041,14 +1037,12 @@ class Team:
             log_debug(f"Mode: '{self.mode}'", center=True)
 
             # Set run_input
-            if messages is not None:
-                self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
-            if message is not None:
-                formatted_message = message.to_dict() if isinstance(message, Message) else message
-                if self.run_input is not None:
-                    self.run_input.append(formatted_message)
+            if input is not None:
+                if isinstance(input, list):
+                    self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in input]
                 else:
-                    self.run_input = formatted_message
+                    formatted_input = input.to_dict() if isinstance(input, Message) else input
+                    self.run_input = formatted_input
 
             # Run the team
             try:
@@ -1057,12 +1051,11 @@ class Team:
                     run_messages: RunMessages = self.get_run_messages(
                         session_id=session_id,
                         user_id=user_id,
-                        message=message,
+                        input=input,
                         audio=audio,
                         images=images,
                         videos=videos,
                         files=files,
-                        messages=messages,
                         knowledge_filters=effective_filters,
                         **kwargs,
                     )
@@ -1070,12 +1063,11 @@ class Team:
                     run_messages = self.get_run_messages(
                         session_id=session_id,
                         user_id=user_id,
-                        message=message,
+                        input=input,
                         audio=audio,
                         images=images,
                         videos=videos,
                         files=files,
-                        messages=messages,
                         knowledge_filters=effective_filters,
                         **kwargs,
                     )
@@ -1283,7 +1275,7 @@ class Team:
     @overload
     async def arun(
         self,
-        message: Union[str, List, Dict, Message, BaseModel],
+        input: Union[str, List, Dict, Message, BaseModel],
         *,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
@@ -1304,7 +1296,7 @@ class Team:
     @overload
     def arun(
         self,
-        message: Union[str, List, Dict, Message, BaseModel],
+        input: Union[str, List, Dict, Message, BaseModel],
         *,
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
@@ -1324,7 +1316,7 @@ class Team:
 
     def arun(
         self,
-        message: Union[str, List, Dict, Message, BaseModel],
+        input: Union[str, List, Dict, Message, BaseModel],
         *,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
@@ -1407,7 +1399,7 @@ class Team:
             user_id=user_id,
             async_mode=True,
             knowledge_filters=effective_filters,
-            message=message,
+            input=input,
             images=images,
             videos=videos,
             audio=audio,
@@ -1444,16 +1436,14 @@ class Team:
             log_debug(f"Team Run Start: {self.run_id}", center=True)
             log_debug(f"Mode: '{self.mode}'", center=True)
 
-            # Set run_input - use both message and messages if provided (using two ifs as Dirk suggested)
+            # Set run_input
             self.run_input = None
-            if messages is not None:
-                self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
-            if message is not None:
-                formatted_message = message.to_dict() if isinstance(message, Message) else message
-                if self.run_input is not None:
-                    self.run_input.append(formatted_message)
+            if input is not None:
+                if isinstance(input, list):
+                    self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in input]
                 else:
-                    self.run_input = formatted_message
+                    formatted_input = input.to_dict() if isinstance(input, Message) else input
+                    self.run_input = formatted_input
 
             # Run the team
             try:
@@ -1463,12 +1453,11 @@ class Team:
                     run_messages: RunMessages = self.get_run_messages(
                         session_id=session_id,
                         user_id=user_id,
-                        message=message,
+                        input=input,
                         audio=audio,
                         images=images,
                         videos=videos,
                         files=files,
-                        messages=messages,
                         knowledge_filters=effective_filters,
                         **kwargs,
                     )
@@ -1476,12 +1465,11 @@ class Team:
                     run_messages = self.get_run_messages(
                         session_id=session_id,
                         user_id=user_id,
-                        message=message,
+                        input=input,
                         audio=audio,
                         images=images,
                         videos=videos,
                         files=files,
-                        messages=messages,
                         knowledge_filters=effective_filters,
                         **kwargs,
                     )
@@ -2324,7 +2312,7 @@ class Team:
 
     def print_response(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         *,
         stream: bool = False,
         stream_intermediate_steps: bool = False,
@@ -2340,7 +2328,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         markdown: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -2355,7 +2342,7 @@ class Team:
 
         if stream:
             self._print_response_stream(
-                message=message,
+                input=input,
                 console=console,
                 show_message=show_message,
                 show_reasoning=show_reasoning,
@@ -2368,7 +2355,6 @@ class Team:
                 images=images,
                 videos=videos,
                 files=files,
-                messages=messages,
                 markdown=markdown,
                 stream_intermediate_steps=stream_intermediate_steps,
                 knowledge_filters=knowledge_filters,
@@ -2376,7 +2362,7 @@ class Team:
             )
         else:
             self._print_response(
-                message=message,
+                input=input,
                 console=console,
                 show_message=show_message,
                 show_reasoning=show_reasoning,
@@ -2389,7 +2375,6 @@ class Team:
                 images=images,
                 videos=videos,
                 files=files,
-                messages=messages,
                 markdown=markdown,
                 knowledge_filters=knowledge_filters,
                 **kwargs,
@@ -2397,7 +2382,7 @@ class Team:
 
     def _print_response(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         console: Optional[Any] = None,
         show_message: bool = True,
         show_reasoning: bool = True,
@@ -2410,7 +2395,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         markdown: bool = False,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -2438,9 +2422,9 @@ class Team:
             # Panels to be rendered
             panels = [status]
             # First render the message panel if the message is not None
-            if message and show_message:
+            if input and show_message:
                 # Convert message to a panel
-                message_content = get_text_from_message(message)
+                message_content = get_text_from_message(input)
                 message_panel = create_panel(
                     content=Text(message_content, style="green"),
                     title="Message",
@@ -2451,12 +2435,11 @@ class Team:
 
             # Run the agent
             run_response: TeamRunOutput = self.run(  # type: ignore
-                message=message,
+                input=input,
                 images=images,
                 audio=audio,
                 videos=videos,
                 files=files,
-                messages=messages,
                 stream=False,
                 session_id=session_id,
                 session_state=session_state,
@@ -2687,7 +2670,7 @@ class Team:
 
     def _print_response_stream(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         console: Optional[Any] = None,
         show_message: bool = True,
         show_reasoning: bool = True,
@@ -2743,10 +2726,10 @@ class Team:
             # Panels to be rendered
             panels = [status]
             # First render the message panel if the message is not None
-            if message and show_message:
+            if input and show_message:
                 render = True
                 # Convert message to a panel
-                message_content = get_text_from_message(message)
+                message_content = get_text_from_message(input)
                 message_panel = create_panel(
                     content=Text(message_content, style="green"),
                     title="Message",
@@ -2758,12 +2741,11 @@ class Team:
 
             # Get response from the team
             stream_resp = self.run(  # type: ignore
-                message=message,
+                input=input,
                 audio=audio,
                 images=images,
                 videos=videos,
                 files=files,
-                messages=messages,
                 stream=True,
                 stream_intermediate_steps=stream_intermediate_steps,
                 session_id=session_id,
@@ -2851,10 +2833,10 @@ class Team:
                 # Create new panels for each chunk
                 panels = []
 
-                if message and show_message:
+                if input and show_message:
                     render = True
                     # Convert message to a panel
-                    message_content = get_text_from_message(message)
+                    message_content = get_text_from_message(input)
                     message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
@@ -3040,8 +3022,8 @@ class Team:
             final_panels = []
 
             # Start with the message
-            if message and show_message:
-                message_content = get_text_from_message(message)
+            if input and show_message:
+                message_content = get_text_from_message(input)
                 message_panel = create_panel(
                     content=Text(message_content, style="green"),
                     title="Message",
@@ -3207,7 +3189,7 @@ class Team:
 
     async def aprint_response(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         *,
         stream: bool = False,
         stream_intermediate_steps: bool = False,
@@ -3223,7 +3205,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         markdown: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -3238,7 +3219,7 @@ class Team:
 
         if stream:
             await self._aprint_response_stream(
-                message=message,
+                input=input,
                 console=console,
                 show_message=show_message,
                 show_reasoning=show_reasoning,
@@ -3251,7 +3232,6 @@ class Team:
                 images=images,
                 videos=videos,
                 files=files,
-                messages=messages,
                 markdown=markdown,
                 stream_intermediate_steps=stream_intermediate_steps,
                 knowledge_filters=knowledge_filters,
@@ -3259,7 +3239,7 @@ class Team:
             )
         else:
             await self._aprint_response(
-                message=message,
+                input=input,
                 console=console,
                 show_message=show_message,
                 show_reasoning=show_reasoning,
@@ -3272,7 +3252,6 @@ class Team:
                 images=images,
                 videos=videos,
                 files=files,
-                messages=messages,
                 markdown=markdown,
                 knowledge_filters=knowledge_filters,
                 **kwargs,
@@ -3280,7 +3259,7 @@ class Team:
 
     async def _aprint_response(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         console: Optional[Any] = None,
         show_message: bool = True,
         show_reasoning: bool = True,
@@ -3293,7 +3272,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         markdown: bool = False,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -3321,9 +3299,9 @@ class Team:
             # Panels to be rendered
             panels = [status]
             # First render the message panel if the message is not None
-            if message and show_message:
+            if input and show_message:
                 # Convert message to a panel
-                message_content = get_text_from_message(message)
+                message_content = get_text_from_message(input)
                 message_panel = create_panel(
                     content=Text(message_content, style="green"),
                     title="Message",
@@ -3334,12 +3312,11 @@ class Team:
 
             # Run the agent
             run_response: TeamRunOutput = await self.arun(  # type: ignore
-                message=message,
+                input=input,
                 images=images,
                 audio=audio,
                 videos=videos,
                 files=files,
-                messages=messages,
                 stream=False,
                 session_id=session_id,
                 session_state=session_state,
@@ -3568,7 +3545,7 @@ class Team:
 
     async def _aprint_response_stream(
         self,
-        message: Optional[Union[List, Dict, str, Message, BaseModel]] = None,
+        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
         console: Optional[Any] = None,
         show_message: bool = True,
         show_reasoning: bool = True,
@@ -3581,7 +3558,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         markdown: bool = False,
         stream_intermediate_steps: bool = False,  # type: ignore
         knowledge_filters: Optional[Dict[str, Any]] = None,
@@ -3627,10 +3603,10 @@ class Team:
             # Panels to be rendered
             panels = [status]
             # First render the message panel if the message is not None
-            if message and show_message:
+            if input and show_message:
                 render = True
                 # Convert message to a panel
-                message_content = get_text_from_message(message)
+                message_content = get_text_from_message(input)
                 message_panel = create_panel(
                     content=Text(message_content, style="green"),
                     title="Message",
@@ -3645,12 +3621,11 @@ class Team:
             member_markdown = {}
 
             async for resp in self.arun(  # type: ignore
-                message=message,
+                input=input,
                 audio=audio,
                 images=images,
                 videos=videos,
                 files=files,
-                messages=messages,
                 stream=True,
                 stream_intermediate_steps=stream_intermediate_steps,
                 session_id=session_id,
@@ -3729,10 +3704,10 @@ class Team:
                 # Create new panels for each chunk
                 panels = [status]
 
-                if message and show_message:
+                if input and show_message:
                     render = True
                     # Convert message to a panel
-                    message_content = get_text_from_message(message)
+                    message_content = get_text_from_message(input)
                     message_panel = create_panel(
                         content=Text(message_content, style="green"),
                         title="Message",
@@ -3854,8 +3829,8 @@ class Team:
             final_panels = []
 
             # Start with the message
-            if message and show_message:
-                message_content = get_text_from_message(message)
+            if input and show_message:
+                message_content = get_text_from_message(input)
                 message_panel = create_panel(
                     content=Text(message_content, style="green"),
                     title="Message",
@@ -4084,7 +4059,7 @@ class Team:
 
     def cli_app(
         self,
-        message: Optional[str] = None,
+        input: Optional[str] = None,
         user: str = "User",
         emoji: str = ":sunglasses:",
         stream: bool = False,
@@ -4094,16 +4069,16 @@ class Team:
     ) -> None:
         from rich.prompt import Prompt
 
-        if message:
-            self.print_response(message=message, stream=stream, markdown=markdown, **kwargs)
+        if input:
+            self.print_response(input=input, stream=stream, markdown=markdown, **kwargs)
 
         _exit_on = exit_on or ["exit", "quit", "bye"]
         while True:
-            message = Prompt.ask(f"[bold] {emoji} {user} [/bold]")
-            if message in _exit_on:
+            user_input = Prompt.ask(f"[bold] {emoji} {user} [/bold]")
+            if user_input in _exit_on:
                 break
 
-            self.print_response(message=message, stream=stream, markdown=markdown, **kwargs)
+            self.print_response(input=user_input, stream=stream, markdown=markdown, **kwargs)
 
     ###########################################################################
     # Helpers
@@ -4771,7 +4746,7 @@ class Team:
         user_id: Optional[str] = None,
         async_mode: bool = False,
         knowledge_filters: Optional[Dict[str, Any]] = None,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         audio: Optional[Sequence[Audio]] = None,
@@ -4824,10 +4799,10 @@ class Team:
 
         if self.mode == "route":
             user_message = self._get_user_message(
-                message, audio=audio, images=images, videos=videos, files=files, user_id=user_id
+                input, audio=audio, images=images, videos=videos, files=files, user_id=user_id
             )
             forward_task_func: Function = self.get_forward_task_function(
-                message=user_message,
+                input=user_message,
                 user_id=user_id,
                 session_id=session_id,
                 stream=self.stream or False,
@@ -5278,12 +5253,11 @@ class Team:
         *,
         session_id: str,
         user_id: Optional[str] = None,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> RunMessages:
@@ -5312,12 +5286,12 @@ class Team:
             run_messages.messages.append(system_message)
 
         # 2. Add extra messages to run_messages if provided
-        if self.additional_messages is not None:
+        if self.additional_input is not None:
             messages_to_add_to_run_response: List[Message] = []
             if run_messages.extra_messages is None:
                 run_messages.extra_messages = []
 
-            for _m in self.additional_messages:
+            for _m in self.additional_input:
                 if isinstance(_m, Message):
                     messages_to_add_to_run_response.append(_m)
                     run_messages.messages.append(_m)
@@ -5335,14 +5309,12 @@ class Team:
                 log_debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
                 if self.run_response is not None:
                     if self.run_response.metadata is None:
-                        self.run_response.metadata = RunOutputMetaData(
-                            additional_messages=messages_to_add_to_run_response
-                        )
+                        self.run_response.metadata = RunOutputMetaData(additional_input=messages_to_add_to_run_response)
                     else:
-                        if self.run_response.metadata.additional_messages is None:
-                            self.run_response.metadata.additional_messages = messages_to_add_to_run_response
+                        if self.run_response.metadata.additional_input is None:
+                            self.run_response.metadata.additional_input = messages_to_add_to_run_response
                         else:
-                            self.run_response.metadata.additional_messages.extend(messages_to_add_to_run_response)
+                            self.run_response.metadata.additional_input.extend(messages_to_add_to_run_response)
 
         # 3. Add history to run_messages
         if self.add_history_to_context:
@@ -5369,30 +5341,12 @@ class Team:
                 # Extend the messages with the history
                 run_messages.messages += history_copy
 
-        # 4. Add messages to run_messages
-        if messages is not None and len(messages) > 0:
-            for _m in messages:
-                if isinstance(_m, Message):
-                    run_messages.messages.append(_m)
-                    if run_messages.extra_messages is None:
-                        run_messages.extra_messages = []
-                    run_messages.extra_messages.append(_m)
-                elif isinstance(_m, dict):
-                    try:
-                        _m_parsed = Message.model_validate(_m)
-                        run_messages.messages.append(_m_parsed)
-                        if run_messages.extra_messages is None:
-                            run_messages.extra_messages = []
-                        run_messages.extra_messages.append(_m_parsed)
-                    except Exception as e:
-                        log_warning(f"Failed to validate message: {e}")
-
         # 5. Add user message to run_messages (message second as per Dirk's requirement)
         user_message: Optional[Message] = None
-        # 5.1 Build user message if message is None, str or list
-        if message is None or isinstance(message, str) or isinstance(message, list):
+        # 5.1 Build user message if input is None, str or list
+        if input is None or isinstance(input, str) or isinstance(input, list):
             user_message = self._get_user_message(
-                message,
+                input,
                 user_id=user_id,
                 audio=audio,
                 images=images,
@@ -5401,20 +5355,20 @@ class Team:
                 knowledge_filters=knowledge_filters,
                 **kwargs,
             )
-        # 5.2 If message is provided as a Message, use it directly
-        elif isinstance(message, Message):
-            user_message = message
-        # 5.3 If message is provided as a dict, try to validate it as a Message
-        elif isinstance(message, dict):
+        # 5.2 If input is provided as a Message, use it directly
+        elif isinstance(input, Message):
+            user_message = input
+        # 5.3 If input is provided as a dict, try to validate it as a Message
+        elif isinstance(input, dict):
             try:
-                user_message = Message.model_validate(message)
+                user_message = Message.model_validate(input)
             except Exception as e:
                 log_warning(f"Failed to validate message: {e}")
-        # 5.4 If message is provided as a BaseModel, convert it to a Message
-        elif isinstance(message, BaseModel):
+        # 5.4 If input is provided as a BaseModel, convert it to a Message
+        elif isinstance(input, BaseModel):
             try:
                 # Create a user message with the BaseModel content
-                content = message.model_dump_json(indent=2, exclude_none=True)
+                content = input.model_dump_json(indent=2, exclude_none=True)
                 user_message = Message(role="user", content=content)
             except Exception as e:
                 log_warning(f"Failed to convert BaseModel to message: {e}")
@@ -5427,7 +5381,7 @@ class Team:
 
     def _get_user_message(
         self,
-        message: Optional[Union[str, List, Dict, Message, BaseModel]] = None,
+        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         user_id: Optional[str] = None,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
@@ -5439,16 +5393,16 @@ class Team:
         # Get references from the knowledge base to use in the user message
         references = None
         self.run_response = cast(TeamRunOutput, self.run_response)
-        if self.add_knowledge_to_context and message:
+        if self.add_knowledge_to_context and input:
             message_str: str
-            if isinstance(message, str):
-                message_str = message
-            elif callable(message):
-                message_str = message(agent=self)
-            elif isinstance(message, BaseModel):
-                message_str = message.model_dump_json(indent=2, exclude_none=True)
+            if isinstance(input, str):
+                message_str = input
+            elif callable(input):
+                message_str = input(agent=self)
+            elif isinstance(input, BaseModel):
+                message_str = input.model_dump_json(indent=2, exclude_none=True)
             else:
-                raise Exception("message must be a string or a callable when add_knowledge_to_context is True")
+                raise Exception("input must be a string or a callable when add_knowledge_to_context is True")
 
             try:
                 retrieval_timer = Timer()
@@ -5471,13 +5425,13 @@ class Team:
             except Exception as e:
                 log_warning(f"Failed to get references: {e}")
 
-        # Build user message if message is None, str or list
-        if isinstance(message, str) or isinstance(message, list):
+        # Build user message if input is None, str or list
+        if isinstance(input, str) or isinstance(input, list):
             # For lists, pass them directly as content like the agent does
-            if isinstance(message, list):
+            if isinstance(input, list):
                 return Message(
                     role="user",
-                    content=message,
+                    content=input,
                     audio=audio,
                     images=images,
                     videos=videos,
@@ -5488,9 +5442,9 @@ class Team:
             # For strings, build the content with state, references, and context
             user_message_content: str = ""
             if self.add_state_in_messages:
-                user_message_content = self._format_message_with_state_variables(message, user_id=user_id)
+                user_message_content = self._format_message_with_state_variables(input, user_id=user_id)
             else:
-                user_message_content = message
+                user_message_content = input
 
             # Add references to user message
             if (
@@ -5520,7 +5474,7 @@ class Team:
             )
 
         # Build the default user message for the Agent
-        elif message is None:
+        elif input is None:
             # If we have any media, return a message with empty content
             if images is not None or audio is not None or videos is not None or files is not None:
                 return Message(
@@ -5533,18 +5487,18 @@ class Team:
                     **kwargs,
                 )
             else:
-                # If the message is None, return None
+                # If the input is None, return None
                 return None
 
-        # If message is provided as a Message, use it directly
-        elif isinstance(message, Message):
-            return message
-        # If message is provided as a dict, try to validate it as a Message
-        elif isinstance(message, dict):
+        # If input is provided as a Message, use it directly
+        elif isinstance(input, Message):
+            return input
+        # If input is provided as a dict, try to validate it as a Message
+        elif isinstance(input, dict):
             try:
-                return Message.model_validate(message)
+                return Message.model_validate(input)
             except Exception as e:
-                log_warning(f"Failed to validate message: {e}")
+                log_warning(f"Failed to validate input: {e}")
 
     def get_messages_for_parser_model(
         self, model_response: ModelResponse, response_format: Optional[Union[Dict, Type[BaseModel]]]
@@ -5957,8 +5911,8 @@ class Team:
                         history.append(Message(role="user", content=member_agent_task))
 
                 if stream:
-                    member_agent_run_output_stream = member_agent.run(
-                        message=member_agent_task if history is None else None,
+                    member_agent_run_response_stream = member_agent.run(
+                        input=member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
                         session_id=session_id,
@@ -5976,7 +5930,7 @@ class Team:
                         yield member_agent_run_response_chunk
                 else:
                     member_agent_run_response = member_agent.run(
-                        message=member_agent_task if history is None else None,
+                        input=member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
                         session_id=session_id,
@@ -6086,7 +6040,7 @@ class Team:
 
                 async def run_member_agent(agent=current_agent, idx=current_index) -> str:
                     response = await agent.arun(
-                        message=member_agent_task if history is None else None,
+                        input=member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
                         session_id=session_id,
@@ -6262,8 +6216,8 @@ class Team:
                 member_agent.enable_agentic_knowledge_filters = self.enable_agentic_knowledge_filters
 
             if stream:
-                member_agent_run_output_stream = member_agent.run(
-                    message=member_agent_task if history is None else None,
+                member_agent_run_response_stream = member_agent.run(
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6279,14 +6233,14 @@ class Team:
                     if not member_agent.knowledge_filters and member_agent.knowledge
                     else None,
                 )
-                for member_agent_run_output_event in member_agent_run_output_stream:
+                for member_agent_run_output_event in member_agent_run_response_stream:
                     check_if_run_cancelled(member_agent_run_output_event)
 
                     # Yield the member event directly
                     yield member_agent_run_output_event
             else:
                 member_agent_run_response = member_agent.run(
-                    message=member_agent_task if history is None else None,
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6413,8 +6367,8 @@ class Team:
                 member_agent.enable_agentic_knowledge_filters = self.enable_agentic_knowledge_filters
 
             if stream:
-                member_agent_run_output_stream = member_agent.arun(
-                    message=member_agent_task if history is None else None,
+                member_agent_run_response_stream = member_agent.arun(
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6431,12 +6385,12 @@ class Team:
                     else None,
                     refresh_session_before_write=True,
                 )
-                async for member_agent_run_output_event in member_agent_run_output_stream:
+                async for member_agent_run_output_event in member_agent_run_response_stream:
                     check_if_run_cancelled(member_agent_run_output_event)
                     yield member_agent_run_output_event
             else:
                 member_agent_run_response = await member_agent.arun(
-                    message=member_agent_task if history is None else None,
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6587,7 +6541,7 @@ class Team:
 
     def get_forward_task_function(
         self,
-        message: Message,
+        input: Message,
         session_id: str,
         user_id: Optional[str] = None,
         stream: bool = False,
@@ -6644,7 +6598,7 @@ class Team:
             use_agent_logger()
 
             # If found in subteam, include the path in the task description
-            member_agent_task = message.get_content_string()
+            member_agent_task = input.get_content_string() if input is not None else ""
 
             # Add history for the member if enabled
             if member_agent.add_history_to_context:
@@ -6662,8 +6616,8 @@ class Team:
 
             # 2. Get the response from the member agent
             if stream:
-                member_agent_run_output_stream = member_agent.run(
-                    message=member_agent_task if history is None else None,
+                member_agent_run_response_stream = member_agent.run(
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6679,12 +6633,12 @@ class Team:
                     if not member_agent.knowledge_filters and member_agent.knowledge
                     else None,
                 )
-                for member_agent_run_response_chunk in member_agent_run_output_stream:
+                for member_agent_run_response_chunk in member_agent_run_response_stream:
                     check_if_run_cancelled(member_agent_run_response_chunk)
                     yield member_agent_run_response_chunk
             else:
                 member_agent_run_response = member_agent.run(
-                    message=member_agent_task if history is None else None,
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6737,7 +6691,7 @@ class Team:
             self.add_interaction_to_team_context(
                 session_id=session_id,  # type: ignore
                 member_name=member_name,
-                task=message.get_content_string(),
+                task=member_agent_task,
                 run_response=member_agent.run_response,  # type: ignore
             )
 
@@ -6789,7 +6743,7 @@ class Team:
             use_agent_logger()
 
             # If found in subteam, include the path in the task description
-            member_agent_task = message.get_content_string()
+            member_agent_task = input.get_content_string() if input is not None else ""
 
             # Add history for the member if enabled
             if member_agent.add_history_to_context:
@@ -6807,8 +6761,8 @@ class Team:
 
             # 2. Get the response from the member agent
             if stream:
-                member_agent_run_output_stream = member_agent.arun(
-                    message=member_agent_task if history is None else None,
+                member_agent_run_response_stream = member_agent.arun(
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6825,12 +6779,12 @@ class Team:
                     else None,
                     refresh_session_before_write=True,
                 )
-                async for member_agent_run_output_event in member_agent_run_output_stream:
+                async for member_agent_run_output_event in member_agent_run_response_stream:
                     check_if_run_cancelled(member_agent_run_output_event)
                     yield member_agent_run_output_event
             else:
                 member_agent_run_response = await member_agent.arun(
-                    message=member_agent_task if history is None else None,
+                    input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
                     session_id=session_id,
@@ -6878,7 +6832,7 @@ class Team:
             self.add_interaction_to_team_context(
                 session_id=session_id,  # type: ignore
                 member_name=member_name,
-                task=message.get_content_string(),
+                task=member_agent_task,
                 run_response=member_agent.run_response,  # type: ignore
             )
 

@@ -23,7 +23,7 @@ def agent_db(temp_storage_path):
 
 
 @pytest.fixture
-def workflow_storage(temp_storage_path):
+def workflow_db(temp_storage_path):
     """Create a YamlStorage instance for workflow sessions."""
     return YamlStorage(dir_path=temp_storage_path / "workflows", mode="workflow")
 

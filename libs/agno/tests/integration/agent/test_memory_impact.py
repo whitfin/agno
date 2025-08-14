@@ -3,6 +3,7 @@ import tracemalloc
 from typing import List, Tuple
 
 from agno.agent.agent import Agent
+from agno.db.base import SessionType
 from agno.models.openai.chat import OpenAIChat
 
 
@@ -94,7 +95,7 @@ class MemoryMonitor:
         }
 
 
-def test_agent_memory_impact_with_gc_monitoring(agent_db, memory):
+def test_agent_memory_impact_with_gc_monitoring(agent_db):
     """
     Test that creates an agent with memory and storage, runs a series of prompts,
     and monitors memory usage to verify garbage collection is working correctly.
@@ -103,7 +104,6 @@ def test_agent_memory_impact_with_gc_monitoring(agent_db, memory):
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
         db=agent_db,
-        memory=memory,
         enable_user_memories=True,
     )
 
@@ -185,17 +185,18 @@ def test_agent_memory_impact_with_gc_monitoring(agent_db, memory):
 
         # Verify that the agent's memory and storage are working correctly
         # Check that memories were created
-        user_memories = memory.get_user_memories(user_id=user_id)
+        user_memories = agent_db.get_user_memories(user_id=user_id)
         assert len(user_memories) > 0, "No user memories were created"
 
         # Check that sessions were stored
-        session_from_storage = agent_db.read(session_id=session_id)
+        session_from_storage = agent_db.get_session(session_id=session_id, session_type=SessionType.AGENT)
         assert session_from_storage is not None, "Session was not stored"
 
         # Check that runs are in memory
-        assert session_id in memory.runs, "Session runs not found in memory"
-        assert len(memory.runs[session_id]) == len(prompts), (
-            f"Expected {len(prompts)} runs, got {len(memory.runs[session_id])}"
+        session_db = agent_db.get_session(session_id=session_id, session_type=SessionType.AGENT)
+        assert session_db is not None
+        assert len(session_db.session_data["runs"]) == len(prompts), (
+            f"Expected {len(prompts)} runs, got {len(session_db.session_data['runs'])}"
         )
 
         print("✅ Memory impact test completed successfully")

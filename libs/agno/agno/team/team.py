@@ -289,6 +289,8 @@ class Team:
     store_events: bool = False
     # List of events to skip from the Team
     events_to_skip: Optional[List[Union[RunEvent, TeamRunEvent]]] = None
+    # Store member agent runs inside the team's RunResponse
+    store_member_responses: bool = False
 
     # Optional app ID. Indicates this team is part of an app.
     os_id: Optional[str] = None
@@ -376,6 +378,7 @@ class Team:
         stream_intermediate_steps: bool = False,
         store_events: bool = False,
         events_to_skip: Optional[List[Union[RunEvent, TeamRunEvent]]] = None,
+        store_member_responses: bool = False,
         stream_member_events: bool = True,
         debug_mode: bool = False,
         debug_level: Literal[1, 2] = 1,
@@ -464,6 +467,7 @@ class Team:
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
         self.store_events = store_events
+        self.store_member_responses = store_member_responses
 
         self.events_to_skip = events_to_skip
         if self.events_to_skip is None:
@@ -879,6 +883,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        store_member_responses: Optional[bool] = None,
         **kwargs: Any,
     ) -> TeamRunResponse: ...
 
@@ -899,6 +904,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        store_member_responses: Optional[bool] = None,
         **kwargs: Any,
     ) -> Iterator[Union[RunResponseEvent, TeamRunResponseEvent]]: ...
 
@@ -917,6 +923,7 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
+        store_member_responses: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> Union[TeamRunResponse, Iterator[Union[RunResponseEvent, TeamRunResponseEvent]]]:
@@ -956,6 +963,9 @@ class Team:
         # Use stream override value when necessary
         if stream is None:
             stream = False if self.stream is None else self.stream
+
+        if store_member_responses is None:
+            store_member_responses = False if self.store_member_responses is None else self.store_member_responses
 
         if stream_intermediate_steps is None:
             stream_intermediate_steps = (
@@ -999,6 +1009,7 @@ class Team:
             audio=audio,
             files=files,
             workflow_context=workflow_context,
+            store_member_responses=store_member_responses,
         )
 
         # Create a run_id for this specific run
@@ -1288,6 +1299,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        store_member_responses: Optional[bool] = None,
         **kwargs: Any,
     ) -> TeamRunResponse: ...
 
@@ -1307,6 +1319,7 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
+        store_member_responses: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent]]: ...
@@ -1327,9 +1340,11 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        store_member_responses: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[TeamRunResponse, AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent]]]:
         """Run the Team asynchronously and return the response."""
+
         session_id, user_id = self._initialize_session(
             session_id=session_id, user_id=user_id, session_state=session_state
         )
@@ -1358,6 +1373,9 @@ class Team:
         # Use stream override value when necessary
         if stream is None:
             stream = False if self.stream is None else self.stream
+
+        if store_member_responses is None:
+            store_member_responses = False if self.store_member_responses is None else self.store_member_responses
 
         if stream_intermediate_steps is None:
             stream_intermediate_steps = (
@@ -1396,6 +1414,8 @@ class Team:
             videos=videos,
             audio=audio,
             files=files,
+            workflow_context=workflow_context,
+            store_member_responses=store_member_responses,
         )
 
         # Create a run_id for this specific run
@@ -4759,6 +4779,7 @@ class Team:
         audio: Optional[Sequence[Audio]] = None,
         files: Optional[Sequence[File]] = None,
         workflow_context: Optional[Dict] = None,
+        store_member_responses: bool = False,
     ) -> None:
         # Prepare tools
         _tools: List[Union[Toolkit, Callable, Function, Dict]] = []
@@ -4820,6 +4841,7 @@ class Team:
                 files=files,  # type: ignore
                 knowledge_filters=knowledge_filters,
                 workflow_context=workflow_context,
+                store_member_responses=store_member_responses,
             )
             _tools.append(forward_task_func)
             if self.get_member_information_tool:
@@ -4839,6 +4861,7 @@ class Team:
                     files=files,  # type: ignore
                     knowledge_filters=knowledge_filters,
                     workflow_context=workflow_context,
+                    store_member_responses=store_member_responses,
                 )
             )
             if self.get_member_information_tool:
@@ -4856,6 +4879,7 @@ class Team:
                 audio=audio,  # type: ignore
                 files=files,  # type: ignore
                 workflow_context=workflow_context,
+                store_member_responses=store_member_responses,
             )
             _tools.append(run_member_agents_func)
 
@@ -5887,6 +5911,7 @@ class Team:
         audio: Optional[List[Audio]] = None,
         files: Optional[List[File]] = None,
         workflow_context: Optional[Dict] = None,
+        store_member_responses: bool = False,
     ) -> Function:
         if not images:
             images = []
@@ -6002,6 +6027,10 @@ class Team:
 
                 # Add the member run to the team run response
                 self.run_response = cast(TeamRunResponse, self.run_response)
+
+                if store_member_responses and self.run_response:
+                    self.run_response.add_member_run(member_agent.run_response)
+
                 # Add the member run to the team session
                 self.team_session.add_run(member_agent.run_response)
 
@@ -6086,6 +6115,10 @@ class Team:
 
                     # Add the member run to the team run response
                     self.run_response = cast(TeamRunResponse, self.run_response)
+
+                    if store_member_responses and self.run_response:
+                        self.run_response.add_member_run(agent.run_response)
+
                     # Add the member run to the team session
                     self.team_session.add_run(agent.run_response)
 
@@ -6170,6 +6203,7 @@ class Team:
         files: Optional[List[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         workflow_context: Optional[Dict] = None,
+        store_member_responses: bool = False,
     ) -> Function:
         if not images:
             images = []
@@ -6315,6 +6349,10 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
+
+            if store_member_responses and self.run_response:
+                self.run_response.add_member_run(member_agent.run_response)
+
             # Add the member run to the team session
             self.team_session.add_run(member_agent.run_response)
 
@@ -6455,6 +6493,10 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
+
+            if store_member_responses and self.run_response:
+                self.run_response.add_member_run(member_agent.run_response)
+
             # Add the member run to the team session
             self.team_session.add_run(member_agent.run_response)
 
@@ -6559,6 +6601,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         workflow_context: Optional[Dict] = None,
+        store_member_responses: bool = False,
     ) -> Function:
         if not images:
             images = []
@@ -6702,6 +6745,10 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
+
+            if store_member_responses and self.run_response:
+                self.run_response.add_member_run(member_agent.run_response)
+
             # Add the member run to the team session
             self.team_session.add_run(member_agent.run_response)
 
@@ -6839,6 +6886,10 @@ class Team:
 
             # Add the member run to the team run response
             self.run_response = cast(TeamRunResponse, self.run_response)
+
+            if store_member_responses and self.run_response:
+                self.run_response.add_member_run(member_agent.run_response)
+
             # Add the member run to the team session
             self.team_session.add_run(member_agent.run_response)
 

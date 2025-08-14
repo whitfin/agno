@@ -516,8 +516,14 @@ class Team:
             self.id = str(uuid4())
         return self.id
 
-    def _set_debug_mode(self) -> None:
-        if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
+    def _set_debug_mode(self, debug_mode: Optional[bool] = None) -> None:
+        # Override class debug_mode if explicitly passed
+        if debug_mode is not None:
+            is_debug_mode = debug_mode
+        else:
+            is_debug_mode = self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true"
+            
+        if is_debug_mode:
             self.debug_mode = True
             set_log_level_to_debug(source_type="team", level=self.debug_level)
         else:
@@ -695,11 +701,11 @@ class Team:
 
         return session_id, user_id
 
-    def initialize_team(self, session_id: Optional[str] = None) -> None:
+    def initialize_team(self, session_id: Optional[str] = None, debug_mode: Optional[bool] = None) -> None:
         self._set_default_model()
 
         # Set debug mode
-        self._set_debug_mode()
+        self._set_debug_mode(debug_mode=debug_mode)
 
         # Set the team ID if not set
         self._set_id()
@@ -874,6 +880,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> TeamRunResponse: ...
 
@@ -894,6 +901,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Iterator[Union[RunResponseEvent, TeamRunResponseEvent]]: ...
 
@@ -913,6 +921,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[TeamRunResponse, Iterator[Union[RunResponseEvent, TeamRunResponseEvent]]]:
         """Run the Team and return the response."""
@@ -923,7 +932,7 @@ class Team:
         log_debug(f"Session ID: {session_id}", center=True)
 
         # Initialize Team
-        self.initialize_team(session_id=session_id)
+        self.initialize_team(session_id=session_id, debug_mode=debug_mode)
 
         # Extract workflow context from kwargs if present
         workflow_context = kwargs.pop("workflow_context", None)
@@ -1283,6 +1292,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> TeamRunResponse: ...
 
@@ -1303,6 +1313,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent]]: ...
 
@@ -1322,6 +1333,7 @@ class Team:
         files: Optional[Sequence[File]] = None,
         messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[TeamRunResponse, AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent]]]:
         """Run the Team asynchronously and return the response."""
@@ -1331,7 +1343,7 @@ class Team:
         log_debug(f"Session ID: {session_id}", center=True)
 
         # Initialize Team
-        self.initialize_team(session_id=session_id)
+        self.initialize_team(session_id=session_id, debug_mode=debug_mode)
 
         # Extract workflow context from kwargs if present
         workflow_context = kwargs.pop("workflow_context", None)

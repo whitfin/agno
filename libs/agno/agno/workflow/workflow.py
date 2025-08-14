@@ -375,9 +375,15 @@ class Workflow:
             step_index=step_index,
         )
 
-    def _set_debug_mode(self) -> None:
+    def _set_debug_mode(self, debug_mode: Optional[bool] = None) -> None:
         """Set debug mode and configure logging"""
-        if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
+        # Override class debug_mode if explicitly passed
+        if debug_mode is not None:
+            is_debug_mode = debug_mode
+        else:
+            is_debug_mode = self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true"
+            
+        if is_debug_mode:
             use_workflow_logger()
 
             self.debug_mode = True
@@ -1463,6 +1469,7 @@ class Workflow:
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
+        debug_mode: Optional[bool] = None,
     ) -> Iterator[WorkflowRunResponseEvent]: ...
 
     def run(
@@ -1477,6 +1484,7 @@ class Workflow:
         stream: bool = False,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[WorkflowRunResponse, Iterator[WorkflowRunResponseEvent]]:
         """Execute the workflow synchronously with optional streaming"""
@@ -1488,7 +1496,7 @@ class Workflow:
         if background:
             raise RuntimeError("Background execution is not supported for sync run()")
 
-        self._set_debug_mode()
+        self._set_debug_mode(debug_mode=debug_mode)
 
         log_debug(f"Workflow Run Start: {self.name}", center=True)
 
@@ -1570,6 +1578,7 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
         websocket: Optional[WebSocket] = None,
+        debug_mode: Optional[bool] = None,
     ) -> WorkflowRunResponse: ...
 
     @overload
@@ -1586,6 +1595,7 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
         websocket: Optional[WebSocket] = None,
+        debug_mode: Optional[bool] = None,
     ) -> AsyncIterator[WorkflowRunResponseEvent]: ...
 
     async def arun(
@@ -1601,6 +1611,7 @@ class Workflow:
         stream_intermediate_steps: Optional[bool] = False,
         background: Optional[bool] = False,
         websocket: Optional[WebSocket] = None,
+        debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> Union[WorkflowRunResponse, AsyncIterator[WorkflowRunResponseEvent]]:
         """Execute the workflow synchronously with optional streaming"""
@@ -1646,7 +1657,7 @@ class Workflow:
                     **kwargs,
                 )
 
-        self._set_debug_mode()
+        self._set_debug_mode(debug_mode=debug_mode)
 
         log_debug(f"Async Workflow Run Start: {self.name}", center=True)
 

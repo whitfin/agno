@@ -85,12 +85,12 @@ async def custom_content_planning_function(
     """
 
     try:
-        response_iterator = await content_planner.arun(
+        response_iterator = content_planner.arun(
             planning_prompt, stream=True, stream_intermediate_steps=True
         )
         async for event in response_iterator:
             yield event
-        response = content_planner.run_response
+        response = content_planner.get_last_run_response()
 
         enhanced_content = f"""
             ## Strategic Content Plan
@@ -150,7 +150,8 @@ if __name__ == "__main__":
 
     # Run workflow with additional_data
     asyncio.run(
-        content_creation_workflow.aprint_response(input="AI trends in 2024",
+        content_creation_workflow.aprint_response(
+            input="AI trends in 2024",
             additional_data={
                 "user_email": "kaustubh@agno.com",
                 "priority": "high",

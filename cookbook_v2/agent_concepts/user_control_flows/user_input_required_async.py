@@ -30,11 +30,11 @@ agent = Agent(
     markdown=True,
 )
 
-asyncio.run(
+run_response = asyncio.run(
     agent.arun("Send an email with the subject 'Hello' and the body 'Hello, world!'")
 )
-if agent.is_paused:  # Or agent.run_response.is_paused
-    for tool in agent.run_response.tools_requiring_user_input:  # type: ignore
+if run_response.is_paused:  # Or agent.run_response.is_paused
+    for tool in run_response.tools_requiring_user_input:  # type: ignore
         input_schema: List[UserInputField] = tool.user_input_schema  # type: ignore
 
         for field in input_schema:
@@ -57,9 +57,7 @@ if agent.is_paused:  # Or agent.run_response.is_paused
             # Update the field value
             field.value = user_value
 
-    run_response = asyncio.run(
-        agent.acontinue_run()
-    )  # or agent.continue_run(run_response=agent.run_response)
+    run_response = asyncio.run(agent.acontinue_run(run_response=run_response))
     pprint.pprint_run_response(run_response)
 
 # Or for simple debug flow

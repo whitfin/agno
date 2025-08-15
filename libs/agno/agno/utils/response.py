@@ -1,10 +1,7 @@
 from typing import AsyncIterator, Iterator, List, Set, Union
 
 from agno.exceptions import RunCancelledException
-from agno.models.message import Message
 from agno.models.response import ToolExecution
-from agno.reasoning.step import ReasoningStep
-from agno.run.base import RunOutputMetaData
 from agno.run.response import RunOutput, RunOutputEvent, RunPausedEvent
 from agno.run.team import TeamRunOutput, TeamRunOutputEvent
 
@@ -32,27 +29,6 @@ def escape_markdown_tags(content: str, tags: Set[str]) -> str:
 def check_if_run_cancelled(run_output: Union[RunOutput, RunOutputEvent, TeamRunOutput, TeamRunOutputEvent]):
     if run_output.is_cancelled:
         raise RunCancelledException()
-
-
-def update_run_output_with_reasoning(
-    run_output: Union[RunOutput, TeamRunOutput],
-    reasoning_steps: List[ReasoningStep],
-    reasoning_agent_messages: List[Message],
-) -> None:
-    if run_output.metadata is None:
-        run_output.metadata = RunOutputMetaData()
-
-    # Update reasoning_steps
-    if run_output.metadata.reasoning_steps is None:
-        run_output.metadata.reasoning_steps = reasoning_steps
-    else:
-        run_output.metadata.reasoning_steps.extend(reasoning_steps)
-
-    # Update reasoning_messages
-    if run_output.metadata.reasoning_messages is None:
-        run_output.metadata.reasoning_messages = reasoning_agent_messages
-    else:
-        run_output.metadata.reasoning_messages.extend(reasoning_agent_messages)
 
 
 def format_tool_calls(tool_calls: List[ToolExecution]) -> List[str]:

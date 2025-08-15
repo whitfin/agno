@@ -7,14 +7,14 @@ from agno.workflow.workflow import Workflow
 
 # === TEAM TOOLS FOR STEP MANAGEMENT ===
 def add_step(
-    team: Team, step_name: str, assignee: str, priority: str = "medium"
+    session_state, step_name: str, assignee: str, priority: str = "medium"
 ) -> str:
     """Add a step to the team's workflow session state."""
-    if team.workflow_session_state is None:
-        team.workflow_session_state = {}
+    if session_state is None:
+        session_state = {}
 
-    if "steps" not in team.workflow_session_state:
-        team.workflow_session_state["steps"] = []
+    if "steps" not in session_state:
+        session_state["steps"] = []
 
     step = {
         "name": step_name,
@@ -23,21 +23,18 @@ def add_step(
         "priority": priority,
         "created_at": "now",
     }
-    team.workflow_session_state["steps"].append(step)
+    session_state["steps"].append(step)
 
     result = f"✅ Successfully added step '{step_name}' assigned to {assignee} (priority: {priority}). Total steps: {len(team.workflow_session_state['steps'])}"
     return result
 
 
-def delete_step(team: Team, step_name: str) -> str:
+def delete_step(session_state, step_name: str) -> str:
     """Delete a step from the team's workflow session state."""
-    if (
-        team.workflow_session_state is None
-        or "steps" not in team.workflow_session_state
-    ):
+    if session_state is None or "steps" not in session_state:
         return "❌ No steps found to delete"
 
-    steps = team.workflow_session_state["steps"]
+    steps = session_state["steps"]
     for i, step in enumerate(steps):
         if step["name"] == step_name:
             deleted_step = steps.pop(i)
@@ -53,13 +50,10 @@ def update_step_status(
     agent: Agent, step_name: str, new_status: str, notes: str = ""
 ) -> str:
     """Update the status of a step in the workflow session state."""
-    if (
-        agent.workflow_session_state is None
-        or "steps" not in agent.workflow_session_state
-    ):
+    if session_state is None or "steps" not in session_state:
         return "❌ No steps found in workflow session state"
 
-    steps = agent.workflow_session_state["steps"]
+    steps = session_state["steps"]
     for step in steps:
         if step["name"] == step_name:
             old_status = step["status"]
@@ -78,15 +72,12 @@ def update_step_status(
     return result
 
 
-def assign_step(agent: Agent, step_name: str, new_assignee: str) -> str:
+def assign_step(session_state, step_name: str, new_assignee: str) -> str:
     """Reassign a step to a different person."""
-    if (
-        agent.workflow_session_state is None
-        or "steps" not in agent.workflow_session_state
-    ):
+    if session_state is None or "steps" not in session_state:
         return "❌ No steps found in workflow session state"
 
-    steps = agent.workflow_session_state["steps"]
+    steps = session_state["steps"]
     for step in steps:
         if step["name"] == step_name:
             old_assignee = step["assignee"]
@@ -223,7 +214,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("📝 Example 1: Add Multiple Steps")
     print("=" * 60)
-    project_workflow.print_response(input="Add a high priority step called 'Setup Database' assigned to Alice, and a medium priority step called 'Create API' assigned to Bob"
+    project_workflow.print_response(
+        input="Add a high priority step called 'Setup Database' assigned to Alice, and a medium priority step called 'Create API' assigned to Bob"
     )
     print_current_steps(project_workflow)
     print(f"🔍 Workflow Session State: {project_workflow.workflow_session_state}")
@@ -233,7 +225,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("🔄 Example 2: Update Step Status")
     print("=" * 60)
-    project_workflow.print_response(input="Mark 'Setup Database' as in_progress with notes 'Started database schema design'"
+    project_workflow.print_response(
+        input="Mark 'Setup Database' as in_progress with notes 'Started database schema design'"
     )
     print_current_steps(project_workflow)
     print(f"🔍 Workflow Session State: {project_workflow.workflow_session_state}")
@@ -243,7 +236,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("✅ Example 3: Reassign and Complete Step")
     print("=" * 60)
-    project_workflow.print_response(input="Reassign 'Create API' to Charlie, then mark it as completed with notes 'API endpoints implemented and tested'"
+    project_workflow.print_response(
+        input="Reassign 'Create API' to Charlie, then mark it as completed with notes 'API endpoints implemented and tested'"
     )
     print_current_steps(project_workflow)
     print(f"🔍 Workflow Session State: {project_workflow.workflow_session_state}")
@@ -253,7 +247,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("📋 Example 4: Add and Manage More Steps")
     print("=" * 60)
-    project_workflow.print_response(input="Add a low priority step 'Write Tests' assigned to Dave, then mark 'Setup Database' as completed"
+    project_workflow.print_response(
+        input="Add a low priority step 'Write Tests' assigned to Dave, then mark 'Setup Database' as completed"
     )
     print_current_steps(project_workflow)
     print(f"🔍 Workflow Session State: {project_workflow.workflow_session_state}")
@@ -263,7 +258,8 @@ if __name__ == "__main__":
     print("=" * 60)
     print("🗑️ Example 5: Delete Step")
     print("=" * 60)
-    project_workflow.print_response(input="Delete the 'Write Tests' step and add a high priority 'Deploy to Production' step assigned to Eve"
+    project_workflow.print_response(
+        input="Delete the 'Write Tests' step and add a high priority 'Deploy to Production' step assigned to Eve"
     )
     print_current_steps(project_workflow)
     print(f"🔍 Workflow Session State: {project_workflow.workflow_session_state}")

@@ -16,8 +16,6 @@ class TeamSession:
 
     # Session UUID
     session_id: str
-    # ID of the team session this team session is associated with (so for sub-teams)
-    team_session_id: Optional[str] = None
 
     # ID of the team that this session is associated with
     team_id: Optional[str] = None
@@ -35,7 +33,7 @@ class TeamSession:
     # List of all runs in the session
     runs: Optional[list[Union[TeamRunOutput, RunOutput]]] = None
     # Summary of the session
-    summary: Optional[Dict[str, Any]] = None
+    summary: Optional[SessionSummary] = None
 
     # The unix timestamp when this session was created
     created_at: Optional[int] = None
@@ -46,7 +44,7 @@ class TeamSession:
         session_dict = asdict(self)
 
         session_dict["runs"] = [run.to_dict() for run in self.runs] if self.runs else None
-        session_dict["summary"] = self.summary.to_dict() if isinstance(self.summary, SessionSummary) else self.summary
+        session_dict["summary"] = self.summary.to_dict() if self.summary else None
 
         return session_dict
 
@@ -77,7 +75,6 @@ class TeamSession:
         return cls(
             session_id=data.get("session_id"),  # type: ignore
             team_id=data.get("team_id"),
-            team_session_id=data.get("team_session_id"),
             user_id=data.get("user_id"),
             workflow_id=data.get("workflow_id"),
             team_data=data.get("team_data"),
@@ -89,10 +86,16 @@ class TeamSession:
             summary=data.get("summary"),
         )
 
-    def add_run(self, run: Union[TeamRunOutput, RunOutput]):
+    def get_run(self, run_id: str) -> Optional[TeamRunOutput]:
+        for run in self.runs:
+            if run.run_id == run_id:
+                return run
+        return None
+
+    def upsert_run(self, run_response: Union[TeamRunOutput, RunOutput]):
         """Adds a RunOutput, together with some calculated data, to the runs list."""
 
-        messages = run.messages
+        messages = run_response.messages
         if messages is None:
             return
 
@@ -103,13 +106,17 @@ class TeamSession:
         if not self.runs:
             self.runs = []
 
-        self.runs.append(run)
+        for i, existing_run in enumerate(self.runs):
+            if existing_run.run_id == run_response.run_id:
+                self.runs[i] = run_response
+                break
+        else:
+            self.runs.append(run_response)
 
         log_debug("Added RunOutput to Team Session")
 
     def get_messages_from_last_n_runs(
         self,
-        session_id: str,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         last_n: Optional[int] = None,
@@ -120,7 +127,7 @@ class TeamSession:
     ) -> List[Message]:
         """Returns the messages from the last_n runs, excluding previously tagged history messages.
         Args:
-            session_id: The session id to get the messages from.
+
             agent_id: The id of the agent to get the messages from.
             team_id: The id of the team to get the messages from.
             last_n: The number of runs to return from the end of the conversation. Defaults to all runs.
@@ -176,7 +183,7 @@ class TeamSession:
         log_debug(f"Getting messages from previous runs: {len(messages_from_history)}")
         return messages_from_history
 
-    def get_tool_calls(self, session_id: str, num_calls: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_tool_calls(self, num_calls: Optional[int] = None) -> List[Dict[str, Any]]:
         """Returns a list of tool calls from the messages"""
 
         tool_calls = []

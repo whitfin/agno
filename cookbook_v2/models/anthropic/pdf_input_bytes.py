@@ -25,7 +25,6 @@ agent.print_response(
         ),
     ],
 )
-
-if agent.run_response:
-    print("Citations:")
-    print(agent.run_response.citations)
+run_response = agent.get_last_run_response()
+print("Citations:")
+print(run_response.citations)

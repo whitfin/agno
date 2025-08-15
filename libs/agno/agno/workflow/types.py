@@ -415,6 +415,7 @@ class WebSocketHandler:
 
 
 class StepType(str, Enum):
+    FUNCTION = "Function"
     STEP = "Step"
     STEPS = "Steps"
     LOOP = "Loop"

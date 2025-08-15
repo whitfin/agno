@@ -1,5 +1,3 @@
-import uuid
-
 import pytest
 
 from agno.agent import Agent
@@ -9,10 +7,7 @@ from agno.session.team import TeamSession
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.yfinance import YFinanceTools
-
-
 from agno.utils.string import is_valid_uuid
-from agno.utils.team import get_member_id
 
 
 @pytest.fixture
@@ -56,7 +51,12 @@ def test_team_system_message_content(team):
 
 
 def test_transfer_to_wrong_member(team):
-    function = team.get_transfer_task_function(session=TeamSession(session_id="test-session"), run_response=TeamRunOutput(content="Hello, world!"), session_state={}, team_run_context={})
+    function = team.get_transfer_task_function(
+        session=TeamSession(session_id="test-session"),
+        run_response=TeamRunOutput(content="Hello, world!"),
+        session_state={},
+        team_run_context={},
+    )
     response = list(
         function.entrypoint(
             member_id="wrong-agent", task_description="Get the current stock price of AAPL", expected_output=""
@@ -66,11 +66,15 @@ def test_transfer_to_wrong_member(team):
 
 
 def test_forward_to_wrong_member(team):
-    function = team.get_forward_task_function(input="Hello, world!", session=TeamSession(session_id="test-session"), run_response=TeamRunOutput(content="Hello, world!"), session_state={}, team_run_context={})
+    function = team.get_forward_task_function(
+        input="Hello, world!",
+        session=TeamSession(session_id="test-session"),
+        run_response=TeamRunOutput(content="Hello, world!"),
+        session_state={},
+        team_run_context={},
+    )
     response = list(function.entrypoint(member_id="wrong-agent", expected_output=""))
     assert "Member with ID wrong-agent not found in the team or any subteams" in response[0]
-
-
 
 
 def test_set_id():
@@ -82,7 +86,6 @@ def test_set_id():
     assert team.id == "test_id"
 
 
-
 def test_set_id_from_name():
     team = Team(
         name="Test Name",
@@ -91,7 +94,7 @@ def test_set_id_from_name():
     team.set_id()
     team_id = team.id
     assert is_valid_uuid(team_id)
-    
+
     team.set_id()
     # It is deterministic, so it should be the same
     assert team.id == team_id

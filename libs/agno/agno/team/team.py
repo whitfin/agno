@@ -955,7 +955,7 @@ class Team:
         run_response.model_provider = self.model.provider if self.model is not None else None
 
         # Initialize team run context
-        team_run_context = {}
+        team_run_context: Dict[str, Any] = {}
 
         self.determine_tools_for_model(
             model=self.model,
@@ -1252,7 +1252,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         store_member_responses: Optional[bool] = None,
         debug_mode: bool = False,
@@ -1274,7 +1273,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         store_member_responses: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: bool = False,
@@ -1296,7 +1294,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        messages: Optional[Sequence[Union[Dict, Message]]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         store_member_responses: Optional[bool] = None,
         debug_mode: bool = False,
@@ -6803,7 +6800,7 @@ class Team:
                     return run_response  # type: ignore
             else:
                 log_warning(f"No run responses found in AgentSession {session_id}")
-                return None
+        return None
 
     def read_or_create_session(self, session_id: str, user_id: Optional[str] = None) -> TeamSession:
         """Load the TeamSession from storage
@@ -6885,7 +6882,6 @@ class Team:
 
             self._upsert_session(session=session)
             log_debug(f"Created or updated TeamSession record: {session.session_id}")
-
 
     def update_session_state(self, session: TeamSession, session_state: Dict[str, Any]) -> Dict[str, Any]:
         """Load the existing Agent from an AgentSession (from the database)"""
@@ -6990,7 +6986,7 @@ class Team:
         self.save_session(session=session)  # type: ignore
 
         return session
-    
+
     def get_session_name(self, session_id: Optional[str] = None) -> str:
         """Get the session name for the given session ID and user ID."""
         session_id = session_id or self.session_id
@@ -7016,7 +7012,7 @@ class Team:
         session_id = session_id or self.session_id
         if session_id is None:
             raise Exception("Session ID is not set")
-        
+
         session = self.get_session(session_id=session_id)  # type: ignore
         if session is None:
             raise Exception("Session not found")
@@ -7286,11 +7282,19 @@ class Team:
         Returns:
             str: A string indicating the status of the addition.
         """
+        if self.knowledge is None:
+            log_warning("Knowledge is not set, cannot add to knowledge")
+            return "Knowledge is not set, cannot add to knowledge"
+        
+        if self.knowledge.vector_db is None:
+            log_warning("Knowledge vector database is not set, cannot add to knowledge")
+            return "Knowledge vector database is not set, cannot add to knowledge"
+        
         document_name = query.replace(" ", "_").replace("?", "").replace("!", "").replace(".", "")
         document_content = json.dumps({"query": query, "result": result})
         log_info(f"Adding document to Knowledge: {document_name}: {document_content}")
         from agno.knowledge.reader.text_reader import TextReader
-
+        
         asyncio.run(self.knowledge.add_content(name=document_name, text_content=document_content, reader=TextReader()))
         return "Successfully added to knowledge base"
 

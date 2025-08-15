@@ -173,7 +173,8 @@ class AgentResponse(BaseModel):
         agent_tools = agent.get_tools(
             session=AgentSession(session_id=str(uuid4()), session_data={}),
             run_response=RunOutput(run_id=str(uuid4())),
-            async_mode=True,)
+            async_mode=True,
+        )
         formatted_tools = format_tools(agent_tools) if agent_tools else None
 
         additional_input = agent.additional_input

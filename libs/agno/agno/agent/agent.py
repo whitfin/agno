@@ -519,7 +519,7 @@ class Agent:
 
         self._formatter: Optional[SafeFormatter] = None
 
-    def set_id(self) -> str:
+    def set_id(self) -> None:
         if self.id is None:
             if self.name is not None:
                 self.id = str(uuid5(NAMESPACE_DNS, self.name))
@@ -1259,7 +1259,7 @@ class Agent:
     ) -> RunOutput: ...
 
     @overload
-    async def arun(
+    def arun(
         self,
         input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
@@ -1278,7 +1278,7 @@ class Agent:
         **kwargs: Any,
     ) -> AsyncIterator[RunOutputEvent]: ...
 
-    async def arun(
+    def arun(
         self,
         input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
@@ -1408,7 +1408,7 @@ class Agent:
                         yield_run_response=yield_run_response,
                     )  # type: ignore[assignment]
                 else:
-                    return await self._arun(
+                    return self._arun(
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -3632,7 +3632,7 @@ class Agent:
                     return run_response
                 else:
                     log_warning(f"RunOutput {run_id} not found in AgentSession {session_id}")
-                    return None
+        return None
 
     def get_last_run_response(self, session_id: Optional[str] = None) -> Optional[RunOutput]:
         """
@@ -3660,7 +3660,7 @@ class Agent:
                     return run_response
             else:
                 log_warning(f"No run responses found in AgentSession {session_id}")
-                return None
+        return None
 
     def get_session(
         self,
@@ -3681,7 +3681,7 @@ class Agent:
 
         # Try to load from database
         if self.db is not None:
-            agent_session = cast(AgentSession, self._read_session(session_id=session_id_to_load))
+            agent_session = cast(AgentSession, self._read_session(session_id=session_id_to_load))  # type: ignore
             return agent_session
 
         log_warning(f"AgentSession {session_id_to_load} not found in db")
@@ -3710,9 +3710,16 @@ class Agent:
             self._upsert_session(session=session)
             log_debug(f"Created or updated AgentSession record: {session.session_id}")
 
-    def get_chat_history(self, session_id: str) -> List[Message]:
+    def get_chat_history(self, session_id: Optional[str] = None) -> List[Message]:
         """Read the chat history from the session"""
-        session = self.get_session(session_id=session_id)
+        if not session_id and not self.session_id:
+            raise Exception("No session_id provided")
+
+        session_id_to_load = session_id or self.session_id
+        session = self.get_session(session_id=session_id_to_load)
+        
+        if session is None:
+            raise Exception(f"Session {session_id_to_load} not found")
 
         return session.get_chat_history()
 
@@ -4100,6 +4107,7 @@ class Agent:
                     return Message.model_validate(input)
                 except Exception as e:
                     log_warning(f"Failed to validate message: {e}")
+                    raise Exception(f"Failed to validate message: {e}")
 
             # If message is provided as a BaseModel, convert it to a Message
             elif isinstance(input, BaseModel):
@@ -4109,6 +4117,7 @@ class Agent:
                     return Message(role=self.user_message_role, content=content)
                 except Exception as e:
                     log_warning(f"Failed to convert BaseModel to message: {e}")
+                    raise Exception(f"Failed to convert BaseModel to message: {e}")
             else:
                 user_msg_content = input
                 if self.add_knowledge_to_context:
@@ -4295,7 +4304,7 @@ class Agent:
                 )
             )
         ):
-            user_message: Optional[Message] = self._get_user_message(
+            user_message = self._get_user_message(
                 run_response=run_response,
                 session=session,
                 input=input,
@@ -4423,7 +4432,7 @@ class Agent:
             Message(role="system", content=system_content),
             Message(role="user", content=run_response.content),
         ]
-        
+
     def get_session_summary(self, session_id: Optional[str] = None):
         """Get the session summary for the given session ID and user ID."""
         session_id = session_id if session_id is not None else self.session_id
@@ -4431,6 +4440,9 @@ class Agent:
             raise ValueError("Session ID is required")
 
         session = self.get_session(session_id=session_id)
+        
+        if session is None:
+            raise Exception(f"Session {session_id} not found")
 
         return session.get_session_summary()
 
@@ -4871,7 +4883,7 @@ class Agent:
         session_id = session_id or self.session_id
         if session_id is None:
             raise Exception("Session ID is not set")
-        
+
         session = self.get_session(session_id=session_id)  # type: ignore
         if session is None:
             raise Exception("Session not found")
@@ -5706,7 +5718,7 @@ class Agent:
 
         return get_tool_call_history
 
-    def update_session_state_tool(session_state: Dict[str, Any], updates: Dict[str, Any]) -> str:
+    def update_session_state_tool(self, session_state: Dict[str, Any], updates: Dict[str, Any]) -> str:
         """
         Update the shared session state.
 

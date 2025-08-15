@@ -371,7 +371,7 @@ class Workflow:
         self.save_session(session=session)  # type: ignore
 
         return session  # type: ignore
-    
+
     def get_session_name(self, session_id: Optional[str] = None) -> str:
         """Get the session name for the given session ID and user ID."""
         session_id = session_id or self.session_id

@@ -171,9 +171,9 @@ class AgentResponse(BaseModel):
         agent_tools = agent.get_tools(session_id=str(uuid4()), async_mode=True)
         formatted_tools = format_tools(agent_tools) if agent_tools else None
 
-        additional_messages = agent.additional_messages
-        if additional_messages and isinstance(additional_messages[0], Message):
-            additional_messages = [message.to_dict() for message in additional_messages]  # type: ignore
+        additional_input = agent.additional_input
+        if additional_input and isinstance(additional_input[0], Message):
+            additional_input = [message.to_dict() for message in additional_input]  # type: ignore
 
         model_name = agent.model.name or agent.model.__class__.__name__ if agent.model else None
         model_provider = agent.model.provider or agent.model.__class__.__name__ if agent.model else ""
@@ -271,7 +271,7 @@ class AgentResponse(BaseModel):
         }
 
         extra_messages_info = {
-            "additional_messages": additional_messages,  # type: ignore
+            "additional_input": additional_input,  # type: ignore
             "user_message": str(agent.user_message) if agent.user_message else None,
             "user_message_role": agent.user_message_role,
             "build_user_context": agent.build_user_context,

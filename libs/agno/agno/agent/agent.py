@@ -23,7 +23,7 @@ from typing import (
     get_args,
     overload,
 )
-from uuid import uuid4
+from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 from pydantic import BaseModel
 
@@ -535,10 +535,17 @@ class Agent:
 
         self._formatter: Optional[SafeFormatter] = None
 
-    def _set_id(self) -> str:
+    def _set_id(self) -> None:
+        """Set the ID of the agent if not set yet.
+
+        If the ID is not provided, generate a deterministic UUID from the name.
+        If the name is not provided, generate a random UUID.
+        """
         if self.id is None:
-            self.id = str(uuid4())
-        return self.id
+            if self.name is not None:
+                self.id = str(uuid5(NAMESPACE_DNS, self.name))
+            else:
+                self.id = str(uuid4())
 
     def _set_debug_mode(self, debug_mode: Optional[bool] = None) -> None:
         # If the default debug mode is set, or passed on run, or via environment variable, set the debug mode to True

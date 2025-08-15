@@ -22,7 +22,7 @@ from typing import (
     get_args,
     overload,
 )
-from uuid import uuid4
+from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 from pydantic import BaseModel
 
@@ -520,10 +520,17 @@ class Team:
     def _should_parse_structured_output(self) -> bool:
         return self.response_model is not None and self.parse_response and self.parser_model is None
 
-    def _set_id(self) -> str:
+    def _set_id(self) -> None:
+        """Set the ID of the team if not set yet.
+
+        If the ID is not provided, generate a deterministic UUID from the name.
+        If the name is not provided, generate a random UUID.
+        """
         if self.id is None:
-            self.id = str(uuid4())
-        return self.id
+            if self.name is not None:
+                self.id = str(uuid5(NAMESPACE_DNS, self.name))
+            else:
+                self.id = str(uuid4())
 
     def _set_debug_mode(self) -> None:
         if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":

@@ -510,7 +510,7 @@ class Team:
     def should_parse_structured_output(self) -> bool:
         return self.response_model is not None and self.parse_response and self.parser_model is None
 
-    def _set_id(self) -> None:
+    def set_id(self) -> None:
         """Set the ID of the team if not set yet.
 
         If the ID is not provided, generate a deterministic UUID from the name.
@@ -637,7 +637,7 @@ class Team:
         self._set_debug(debug_mode=debug_mode)
 
         # Set the team ID if not set
-        self._set_id()
+        self.set_id()
 
         # Set the memory manager and session summary manager
         if self.enable_user_memories or self.enable_agentic_memory or self.memory_manager is not None:

@@ -244,7 +244,7 @@ class Step:
                         )
                         audios = self._convert_audio_artifacts_to_audio(step_input.audio) if step_input.audio else None
 
-                        kwargs = {}
+                        kwargs: Dict[str, Any] = {}
                         if isinstance(self.active_executor, Team):
                             kwargs["store_member_responses"] = True
 
@@ -263,8 +263,8 @@ class Step:
                         # Update workflow session state
                         merge_dictionaries(session_state, session_state_copy)  # type: ignore
 
-                        if store_executor_responses:
-                            self._store_executor_response(workflow_run_response, response)
+                        if store_executor_responses and workflow_run_response is not None:
+                            self._store_executor_response(workflow_run_response, response)  # type: ignore
 
                         # Switch back to workflow logger after execution
                         use_workflow_logger()
@@ -387,7 +387,7 @@ class Step:
                         )
                         audios = self._convert_audio_artifacts_to_audio(step_input.audio) if step_input.audio else None
 
-                        kwargs = {}
+                        kwargs: Dict[str, Any] = {}
                         if isinstance(self.active_executor, Team):
                             kwargs["store_member_responses"] = True
 
@@ -424,8 +424,8 @@ class Step:
                         # Update workflow session state
                         merge_dictionaries(session_state, session_state_copy)  # type: ignore
 
-                        if store_executor_responses:
-                            self._store_executor_response(workflow_run_response, active_executor_run_response)
+                        if store_executor_responses and workflow_run_response is not None:
+                            self._store_executor_response(workflow_run_response, active_executor_run_response)  # type: ignore
 
                         final_response = self._process_step_output(active_executor_run_response)  # type: ignore
 
@@ -573,7 +573,7 @@ class Step:
                         )
                         audios = self._convert_audio_artifacts_to_audio(step_input.audio) if step_input.audio else None
 
-                        kwargs = {}
+                        kwargs: Dict[str, Any] = {}
                         if isinstance(self.active_executor, Team):
                             kwargs["store_member_responses"] = True
 
@@ -592,8 +592,8 @@ class Step:
                         # Update workflow session state
                         merge_dictionaries(session_state, session_state_copy)  # type: ignore
 
-                        if store_executor_responses:
-                            self._store_executor_response(workflow_run_response, response)
+                        if store_executor_responses and workflow_run_response is not None:
+                            self._store_executor_response(workflow_run_response, response)  # type: ignore
 
                         # Switch back to workflow logger after execution
                         use_workflow_logger()
@@ -734,7 +734,7 @@ class Step:
                         )
                         audios = self._convert_audio_artifacts_to_audio(step_input.audio) if step_input.audio else None
 
-                        kwargs = {}
+                        kwargs: Dict[str, Any] = {}
                         if isinstance(self.active_executor, Team):
                             kwargs["store_member_responses"] = True
 
@@ -772,8 +772,8 @@ class Step:
                         # Update workflow session state
                         merge_dictionaries(session_state, session_state_copy)  # type: ignore
 
-                        if store_executor_responses:
-                            self._store_executor_response(workflow_run_response, active_executor_run_response)
+                        if store_executor_responses and workflow_run_response is not None:
+                            self._store_executor_response(workflow_run_response, active_executor_run_response)  # type: ignore
 
                         final_response = self._process_step_output(active_executor_run_response)  # type: ignore
                     else:
@@ -862,7 +862,7 @@ class Step:
             return self._get_deepest_content_from_step_output(step_output.steps[-1])
 
         # For regular steps, return their content
-        return step_output.content
+        return step_output.content  # type: ignore
 
     def _prepare_message(
         self,

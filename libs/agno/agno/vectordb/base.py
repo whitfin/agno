@@ -49,7 +49,9 @@ class VectorDb(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def async_upsert(self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
+    async def async_upsert(
+        self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None
+    ) -> None:
         raise NotImplementedError
 
     @abstractmethod

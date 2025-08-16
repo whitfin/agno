@@ -27,12 +27,6 @@ from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 from pydantic import BaseModel
 
-from agno.utils.print_response.agent import (
-    aprint_response,
-    aprint_response_stream,
-    print_response,
-    print_response_stream,
-)
 from agno.db.base import BaseDb, SessionType, UserMemory
 from agno.exceptions import ModelProviderError, StopAgentRun
 from agno.knowledge.knowledge import Knowledge
@@ -83,6 +77,12 @@ from agno.utils.log import (
     set_log_level_to_info,
 )
 from agno.utils.message import get_text_from_message
+from agno.utils.print_response.agent import (
+    aprint_response,
+    aprint_response_stream,
+    print_response,
+    print_response_stream,
+)
 from agno.utils.prompts import get_json_output_prompt, get_response_model_format_prompt
 from agno.utils.reasoning import (
     add_reasoning_metrics_to_metadata,
@@ -748,7 +748,7 @@ class Agent:
         stream_intermediate_steps: bool = False,
         workflow_context: Optional[Dict] = None,
         yield_run_response: bool = False,
-    ) -> Iterator[RunOutputEvent]:
+    ) -> Iterator[Union[RunOutputEvent, RunOutput]]:
         """Run the Agent and yield the RunOutput.
 
         Steps:
@@ -870,7 +870,7 @@ class Agent:
         debug_mode: Optional[bool] = None,
         yield_run_response: bool = False,
         **kwargs: Any,
-    ) -> Iterator[RunOutputEvent]: ...
+    ) -> Iterator[Union[RunOutputEvent, RunOutput]]: ...
 
     def run(
         self,
@@ -890,7 +890,7 @@ class Agent:
         debug_mode: Optional[bool] = None,
         yield_run_response: bool = False,
         **kwargs: Any,
-    ) -> Union[RunOutput, Iterator[RunOutputEvent]]:
+    ) -> Union[RunOutput, Iterator[Union[RunOutputEvent, RunOutput]]]:
         """Run the Agent and return the response."""
 
         # Create a run_id for this specific run
@@ -1150,7 +1150,7 @@ class Agent:
         stream_intermediate_steps: bool = False,
         workflow_context: Optional[Dict] = None,
         yield_run_response: Optional[bool] = None,
-    ) -> AsyncIterator[RunOutputEvent]:
+    ) -> AsyncIterator[Union[RunOutputEvent, RunOutput]]:
         """Run the Agent and yield the RunOutput.
 
         Steps:
@@ -1278,9 +1278,9 @@ class Agent:
         debug_mode: Optional[bool] = None,
         yield_run_response: Optional[bool] = None,
         **kwargs: Any,
-    ) -> AsyncIterator[RunOutputEvent]: ...
+    ) -> AsyncIterator[Union[RunOutputEvent, RunOutput]]: ...
 
-    def arun(
+    def arun(  # type: ignore
         self,
         input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
         *,
@@ -1399,7 +1399,7 @@ class Agent:
 
                 # Pass the new run_response to _arun
                 if stream:
-                    return self._arun_stream(
+                    return self._arun_stream(  # type: ignore
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -1410,7 +1410,7 @@ class Agent:
                         yield_run_response=yield_run_response,
                     )  # type: ignore[assignment]
                 else:
-                    return self._arun(
+                    return self._arun(  # type: ignore
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -1435,7 +1435,7 @@ class Agent:
                 run_response.status = RunStatus.cancelled
 
                 if stream:
-                    return async_generator_wrapper(
+                    return async_generator_wrapper(  # type: ignore
                         create_run_cancelled_event(run_response, "Operation cancelled by user")
                     )
                 else:
@@ -1448,11 +1448,11 @@ class Agent:
             )
 
             if stream:
-                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))
+                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))  # type: ignore
             raise last_exception
         else:
             if stream:
-                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))
+                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))  # type: ignore
             raise Exception(f"Failed after {num_attempts} attempts.")
 
     @overload
@@ -1859,9 +1859,9 @@ class Agent:
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: Optional[bool] = None,
-    ) -> AsyncIterator[RunOutputEvent]: ...
+    ) -> AsyncIterator[Union[RunOutputEvent, RunOutput]]: ...
 
-    def acontinue_run(
+    def acontinue_run(  # type: ignore
         self,
         run_response: Optional[RunOutput] = None,
         *,
@@ -1874,7 +1874,7 @@ class Agent:
         retries: Optional[int] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         debug_mode: Optional[bool] = None,
-    ) -> Union[RunOutput, AsyncIterator[RunOutputEvent]]:
+    ) -> Union[RunOutput, AsyncIterator[Union[RunOutputEvent, RunOutput]]]:
         """Continue a previous run.
 
         Args:
@@ -1994,7 +1994,7 @@ class Agent:
                         stream_intermediate_steps=stream_intermediate_steps,
                     )
                 else:
-                    return self._acontinue_run(
+                    return self._acontinue_run(  # type: ignore
                         run_response=run_response,
                         run_messages=run_messages,
                         user_id=user_id,
@@ -2016,7 +2016,7 @@ class Agent:
                     time.sleep(delay)
             except KeyboardInterrupt:
                 if stream:
-                    return async_generator_wrapper(
+                    return async_generator_wrapper(  # type: ignore
                         create_run_cancelled_event(run_response, "Operation cancelled by user")
                     )
                 else:
@@ -2030,11 +2030,11 @@ class Agent:
                 f"Failed after {num_attempts} attempts. Last error using {last_exception.model_name}({last_exception.model_id})"
             )
             if stream:
-                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))
+                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))  # type: ignore
             raise last_exception
         else:
             if stream:
-                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))
+                return async_generator_wrapper(create_run_error_event(run_response, error=str(last_exception)))  # type: ignore
             raise Exception(f"Failed after {num_attempts} attempts.")
 
     async def _acontinue_run(
@@ -2127,7 +2127,7 @@ class Agent:
         user_id: Optional[str] = None,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
-    ) -> AsyncIterator[RunOutputEvent]:
+    ) -> AsyncIterator[Union[RunOutputEvent, RunOutput]]:
         """Continue a previous run.
 
         Steps:
@@ -2636,7 +2636,8 @@ class Agent:
         # Add the metrics for the current run to the session metrics
         session_metrics += run_response.metrics
         session_metrics.time_to_first_token = None
-        session.session_data["session_metrics"] = session_metrics
+        if session.session_data is not None:
+            session.session_data["session_metrics"] = session_metrics
 
     def _handle_model_response_stream(
         self,
@@ -2958,7 +2959,7 @@ class Agent:
 
             # If the model response is a tool_call_completed, update the existing tool call in the run_response
             elif model_response_event.event == ModelResponseEvent.tool_call_completed.value:
-                if model_response_event.updated_session_state is not None:
+                if model_response_event.updated_session_state is not None and session.session_data is not None:
                     from agno.utils.merge_dict import merge_dictionaries
 
                     merge_dictionaries(
@@ -3092,7 +3093,7 @@ class Agent:
                 log_debug("Creating session summary.")
                 futures.append(
                     executor.submit(
-                        self.session_summary_manager.create_session_summary,
+                        self.session_summary_manager.create_session_summary,  # type: ignore
                         session=session,
                     )
                 )
@@ -3122,7 +3123,7 @@ class Agent:
         session: AgentSession,
         user_id: Optional[str] = None,
     ) -> AsyncIterator[RunOutputEvent]:
-        tasks = []
+        tasks: List[Any] = []
 
         # Create user memories from single message
         if run_messages.user_message is not None and self.memory_manager is not None and not self.enable_agentic_memory:
@@ -3510,8 +3511,7 @@ class Agent:
         try:
             if not self.db:
                 raise ValueError("Db not initialized")
-            session = self.db.get_session(session_id=session_id, session_type=SessionType.AGENT)
-            return session
+            return self.db.get_session(session_id=session_id, session_type=SessionType.AGENT)  # type: ignore
         except Exception as e:
             log_warning(f"Error getting session from db: {e}")
             return None
@@ -3522,7 +3522,7 @@ class Agent:
         try:
             if not self.db:
                 raise ValueError("Db not initialized")
-            return self.db.upsert_session(session=session)
+            return self.db.upsert_session(session=session)  # type: ignore
         except Exception as e:
             log_warning(f"Error upserting session into db: {e}")
             return None
@@ -3533,7 +3533,7 @@ class Agent:
         from agno.utils.merge_dict import merge_dictionaries
 
         # Get the session_state from the database and update the current session_state
-        if "session_state" in session.session_data:
+        if session.session_data is not None and "session_state" in session.session_data:
             session_state_from_db = session.session_data.get("session_state")
 
             if (
@@ -3547,7 +3547,8 @@ class Agent:
                 session_state = session_state_from_db
 
         # Update the session_state in the session
-        session.session_data["session_state"] = session_state
+        if session.session_data is not None:
+            session.session_data["session_state"] = session_state
 
         return session_state
 
@@ -3566,7 +3567,7 @@ class Agent:
 
     def _get_session_metrics(self, session: AgentSession):
         # Get the session_metrics from the database
-        if "session_metrics" in session.session_data:
+        if session.session_data is not None and "session_metrics" in session.session_data:
             session_metrics_from_db = session.session_data.get("session_metrics")
             if session_metrics_from_db is not None:
                 if isinstance(session_metrics_from_db, dict):
@@ -3696,7 +3697,12 @@ class Agent:
             Optional[AgentSession]: The saved AgentSession or None if not saved.
         """
         # If the agent is a member of a team, do not save the session to the database
-        if self.db is not None and self.team_id is None and self.workflow_id is None:
+        if (
+            self.db is not None
+            and self.team_id is None
+            and self.workflow_id is None
+            and session.session_data is not None
+        ):
             session.session_data["session_state"].pop("current_session_id", None)
             session.session_data["session_state"].pop("current_user_id", None)
             session.session_data["session_state"].pop("current_run_id", None)
@@ -3782,7 +3788,11 @@ class Agent:
             # Format the system message with the session state variables
             if self.add_state_in_messages:
                 sys_message_content = self.format_message_with_state_variables(
-                    sys_message_content, user_id=user_id, session_state=session.session_data.get("session_state")
+                    sys_message_content,
+                    user_id=user_id,
+                    session_state=session.session_data.get("session_state")
+                    if session.session_data is not None
+                    else None,
                 )
 
             # type: ignore
@@ -3914,7 +3924,9 @@ class Agent:
         # Format the system message with the session state variables
         if self.add_state_in_messages:
             system_message_content = self.format_message_with_state_variables(
-                system_message_content, user_id=user_id, session_state=session.session_data.get("session_state")
+                system_message_content,
+                user_id=user_id,
+                session_state=session.session_data.get("session_state") if session.session_data is not None else None,
             )
 
         # 3.3.7 Then add the expected output
@@ -4040,7 +4052,11 @@ class Agent:
 
             if self.add_state_in_messages:
                 user_message_content = self.format_message_with_state_variables(
-                    user_message_content, user_id=user_id, session_state=session.session_data.get("session_state")
+                    user_message_content,
+                    user_id=user_id,
+                    session_state=session.session_data.get("session_state")
+                    if session.session_data is not None
+                    else None,
                 )
 
             return Message(
@@ -4086,7 +4102,7 @@ class Agent:
             if isinstance(input, list):
                 # Convert list to string (join with newlines if all elements are strings)
                 if all(isinstance(item, str) for item in input):
-                    message_content = "\n".join(input)
+                    message_content = "\n".join(input)  # type: ignore
                 else:
                     message_content = str(input)
 
@@ -4155,7 +4171,11 @@ class Agent:
 
                 if self.add_state_in_messages:
                     user_msg_content = self.format_message_with_state_variables(
-                        user_msg_content, user_id=user_id, session_state=session.session_data.get("session_state")
+                        user_msg_content,
+                        user_id=user_id,
+                        session_state=session.session_data.get("session_state")
+                        if session.session_data is not None
+                        else None,
                     )
 
                 # Convert to string for concatenation operations
@@ -4264,10 +4284,10 @@ class Agent:
                 if run_response.metadata is None:
                     run_response.metadata = RunOutputMetaData(additional_input=messages_to_add_to_run_response)
                 else:
-                    if run_response.metadata.additional_messages is None:
-                        run_response.metadata.additional_messages = messages_to_add_to_run_response
+                    if run_response.metadata.additional_input is None:
+                        run_response.metadata.additional_input = messages_to_add_to_run_response
                     else:
-                        run_response.metadata.additional_messages.extend(messages_to_add_to_run_response)
+                        run_response.metadata.additional_input.extend(messages_to_add_to_run_response)
 
         # 3. Add history to run_messages
         if self.add_history_to_context:
@@ -4790,7 +4810,10 @@ class Agent:
 
         # -*- Rename Agent
         self.name = name
-        session.agent_data["name"] = name
+        if session.agent_data is not None:
+            session.agent_data["name"] = name
+        else:
+            session.agent_data = {"name": name}
 
         # -*- Save to storage
         self.save_session(session=session)  # type: ignore
@@ -4818,7 +4841,10 @@ class Agent:
             raise Exception("Session Name is not set")
 
         # -*- Rename session
-        session.session_data["session_name"] = session_name
+        if session.session_data is not None:
+            session.session_data["session_name"] = session_name
+        else:
+            session.session_data = {"session_name": session_name}
 
         # -*- Save to storage
         self.save_session(session=session)  # type: ignore
@@ -4868,7 +4894,7 @@ class Agent:
         session = self.get_session(session_id=session_id)  # type: ignore
         if session is None:
             raise Exception("Session not found")
-        return session.session_data.get("session_name", "")
+        return session.session_data.get("session_name", "") if session.session_data is not None else ""
 
     def get_session_state(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Get the session state for the given session ID and user ID."""
@@ -4878,7 +4904,7 @@ class Agent:
         session = self.get_session(session_id=session_id)  # type: ignore
         if session is None:
             raise Exception("Session not found")
-        return session.session_data.get("session_state", {})
+        return session.session_data.get("session_state", {}) if session.session_data is not None else {}
 
     def get_session_metrics(self, session_id: Optional[str] = None) -> Optional[Metrics]:
         """Get the session metrics for the given session ID and user ID."""
@@ -4890,10 +4916,11 @@ class Agent:
         if session is None:
             raise Exception("Session not found")
 
-        if isinstance(session.session_data.get("session_metrics"), dict):
-            return Metrics(**session.session_data.get("session_metrics"))
-        elif isinstance(session.session_data.get("session_metrics"), Metrics):
-            return session.session_data.get("session_metrics")
+        if session.session_data is not None and session.session_data.get("session_metrics") is not None:
+            if isinstance(session.session_data.get("session_metrics"), dict):
+                return Metrics(**session.session_data.get("session_metrics", {}))
+            elif isinstance(session.session_data.get("session_metrics"), Metrics):
+                return session.session_data.get("session_metrics", None)
         return None
 
     def delete_session(self, session_id: str):
@@ -5910,7 +5937,7 @@ class Agent:
 
     def print_response(
         self,
-        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
+        input: Union[List, Dict, str, Message, BaseModel, List[Message]],
         *,
         session_id: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
@@ -5934,19 +5961,19 @@ class Agent:
     ) -> None:
         if not tags_to_include_in_markdown:
             tags_to_include_in_markdown = {"think", "thinking"}
-            
+
         if markdown is None:
             markdown = self.markdown
 
         if self.response_model is not None:
             markdown = False
-            
+
         if stream is None:
             stream = self.stream or False
-        
+
         if stream_intermediate_steps is None:
             stream_intermediate_steps = self.stream_intermediate_steps or False
-            
+
         if stream:
             print_response_stream(
                 agent=self,
@@ -6019,19 +6046,19 @@ class Agent:
     ) -> None:
         if not tags_to_include_in_markdown:
             tags_to_include_in_markdown = {"think", "thinking"}
-            
+
         if markdown is None:
             markdown = self.markdown
 
         if self.response_model is not None:
             markdown = False
-            
+
         if stream is None:
             stream = self.stream or False
-        
+
         if stream_intermediate_steps is None:
             stream_intermediate_steps = self.stream_intermediate_steps or False
-            
+
         if stream:
             await aprint_response_stream(
                 agent=self,
@@ -6229,26 +6256,26 @@ class Agent:
                     message_count = 0
                     for run in session.runs:
                         messages = run.messages
-                        for i in range(0, len(messages) - 1, 2):
-                            if i + 1 < len(messages):
-                                try:
-                                    user_msg = messages[i]
-                                    assistant_msg = messages[i + 1]
-                                    user_content = user_msg.get("content")
-                                    assistant_content = assistant_msg.get("content")
+                        if messages is not None:
+                            for i in range(0, len(messages) - 1, 2):
+                                if i + 1 < len(messages):
+                                    try:
+                                        user_msg = messages[i]
+                                        assistant_msg = messages[i + 1]
+                                        user_content = user_msg.content
+                                        assistant_content = assistant_msg.content
+                                        if user_content is None or assistant_content is None:
+                                            continue  # Skip this pair if either message has no content
 
-                                    if user_content is None or assistant_content is None:
-                                        continue  # Skip this pair if either message has no content
-
-                                    msg_pair_id = f"{user_content}:{assistant_content}"
-                                    if msg_pair_id not in seen_message_pairs:
-                                        seen_message_pairs.add(msg_pair_id)
-                                        all_messages.append(Message.model_validate(user_msg))
-                                        all_messages.append(Message.model_validate(assistant_msg))
-                                        message_count += 1
-                                except Exception as e:
-                                    log_warning(f"Error processing message pair: {e}")
-                                    continue
+                                        msg_pair_id = f"{user_content}:{assistant_content}"
+                                        if msg_pair_id not in seen_message_pairs:
+                                            seen_message_pairs.add(msg_pair_id)
+                                            all_messages.append(Message.model_validate(user_msg))
+                                            all_messages.append(Message.model_validate(assistant_msg))
+                                            message_count += 1
+                                    except Exception as e:
+                                        log_warning(f"Error processing message pair: {e}")
+                                        continue
 
             return json.dumps([msg.to_dict() for msg in all_messages]) if all_messages else "No history found"
 
@@ -6292,7 +6319,7 @@ class Agent:
                 break
 
             self.print_response(
-                input=input, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
+                input=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
             )
 
     async def acli_app(
@@ -6325,7 +6352,7 @@ class Agent:
                 break
 
             await self.aprint_response(
-                input=input, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
+                input=message, stream=stream, markdown=markdown, user_id=user_id, session_id=session_id, **kwargs
             )
 
     ###########################################################################

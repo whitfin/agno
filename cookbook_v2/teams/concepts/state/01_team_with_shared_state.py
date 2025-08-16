@@ -18,9 +18,7 @@ def add_item(session_state, item: str) -> str:
         item (str): The item to add to the shopping list.
     """
     # Add the item if it's not already in the list
-    if item.lower() not in [
-        i.lower() for i in session_state["shopping_list"]
-    ]:
+    if item.lower() not in [i.lower() for i in session_state["shopping_list"]]:
         session_state["shopping_list"].append(item)
         return f"Added '{item}' to the shopping list"
     else:

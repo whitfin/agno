@@ -49,4 +49,8 @@ team = Team(
 )
 
 # Test streaming response
-team.print_response("What is the current stock price of NVDA?", stream=True, stream_intermediate_steps=True)
+team.print_response(
+    "What is the current stock price of NVDA?",
+    stream=True,
+    stream_intermediate_steps=True,
+)

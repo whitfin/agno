@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, overload
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast, overload
 from uuid import uuid4
 
 from agno.db.base import BaseDb
@@ -484,14 +484,18 @@ class Knowledge:
             name = content.name
         elif content.file_data and content.file_data.content:
             if isinstance(content.file_data.content, bytes):
-                name = content.file_data.content[:10].decode('utf-8', errors='ignore')
+                name = content.file_data.content[:10].decode("utf-8", errors="ignore")
             elif isinstance(content.file_data.content, str):
-                name = content.file_data.content[:10] if len(content.file_data.content) >= 10 else content.file_data.content
+                name = (
+                    content.file_data.content[:10]
+                    if len(content.file_data.content) >= 10
+                    else content.file_data.content
+                )
             else:
                 name = str(content.file_data.content)[:10]
         else:
             name = None
-            
+
         if name is not None:
             content.name = name
 
@@ -580,7 +584,7 @@ class Knowledge:
         if content.topics is None:
             log_warning("No topics provided for content")
             return
-            
+
         for topic in content.topics:
             id = str(uuid4())
             content = Content(
@@ -654,7 +658,7 @@ class Knowledge:
             log_warning("No reader provided for content")
             return
 
-        remote_content: S3Content = content.remote_content
+        remote_content: S3Content = cast(S3Content, content.remote_content)
 
         objects_to_read: List[S3Object] = []
 
@@ -671,9 +675,11 @@ class Knowledge:
 
         for object in objects_to_read:
             id = str(uuid4())
+            content_name = content.name or ""
+            content_name += "_" + (object.name or "")
             content_entry = Content(
                 id=id,
-                name=content.name + "_" + object.name,
+                name=content_name,
                 description=content.description,
                 status=ContentStatus.PROCESSING,
                 metadata=content.metadata,
@@ -681,7 +687,7 @@ class Knowledge:
             )
 
             content_hash = self._build_content_hash(content_entry)
-            if self.vector_db.content_hash_exists(content_hash) and skip_if_exists:
+            if self.vector_db and self.vector_db.content_hash_exists(content_hash) and skip_if_exists:
                 log_info(f"Content {content_hash} already exists, skipping")
                 continue
 
@@ -704,7 +710,7 @@ class Knowledge:
             log_warning("No reader provided for content")
             return
 
-        remote_content: GCSContent = content.remote_content
+        remote_content: GCSContent = cast(GCSContent, content.remote_content)
         objects_to_read = []
 
         if remote_content.blob_name is not None:
@@ -746,7 +752,7 @@ class Knowledge:
             content.status_message = "No vector database configured"
             self._update_content(content)
             return
-            
+
         if self.vector_db.upsert_available() and upsert:
             try:
                 await self.vector_db.async_upsert(content.content_hash, read_documents, content.metadata)
@@ -908,7 +914,7 @@ class Knowledge:
             if content.path is None:
                 log_error("No path provided for content")
                 return
-                
+
             path = Path(content.path)
 
             log_info(f"Uploading file to LightRAG from path: {path}")
@@ -920,7 +926,7 @@ class Knowledge:
                 # Get file type from extension or content.file_type
                 file_type = content.file_type or path.suffix
 
-                if self.vector_db and hasattr(self.vector_db, 'insert_file_bytes'):
+                if self.vector_db and hasattr(self.vector_db, "insert_file_bytes"):
                     result = asyncio.run(
                         self.vector_db.insert_file_bytes(
                             file_content=file_content,
@@ -955,7 +961,7 @@ class Knowledge:
                     content.status = ContentStatus.FAILED
                     self._update_content(content)
                     return
-                    
+
                 reader.chunk = False
                 read_documents = reader.read(content.url, name=content.name)
 
@@ -968,7 +974,7 @@ class Knowledge:
                     self._update_content(content)
                     return
 
-                if self.vector_db and hasattr(self.vector_db, 'insert_text'):
+                if self.vector_db and hasattr(self.vector_db, "insert_text"):
                     result = asyncio.run(
                         self.vector_db.insert_text(
                             file_source=content.url,
@@ -999,7 +1005,7 @@ class Knowledge:
 
             # Use the already-read content from file_data instead of the closed upload_file
             if content.file_data and content.file_data.content:
-                if self.vector_db and hasattr(self.vector_db, 'insert_file_bytes'):
+                if self.vector_db and hasattr(self.vector_db, "insert_file_bytes"):
                     result = asyncio.run(
                         self.vector_db.insert_file_bytes(
                             file_content=content.file_data.content,
@@ -1028,7 +1034,7 @@ class Knowledge:
                 content.status = ContentStatus.FAILED
                 self._update_content(content)
                 return
-                
+
             if not content.topics:
                 log_error("No topics available for content")
                 content.status = ContentStatus.FAILED
@@ -1039,8 +1045,8 @@ class Knowledge:
             if len(read_documents) > 0:
                 print("READ DOCUMENTS: ", len(read_documents))
                 print("READ DOCUMENTS: ", read_documents[0])
-                
-                if self.vector_db and hasattr(self.vector_db, 'insert_text'):
+
+                if self.vector_db and hasattr(self.vector_db, "insert_text"):
                     result = asyncio.run(
                         self.vector_db.insert_text(
                             file_source=content.topics[0],
@@ -1134,11 +1140,11 @@ class Knowledge:
             self.valid_metadata_filters.add(key)
 
     @cached_property
-    def _get_filters_from_db(self) -> set:
+    def _get_filters_from_db(self) -> Set[str]:
         if self.contents_db is None:
             return set()
         contents, _ = self.get_content()
-        valid_filters = set()
+        valid_filters: Set[str] = set()
         for content in contents:
             if content.metadata:
                 valid_filters.update(content.metadata.keys())
@@ -1281,12 +1287,12 @@ class Knowledge:
         self.readers[reader_key] = reader
         return reader
 
-    def get_readers(self) -> List[Reader]:
+    def get_readers(self) -> Dict[str, Reader]:
         """Get all currently loaded readers (only returns readers that have been used)."""
         if self.readers is None:
             self.readers = {}
 
-        return list(self.readers.values())
+        return self.readers
 
     def _generate_reader_key(self, reader: Reader) -> str:
         """Generate a key for a reader instance."""

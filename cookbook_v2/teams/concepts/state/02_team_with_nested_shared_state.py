@@ -24,9 +24,7 @@ from agno.team.team import Team
 # Define tools to manage our shopping list
 def add_item(session_state, item: str) -> str:
     """Add an item to the shopping list and return confirmation."""
-    if item.lower() not in [
-        i.lower() for i in session_state["shopping_list"]
-    ]:
+    if item.lower() not in [i.lower() for i in session_state["shopping_list"]]:
         session_state["shopping_list"].append(item)
         return f"Added '{item}' to the shopping list"
     else:

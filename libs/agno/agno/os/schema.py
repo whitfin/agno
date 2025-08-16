@@ -239,9 +239,9 @@ class AgentResponse(BaseModel):
                     provider=agent.memory_manager.model.provider,
                 ).model_dump()
 
-        reasoning_info = {
+        reasoning_info: Dict[str, Any] = {
             "reasoning": agent.reasoning,
-            "reasoning_agent_id": agent.reasoning_agent.agent_id if agent.reasoning_agent else None,
+            "reasoning_agent_id": agent.reasoning_agent.id if agent.reasoning_agent else None,
             "reasoning_min_steps": agent.reasoning_min_steps,
             "reasoning_max_steps": agent.reasoning_max_steps,
         }
@@ -283,7 +283,7 @@ class AgentResponse(BaseModel):
             "build_user_context": agent.build_user_context,
         }
 
-        response_settings_info = {
+        response_settings_info: Dict[str, Any] = {
             "retries": agent.retries,
             "delay_between_retries": agent.delay_between_retries,
             "exponential_backoff": agent.exponential_backoff,
@@ -466,9 +466,9 @@ class TeamResponse(BaseModel):
                     provider=team.memory_manager.model.provider,
                 ).model_dump()
 
-        reasoning_info = {
+        reasoning_info: Dict[str, Any] = {
             "reasoning": team.reasoning,
-            "reasoning_agent_id": team.reasoning_agent.agent_id if team.reasoning_agent else None,
+            "reasoning_agent_id": team.reasoning_agent.id if team.reasoning_agent else None,
             "reasoning_min_steps": team.reasoning_min_steps,
             "reasoning_max_steps": team.reasoning_max_steps,
         }
@@ -503,7 +503,7 @@ class TeamResponse(BaseModel):
             "add_state_in_messages": team.add_state_in_messages,
         }
 
-        response_settings_info = {
+        response_settings_info: Dict[str, Any] = {
             "response_model_name": team.response_model.__name__ if team.response_model else None,
             "parser_model_prompt": team.parser_model_prompt,
             "parse_response": team.parse_response,

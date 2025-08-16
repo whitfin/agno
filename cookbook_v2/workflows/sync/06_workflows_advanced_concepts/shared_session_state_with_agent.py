@@ -19,8 +19,7 @@ def add_item(session_state, item: str) -> str:
 
     # Check if item already exists (case-insensitive)
     existing_items = [
-        existing_item.lower()
-        for existing_item in session_state["shopping_list"]
+        existing_item.lower() for existing_item in session_state["shopping_list"]
     ]
     if item.lower() not in existing_items:
         session_state["shopping_list"].append(item)

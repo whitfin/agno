@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
+from rich.console import Group
 from rich.live import Live
 from rich.markdown import Markdown
 from rich.status import Status
@@ -8,7 +9,28 @@ from rich.text import Text
 
 from agno.media import Audio, Image, Video
 from agno.models.message import Message
-from agno.run.workflow import LoopExecutionStartedEvent, LoopIterationStartedEvent, LoopIterationCompletedEvent, LoopExecutionCompletedEvent, ParallelExecutionStartedEvent, ParallelExecutionCompletedEvent, ConditionExecutionStartedEvent, ConditionExecutionCompletedEvent, RouterExecutionStartedEvent, RouterExecutionCompletedEvent, StepsExecutionStartedEvent, StepsExecutionCompletedEvent, StepCompletedEvent, StepErrorEvent, StepOutputEvent, StepStartedEvent, WorkflowCompletedEvent, WorkflowRunOutput, WorkflowStartedEvent, WorkflowRunOutputEvent
+from agno.run.workflow import (
+    ConditionExecutionCompletedEvent,
+    ConditionExecutionStartedEvent,
+    LoopExecutionCompletedEvent,
+    LoopExecutionStartedEvent,
+    LoopIterationCompletedEvent,
+    LoopIterationStartedEvent,
+    ParallelExecutionCompletedEvent,
+    ParallelExecutionStartedEvent,
+    RouterExecutionCompletedEvent,
+    RouterExecutionStartedEvent,
+    StepCompletedEvent,
+    StepOutputEvent,
+    StepsExecutionCompletedEvent,
+    StepsExecutionStartedEvent,
+    StepStartedEvent,
+    WorkflowCompletedEvent,
+    WorkflowErrorEvent,
+    WorkflowRunOutput,
+    WorkflowRunOutputEvent,
+    WorkflowStartedEvent,
+)
 from agno.utils.response import create_panel
 from agno.utils.timer import Timer
 from agno.workflow.types import StepOutput
@@ -16,9 +38,10 @@ from agno.workflow.types import StepOutput
 if TYPE_CHECKING:
     from agno.workflow.workflow import Workflow
 
+
 def print_response(
     workflow: "Workflow",
-    input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
+    input: Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]],
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     additional_data: Optional[Dict[str, Any]] = None,
@@ -151,9 +174,10 @@ def print_response(
             )
             console.print(error_panel)  # type: ignore
 
+
 def print_response_stream(
     workflow: "Workflow",
-    input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
+    input: Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]],
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
     additional_data: Optional[Dict[str, Any]] = None,
@@ -168,15 +192,6 @@ def print_response_stream(
     **kwargs: Any,
 ) -> None:
     """Print workflow execution with clean streaming"""
-    from rich.console import Group
-    from rich.live import Live
-    from rich.markdown import Markdown
-    from rich.status import Status
-    from rich.text import Text
-
-    from agno.utils.response import create_panel
-    from agno.utils.timer import Timer
-
     if console is None:
         from agno.cli.console import console
 
@@ -360,9 +375,7 @@ def print_response_stream(
                     # Clear cache for this primitive's sub-steps
                     step_display_cache.clear()
 
-                    status.update(
-                        f"Starting loop: {current_step_name} (max {response.max_iterations} iterations)..."
-                    )
+                    status.update(f"Starting loop: {current_step_name} (max {response.max_iterations} iterations)...")
                     live_log.update(status)
 
                 elif isinstance(response, LoopIterationStartedEvent):
@@ -515,9 +528,7 @@ def print_response_stream(
 
                     # Print router summary
                     if show_step_details:
-                        selected_steps_text = (
-                            ", ".join(response.selected_steps) if response.selected_steps else "none"
-                        )
+                        selected_steps_text = ", ".join(response.selected_steps) if response.selected_steps else "none"
                         summary_content = "**Router Summary:**\n\n"
                         summary_content += f"- Selected steps: {selected_steps_text}\n"
                         summary_content += f"- Executed steps: {response.executed_steps or 0}\n"
@@ -581,12 +592,7 @@ def print_response_stream(
                     status.update("Workflow completed!")
 
                     # For callable functions, print the final content block here since there are no step events
-                    if (
-                        is_callable_function
-                        and show_step_details
-                        and current_step_content
-                        and not step_started_printed
-                    ):
+                    if is_callable_function and show_step_details and current_step_content and not step_started_printed:
                         final_step_panel = create_panel(
                             content=Markdown(current_step_content) if markdown else current_step_content,
                             title="Custom Function (Completed)",
@@ -602,7 +608,9 @@ def print_response_stream(
                         status = response.status
                         summary_content = ""
                         summary_content += f"""\n\n**Status:** {status}"""
-                        summary_content += f"""\n\n**Steps Completed:** {len(response.step_results) if response.step_results else 0}"""
+                        summary_content += (
+                            f"""\n\n**Steps Completed:** {len(response.step_results) if response.step_results else 0}"""
+                        )
                         summary_content = summary_content.strip()
 
                         summary_panel = create_panel(
@@ -750,9 +758,7 @@ def format_step_content_for_display(step_output: StepOutput) -> str:
 
     # If it's a structured output (BaseModel or dict), format it nicely
     if isinstance(actual_content, BaseModel):
-        return (
-            f"**Structured Output:**\n\n```json\n{actual_content.model_dump_json(indent=2, exclude_none=True)}\n```"
-        )
+        return f"**Structured Output:**\n\n```json\n{actual_content.model_dump_json(indent=2, exclude_none=True)}\n```"
     elif isinstance(actual_content, (dict, list)):
         import json
 
@@ -762,10 +768,9 @@ def format_step_content_for_display(step_output: StepOutput) -> str:
         return str(actual_content)
 
 
-
 async def aprint_response(
     workflow: "Workflow",
-    input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
+    input: Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]],
     additional_data: Optional[Dict[str, Any]] = None,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
@@ -920,9 +925,10 @@ async def aprint_response(
             )
             console.print(error_panel)  # type: ignore
 
+
 async def aprint_response_stream(
     workflow: "Workflow",
-    input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]]] = None,
+    input: Union[str, Dict[str, Any], List[Any], BaseModel, List[Message]],
     additional_data: Optional[Dict[str, Any]] = None,
     user_id: Optional[str] = None,
     session_id: Optional[str] = None,
@@ -937,15 +943,6 @@ async def aprint_response_stream(
     **kwargs: Any,
 ) -> None:
     """Print workflow execution with clean streaming - orange step blocks displayed once"""
-    from rich.console import Group
-    from rich.live import Live
-    from rich.markdown import Markdown
-    from rich.status import Status
-    from rich.text import Text
-
-    from agno.utils.response import create_panel
-    from agno.utils.timer import Timer
-
     if console is None:
         from agno.cli.console import console
 
@@ -1129,9 +1126,7 @@ async def aprint_response_stream(
                     # Clear cache for this primitive's sub-steps
                     step_display_cache.clear()
 
-                    status.update(
-                        f"Starting loop: {current_step_name} (max {response.max_iterations} iterations)..."
-                    )
+                    status.update(f"Starting loop: {current_step_name} (max {response.max_iterations} iterations)...")
                     live_log.update(status)
 
                 elif isinstance(response, LoopIterationStartedEvent):
@@ -1284,9 +1279,7 @@ async def aprint_response_stream(
 
                     # Print router summary
                     if show_step_details:
-                        selected_steps_text = (
-                            ", ".join(response.selected_steps) if response.selected_steps else "none"
-                        )
+                        selected_steps_text = ", ".join(response.selected_steps) if response.selected_steps else "none"
                         summary_content = "**Router Summary:**\n\n"
                         summary_content += f"- Selected steps: {selected_steps_text}\n"
                         summary_content += f"- Executed steps: {response.executed_steps or 0}\n"
@@ -1350,12 +1343,7 @@ async def aprint_response_stream(
                     status.update("Workflow completed!")
 
                     # For callable functions, print the final content block here since there are no step events
-                    if (
-                        is_callable_function
-                        and show_step_details
-                        and current_step_content
-                        and not step_started_printed
-                    ):
+                    if is_callable_function and show_step_details and current_step_content and not step_started_printed:
                         final_step_panel = create_panel(
                             content=Markdown(current_step_content) if markdown else current_step_content,
                             title="Custom Function (Completed)",
@@ -1371,7 +1359,9 @@ async def aprint_response_stream(
                         status = response.status
                         summary_content = ""
                         summary_content += f"""\n\n**Status:** {status}"""
-                        summary_content += f"""\n\n**Steps Completed:** {len(response.step_results) if response.step_results else 0}"""
+                        summary_content += (
+                            f"""\n\n**Steps Completed:** {len(response.step_results) if response.step_results else 0}"""
+                        )
                         summary_content = summary_content.strip()
 
                         summary_panel = create_panel(
@@ -1426,7 +1416,7 @@ async def aprint_response_stream(
                             continue
 
                     # Use the unified formatting function for consistency
-                    response_str = self._format_step_content_for_display(response_str)  # type: ignore
+                    response_str = format_step_content_for_display(response_str)  # type: ignore
 
                     # Filter out empty responses and add to current step content
                     if response_str and response_str.strip():

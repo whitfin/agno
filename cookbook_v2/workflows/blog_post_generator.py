@@ -201,14 +201,10 @@ def cache_blog_post(session_state, topic: str, blog_post: str):
     session_state["blog_posts"][topic] = blog_post
 
 
-def get_cached_search_results(
-    session_state, topic: str
-) -> Optional[SearchResults]:
+def get_cached_search_results(session_state, topic: str) -> Optional[SearchResults]:
     """Get cached search results from workflow session state"""
     logger.info("Checking if cached search results exist")
-    search_results = session_state.get("search_results", {}).get(
-        topic
-    )
+    search_results = session_state.get("search_results", {}).get(topic)
     if search_results and isinstance(search_results, dict):
         try:
             return SearchResults.model_validate(search_results)
@@ -222,9 +218,7 @@ def cache_search_results(session_state, topic: str, search_results: SearchResult
     logger.info(f"Saving search results for topic: {topic}")
     if "search_results" not in session_state:
         session_state["search_results"] = {}
-    session_state["search_results"][topic] = (
-        search_results.model_dump()
-    )
+    session_state["search_results"][topic] = search_results.model_dump()
 
 
 def get_cached_scraped_articles(
@@ -232,9 +226,7 @@ def get_cached_scraped_articles(
 ) -> Optional[Dict[str, ScrapedArticle]]:
     """Get cached scraped articles from workflow session state"""
     logger.info("Checking if cached scraped articles exist")
-    scraped_articles = session_state.get("scraped_articles", {}).get(
-        topic
-    )
+    scraped_articles = session_state.get("scraped_articles", {}).get(topic)
     if scraped_articles and isinstance(scraped_articles, dict):
         try:
             return {
@@ -386,7 +378,9 @@ async def blog_generation_execution(
     print("\n🔍 PHASE 1: RESEARCH & SOURCE GATHERING")
     print("=" * 50)
 
-    search_results = await get_search_results(session_state, blog_topic, use_search_cache)
+    search_results = await get_search_results(
+        session_state, blog_topic, use_search_cache
+    )
 
     if not search_results or len(search_results.articles) == 0:
         return f"❌ Sorry, could not find any articles on the topic: {blog_topic}"

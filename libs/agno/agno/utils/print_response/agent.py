@@ -88,13 +88,13 @@ def print_response_stream(
             **kwargs,
         ):
             if isinstance(response_event, tuple(get_args(RunOutputEvent))):
-                if response_event.is_paused:
-                    response_event = cast(RunPausedEvent, response_event)
-                    response_panel = create_paused_run_output_panel(response_event)
+                if response_event.is_paused:  # type: ignore
+                    response_event = cast(RunPausedEvent, response_event)  # type: ignore
+                    response_panel = create_paused_run_output_panel(response_event)  # type: ignore
                     panels.append(response_panel)
                     live_log.update(Group(*panels))
                     return
-                if response_event.event == RunEvent.run_content:
+                if response_event.event == RunEvent.run_content:  # type: ignore
                     if hasattr(response_event, "content"):
                         if isinstance(response_event.content, str):
                             _response_content += response_event.content
@@ -121,7 +121,7 @@ def print_response_stream(
 
             # Escape special tags before markdown conversion
             if markdown:
-                escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
+                escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)  # type: ignore
                 response_content_batch = Markdown(escaped_content)
 
             response_content_stream: str = _response_content
@@ -150,7 +150,7 @@ def print_response_stream(
 
             additional_panels = build_panels_stream(
                 response_content=response_content,
-                response_event=response_event,
+                response_event=response_event,  # type: ignore
                 response_timer=response_timer,
                 response_thinking_buffer=_response_thinking,
                 reasoning_steps=reasoning_steps,
@@ -256,12 +256,12 @@ async def aprint_response_stream(
         async for resp in result:  # type: ignore
             if isinstance(resp, tuple(get_args(RunOutputEvent))):
                 if resp.is_paused:
-                    response_panel = create_paused_run_output_panel(resp)
+                    response_panel = create_paused_run_output_panel(resp)  # type: ignore
                     panels.append(response_panel)
                     live_log.update(Group(*panels))
                     break
 
-                if resp.event == RunEvent.run_content:
+                if resp.event == RunEvent.run_content:  # type: ignore
                     if isinstance(resp.content, str):
                         _response_content += resp.content
                     elif agent.response_model is not None and isinstance(resp.content, BaseModel):
@@ -274,8 +274,8 @@ async def aprint_response_stream(
                             response_content_batch = JSON(json.dumps(resp.content), indent=4)
                         except Exception as e:
                             log_warning(f"Failed to convert response to JSON: {e}")
-                    if resp.thinking is not None:
-                        _response_thinking += resp.thinking
+                    if resp.thinking is not None:  # type: ignore
+                        _response_thinking += resp.thinking  # type: ignore
 
                 if (
                     hasattr(resp, "metadata")
@@ -288,7 +288,7 @@ async def aprint_response_stream(
 
             # Escape special tags before markdown conversion
             if markdown:
-                escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)
+                escaped_content = escape_markdown_tags(_response_content, tags_to_include_in_markdown)  # type: ignore
                 response_content_batch = Markdown(escaped_content)
 
             # Check if we have any response content to display
@@ -317,7 +317,7 @@ async def aprint_response_stream(
 
             additional_panels = build_panels_stream(
                 response_content=response_content,
-                response_event=resp,
+                response_event=resp,  # type: ignore
                 response_timer=response_timer,
                 response_thinking_buffer=_response_thinking,
                 reasoning_steps=reasoning_steps,
@@ -505,7 +505,7 @@ def print_response(
 
         additional_panels = build_panels(
             run_response=run_response,
-            response_model=agent.response_model,
+            response_model=agent.response_model,  # type: ignore
             response_timer=response_timer,
             show_reasoning=show_reasoning,
             show_full_reasoning=show_full_reasoning,
@@ -599,7 +599,7 @@ async def aprint_response(
 
         additional_panels = build_panels(
             run_response=run_response,
-            response_model=agent.response_model,
+            response_model=agent.response_model,  # type: ignore
             response_timer=response_timer,
             show_reasoning=show_reasoning,
             show_full_reasoning=show_full_reasoning,
@@ -706,7 +706,7 @@ def build_panels(
     if isinstance(run_response, RunOutput):
         if isinstance(run_response.content, str):
             if markdown:
-                escaped_content = escape_markdown_tags(run_response.content, tags_to_include_in_markdown)
+                escaped_content = escape_markdown_tags(run_response.content, tags_to_include_in_markdown)  # type: ignore
                 response_content_batch = Markdown(escaped_content)
             else:
                 response_content_batch = run_response.get_content_as_string(indent=4)

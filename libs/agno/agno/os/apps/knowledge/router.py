@@ -1,12 +1,13 @@
 import json
 import math
-from typing import Optional
+from typing import Dict, Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Path, Query, UploadFile
 
 from agno.knowledge.content import Content, FileData
 from agno.knowledge.knowledge import Knowledge
+from agno.knowledge.reader.base import Reader
 from agno.os.apps.knowledge.schemas import (
     ConfigResponseSchema,
     ContentResponseSchema,
@@ -244,11 +245,11 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
             )
 
         # Convert knowledge ContentStatus to schema ContentStatus (they have same values)
-        if hasattr(knowledge_status, 'value'):
+        if hasattr(knowledge_status, "value"):
             status_value = knowledge_status.value
         else:
             status_value = str(knowledge_status)
-            
+
         # Convert string status to ContentStatus enum if needed (for backward compatibility and mocks)
         if isinstance(status_value, str):
             try:
@@ -268,7 +269,7 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
 
     @router.get("/config", status_code=200)
     def get_config() -> ConfigResponseSchema:
-        readers_dict = knowledge.get_readers() or {}
+        readers_dict: Dict[str, Reader] = knowledge.get_readers() or {}
         return ConfigResponseSchema(
             readers=[ReaderSchema(id=k, name=v.name, description=v.description) for k, v in readers_dict.items()],
             filters=knowledge.get_filters(),

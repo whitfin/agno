@@ -47,10 +47,15 @@ from agno.utils.log import (
     set_log_level_to_info,
     use_workflow_logger,
 )
+from agno.utils.print_response.workflow import (
+    aprint_response,
+    aprint_response_stream,
+    print_response,
+    print_response_stream,
+)
 from agno.workflow.condition import Condition
 from agno.workflow.loop import Loop
 from agno.workflow.parallel import Parallel
-from agno.utils.print_response.workflow import aprint_response, aprint_response_stream, print_response, print_response_stream
 from agno.workflow.router import Router
 from agno.workflow.step import Step
 from agno.workflow.steps import Steps
@@ -2032,12 +2037,9 @@ class Workflow:
             console: Rich console instance (optional)
         """
 
-        if markdown is None:
-            markdown = self.markdown
-            
         if stream is None:
             stream = self.stream or False
-        
+
         if stream_intermediate_steps is None:
             stream_intermediate_steps = self.stream_intermediate_steps or False
 
@@ -2109,13 +2111,9 @@ class Workflow:
             show_step_details: Whether to show individual step outputs
             console: Rich console instance (optional)
         """
-        
-        if markdown is None:
-            markdown = self.markdown
-            
         if stream is None:
             stream = self.stream or False
-        
+
         if stream_intermediate_steps is None:
             stream_intermediate_steps = self.stream_intermediate_steps or False
 

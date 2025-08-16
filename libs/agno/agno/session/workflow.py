@@ -57,7 +57,7 @@ class WorkflowSession:
             self.updated_at = current_time
 
     def get_run(self, run_id: str) -> Optional[WorkflowRunOutput]:
-        for run in self.runs:
+        for run in self.runs or []:
             if run.run_id == run_id:
                 return run
         return None

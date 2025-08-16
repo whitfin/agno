@@ -936,9 +936,7 @@ class Milvus(VectorDb):
             # Search for documents with the given content_id
             search_expr = f'content_id == "{content_id}"'
             results = self.client.query(
-                collection_name=self.collection,
-                filter=search_expr,
-                output_fields=["id", "meta_data", "filters"]
+                collection_name=self.collection, filter=search_expr, output_fields=["id", "meta_data", "filters"]
             )
 
             if not results:
@@ -968,7 +966,7 @@ class Milvus(VectorDb):
                 # Update the document
                 self.client.upsert(
                     collection_name=self.collection,
-                    data=[{"id": doc_id, "meta_data": updated_metadata, "filters": updated_filters}]
+                    data=[{"id": doc_id, "meta_data": updated_metadata, "filters": updated_filters}],
                 )
                 updated_count += 1
 

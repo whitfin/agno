@@ -379,10 +379,10 @@ class ChromaDb(VectorDb):
         documents_list = result.get("documents", [[]])
         embeddings_list = result.get("embeddings")
         distances_list = result.get("distances", [[]])
-        
+
         if not ids_list or not metadata_list or not documents_list or embeddings_list is None or not distances_list:
             return search_results
-            
+
         ids = ids_list[0]
         metadata = [dict(m) if m else {} for m in metadata_list[0]]  # Convert to mutable dicts
         documents = documents_list[0]
@@ -411,10 +411,14 @@ class ChromaDb(VectorDb):
                 # Extract the fields we added to metadata
                 name_val = doc_metadata.pop("name", None)
                 content_id_val = doc_metadata.pop("content_id", None)
-                
+
                 # Convert types to match Document constructor expectations
                 name = str(name_val) if name_val is not None and not isinstance(name_val, str) else name_val
-                content_id = str(content_id_val) if content_id_val is not None and not isinstance(content_id_val, str) else content_id_val
+                content_id = (
+                    str(content_id_val)
+                    if content_id_val is not None and not isinstance(content_id_val, str)
+                    else content_id_val
+                )
                 content = str(document) if document is not None else ""
                 embedding = embeddings[idx] if idx < len(embeddings) else None
 
@@ -763,7 +767,9 @@ class ChromaDb(VectorDb):
 
                 # Update the documents
                 # Convert to the expected type for ChromaDB
-                chroma_metadatas = [cast(Dict[str, Union[str, int, float, bool, None]], meta) for meta in updated_metadatas]
+                chroma_metadatas = [
+                    cast(Dict[str, Union[str, int, float, bool, None]], meta) for meta in updated_metadatas
+                ]
                 collection.update(ids=ids, metadatas=chroma_metadatas)
 
                 logger.debug(f"Updated metadata for {len(ids)} documents with content_id: {content_id}")

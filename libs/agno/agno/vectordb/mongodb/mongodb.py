@@ -864,7 +864,8 @@ class MongoDb(VectorDb):
             pipeline.append({"$match": mongo_filters})
 
         try:
-            from typing import cast, Sequence, Mapping
+            from typing import Mapping, Sequence, cast
+
             results = list(collection.aggregate(cast(Sequence[Mapping[str, Any]], pipeline)))
 
             docs = []

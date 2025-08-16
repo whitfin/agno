@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 from agno.models.base import Model
 from agno.run.response import Message
+from agno.session.agent import AgentSession
+from agno.session.team import TeamSession
 from agno.utils.log import log_debug, log_warning
 
 # TODO: Look into moving all managers into a separate dir
@@ -122,13 +124,17 @@ class SessionSummaryManager:
         self.model = cast(Model, self.model)
         response_format = self.get_response_format(self.model)
 
-        return [
-            self.get_system_message(
-                conversation=session.get_messages_for_session(),
-                response_format=response_format,
-            ),
-            Message(role="user", content="Provide the summary of the conversation."),
-        ]
+        return (
+            [
+                self.get_system_message(
+                    conversation=session.get_messages_for_session(),  # type: ignore
+                    response_format=response_format,
+                ),
+                Message(role="user", content="Provide the summary of the conversation."),
+            ]
+            if session
+            else []
+        )
 
     def _process_summary_response(self, summary_response, session_summary_model: "Model") -> Optional[SessionSummary]:  # type: ignore
         """Process the model response into a SessionSummary"""
@@ -157,7 +163,7 @@ class SessionSummaryManager:
             try:
                 from agno.utils.string import parse_response_model_str
 
-                parsed_summary: SessionSummaryResponse = parse_response_model_str(
+                parsed_summary: SessionSummaryResponse = parse_response_model_str(  # type: ignore
                     summary_response.content, SessionSummaryResponse
                 )
 
@@ -178,7 +184,7 @@ class SessionSummaryManager:
 
     def create_session_summary(
         self,
-        session: Optional["Session"] = None,
+        session: Union[AgentSession, TeamSession],
     ) -> Optional[SessionSummary]:
         """Creates a summary of the session"""
         log_debug("Creating session summary", center=True)
@@ -191,7 +197,7 @@ class SessionSummaryManager:
         summary_response = self.model.response(messages=messages, response_format=response_format)
         session_summary = self._process_summary_response(summary_response, self.model)
 
-        if session_summary is not None:
+        if session is not None and session_summary is not None:
             session.summary = session_summary
             self.summaries_updated = True
 
@@ -199,7 +205,7 @@ class SessionSummaryManager:
 
     async def acreate_session_summary(
         self,
-        session: Optional["Session"] = None,
+        session: Union[AgentSession, TeamSession],
     ) -> Optional[SessionSummary]:
         """Creates a summary of the session"""
         log_debug("Creating session summary", center=True)
@@ -212,7 +218,7 @@ class SessionSummaryManager:
         summary_response = await self.model.aresponse(messages=messages, response_format=response_format)
         session_summary = self._process_summary_response(summary_response, self.model)
 
-        if session_summary is not None:
+        if session is not None and session_summary is not None:
             session.summary = session_summary
             self.summaries_updated = True
 

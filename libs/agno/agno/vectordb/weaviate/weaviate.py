@@ -911,7 +911,7 @@ class Weaviate(VectorDb):
             weaviate_client = self.get_client()
             collection = weaviate_client.collections.get(self.collection)
 
-            # Query for objects with the given content_id  
+            # Query for objects with the given content_id
             query_result = collection.query.fetch_objects(
                 where=Filter.by_property("content_id").equal(content_id),
                 limit=1000,  # Get all matching objects
@@ -957,7 +957,7 @@ class Weaviate(VectorDb):
         try:
             collection = self.get_client().collections.get(self.collection)
 
-            # Build filter for content_hash search  
+            # Build filter for content_hash search
             filter_expr = Filter.by_property("content_hash").equal(content_hash)
 
             collection.data.delete_many(where=filter_expr)

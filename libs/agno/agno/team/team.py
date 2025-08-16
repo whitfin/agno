@@ -44,7 +44,6 @@ from agno.run.messages import RunMessages
 from agno.run.response import RunEvent, RunOutput, RunOutputEvent
 from agno.run.team import TeamRunEvent, TeamRunOutput, TeamRunOutputEvent
 from agno.session import SessionSummaryManager, TeamSession
-from agno.utils.print_response.team import aprint_response, aprint_response_stream, print_response, print_response_stream
 from agno.tools.function import Function
 from agno.tools.toolkit import Toolkit
 from agno.utils.events import (
@@ -77,6 +76,12 @@ from agno.utils.log import (
 )
 from agno.utils.merge_dict import merge_dictionaries
 from agno.utils.message import get_text_from_message
+from agno.utils.print_response.team import (
+    aprint_response,
+    aprint_response_stream,
+    print_response,
+    print_response_stream,
+)
 from agno.utils.reasoning import (
     add_reasoning_metrics_to_metadata,
     add_reasoning_step_to_metadata,
@@ -744,7 +749,7 @@ class Team:
         stream_intermediate_steps: bool = False,
         workflow_context: Optional[Dict] = None,
         yield_run_response: bool = False,
-    ) -> Iterator[Union[TeamRunOutputEvent, RunOutputEvent]]:
+    ) -> Iterator[Union[TeamRunOutputEvent, RunOutputEvent, TeamRunOutput]]:
         """Run the Team and return the response iterator.
 
         Steps:
@@ -1030,7 +1035,7 @@ class Team:
                         yield_run_response=yield_run_response,
                     )
 
-                    return response_iterator
+                    return response_iterator  # type: ignore
                 else:
                     return self._run(
                         run_response=run_response,
@@ -1159,7 +1164,7 @@ class Team:
         stream_intermediate_steps: bool = False,
         workflow_context: Optional[Dict] = None,
         yield_run_response: bool = False,
-    ) -> AsyncIterator[Union[TeamRunOutputEvent, RunOutputEvent]]:
+    ) -> AsyncIterator[Union[TeamRunOutputEvent, RunOutputEvent, TeamRunOutput]]:
         """Run the Team and return the response.
 
         Steps:
@@ -1280,7 +1285,7 @@ class Team:
         **kwargs: Any,
     ) -> AsyncIterator[Union[RunOutputEvent, TeamRunOutputEvent]]: ...
 
-    def arun(
+    def arun(  # type: ignore
         self,
         input: Union[str, List, Dict, Message, BaseModel],
         *,
@@ -1439,7 +1444,7 @@ class Team:
                         workflow_context=workflow_context,
                         yield_run_response=yield_run_response,
                     )
-                    return response_iterator
+                    return response_iterator  # type: ignore
                 else:
                     return self._arun(  # type: ignore
                         run_response=run_response,
@@ -2257,7 +2262,7 @@ class Team:
 
     def print_response(
         self,
-        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
+        input: Union[List, Dict, str, Message, BaseModel, List[Message]],
         *,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
@@ -2285,10 +2290,10 @@ class Team:
 
         if self.response_model is not None:
             markdown = False
-        
+
         if stream is None:
             stream = self.stream or False
-        
+
         if stream_intermediate_steps is None:
             stream_intermediate_steps = self.stream_intermediate_steps or False
 
@@ -2336,7 +2341,7 @@ class Team:
 
     async def aprint_response(
         self,
-        input: Optional[Union[List, Dict, str, Message, BaseModel, List[Message]]] = None,
+        input: Union[List, Dict, str, Message, BaseModel, List[Message]],
         *,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
@@ -2364,10 +2369,10 @@ class Team:
 
         if self.response_model is not None:
             markdown = False
-            
+
         if stream is None:
             stream = self.stream or False
-        
+
         if stream_intermediate_steps is None:
             stream_intermediate_steps = self.stream_intermediate_steps or False
 
@@ -2411,7 +2416,6 @@ class Team:
                 knowledge_filters=knowledge_filters,
                 **kwargs,
             )
-
 
     def _get_member_name(self, entity_id: str) -> str:
         for member in self.members:
@@ -3653,10 +3657,10 @@ class Team:
                 log_debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
                 if run_response.metadata is None:
                     run_response.metadata = RunOutputMetaData(additional_input=messages_to_add_to_run_response)
-                    if run_response.metadata.additional_messages is None:
-                        run_response.metadata.additional_messages = messages_to_add_to_run_response
+                    if run_response.metadata.additional_input is None:
+                        run_response.metadata.additional_input = messages_to_add_to_run_response
                     else:
-                        run_response.metadata.additional_messages.extend(messages_to_add_to_run_response)
+                        run_response.metadata.additional_input.extend(messages_to_add_to_run_response)
 
         # 3. Add history to run_messages
         if self.add_history_to_context:
@@ -3741,7 +3745,7 @@ class Team:
             if isinstance(input_message, list):
                 # Convert list to string (join with newlines if all elements are strings)
                 if all(isinstance(item, str) for item in input_message):
-                    input_content = "\n".join(input_message)
+                    input_content = "\n".join(input_message)  # type: ignore
                 else:
                     input_content = str(input_message)
 
@@ -4294,13 +4298,13 @@ class Team:
                         if isinstance(member_agent_run_response_chunk, TeamRunOutput) or isinstance(
                             member_agent_run_response_chunk, RunOutput
                         ):
-                            member_agent_run_response = member_agent_run_response_chunk
+                            member_agent_run_response = member_agent_run_response_chunk  # type: ignore
                             break
                         check_if_run_cancelled(member_agent_run_response_chunk)
                         yield member_agent_run_response_chunk
 
                 else:
-                    member_agent_run_response = member_agent.run(
+                    member_agent_run_response = member_agent.run(  # type: ignore
                         input=member_agent_task if history is None else None,
                         user_id=user_id,
                         # All members have the same session_id
@@ -4315,26 +4319,26 @@ class Team:
                         workflow_context=workflow_context,
                     )
 
-                    check_if_run_cancelled(member_agent_run_response)
+                    check_if_run_cancelled(member_agent_run_response)  # type: ignore
 
                     try:
-                        if member_agent_run_response.content is None and (
-                            member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0
+                        if member_agent_run_response.content is None and (  # type: ignore
+                            member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0  # type: ignore
                         ):
                             yield f"Agent {member_agent.name}: No response from the member agent."
-                        elif isinstance(member_agent_run_response.content, str):
-                            if len(member_agent_run_response.content.strip()) > 0:
-                                yield f"Agent {member_agent.name}: {member_agent_run_response.content}"
+                        elif isinstance(member_agent_run_response.content, str):  # type: ignore
+                            if len(member_agent_run_response.content.strip()) > 0:  # type: ignore
+                                yield f"Agent {member_agent.name}: {member_agent_run_response.content}"  # type: ignore
                             elif (
-                                member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0
+                                member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0  # type: ignore
                             ):
                                 yield f"Agent {member_agent.name}: {','.join([tool.result for tool in member_agent_run_response.tools])}"  # type: ignore
-                        elif issubclass(type(member_agent_run_response.content), BaseModel):
+                        elif issubclass(type(member_agent_run_response.content), BaseModel):  # type: ignore
                             yield f"Agent {member_agent.name}: {member_agent_run_response.content.model_dump_json(indent=2)}"  # type: ignore
                         else:
                             import json
 
-                            yield f"Agent {member_agent.name}: {json.dumps(member_agent_run_response.content, indent=2)}"
+                            yield f"Agent {member_agent.name}: {json.dumps(member_agent_run_response.content, indent=2)}"  # type: ignore
                     except Exception as e:
                         yield f"Agent {member_agent.name}: Error - {str(e)}"
 
@@ -4602,14 +4606,14 @@ class Team:
                     if isinstance(member_agent_run_output_event, TeamRunOutput) or isinstance(
                         member_agent_run_output_event, RunOutput
                     ):
-                        member_agent_run_response = member_agent_run_output_event
+                        member_agent_run_response = member_agent_run_output_event  # type: ignore
                         break
                     check_if_run_cancelled(member_agent_run_output_event)
 
                     # Yield the member event directly
                     yield member_agent_run_output_event
             else:
-                member_agent_run_response = member_agent.run(
+                member_agent_run_response = member_agent.run(  # type: ignore
                     input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
@@ -4626,32 +4630,32 @@ class Team:
                     else None,
                 )
 
-                check_if_run_cancelled(member_agent_run_response)
+                check_if_run_cancelled(member_agent_run_response)  # type: ignore
 
                 try:
-                    if member_agent_run_response.content is None and (
-                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0
+                    if member_agent_run_response.content is None and (  # type: ignore
+                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0  # type: ignore
                     ):
                         yield "No response from the member agent."
-                    elif isinstance(member_agent_run_response.content, str):
-                        content = member_agent_run_response.content.strip()
+                    elif isinstance(member_agent_run_response.content, str):  # type: ignore
+                        content = member_agent_run_response.content.strip()  # type: ignore
                         if len(content) > 0:
                             yield content
 
                         # If the content is empty but we have tool calls
-                        elif member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0:
+                        elif member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0:  # type: ignore
                             tool_str = ""
-                            for tool in member_agent_run_response.tools:
+                            for tool in member_agent_run_response.tools:  # type: ignore
                                 if tool.result:
                                     tool_str += f"{tool.result},"
                             yield tool_str.rstrip(",")
 
-                    elif issubclass(type(member_agent_run_response.content), BaseModel):
+                    elif issubclass(type(member_agent_run_response.content), BaseModel):  # type: ignore
                         yield member_agent_run_response.content.model_dump_json(indent=2)  # type: ignore
                     else:
                         import json
 
-                        yield json.dumps(member_agent_run_response.content, indent=2)
+                        yield json.dumps(member_agent_run_response.content, indent=2)  # type: ignore
                 except Exception as e:
                     yield str(e)
 
@@ -4763,7 +4767,7 @@ class Team:
                     if isinstance(member_agent_run_response_event, TeamRunOutput) or isinstance(
                         member_agent_run_response_event, RunOutput
                     ):
-                        member_agent_run_response = member_agent_run_response_event
+                        member_agent_run_response = member_agent_run_response_event  # type: ignore
                         break
                     check_if_run_cancelled(member_agent_run_response_event)
                     yield member_agent_run_response_event
@@ -4784,26 +4788,29 @@ class Team:
                     else None,
                     refresh_session_before_write=True,
                 )
-                check_if_run_cancelled(member_agent_run_response)
+                check_if_run_cancelled(member_agent_run_response)  # type: ignore
 
                 try:
-                    if member_agent_run_response.content is None and (
-                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0
+                    if member_agent_run_response.content is None and (  # type: ignore
+                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0  # type: ignore
                     ):
                         yield "No response from the member agent."
-                    elif isinstance(member_agent_run_response.content, str):
-                        if len(member_agent_run_response.content.strip()) > 0:
-                            yield member_agent_run_response.content
+                    elif isinstance(member_agent_run_response.content, str):  # type: ignore
+                        if len(member_agent_run_response.content.strip()) > 0:  # type: ignore
+                            yield member_agent_run_response.content  # type: ignore
 
                         # If the content is empty but we have tool calls
-                        elif member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0:
+                        elif (
+                            member_agent_run_response.tools is not None  # type: ignore
+                            and len(member_agent_run_response.tools) > 0  # type: ignore
+                        ):
                             yield ",".join([tool.result for tool in member_agent_run_response.tools if tool.result])  # type: ignore
-                    elif issubclass(type(member_agent_run_response.content), BaseModel):
+                    elif issubclass(type(member_agent_run_response.content), BaseModel):  # type: ignore
                         yield member_agent_run_response.content.model_dump_json(indent=2)  # type: ignore
                     else:
                         import json
 
-                        yield json.dumps(member_agent_run_response.content, indent=2)
+                        yield json.dumps(member_agent_run_response.content, indent=2)  # type: ignore
                 except Exception as e:
                     yield str(e)
 
@@ -4952,12 +4959,12 @@ class Team:
                     if isinstance(member_agent_run_response_chunk, TeamRunOutput) or isinstance(
                         member_agent_run_response_chunk, RunOutput
                     ):
-                        member_agent_run_response = member_agent_run_response_chunk
+                        member_agent_run_response = member_agent_run_response_chunk  # type: ignore
                         break
                     check_if_run_cancelled(member_agent_run_response_chunk)
                     yield member_agent_run_response_chunk
             else:
-                member_agent_run_response = member_agent.run(
+                member_agent_run_response = member_agent.run(  # type: ignore
                     input=member_agent_task if history is None else None,
                     user_id=user_id,
                     # All members have the same session_id
@@ -4973,31 +4980,33 @@ class Team:
                     if not member_agent.knowledge_filters and member_agent.knowledge
                     else None,
                 )
-                check_if_run_cancelled(member_agent_run_response)
+                check_if_run_cancelled(member_agent_run_response)  # type: ignore
 
                 try:
-                    if member_agent_run_response.content is None and (
-                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0
+                    if member_agent_run_response.content is None and (  # type: ignore
+                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0  # type: ignore
                     ):
                         yield "No response from the member agent."
-                    elif isinstance(member_agent_run_response.content, str):
-                        if len(member_agent_run_response.content.strip()) > 0:
-                            yield member_agent_run_response.content
+                    elif isinstance(member_agent_run_response.content, str):  # type: ignore
+                        if len(member_agent_run_response.content.strip()) > 0:  # type: ignore
+                            yield member_agent_run_response.content  # type: ignore
 
                         # If the content is empty but we have tool calls
-                        elif member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0:
+                        elif (
+                            member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0  # type: ignore
+                        ):
                             tool_str = ""
-                            for tool in member_agent_run_response.tools:
+                            for tool in member_agent_run_response.tools:  # type: ignore
                                 if tool.result:
                                     tool_str += f"{tool.result},"
                             yield tool_str.rstrip(",")
 
-                    elif issubclass(type(member_agent_run_response.content), BaseModel):
+                    elif issubclass(type(member_agent_run_response.content), BaseModel):  # type: ignore
                         yield member_agent_run_response.content.model_dump_json(indent=2)  # type: ignore
                     else:
                         import json
 
-                        yield json.dumps(member_agent_run_response.content, indent=2)
+                        yield json.dumps(member_agent_run_response.content, indent=2)  # type: ignore
                 except Exception as e:
                     yield str(e)
 
@@ -5106,7 +5115,7 @@ class Team:
                     if isinstance(member_agent_run_response_event, TeamRunOutput) or isinstance(
                         member_agent_run_response_event, RunOutput
                     ):
-                        member_agent_run_response = member_agent_run_response_event
+                        member_agent_run_response = member_agent_run_response_event  # type: ignore
                         break
                     check_if_run_cancelled(member_agent_run_response_event)
                     yield member_agent_run_response_event
@@ -5129,23 +5138,25 @@ class Team:
                 )
 
                 try:
-                    if member_agent_run_response.content is None and (
-                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0
+                    if member_agent_run_response.content is None and (  # type: ignore
+                        member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0  # type: ignore
                     ):
                         yield "No response from the member agent."
-                    elif isinstance(member_agent_run_response.content, str):
-                        if len(member_agent_run_response.content.strip()) > 0:
-                            yield member_agent_run_response.content
+                    elif isinstance(member_agent_run_response.content, str):  # type: ignore
+                        if len(member_agent_run_response.content.strip()) > 0:  # type: ignore
+                            yield member_agent_run_response.content  # type: ignore
 
                         # If the content is empty but we have tool calls
-                        elif member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0:
+                        elif (
+                            member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0  # type: ignore
+                        ):
                             yield ",".join([tool.result for tool in member_agent_run_response.tools if tool.result])  # type: ignore
-                    elif issubclass(type(member_agent_run_response.content), BaseModel):
+                    elif issubclass(type(member_agent_run_response.content), BaseModel):  # type: ignore
                         yield member_agent_run_response.content.model_dump_json(indent=2)  # type: ignore
                     else:
                         import json
 
-                        yield json.dumps(member_agent_run_response.content, indent=2)
+                        yield json.dumps(member_agent_run_response.content, indent=2)  # type: ignore
                 except Exception as e:
                     yield str(e)
 
@@ -5237,7 +5248,7 @@ class Team:
             if team_session is not None:
                 run_response = team_session.get_run(run_id=run_id)
                 if run_response is not None:
-                    return run_response
+                    return cast(TeamRunOutput, run_response)
                 else:
                     log_warning(f"RunOutput {run_id} not found in AgentSession {session_id}")
         return None
@@ -5459,7 +5470,7 @@ class Team:
         session = self.get_session(session_id=session_id)  # type: ignore
         if session is None:
             raise Exception("Session not found")
-        return session.session_data.get("session_name", "")
+        return session.session_data.get("session_name", "") if session.session_data is not None else ""
 
     def get_session_state(self, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Get the session state for the given session ID and user ID."""
@@ -5469,7 +5480,7 @@ class Team:
         session = self.get_session(session_id=session_id)  # type: ignore
         if session is None:
             raise Exception("Session not found")
-        return session.session_data.get("session_state", {})
+        return session.session_data.get("session_state", {}) if session.session_data is not None else {}
 
     def get_session_metrics(self, session_id: Optional[str] = None) -> Optional[Metrics]:
         """Get the session metrics for the given session ID and user ID."""
@@ -5481,10 +5492,11 @@ class Team:
         if session is None:
             raise Exception("Session not found")
 
-        if isinstance(session.session_data.get("session_metrics"), dict):
-            return Metrics(**session.session_data.get("session_metrics"))
-        elif isinstance(session.session_data.get("session_metrics"), Metrics):
-            return session.session_data.get("session_metrics")
+        if session.session_data is not None:
+            if isinstance(session.session_data.get("session_metrics"), dict):
+                return Metrics(**session.session_data.get("session_metrics", {}))
+            elif isinstance(session.session_data.get("session_metrics"), Metrics):
+                return session.session_data.get("session_metrics", {})
         return None
 
     def delete_session(self, session_id: str) -> None:

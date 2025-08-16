@@ -64,8 +64,8 @@ class TeamSession:
         if data.get("summary") is not None:
             data["summary"] = SessionSummary.from_dict(data["summary"])
 
-        runs = data.get("runs")
-        serialized_runs = []
+        runs = data.get("runs", [])
+        serialized_runs: List[Union[TeamRunOutput, RunOutput]] = []
         for run in runs:
             if "agent_id" in run:
                 serialized_runs.append(RunOutput.from_dict(run))
@@ -86,8 +86,8 @@ class TeamSession:
             summary=data.get("summary"),
         )
 
-    def get_run(self, run_id: str) -> Optional[TeamRunOutput]:
-        for run in self.runs:
+    def get_run(self, run_id: str) -> Optional[Union[TeamRunOutput, RunOutput]]:
+        for run in self.runs or []:
             if run.run_id == run_id:
                 return run
         return None
@@ -99,14 +99,14 @@ class TeamSession:
         if messages is None:
             return
 
-        for m in messages:
+        for m in messages or []:
             if m.metrics is not None:
                 m.metrics.duration = None
 
         if not self.runs:
             self.runs = []
 
-        for i, existing_run in enumerate(self.runs):
+        for i, existing_run in enumerate(self.runs or []):
             if existing_run.run_id == run_response.run_id:
                 self.runs[i] = run_response
                 break
@@ -165,7 +165,7 @@ class TeamSession:
             if not (run_response and run_response.messages):
                 continue
 
-            for message in run_response.messages:
+            for message in run_response.messages or []:
                 # Skip messages with specified role
                 if skip_role and message.role == skip_role:
                     continue
@@ -193,7 +193,7 @@ class TeamSession:
 
         for run_response in session_runs[::-1]:
             if run_response and run_response.messages:
-                for message in run_response.messages:
+                for message in run_response.messages or []:
                     if message.tool_calls:
                         for tool_call in message.tool_calls:
                             tool_calls.append(tool_call)
@@ -224,7 +224,7 @@ class TeamSession:
                 assistant_message_from_run = None
 
                 # Start from the beginning to look for the user message
-                for message in run_response.messages:
+                for message in run_response.messages or []:
                     if hasattr(message, "from_history") and message.from_history and skip_history_messages:
                         continue
                     if message.role == user_role:
@@ -260,10 +260,10 @@ class TeamSession:
         if self.runs is None:
             return []
 
-        for run in self.runs:
+        for run in self.runs or []:
             if run.messages is None:
                 continue
 
-            messages.extend([msg for msg in run.messages if not msg.from_history])
+            messages.extend([msg for msg in run.messages or [] if not msg.from_history])
 
         return messages

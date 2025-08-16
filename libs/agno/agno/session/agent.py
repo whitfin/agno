@@ -91,14 +91,14 @@ class AgentSession:
     def upsert_run(self, run: RunOutput):
         """Adds a RunOutput, together with some calculated data, to the runs list."""
         messages = run.messages
-        for m in messages:
+        for m in messages or []:
             if m.metrics is not None:
                 m.metrics.duration = None
 
         if not self.runs:
             self.runs = []
 
-        for i, existing_run in enumerate(self.runs):
+        for i, existing_run in enumerate(self.runs or []):
             if existing_run.run_id == run.run_id:
                 self.runs[i] = run
                 break
@@ -108,7 +108,7 @@ class AgentSession:
         log_debug("Added RunOutput to Agent Session")
 
     def get_run(self, run_id: str) -> Optional[RunOutput]:
-        for run in self.runs:
+        for run in self.runs or []:
             if run.run_id == run_id:
                 return run
         return None
@@ -157,7 +157,7 @@ class AgentSession:
             if not (run_response and run_response.messages):
                 continue
 
-            for message in run_response.messages:
+            for message in run_response.messages or []:
                 # Skip messages with specified role
                 if skip_role and message.role == skip_role:
                     continue
@@ -179,15 +179,16 @@ class AgentSession:
         """Returns a list of tool calls from the messages"""
 
         tool_calls = []
-        session_runs = self.runs
-        for run_response in session_runs[::-1]:
-            if run_response and run_response.messages:
-                for message in run_response.messages:
-                    if message.tool_calls:
-                        for tool_call in message.tool_calls:
-                            tool_calls.append(tool_call)
-                            if num_calls and len(tool_calls) >= num_calls:
-                                return tool_calls
+        if self.runs:
+            session_runs = self.runs
+            for run_response in session_runs[::-1]:
+                if run_response and run_response.messages:
+                    for message in run_response.messages or []:
+                        if message.tool_calls:
+                            for tool_call in message.tool_calls:
+                                tool_calls.append(tool_call)
+                                if num_calls and len(tool_calls) >= num_calls:
+                                    return tool_calls
         return tool_calls
 
     def get_messages_for_session(
@@ -213,7 +214,7 @@ class AgentSession:
                 assistant_message_from_run = None
 
                 # Start from the beginning to look for the user message
-                for message in run_response.messages:
+                for message in run_response.messages or []:
                     if hasattr(message, "from_history") and message.from_history and skip_history_messages:
                         continue
                     if message.role == user_role:
@@ -245,6 +246,6 @@ class AgentSession:
         """Get the chat history for the session"""
 
         messages = []
-        for run in self.runs:
-            messages.extend([msg for msg in run.messages if not msg.from_history])
+        for run in self.runs or []:
+            messages.extend([msg for msg in run.messages or [] if not msg.from_history])
         return messages

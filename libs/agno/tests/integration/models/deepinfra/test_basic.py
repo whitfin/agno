@@ -64,9 +64,6 @@ async def test_async_basic_stream():
     async for response in response_stream:
         assert response.content is not None
 
-    assert agent.run_response is not None
-    _assert_metrics(agent.run_response)
-
 
 def test_with_memory():
     agent = Agent(

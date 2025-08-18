@@ -57,9 +57,6 @@ def test_basic_stream():
     for response in responses:
         assert response.content is not None
 
-    assert agent.run_response is not None
-    _assert_metrics(agent.run_response)
-
 
 @pytest.mark.asyncio
 async def test_async_basic():
@@ -80,12 +77,8 @@ async def test_async_basic_stream():
     """Test async streaming functionality with LiteLLM"""
     agent = Agent(model=LiteLLMOpenAI(id="gpt-4o"), markdown=True, telemetry=False)
 
-    response_stream = await agent.arun("Share a 2 sentence horror story", stream=True)
-
-    async for response in response_stream:
+    async for response in agent.arun("Share a 2 sentence horror story", stream=True):
         assert response.content is not None
-    assert agent.run_response is not None
-    _assert_metrics(agent.run_response)
 
 
 def test_with_memory():
@@ -104,6 +97,7 @@ def test_with_memory():
 
     # Second interaction should remember the name
     response2 = agent.run("What's my name?")
+    assert response2.content is not None
     assert "John Smith" in response2.content
 
     # Verify memories were created

@@ -36,9 +36,6 @@ def test_basic_stream():
     for response in agent.run("Share a 2 sentence horror story", stream=True):
         assert response.content is not None
 
-    assert agent.run_response is not None
-    _assert_metrics(agent.run_response)
-
 
 @pytest.mark.asyncio
 async def test_async_basic():

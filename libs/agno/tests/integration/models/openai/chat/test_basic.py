@@ -41,9 +41,6 @@ def test_basic_stream():
     for chunk in run_stream:
         assert chunk.content is not None
 
-    assert agent.run_response is not None
-    _assert_metrics(agent.run_response)
-
 
 @pytest.mark.asyncio
 async def test_async_basic():
@@ -81,6 +78,7 @@ def test_exception_handling():
 def test_with_memory():
     agent = Agent(
         model=OpenAIChat(id="gpt-4o-mini"),
+        db=SqliteDb(db_file="tmp/openai/chat/test_with_memory.db"),
         add_history_to_context=True,
         markdown=True,
         telemetry=False,

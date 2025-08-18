@@ -227,7 +227,7 @@ class Cerebras(Model):
         )
         assistant_message.metrics.stop_timer()
 
-        model_response = self._parse_provider_response(provider_response, response_format=response_format)
+        model_response = self._parse_provider_response(provider_response, response_format=response_format)  # type: ignore
 
         return model_response
 
@@ -260,7 +260,7 @@ class Cerebras(Model):
         )
         assistant_message.metrics.stop_timer()
 
-        model_response = self._parse_provider_response(provider_response, response_format=response_format)
+        model_response = self._parse_provider_response(provider_response, response_format=response_format)  # type: ignore
 
         return model_response
 
@@ -293,7 +293,7 @@ class Cerebras(Model):
             stream=True,
             **self.get_request_params(response_format=response_format, tools=tools),
         ):
-            yield self._parse_provider_response_delta(chunk)
+            yield self._parse_provider_response_delta(chunk)  # type: ignore
 
         assistant_message.metrics.stop_timer()
 
@@ -320,13 +320,15 @@ class Cerebras(Model):
 
         assistant_message.metrics.start_timer()
 
-        async for chunk in self.get_async_client().chat.completions.create(
+        async_stream = await self.get_async_client().chat.completions.create(
             model=self.id,
             messages=[self._format_message(m) for m in messages],  # type: ignore
             stream=True,
             **self.get_request_params(response_format=response_format, tools=tools),
-        ):
-            yield self._parse_provider_response_delta(chunk)
+        )
+
+        async for chunk in async_stream:  # type: ignore
+            yield self._parse_provider_response_delta(chunk)  # type: ignore
 
         assistant_message.metrics.stop_timer()
 

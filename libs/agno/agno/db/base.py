@@ -63,7 +63,7 @@ class BaseDb(ABC):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[Session], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], Tuple[List[Dict[str, Any]], int]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -203,7 +203,7 @@ class BaseDb(ABC):
 
     # --- Evals ---
     @abstractmethod
-    def create_eval_run(self, eval_run: EvalRunRecord) -> Optional[Dict[str, Any]]:
+    def create_eval_run(self, eval_run: EvalRunRecord) -> Optional[EvalRunRecord]:
         raise NotImplementedError
 
     @abstractmethod

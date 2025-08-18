@@ -115,7 +115,9 @@ class SqliteDb(BaseDb):
             table_schema = get_table_schema_definition(table_type)
             log_debug(f"Creating table {table_name} with schema: {table_schema}")
 
-            columns, indexes, unique_constraints = [], [], []
+            columns: List[Column] = []
+            indexes: List[str] = []
+            unique_constraints: List[str] = []
             schema_unique_constraints = table_schema.pop("_unique_constraints", [])
 
             # Get the columns, indexes, and unique constraints from the table schema
@@ -133,7 +135,7 @@ class SqliteDb(BaseDb):
                     column_kwargs["unique"] = True
                     unique_constraints.append(col_name)
 
-                columns.append(Column(*column_args, **column_kwargs))
+                columns.append(Column(*column_args, **column_kwargs))  # type: ignore
 
             # Create the table object
             table_metadata = MetaData()
@@ -378,7 +380,7 @@ class SqliteDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], Tuple[List[Dict[str, Any]], int]]:
         """
         Get all sessions in the given table. Can filter by user_id and entity_id.
         Args:
@@ -1584,7 +1586,8 @@ class SqliteDb(BaseDb):
             return
 
         # Parse the content into the new format
-        memories = []
+        memories: List[UserMemory] = []
+        sessions: List[AgentSession] | List[TeamSession] | List[WorkflowSession] = []
         if v1_table_type == "agent_sessions":
             sessions = parse_agent_sessions(old_content)
         elif v1_table_type == "team_sessions":

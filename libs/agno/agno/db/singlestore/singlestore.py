@@ -113,7 +113,7 @@ class SingleStoreDb(BaseDb):
         try:
             table_schema = get_table_schema_definition(table_type)
 
-            columns = []
+            columns: List[Column] = []
             # Get the columns from the table schema
             for col_name, col_config in table_schema.items():
                 # Skip constraint definitions
@@ -159,7 +159,9 @@ class SingleStoreDb(BaseDb):
             table_ref = f"{db_schema}.{table_name}" if db_schema else table_name
             log_debug(f"Creating table {table_ref} with schema: {table_schema}")
 
-            columns, indexes, unique_constraints = [], [], []
+            columns: List[Column] = []
+            indexes: List[str] = []
+            unique_constraints: List[str] = []
             schema_unique_constraints = table_schema.pop("_unique_constraints", [])
 
             # Get the columns, indexes, and unique constraints from the table schema
@@ -455,7 +457,7 @@ class SingleStoreDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], Tuple[List[Dict[str, Any]], int]]:
         """
         Get all sessions in the given table. Can filter by user_id and entity_id.
 

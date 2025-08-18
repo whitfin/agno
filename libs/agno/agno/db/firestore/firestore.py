@@ -277,7 +277,7 @@ class FirestoreDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[Session], List[Dict[str, Any]], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], Tuple[List[Dict[str, Any]], int]]:
         """Get all sessions.
 
         Args:
@@ -351,14 +351,23 @@ class FirestoreDb(BaseDb):
             if not deserialize:
                 return sessions_raw, total_count
 
-            sessions = []
+            sessions: List[AgentSession | TeamSession | WorkflowSession] = []
             for session in sessions_raw:
                 if session["session_type"] == SessionType.AGENT.value:
-                    sessions.append(AgentSession.from_dict(session))
+                    agent_session = AgentSession.from_dict(session)
+                    if agent_session is not None:
+                        sessions.append(agent_session)
                 elif session["session_type"] == SessionType.TEAM.value:
-                    sessions.append(TeamSession.from_dict(session))
+                    team_session = TeamSession.from_dict(session)
+                    if team_session is not None:
+                        sessions.append(team_session)
                 elif session["session_type"] == SessionType.WORKFLOW.value:
-                    sessions.append(WorkflowSession.from_dict(session))
+                    workflow_session = WorkflowSession.from_dict(session)
+                    if workflow_session is not None:
+                        sessions.append(workflow_session)
+
+            if not sessions:
+                return [] if deserialize else ([], 0)
 
             return sessions
 

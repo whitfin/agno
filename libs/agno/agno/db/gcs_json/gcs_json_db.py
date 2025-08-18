@@ -236,7 +236,7 @@ class GcsJsonDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], Tuple[List[Dict[str, Any]], int]]:
         """Get all sessions from the GCS JSON file with filtering and pagination.
 
         Args:
@@ -305,11 +305,11 @@ class GcsJsonDb(BaseDb):
                 return filtered_sessions, total_count
 
             if session_type == SessionType.AGENT:
-                return [AgentSession.from_dict(session) for session in filtered_sessions]
+                return [AgentSession.from_dict(session) for session in filtered_sessions]  # type: ignore
             elif session_type == SessionType.TEAM:
-                return [TeamSession.from_dict(session) for session in filtered_sessions]
+                return [TeamSession.from_dict(session) for session in filtered_sessions]  # type: ignore
             elif session_type == SessionType.WORKFLOW:
-                return [WorkflowSession.from_dict(session) for session in filtered_sessions]
+                return [WorkflowSession.from_dict(session) for session in filtered_sessions]  # type: ignore
             else:
                 raise ValueError(f"Invalid session type: {session_type}")
 

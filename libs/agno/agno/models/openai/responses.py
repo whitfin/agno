@@ -848,8 +848,8 @@ class OpenAIResponses(Model):
                 assistant_message.tool_calls = []
             assistant_message.tool_calls.append(tool_use)
 
-            stream_data.metadata = stream_data.metadata or {}
-            stream_data.metadata.setdefault("tool_call_ids", []).append(tool_use["call_id"])
+            stream_data.extra = stream_data.extra or {}
+            stream_data.extra.setdefault("tool_call_ids", []).append(tool_use["call_id"])
             tool_use = {}
 
         elif stream_event.type == "response.completed":

@@ -206,9 +206,9 @@ def _create_events_from_chunk(
         events_to_emit.append(step_event)
     elif chunk.event == RunEvent.reasoning_completed:
         step_event = StepFinishedEvent(type=EventType.STEP_FINISHED, step_name="reasoning")
-        events_to_emit.append(step_event)
+        events_to_emit.append(step_event)  # type: ignore
 
-    return events_to_emit, message_started
+    return events_to_emit, message_started  # type: ignore
 
 
 def _create_completion_events(
@@ -255,7 +255,7 @@ def _create_completion_events(
                 tool_call_id=tool.tool_call_id,
                 delta=json.dumps(tool.tool_args),
             )
-            events_to_emit.append(args_event)
+            events_to_emit.append(args_event)  # type: ignore
 
             end_event = ToolCallEndEvent(
                 type=EventType.TOOL_CALL_END,
@@ -264,9 +264,9 @@ def _create_completion_events(
             events_to_emit.append(end_event)
 
     run_finished_event = RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id)
-    events_to_emit.append(run_finished_event)
+    events_to_emit.append(run_finished_event)  # type: ignore
 
-    return events_to_emit
+    return events_to_emit  # type: ignore
 
 
 def _emit_event_logic(event: BaseEvent, event_buffer: EventBuffer) -> List[BaseEvent]:

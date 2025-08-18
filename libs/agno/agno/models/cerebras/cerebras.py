@@ -427,12 +427,14 @@ class Cerebras(Model):
 
         return model_response
 
-    def _parse_provider_response_delta(self, response_delta: ChatChunkResponse) -> ModelResponse:
+    def _parse_provider_response_delta(
+        self, response: Union[ChatChunkResponse, ChatCompletionResponse]
+    ) -> ModelResponse:
         """
         Parse the streaming response from the Cerebras API into a ModelResponse.
 
         Args:
-            response_delta (ChatChunkResponse): The streaming response chunk.
+            response (ChatChunkResponse): The streaming response chunk.
 
         Returns:
             ModelResponse: The parsed response.
@@ -440,9 +442,9 @@ class Cerebras(Model):
         model_response = ModelResponse()
 
         # Get the first choice (assuming single response)
-        if response_delta.choices is not None:
-            choice: ChatChunkResponseChoice = response_delta.choices[0]
-            choice_delta: ChatChunkResponseChoiceDelta = choice.delta
+        if response.choices is not None:
+            choice: ChatChunkResponseChoice | ChatCompletionResponseChoice = response.choices[0]
+            choice_delta: ChatChunkResponseChoiceDelta = choice.delta  # type: ignore
 
             if choice_delta:
                 # Add content
@@ -464,8 +466,8 @@ class Cerebras(Model):
                     ]
 
         # Add usage metrics
-        if response_delta.usage:
-            model_response.response_usage = self._get_metrics(response_delta.usage)
+        if response.usage:
+            model_response.response_usage = self._get_metrics(response.usage)
 
         return model_response
 

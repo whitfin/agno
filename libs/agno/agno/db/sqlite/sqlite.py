@@ -577,7 +577,7 @@ class SqliteDb(BaseDb):
                             updated_at=int(time.time()),
                         ),
                     )
-                    stmt = stmt.returning(*table.columns)
+                    stmt = stmt.returning(*table.columns)  # type: ignore
                     result = sess.execute(stmt)
                     row = result.fetchone()
 
@@ -617,7 +617,7 @@ class SqliteDb(BaseDb):
                             updated_at=int(time.time()),
                         ),
                     )
-                    stmt = stmt.returning(*table.columns)
+                    stmt = stmt.returning(*table.columns)  # type: ignore
                     result = sess.execute(stmt)
                     row = result.fetchone()
 
@@ -656,7 +656,7 @@ class SqliteDb(BaseDb):
                             updated_at=int(time.time()),
                         ),
                     )
-                    stmt = stmt.returning(*table.columns)
+                    stmt = stmt.returning(*table.columns)  # type: ignore
                     result = sess.execute(stmt)
                     row = result.fetchone()
 
@@ -953,7 +953,7 @@ class SqliteDb(BaseDb):
                     input=memory.input,
                     updated_at=int(time.time()),
                 )
-                stmt = stmt.on_conflict_do_update(
+                stmt = stmt.on_conflict_do_update(  # type: ignore
                     index_elements=["memory_id"],
                     set_=dict(
                         memory=memory.memory,

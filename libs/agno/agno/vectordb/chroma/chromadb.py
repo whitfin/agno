@@ -771,7 +771,6 @@ class ChromaDb(VectorDb):
                     cast(Dict[str, Union[str, int, float, bool, None]], meta) for meta in updated_metadatas
                 ]
                 collection.update(ids=ids, metadatas=chroma_metadatas)
-
                 logger.debug(f"Updated metadata for {len(ids)} documents with content_id: {content_id}")
 
             except TypeError as te:

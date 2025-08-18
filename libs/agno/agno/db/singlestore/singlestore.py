@@ -1160,12 +1160,11 @@ class SingleStoreDb(BaseDb):
                     return result._mapping["date"]
 
         # 2. No metrics records. Return the date of the first recorded session.
-        sessions_result = self.get_sessions(sort_by="created_at", sort_order="asc", limit=1, deserialize=False)
-        if isinstance(sessions_result, tuple):
-            first_session, _ = sessions_result
-        else:
-            first_session = sessions_result
-        first_session_date = first_session[0]["created_at"] if first_session and len(first_session) > 0 else None  # type: ignore
+        sessions_result, _ = self.get_sessions(sort_by="created_at", sort_order="asc", limit=1, deserialize=False)
+        if not isinstance(sessions_result, list):
+            raise ValueError("Error obtaining session list to calculate metrics")
+
+        first_session_date = sessions_result[0]["created_at"] if sessions_result and len(sessions_result) > 0 else None  # type: ignore
 
         # 3. No metrics records and no sessions records. Return None.
         if first_session_date is None:

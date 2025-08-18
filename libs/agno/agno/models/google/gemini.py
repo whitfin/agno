@@ -389,6 +389,8 @@ class Gemini(Model):
 
             # Function calls
             if (not content or role == "model") and message.tool_calls is not None and len(message.tool_calls) > 0:
+                if content:
+                    message_parts.append(Part.from_text(text=content))
                 for tool_call in message.tool_calls:
                     message_parts.append(
                         Part.from_function_call(

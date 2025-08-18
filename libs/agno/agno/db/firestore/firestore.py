@@ -646,7 +646,6 @@ class FirestoreDb(BaseDb):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
-        workflow_id: Optional[str] = None,
         topics: Optional[List[str]] = None,
         search_content: Optional[str] = None,
         limit: Optional[int] = None,
@@ -661,7 +660,6 @@ class FirestoreDb(BaseDb):
             user_id (Optional[str]): The ID of the user to get the memories for.
             agent_id (Optional[str]): The ID of the agent to get the memories for.
             team_id (Optional[str]): The ID of the team to get the memories for.
-            workflow_id (Optional[str]): The ID of the workflow to get the memories for.
             topics (Optional[List[str]]): The topics to filter the memories by.
             search_content (Optional[str]): The content to filter the memories by.
             limit (Optional[int]): The limit of the memories to get.
@@ -686,8 +684,6 @@ class FirestoreDb(BaseDb):
                 query = query.where(filter=FieldFilter("agent_id", "==", agent_id))
             if team_id is not None:
                 query = query.where(filter=FieldFilter("team_id", "==", team_id))
-            if workflow_id is not None:
-                query = query.where(filter=FieldFilter("workflow_id", "==", workflow_id))
             if topics is not None and len(topics) > 0:
                 query = query.where(filter=FieldFilter("topics", "array_contains_any", topics))
             if search_content is not None:

@@ -463,7 +463,6 @@ class JsonDb(BaseDb):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
-        workflow_id: Optional[str] = None,
         topics: Optional[List[str]] = None,
         search_content: Optional[str] = None,
         limit: Optional[int] = None,
@@ -484,8 +483,6 @@ class JsonDb(BaseDb):
                 if agent_id is not None and memory_data.get("agent_id") != agent_id:
                     continue
                 if team_id is not None and memory_data.get("team_id") != team_id:
-                    continue
-                if workflow_id is not None and memory_data.get("workflow_id") != workflow_id:
                     continue
                 if topics is not None:
                     memory_topics = memory_data.get("topics", [])

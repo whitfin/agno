@@ -775,7 +775,6 @@ class SqliteDb(BaseDb):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
-        workflow_id: Optional[str] = None,
         topics: Optional[List[str]] = None,
         search_content: Optional[str] = None,
         limit: Optional[int] = None,
@@ -790,7 +789,6 @@ class SqliteDb(BaseDb):
             user_id (Optional[str]): The ID of the user to filter by.
             agent_id (Optional[str]): The ID of the agent to filter by.
             team_id (Optional[str]): The ID of the team to filter by.
-            workflow_id (Optional[str]): The ID of the workflow to filter by.
             topics (Optional[List[str]]): The topics to filter by.
             search_content (Optional[str]): The content to search for.
             limit (Optional[int]): The maximum number of memories to return.
@@ -820,8 +818,6 @@ class SqliteDb(BaseDb):
                     stmt = stmt.where(table.c.agent_id == agent_id)
                 if team_id is not None:
                     stmt = stmt.where(table.c.team_id == team_id)
-                if workflow_id is not None:
-                    stmt = stmt.where(table.c.workflow_id == workflow_id)
                 if topics is not None:
                     topic_conditions = [text(f"topics::text LIKE '%\"{topic}\"%'") for topic in topics]
                     stmt = stmt.where(and_(*topic_conditions))

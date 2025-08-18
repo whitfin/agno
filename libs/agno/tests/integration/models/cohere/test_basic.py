@@ -73,6 +73,7 @@ async def test_async_basic_stream():
 
 def test_with_memory():
     agent = Agent(
+        db=SqliteDb(db_file="tmp/test_with_memory.db"),
         model=Cohere(id="command-r-08-2024"),
         add_history_to_context=True,
         num_history_runs=5,

@@ -15,8 +15,8 @@ def mock_agent():
 
 @pytest.fixture
 def team_with_session_state(mock_agent):
-    """Create a team with session_state and team_session_state"""
-    return Team(members=[mock_agent], session_state={"key": "value"}, team_session_state={"shared_key": "shared_value"})
+    """Create a team with session_state"""
+    return Team(members=[mock_agent], session_state={"key": "value"})
 
 
 @pytest.fixture
@@ -27,8 +27,8 @@ def basic_team(mock_agent):
 
 @pytest.fixture
 def team_with_empty_session_state(mock_agent):
-    """Create a team with empty team_session_state"""
-    return Team(members=[mock_agent], team_session_state={})
+    """Create a team with empty session_state"""
+    return Team(members=[mock_agent], session_state={})
 
 
 @pytest.fixture
@@ -41,21 +41,19 @@ def nested_team_setup():
         members=[agent],
     )
 
-    main_team = Team(name="Main Team", members=[sub_team], team_session_state={"main_team_key": "main_value"})
+    main_team = Team(name="Main Team", members=[sub_team], session_state={"main_team_key": "main_value"})
 
     return main_team, sub_team, agent
 
 
 def test_team_initialization_with_session_state(team_with_session_state):
-    """Test team initializes with session_state and team_session_state"""
+    """Test team initializes with session_state"""
     assert team_with_session_state.session_state == {"key": "value"}
-    assert team_with_session_state.team_session_state == {"shared_key": "shared_value"}
 
 
 def test_team_session_state_not_initialized_by_default(basic_team):
-    """Test team_session_state is not initialized by default"""
-    # team_session_state should not be initialized
-    assert not hasattr(basic_team, "team_session_state") or basic_team.team_session_state is None
+    """Test session_state is not initialized by default"""
+    assert not hasattr(basic_team, "session_state") or basic_team.session_state is None
 
 
 def test_initialize_member_propagates_team_session_state():
@@ -63,15 +61,16 @@ def test_initialize_member_propagates_team_session_state():
     agent1 = Agent(name="Agent1")
     agent2 = Agent(name="Agent2")
 
-    team = Team(members=[agent1, agent2], team_session_state={"shared_data": "test"})
+    team = Team(members=[agent1, agent2], session_state={"shared_data": "test"})
 
     team.initialize_team()
 
     # Both agents should have the team_session_state
-    assert hasattr(agent1, "team_session_state")
-    assert agent1.team_session_state == {"shared_data": "test"}
-    assert hasattr(agent2, "team_session_state")
-    assert agent2.team_session_state == {"shared_data": "test"}
+    assert hasattr(agent1, "session_state")
+    assert agent1.session_state == {"shared_data": "test"}
+
+    assert hasattr(agent2, "session_state")
+    assert agent2.session_state == {"shared_data": "test"}
 
 
 def test_nested_teams_propagate_team_session_state_alternative(nested_team_setup):

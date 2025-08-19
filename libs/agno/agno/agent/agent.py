@@ -3683,18 +3683,18 @@ class Agent:
         session_id_to_load = session_id or self.session_id
 
         # First check cached session if caching is enabled
-        if self.cache_session and hasattr(self, '_agent_session') and self._agent_session is not None:
+        if self.cache_session and hasattr(self, "_agent_session") and self._agent_session is not None:
             if self._agent_session.session_id == session_id_to_load:
                 return self._agent_session
 
         # Try to load from database
         if self.db is not None:
             agent_session = cast(AgentSession, self._read_session(session_id=session_id_to_load))  # type: ignore
-            
+
             # Cache the session if caching is enabled and we found it
             if agent_session is not None and self.cache_session:
                 self._agent_session = agent_session
-            
+
             return agent_session
 
         log_warning(f"AgentSession {session_id_to_load} not found in db")

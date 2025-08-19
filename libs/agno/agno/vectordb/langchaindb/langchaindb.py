@@ -10,11 +10,11 @@ class LangChainVectorDb(VectorDb):
         self,
         vectorstore: Optional[Any] = None,
         search_kwargs: Optional[dict] = None,
-        knowledge_retriever: Optional[Any] = None
+        knowledge_retriever: Optional[Any] = None,
     ):
         """
         Initialize LangChainVectorDb.
-        
+
         Args:
             vectorstore: The LangChain vectorstore instance
             search_kwargs: Additional search parameters for the retriever

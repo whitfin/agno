@@ -15,7 +15,7 @@ knowledge_base = AgentKnowledge(
     vector_db=PgVector(
         db_url="postgresql+psycopg://ai:ai@localhost:5532/ai",
         table_name="voyageai_embeddings",
-        embedder=VoyageAIEmbedder(id="voyage-3-large"),
+        embedder=VoyageAIEmbedder(),
     ),
     num_documents=2,
 )

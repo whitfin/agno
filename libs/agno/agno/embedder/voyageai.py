@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from os import getenv
 from typing import Any, Dict, List, Optional, Tuple
 
 from agno.embedder.base import Embedder
@@ -16,7 +17,7 @@ class VoyageAIEmbedder(Embedder):
     id: str = "voyage-2"
     dimensions: int = 1024
     request_params: Optional[Dict[str, Any]] = None
-    api_key: Optional[str] = None
+    api_key: Optional[str] = getenv("VOYAGE_API_KEY")
     base_url: str = "https://api.voyageai.com/v1/embeddings"
     max_retries: Optional[int] = None
     timeout: Optional[float] = None

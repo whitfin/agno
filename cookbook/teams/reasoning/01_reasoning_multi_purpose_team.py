@@ -24,7 +24,6 @@ from agno.models.openai.chat import OpenAIChat
 from agno.team.team import Team
 from agno.tools.calculator import CalculatorTools
 from agno.tools.duckduckgo import DuckDuckGoTools
-from agno.tools.e2b import E2BTools
 from agno.tools.file import FileTools
 from agno.tools.github import GithubTools
 from agno.tools.knowledge import KnowledgeTools

@@ -7,7 +7,6 @@ specialist agents asynchronously, showcasing coordination and intelligent task r
 
 import asyncio
 from pathlib import Path
-from textwrap import dedent
 
 from agno.agent import Agent
 from agno.knowledge.embedder.openai import OpenAIEmbedder

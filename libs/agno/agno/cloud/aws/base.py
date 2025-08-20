@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from agno.cloud.aws.s3.api_client import AwsApiClient
 from agno.utils.log import logger
@@ -37,6 +37,8 @@ class AwsResource(BaseModel):
     aws_profile: Optional[str] = None
 
     aws_client: Optional[AwsApiClient] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
     def get_resource_name(self) -> str:
         return self.name or self.__class__.__name__

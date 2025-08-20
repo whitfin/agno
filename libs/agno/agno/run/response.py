@@ -54,9 +54,22 @@ class BaseAgentRunEvent(BaseRunOutputEvent):
     step_id: Optional[str] = None
     step_name: Optional[str] = None
     step_index: Optional[int] = None
+    tools: Optional[List[ToolExecution]] = None
 
     # For backwards compatibility
     content: Optional[Any] = None
+
+    @property
+    def tools_requiring_confirmation(self):
+        return [t for t in self.tools if t.requires_confirmation] if self.tools else []
+
+    @property
+    def tools_requiring_user_input(self):
+        return [t for t in self.tools if t.requires_user_input] if self.tools else []
+
+    @property
+    def tools_awaiting_external_execution(self):
+        return [t for t in self.tools if t.external_execution_required] if self.tools else []
 
 
 @dataclass
@@ -413,8 +426,13 @@ class RunOutput:
         response_audio = data.pop("response_audio", None)
         response_audio = AudioResponse.model_validate(response_audio) if response_audio else None
 
+        metrics = data.pop("metrics", None)
+        if metrics:
+            metrics = Metrics(**metrics)
+
         return cls(
             messages=messages,
+            metrics=metrics,
             tools=tools,
             images=images,
             audio=audio,

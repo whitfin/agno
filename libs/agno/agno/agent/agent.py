@@ -1515,10 +1515,10 @@ class Agent:
             knowledge_filters: The knowledge filters to use for the run.
             debug_mode: Whether to enable debug mode.
         """
-        if not run_response and not run_id:
+        if run_response is None and run_id is None:
             raise ValueError("Either run_response or run_id must be provided.")
 
-        if not run_response and (run_id is not None and (session_id is None and self.session_id is None)):
+        if run_response is None and (run_id is not None and (session_id is None and self.session_id is None)):
             raise ValueError("Session ID is required to continue a run from a run_id.")
 
         session_id = run_response.session_id if run_response else session_id
@@ -1889,10 +1889,10 @@ class Agent:
             knowledge_filters: The knowledge filters to use for the run.
             debug_mode: Whether to enable debug mode.
         """
-        if not run_response and not run_id:
+        if run_response is None and run_id is None:
             raise ValueError("Either run_response or run_id must be provided.")
 
-        if not run_response and (run_id is not None and (session_id is None and self.session_id is None)):
+        if run_response is None and (run_id is not None and (session_id is None and self.session_id is None)):
             raise ValueError("Session ID is required to continue a run from a run_id.")
 
         session_id, user_id, session_state = self._initialize_session(
@@ -2220,15 +2220,17 @@ class Agent:
         if not run_response.content:
             run_response.content = get_paused_content(run_response)
 
-        # Save session to storage
-        self.save_session(session=session)
-
-        log_debug(f"Agent Run Paused: {run_response.run_id}", center=True, symbol="*")
-
         # Save output to file if save_response_to_file is set
         self.save_run_response_to_file(
             run_response=run_response, input=run_messages.user_message, session_id=session.session_id, user_id=user_id
         )
+
+        session.upsert_run(run=run_response)
+
+        # Save session to storage
+        self.save_session(session=session)
+
+        log_debug(f"Agent Run Paused: {run_response.run_id}", center=True, symbol="*")
 
         # We return and await confirmation/completion for the tools that require it
         return run_response
@@ -2247,7 +2249,7 @@ class Agent:
             run_response.content = get_paused_content(run_response)
 
         # We return and await confirmation/completion for the tools that require it
-        yield self._handle_event(
+        pause_event = self._handle_event(
             create_run_paused_event(
                 from_run_response=run_response,
                 tools=run_response.tools,
@@ -2255,13 +2257,15 @@ class Agent:
             run_response,
         )
 
-        # Save session to storage
-        self.save_session(session=session)
-
         # Save output to file if save_response_to_file is set
         self.save_run_response_to_file(
             run_response=run_response, input=run_messages.user_message, session_id=session.session_id, user_id=user_id
         )
+        session.upsert_run(run=run_response)
+        # Save session to storage
+        self.save_session(session=session)
+
+        yield pause_event
 
         log_debug(f"Agent Run Paused: {run_response.run_id}", center=True, symbol="*")
 
@@ -3361,7 +3365,6 @@ class Agent:
                             # If the function does not exist in self.functions
                             if name not in self._functions_for_model:
                                 func._agent = self
-                                func._session_state = session_state
                                 func.process_entrypoint(strict=strict)
                                 if strict and func.strict is None:
                                     func.strict = True
@@ -3378,7 +3381,6 @@ class Agent:
                     elif isinstance(tool, Function):
                         if tool.name not in self._functions_for_model:
                             tool._agent = self
-                            tool._session_state = session_state
                             tool.process_entrypoint(strict=strict)
                             if strict and tool.strict is None:
                                 tool.strict = True
@@ -3398,7 +3400,6 @@ class Agent:
                             if function_name not in self._functions_for_model:
                                 func = Function.from_callable(tool, strict=strict)
                                 func._agent = self
-                                func._session_state = session_state
                                 if strict:
                                     func.strict = True
                                 if self.tool_hooks is not None:
@@ -3408,6 +3409,10 @@ class Agent:
                                 log_debug(f"Added tool {func.name}")
                         except Exception as e:
                             log_warning(f"Could not add tool {tool}: {e}")
+
+        # Update the session state for the functions
+        for func in self._functions_for_model.values():
+            func._session_state = session_state
 
     def _model_should_return_structured_output(self):
         self.model = cast(Model, self.model)
@@ -3594,6 +3599,7 @@ class Agent:
             log_debug(f"Reading AgentSession: {session_id}")
 
             agent_session = cast(AgentSession, self._read_session(session_id=session_id))
+
         if agent_session is None:
             # Creating new session if none found
             log_debug(f"Creating new AgentSession: {session_id}")

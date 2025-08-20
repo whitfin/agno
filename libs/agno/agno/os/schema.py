@@ -423,8 +423,6 @@ class TeamResponse(BaseModel):
             model_provider = f"{model_name} {model_id}"
         elif model_id:
             model_provider = model_id
-        else:
-            model_provider = None
 
         session_table = team.db.session_table_name if team.db else None
         knowledge_table = team.db.knowledge_table_name if team.db and team.knowledge else None

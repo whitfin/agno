@@ -1492,7 +1492,6 @@ class Agent:
                         session=agent_session,
                         response_format=response_format,
                     )
-                    return response
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 if isinstance(e, StopAgentRun):
@@ -2077,7 +2076,6 @@ class Agent:
                         session=agent_session,
                         response_format=response_format,
                     )
-                    return response
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 if isinstance(e, StopAgentRun):

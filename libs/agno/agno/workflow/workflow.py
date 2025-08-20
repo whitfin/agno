@@ -1509,7 +1509,7 @@ class Workflow:
         run_id = str(uuid4())
 
         self.initialize_workflow()
-        
+
         session_id, user_id, session_state = self._initialize_session(
             session_id=session_id, user_id=user_id, session_state=session_state, run_id=run_id
         )
@@ -1748,7 +1748,6 @@ class Workflow:
         session_id, user_id, session_state = self._initialize_session(
             session_id=session_id, user_id=user_id, session_state=session_state, run_id=run_id
         )
-        
 
         # Read existing session from database
         workflow_session = self.read_or_create_session(session_id=session_id, user_id=user_id)

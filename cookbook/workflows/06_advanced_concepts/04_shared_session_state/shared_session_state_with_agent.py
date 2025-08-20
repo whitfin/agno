@@ -1,8 +1,8 @@
 from agno.agent.agent import Agent
+from agno.db.sqlite import SqliteDb
 from agno.models.openai.chat import OpenAIChat
 from agno.workflow.step import Step
 from agno.workflow.workflow import Workflow
-from agno.db.sqlite import SqliteDb
 
 db = SqliteDb(db_file="tmp/workflow.db")
 

@@ -1,6 +1,6 @@
 from agno.agent.agent import Agent
-from agno.models.openai.chat import OpenAIChat
 from agno.db.sqlite import SqliteDb
+from agno.models.openai.chat import OpenAIChat
 from agno.team.team import Team
 from agno.workflow.step import Step
 from agno.workflow.workflow import Workflow
@@ -177,10 +177,7 @@ def print_current_steps(workflow):
     """Helper function to display current workflow state"""
 
     session_state = workflow.get_session_state()
-    if (
-        not session_state
-        or "steps" not in session_state
-    ):
+    if not session_state or "steps" not in session_state:
         print("📋 No steps in workflow")
         return
 

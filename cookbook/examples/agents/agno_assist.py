@@ -1,5 +1,7 @@
+import asyncio
+
 from agno.agent import Agent
-from agno.db.sqlite import SqliteStorage
+from agno.db.sqlite import SqliteDb
 from agno.knowledge.embedder.openai import OpenAIEmbedder
 from agno.knowledge.knowledge import Knowledge
 from agno.models.openai import OpenAIChat
@@ -14,7 +16,9 @@ knowledge = Knowledge(
     ),
 )
 
-knowledge.add_content(name="Agno Docs", url="https://docs.agno.com/llms-full.txt")
+asyncio.run(
+    knowledge.add_content(name="Agno Docs", url="https://docs.agno.com/llms-full.txt")
+)
 
 agno_assist = Agent(
     name="Agno Assist",
@@ -22,7 +26,7 @@ agno_assist = Agent(
     description="You help answer questions about the Agno framework.",
     instructions="Search your knowledge before answering the question.",
     knowledge=knowledge,
-    storage=SqliteStorage(table_name="agno_assist_sessions", db_file="tmp/agents.db"),
+    db=SqliteDb(session_table="agno_assist_sessions", db_file="tmp/agents.db"),
     add_history_to_context=True,
     add_datetime_to_context=True,
     markdown=True,

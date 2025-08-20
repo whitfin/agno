@@ -10,7 +10,6 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
 from agno.agent.agent import Agent
-from agno.cli.console import console
 from agno.os.apps import (
     EvalApp,
     KnowledgeApp,
@@ -66,8 +65,6 @@ class AgentOS:
 
         if self.agents:
             for agent in self.agents:
-                if not agent.os_id:
-                    agent.os_id = self.os_id
                 agent.initialize_agent()
 
                 # Required for the built-in routes to work
@@ -84,9 +81,6 @@ class AgentOS:
 
                 for member in team.members:
                     if isinstance(member, Agent):
-                        if not member.os_id:
-                            member.os_id = self.os_id
-
                         member.team_id = None
                         member.initialize_agent()
                     elif isinstance(member, Team):
@@ -94,10 +88,8 @@ class AgentOS:
 
         if self.workflows:
             for workflow in self.workflows:
-                if not workflow.os_id:
-                    workflow.os_id = self.os_id
-                if not workflow.workflow_id:
-                    workflow.workflow_id = generate_id(workflow.name)
+                if not workflow.id:
+                    workflow.id = generate_id(workflow.name)
 
     def _auto_discover_apps(self) -> List[BaseApp]:
         """Auto-discover apps from agents, teams, and workflows."""
@@ -269,11 +261,12 @@ class AgentOS:
 
         # Create a terminal panel to announce OS initialization and provide useful info
         from rich.align import Align
-        from rich.console import Group
+        from rich.console import Console, Group
 
         aligned_endpoint = Align.center(f"[bold cyan]{public_endpoint}[/bold cyan]")
         connection_endpoint = f"\n\n[bold dark_orange]Running on:[/bold dark_orange] http://{host}:{port}"
 
+        console = Console()
         console.print(
             Panel(
                 Group(aligned_endpoint, connection_endpoint),

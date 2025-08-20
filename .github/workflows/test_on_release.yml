@@ -5,6 +5,13 @@ on:
     branches:
       - "*release*" # Run on release-* format
       - "release/*" # Run on release/1.2.3 branch format
+      - "v2.0"
+  workflow_dispatch: # Allows manual triggering
+    inputs:
+      branch:
+        description: 'Branch to run checks on'
+        required: true
+        type: string
 
 jobs:
   style-check:
@@ -559,6 +566,37 @@ jobs:
           source .venv/bin/activate
           python -m pytest ./libs/agno/tests/integration/models/aimlapi
 
+  # Run tests for DashScope
+  test-dashscope:
+    if: false # We need more credits
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12"]
+      fail-fast: true
+    env:
+      DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+      EXA_API_KEY: ${{ secrets.EXA_API_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      - name: Run dev setup
+        working-directory: .
+        run: |
+          ./scripts/dev_setup.sh
+      - name: Run AImlAPI tests
+        working-directory: .
+        run: |
+          source .venv/bin/activate
+          python -m pytest ./libs/agno/tests/integration/models/dashscope
+
   # Run tests for LangDB
   test-langdb:
     if: false # We do not have a company account
@@ -677,7 +715,7 @@ jobs:
         working-directory: .
         run: |
           source .venv/bin/activate
-          python -m pytest ./libs/agno/tests/integration/workflows  
+          python -m pytest ./libs/agno/tests/integration/workflows
 
   test-embedder:
     runs-on: ubuntu-latest
@@ -743,7 +781,7 @@ jobs:
           ./libs/agno/tests/integration/knowledge/test_pdf_knowledge_base.py \
           ./libs/agno/tests/integration/knowledge/test_pdf_url_knowledge_base.py \
           ./libs/agno/tests/integration/knowledge/test_pdf_bytes_knowledge_base.py \
-          ./libs/agno/tests/integration/knowledge/test_text_knowledge_base.py 
+          ./libs/agno/tests/integration/knowledge/test_text_knowledge_base.py
 
   test-knowledge-2:
     runs-on: ubuntu-latest

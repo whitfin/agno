@@ -1,8 +1,9 @@
+import asyncio
 import json
 import uuid
 from hashlib import md5
 from os import getenv
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from warnings import filterwarnings
@@ -73,6 +74,13 @@ class Weaviate(VectorDb):
         self.reranker: Optional[Reranker] = reranker
         self.hybrid_search_alpha = hybrid_search_alpha
 
+    @staticmethod
+    def _get_doc_uuid(document: Document) -> Tuple[uuid.UUID, str]:
+        cleaned_content = document.content.replace("\x00", "\ufffd")
+        content_hash = md5(cleaned_content.encode()).hexdigest()
+        doc_uuid = uuid.UUID(hex=content_hash[:32])
+        return doc_uuid, cleaned_content
+
     def get_client(self) -> weaviate.WeaviateClient:
         """Initialize and return a Weaviate client instance.
 
@@ -118,7 +126,7 @@ class Weaviate(VectorDb):
             await self.async_client.connect()  # type: ignore
 
         if not await self.async_client.is_ready():  # type: ignore
-            raise Exception("Weaviate async client is not ready")
+            raise ConnectionError("Weaviate async client is not ready")
 
         return self.async_client  # type: ignore
 
@@ -160,24 +168,13 @@ class Weaviate(VectorDb):
             await client.close()
 
     def content_hash_exists(self, content_hash: str) -> bool:
-        """Check if a document with the given content hash exists in the collection.
-
-        Args:
-            content_hash (str): The content hash to check.
-
-        Returns:
-            bool: True if the document exists, False otherwise.
-        """
-        try:
-            doc_uuid = uuid.UUID(hex=content_hash[:32])
-            collection = self.get_client().collections.get(self.collection)
-            return collection.data.exists(doc_uuid)
-        except ValueError:
-            log_info(f"Invalid UUID format for content_hash '{content_hash}' - treating as non-existent")
-            return False
-        except Exception as e:
-            logger.error(f"Error checking if content_hash '{content_hash}' exists: {e}")
-            return False
+        """Check if a document with the given content hash exists in the collection."""
+        collection = self.get_client().collections.get(self.collection)
+        result = collection.query.fetch_objects(
+            limit=1,
+            filters=Filter.by_property("content_hash").equal(content_hash),
+        )
+        return len(result.objects) > 0
 
     def name_exists(self, name: str) -> bool:
         """
@@ -273,6 +270,10 @@ class Weaviate(VectorDb):
         if not documents:
             return
 
+        # Embed document
+        embed_tasks = [document.async_embed(embedder=self.embedder) for document in documents]
+        await asyncio.gather(*embed_tasks, return_exceptions=True)
+
         client = await self.get_async_client()
         try:
             collection = client.collections.get(self.collection)
@@ -280,8 +281,6 @@ class Weaviate(VectorDb):
             # Process documents first
             for document in documents:
                 try:
-                    # Embed document
-                    document.embed(embedder=self.embedder)
                     if document.embedding is None:
                         logger.error(f"Document embedding is None: {document.name}")
                         continue
@@ -326,6 +325,28 @@ class Weaviate(VectorDb):
             self._delete_by_content_hash(content_hash)
         self.insert(content_hash=content_hash, documents=documents, filters=filters)
 
+        _docs_to_insert = []
+        for document in documents:
+            assert document.name is not None, "Document name must be set for upsert operation."
+
+            if self.name_exists(document.name):
+                if self.doc_content_changed(document, check_existing=False):
+                    log_debug(
+                        f"Document already exists, but content changed. Document will be deleted and added again: {document.name}"
+                    )
+
+                    is_first_or_only_chunk = ("chunk" in document.meta_data and document.meta_data["chunk"] == 1) or (
+                        "chunk" not in document.meta_data
+                    )
+                    if is_first_or_only_chunk:
+                        self.doc_delete(document.name)
+                    _docs_to_insert.append(document)
+                else:
+                    log_debug(f"Document skipped, content is unchanged: {document.name}")
+            else:
+                _docs_to_insert.append(document)
+        self.insert(_docs_to_insert)
+
     async def async_upsert(
         self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None
     ) -> None:
@@ -338,41 +359,10 @@ class Weaviate(VectorDb):
             documents (List[Document]): List of documents to upsert
             filters (Optional[Dict[str, Any]]): Filters to apply while upserting
         """
-        if not documents:
-            return
-
-        log_debug(f"Upserting {len(documents)} documents into Weaviate asynchronously.")
-
-        client = await self.get_async_client()
-        try:
-            collection = client.collections.get(self.collection)
-
-            for document in documents:
-                document.embed(embedder=self.embedder)
-                if document.embedding is None:
-                    logger.error(f"Document embedding is None: {document.name}")
-                    continue
-
-                cleaned_content = document.content.replace("\x00", "\ufffd")
-                record_id = md5(cleaned_content.encode()).hexdigest()
-                doc_uuid = uuid.UUID(hex=record_id[:32])
-
-                # Serialize meta_data to JSON string
-                meta_data_str = json.dumps(document.meta_data) if document.meta_data else None
-
-                properties = {
-                    "name": document.name,
-                    "content": cleaned_content,
-                    "meta_data": meta_data_str,
-                    "content_id": document.content_id,
-                    "content_hash": content_hash,
-                }
-
-                await collection.data.replace(uuid=doc_uuid, properties=properties, vector=document.embedding)
-
-                log_debug(f"Upserted document asynchronously: {document.name}")
-        finally:
-            await client.close()
+        if self.content_hash_exists(content_hash):
+            self._delete_by_content_hash(content_hash)
+        await self.async_insert(content_hash=content_hash, documents=documents, filters=filters)
+        return
 
     def search(self, query: str, limit: int = 5, filters: Optional[Dict[str, Any]] = None) -> List[Document]:
         """
@@ -765,6 +755,16 @@ class Weaviate(VectorDb):
             logger.error(f"Error deleting documents by content_id '{content_id}': {e}")
             return False
 
+    def delete_by_content_hash(self, content_hash: str) -> bool:
+        """Delete content by content hash using direct filter deletion."""
+        try:
+            collection = self.get_client().collections.get(self.collection)
+            collection.data.delete_many(where=Filter.by_property("content_hash").equal(content_hash))
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting documents by content_hash '{content_hash}': {e}")
+            return False
+
     def get_vector_index_config(self, index_type: VectorIndex, distance_metric: Distance):
         """
         Returns the appropriate vector index configuration with the specified distance metric.
@@ -801,7 +801,7 @@ class Weaviate(VectorDb):
         search_results: List[Document] = []
         for obj in response.objects:
             properties = obj.properties
-            meta_data = json.loads(properties["meta_data"]) if properties.get("meta_data") else None
+            meta_data = json.loads(properties["meta_data"]) if properties.get("meta_data") else {}
             embedding = obj.vector["default"] if isinstance(obj.vector, dict) else obj.vector
 
             search_results.append(
@@ -821,7 +821,7 @@ class Weaviate(VectorDb):
         """Indicate that upsert functionality is available."""
         return True
 
-    def _build_filter_expression(self, filters: Optional[Dict[str, Any]]) -> Optional[Filter]:
+    def _build_filter_expression(self, filters: Optional[Dict[str, Any]]):
         """
         Build a filter expression for Weaviate queries.
 
@@ -883,4 +883,74 @@ class Weaviate(VectorDb):
             return False
         except Exception as e:
             logger.error(f"Error checking if ID '{id}' exists: {e}")
+            return False
+
+    def update_metadata(self, content_id: str, metadata: Dict[str, Any]) -> None:
+        """
+        Update the metadata for documents with the given content_id.
+
+        Args:
+            content_id (str): The content ID to update
+            metadata (Dict[str, Any]): The metadata to update
+        """
+        try:
+            weaviate_client = self.get_client()
+            collection = weaviate_client.collections.get(self.collection)
+
+            # Query for objects with the given content_id
+            query_result = collection.query.fetch_objects(  # type: ignore
+                where=Filter.by_property("content_id").equal(content_id),
+                limit=1000,  # Get all matching objects
+            )
+
+            if not query_result.objects:
+                logger.debug(f"No documents found with content_id: {content_id}")
+                return
+
+            # Update each matching object
+            updated_count = 0
+            for obj in query_result.objects:
+                # Get current properties
+                current_properties = obj.properties or {}
+
+                # Merge existing metadata with new metadata
+                updated_properties = current_properties.copy()
+
+                # Handle nested metadata updates
+                if "meta_data" in updated_properties and isinstance(updated_properties["meta_data"], dict):
+                    updated_properties["meta_data"].update(metadata)
+                else:
+                    # If no existing meta_data or it's not a dict, set it directly
+                    updated_properties["meta_data"] = metadata
+
+                if "filters" in updated_properties and isinstance(updated_properties["filters"], dict):
+                    updated_properties["filters"].update(metadata)
+                else:
+                    updated_properties["filters"] = metadata
+
+                # Update the object
+                collection.data.update(uuid=obj.uuid, properties=updated_properties)
+                updated_count += 1
+
+            logger.debug(f"Updated metadata for {updated_count} documents with content_id: {content_id}")
+
+        except Exception as e:
+            logger.error(f"Error updating metadata for content_id '{content_id}': {e}")
+            raise
+
+    def _delete_by_content_hash(self, content_hash: str) -> bool:
+        """Delete documents by content hash using direct filter deletion."""
+        try:
+            collection = self.get_client().collections.get(self.collection)
+
+            # Build filter for content_hash search
+            filter_expr = Filter.by_property("content_hash").equal(content_hash)
+
+            collection.data.delete_many(where=filter_expr)
+
+            log_info(f"Deleted documents with content_hash '{content_hash}' from collection '{self.collection}'.")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error deleting documents by content_hash '{content_hash}': {e}")
             return False

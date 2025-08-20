@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from agno.knowledge.document.base import Document
 from agno.knowledge.reader.base import Reader
-from agno.utils.log import log_info, logger
+from agno.utils.log import log_debug, log_info, logger
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -16,25 +16,28 @@ except ImportError:
 class YouTubeReader(Reader):
     """Reader for YouTube video transcripts"""
 
-    def read(self, video_url: str, name: Optional[str] = None) -> List[Document]:
+    def read(self, url: str, name: Optional[str] = None) -> List[Document]:
         try:
             # Extract video ID from URL
-            video_id = video_url.split("v=")[-1].split("&")[0]
+            video_id = url.split("v=")[-1].split("&")[0]
             log_info(f"Reading transcript for video: {video_id}")
 
             # Get transcript
-            transcript_list = YouTubeTranscriptApi.get_transcript(video_id)
+            log_debug(f"Fetching transcript for video: {video_id}")
+            # Create an instance of YouTubeTranscriptApi
+            ytt_api = YouTubeTranscriptApi()
+            transcript_data = ytt_api.fetch(video_id)
 
             # Combine transcript segments into full text
             transcript_text = ""
-            for segment in transcript_list:
-                transcript_text += f"{segment['text']} "
+            for segment in transcript_data:
+                transcript_text += f"{segment.text} "
 
             documents = [
                 Document(
                     name=name or f"youtube_{video_id}",
                     id=f"youtube_{video_id}",
-                    meta_data={"video_url": video_url, "video_id": video_id},
+                    meta_data={"video_url": url, "video_id": video_id},
                     content=transcript_text.strip(),
                 )
             ]
@@ -47,8 +50,8 @@ class YouTubeReader(Reader):
             return documents
 
         except Exception as e:
-            logger.error(f"Error reading transcript for {video_url}: {e}")
+            logger.error(f"Error reading transcript for {url}: {e}")
             return []
 
-    async def async_read(self, video_url: str) -> List[Document]:
-        return await asyncio.get_event_loop().run_in_executor(None, self.read, video_url)
+    async def async_read(self, url: str) -> List[Document]:
+        return await asyncio.get_event_loop().run_in_executor(None, self.read, url)

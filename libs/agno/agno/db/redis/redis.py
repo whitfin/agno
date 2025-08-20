@@ -341,7 +341,7 @@ class RedisDb(BaseDb):
         sort_by: Optional[str] = None,
         sort_order: Optional[str] = None,
         deserialize: Optional[bool] = True,
-    ) -> Union[List[AgentSession], List[TeamSession], List[WorkflowSession], Tuple[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Session], Tuple[List[Dict[str, Any]], int]]:
         """Get all sessions matching the given filters.
 
         Args:
@@ -481,14 +481,12 @@ class RedisDb(BaseDb):
                     "agent_id": session_dict.get("agent_id"),
                     "team_id": session_dict.get("team_id"),
                     "workflow_id": session_dict.get("workflow_id"),
-                    "team_session_id": session_dict.get("team_session_id"),
                     "user_id": session_dict.get("user_id"),
                     "runs": session_dict.get("runs"),
                     "agent_data": session_dict.get("agent_data"),
                     "team_data": session_dict.get("team_data"),
                     "workflow_data": session_dict.get("workflow_data"),
                     "session_data": session_dict.get("session_data"),
-                    "chat_history": session_dict.get("chat_history"),
                     "summary": session_dict.get("summary"),
                     "metadata": session_dict.get("metadata"),
                     "created_at": session_dict.get("created_at") or int(time.time()),
@@ -516,7 +514,6 @@ class RedisDb(BaseDb):
                     "agent_id": None,
                     "team_id": session_dict.get("team_id"),
                     "workflow_id": None,
-                    "team_session_id": session_dict.get("team_session_id"),
                     "user_id": session_dict.get("user_id"),
                     "runs": session_dict.get("runs"),
                     "team_data": session_dict.get("team_data"),
@@ -525,7 +522,6 @@ class RedisDb(BaseDb):
                     "session_data": session_dict.get("session_data"),
                     "summary": session_dict.get("summary"),
                     "metadata": session_dict.get("metadata"),
-                    "chat_history": session_dict.get("chat_history"),
                     "created_at": session_dict.get("created_at") or int(time.time()),
                     "updated_at": int(time.time()),
                 }
@@ -561,7 +557,6 @@ class RedisDb(BaseDb):
                     "agent_data": None,
                     "team_data": None,
                     "summary": None,
-                    "chat_history": None,
                 }
 
                 success = self._store_record(
@@ -678,7 +673,6 @@ class RedisDb(BaseDb):
         user_id: Optional[str] = None,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
-        workflow_id: Optional[str] = None,
         topics: Optional[List[str]] = None,
         search_content: Optional[str] = None,
         limit: Optional[int] = None,
@@ -693,7 +687,6 @@ class RedisDb(BaseDb):
             user_id (Optional[str]): The ID of the user to filter by.
             agent_id (Optional[str]): The ID of the agent to filter by.
             team_id (Optional[str]): The ID of the team to filter by.
-            workflow_id (Optional[str]): The ID of the workflow to filter by.
             topics (Optional[List[str]]): The topics to filter by.
             search_content (Optional[str]): The content to search for.
             limit (Optional[int]): The maximum number of memories to return.
@@ -721,8 +714,6 @@ class RedisDb(BaseDb):
                 conditions["agent_id"] = agent_id
             if team_id is not None:
                 conditions["team_id"] = team_id
-            if workflow_id is not None:
-                conditions["workflow_id"] = workflow_id
 
             filtered_memories = apply_filters(records=all_memories, conditions=conditions)
 

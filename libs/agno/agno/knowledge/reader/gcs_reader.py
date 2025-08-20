@@ -8,7 +8,7 @@ from agno.knowledge.reader.base import Reader
 from agno.utils.log import log_info
 
 try:
-    from google.cloud import storage
+    from google.cloud import storage  # type: ignore
 except ImportError:
     raise ImportError("`google-cloud-storage` not installed. Please install it via `pip install google-cloud-storage`.")
 
@@ -42,5 +42,5 @@ class GCSReader(Reader):
             return chunked_documents
         return documents
 
-    async def async_read(self, blob: storage.Blob) -> List[Document]:
-        return await asyncio.to_thread(self.read, blob)
+    async def async_read(self, name: Optional[str], blob: storage.Blob) -> List[Document]:
+        return await asyncio.to_thread(self.read, name, blob)

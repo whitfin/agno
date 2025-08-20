@@ -3,12 +3,12 @@ from io import BytesIO
 from typing import List
 from uuid import uuid4
 
-from agno.document.base import Document
-from agno.document.reader.base import Reader
+from agno.knowledge.document.base import Document
+from agno.knowledge.reader.base import Reader
 from agno.utils.log import log_info
 
 try:
-    from google.cloud import storage
+    from google.cloud import storage  # type: ignore
 except ImportError:
     raise ImportError("`google-cloud-storage` not installed. Please install it via `pip install google-cloud-storage`.")
 

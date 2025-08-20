@@ -1,5 +1,7 @@
+import asyncio
 import json
 from hashlib import md5
+from os import getenv
 from typing import Any, Dict, List, Optional
 
 try:
@@ -74,9 +76,12 @@ class LanceDb(VectorDb):
         # Distance metric
         self.distance: Distance = distance
 
+        # Remote LanceDB connection details
+        self.api_key: Optional[str] = api_key
+
         # LanceDB connection details
         self.uri: lancedb.URI = uri
-        self.connection: lancedb.LanceDBConnection = connection or lancedb.connect(uri=self.uri, api_key=api_key)
+        self.connection: lancedb.DBConnection = connection or lancedb.connect(uri=self.uri, api_key=api_key)
         self.table: Optional[lancedb.db.LanceTable] = table
 
         self.async_connection: Optional[lancedb.AsyncConnection] = async_connection
@@ -84,10 +89,18 @@ class LanceDb(VectorDb):
 
         if table_name and table_name in self.connection.table_names():
             # Open the table if it exists
-            self.table = self.connection.open_table(name=table_name)
-            self.table_name = self.table.name
-            self._vector_col = self.table.schema.names[0]
-            self._id = self.table.schema.names[1]  # type: ignore
+            try:
+                self.table = self.connection.open_table(name=table_name)
+                self.table_name = self.table.name
+                self._vector_col = self.table.schema.names[0]
+                self._id = self.table.schema.names[1]  # type: ignore
+            except ValueError as e:
+                # Table might have been dropped by async operations but sync connection hasn't updated
+                if "was not found" in str(e):
+                    log_debug(f"Table {table_name} listed but not accessible, will create if needed")
+                    self.table = None
+                else:
+                    raise
 
         # LanceDB table details
         if self.table is None:
@@ -131,9 +144,27 @@ class LanceDb(VectorDb):
         """Get or create an async connection to LanceDB."""
         if self.async_connection is None:
             self.async_connection = await lancedb.connect_async(self.uri)
+        # Only try to open table if it exists and we don't have it already
         if self.async_table is None:
-            self.async_table = await self.async_connection.open_table(self.table_name)
+            table_names = await self.async_connection.table_names()
+            if self.table_name in table_names:
+                try:
+                    self.async_table = await self.async_connection.open_table(self.table_name)
+                except ValueError:
+                    # Table might have been dropped by another operation
+                    pass
         return self.async_connection
+
+    def _refresh_sync_connection(self) -> None:
+        """Refresh the sync connection to see changes made by async operations."""
+        try:
+            # Re-establish sync connection to see async changes
+            if self.connection and self.table_name in self.connection.table_names():
+                self.table = self.connection.open_table(self.table_name)
+                log_debug(f"Refreshed sync connection for table: {self.table_name}")
+        except Exception as e:
+            log_debug(f"Could not refresh sync connection: {e}")
+            # If refresh fails, we can still function but sync methods might not see async changes
 
     def create(self) -> None:
         """Create the table if it does not exist."""
@@ -142,7 +173,7 @@ class LanceDb(VectorDb):
 
     async def async_create(self) -> None:
         """Create the table asynchronously if it does not exist."""
-        if not self.exists():
+        if not await self.async_exists():
             conn = await self._get_async_connection()
             schema = self._base_schema()
 
@@ -168,7 +199,11 @@ class LanceDb(VectorDb):
         schema = self._base_schema()
 
         log_info(f"Creating table: {self.table_name}")
-        tbl = self.connection.create_table(self.table_name, schema=schema, mode="overwrite", exist_ok=True)  # type: ignore
+        if self.api_key or getenv("LANCEDB_API_KEY"):
+            log_info("API key found, creating table in remote LanceDB")
+            tbl = self.connection.create_table(name=self.table_name, schema=schema, mode="overwrite")  # type: ignore
+        else:
+            tbl = self.connection.create_table(name=self.table_name, schema=schema, mode="overwrite", exist_ok=True)  # type: ignore
         return tbl  # type: ignore
 
     def doc_exists(self, document: Document) -> bool:
@@ -281,7 +316,10 @@ class LanceDb(VectorDb):
         log_debug(f"Inserting {len(documents)} documents")
         data = []
 
-        # Prepare documents for insertion
+        # Prepare documents for insertion.
+        embed_tasks = [document.async_embed(embedder=self.embedder) for document in documents]
+        await asyncio.gather(*embed_tasks, return_exceptions=True)
+
         for document in documents:
             if await self.async_doc_exists(document):
                 continue
@@ -292,7 +330,6 @@ class LanceDb(VectorDb):
                 meta_data.update(filters)
                 document.meta_data = meta_data
 
-            document.embed(embedder=self.embedder)
             cleaned_content = document.content.replace("\x00", "\ufffd")
             doc_id = str(md5(cleaned_content.encode()).hexdigest())
             payload = {
@@ -325,6 +362,9 @@ class LanceDb(VectorDb):
                 await self.async_table.add(data)  # type: ignore
 
             log_debug(f"Asynchronously inserted {len(data)} documents")
+
+            # Refresh sync connection to see async changes
+            self._refresh_sync_connection()
         except Exception as e:
             logger.error(f"Error during async document insertion: {e}")
             raise
@@ -560,6 +600,8 @@ class LanceDb(VectorDb):
         if self.exists():
             log_debug(f"Deleting collection: {self.table_name}")
             self.connection.drop_table(self.table_name)  # type: ignore
+            # Clear the table reference after dropping
+            self.table = None
 
     async def async_drop(self) -> None:
         """Drop the table asynchronously."""
@@ -567,16 +609,26 @@ class LanceDb(VectorDb):
             log_debug(f"Deleting collection: {self.table_name}")
             conn = await self._get_async_connection()
             await conn.drop_table(self.table_name)
+            # Clear the async table reference after dropping
+            self.async_table = None
 
     def exists(self) -> bool:
+        # If we have an async table that was created, the table exists
+        if self.async_table is not None:
+            return True
         if self.connection:
             return self.table_name in self.connection.table_names()
         return False
 
     async def async_exists(self) -> bool:
         """Check if the table exists asynchronously."""
-        conn = await self._get_async_connection()
-        table_names = await conn.table_names()
+        # If we have an async table that was created, the table exists
+        if self.async_table is not None:
+            return True
+        # Check if table exists in database without trying to open it
+        if self.async_connection is None:
+            self.async_connection = await lancedb.connect_async(self.uri)
+        table_names = await self.async_connection.table_names()
         return self.table_name in table_names
 
     async def async_get_count(self) -> int:
@@ -586,7 +638,27 @@ class LanceDb(VectorDb):
             return await self.async_table.count_rows()
         return 0
 
+    def _async_get_count_sync(self) -> int:
+        """Helper method to run async_get_count in a new thread with its own event loop"""
+        import asyncio
+
+        return asyncio.run(self.async_get_count())
+
     def get_count(self) -> int:
+        # If we have data in the async table but sync table isn't available, try to get count from async table
+        if self.async_table is not None:
+            try:
+                import asyncio
+
+                # Check if we're already in an async context
+                try:
+                    return self._async_get_count_sync()
+                except RuntimeError:
+                    # No event loop running, safe to use asyncio.run
+                    return asyncio.run(self.async_get_count())
+            except Exception:
+                pass
+
         if self.exists() and self.table:
             return self.table.count_rows()
         return 0
@@ -805,3 +877,71 @@ class LanceDb(VectorDb):
         except Exception as e:
             logger.error(f"Error checking content_hash existence '{content_hash}': {e}")
             return False
+
+    def update_metadata(self, content_id: str, metadata: Dict[str, Any]) -> None:
+        """
+        Update the metadata for documents with the given content_id.
+
+        Args:
+            content_id (str): The content ID to update
+            metadata (Dict[str, Any]): The metadata to update
+        """
+        import json
+
+        try:
+            if self.table is None:
+                logger.error("Table not initialized")
+                return
+
+            # Search for documents with the given content_id
+            query_filter = f"payload->>'content_id' = '{content_id}'"
+            results = self.table.search().where(query_filter).to_pandas()
+
+            if results.empty:
+                logger.debug(f"No documents found with content_id: {content_id}")
+                return
+
+            # Update each matching document
+            updated_count = 0
+            for _, row in results.iterrows():
+                row_id = row["id"]
+                current_payload = json.loads(row["payload"])
+
+                # Merge existing metadata with new metadata
+                if "meta_data" in current_payload:
+                    current_payload["meta_data"].update(metadata)
+                else:
+                    current_payload["meta_data"] = metadata
+
+                if "filters" in current_payload:
+                    if isinstance(current_payload["filters"], dict):
+                        current_payload["filters"].update(metadata)
+                    else:
+                        current_payload["filters"] = metadata
+                else:
+                    current_payload["filters"] = metadata
+
+                # Update the document
+                update_data = {"id": row_id, "payload": json.dumps(current_payload)}
+
+                # LanceDB doesn't have a direct update, so we need to delete and re-insert
+                # First, get all the existing data
+                vector_data = row["vector"] if "vector" in row else None
+                text_data = row["text"] if "text" in row else None
+
+                # Create complete update record
+                if vector_data is not None:
+                    update_data["vector"] = vector_data
+                if text_data is not None:
+                    update_data["text"] = text_data
+
+                # Delete old record and insert updated one
+                self.table.delete(f"id = '{row_id}'")
+                self.table.add([update_data])
+                updated_count += 1
+
+            logger.debug(f"Updated metadata for {updated_count} documents with content_id: {content_id}")
+
+        except Exception as e:
+            logger.error(f"Error updating metadata for content_id '{content_id}': {e}")
+            raise

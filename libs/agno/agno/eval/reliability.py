@@ -8,10 +8,10 @@ from agno.db.base import BaseDb
 if TYPE_CHECKING:
     from rich.console import Console
 
-from agno.agent import RunResponse
+from agno.agent import RunOutput
 from agno.db.schemas.evals import EvalType
 from agno.eval.utils import async_log_eval_run, log_eval_run, store_result_in_file
-from agno.run.team import TeamRunResponse
+from agno.run.team import TeamRunOutput
 from agno.utils.log import logger
 
 
@@ -48,9 +48,9 @@ class ReliabilityEval:
     eval_id: str = field(default_factory=lambda: str(uuid4()))
 
     # Agent response
-    agent_response: Optional[RunResponse] = None
+    agent_response: Optional[RunOutput] = None
     # Team response
-    team_response: Optional[TeamRunResponse] = None
+    team_response: Optional[TeamRunOutput] = None
     # Expected tool calls
     expected_tool_calls: Optional[List[str]] = None
     # Result of the evaluation
@@ -147,6 +147,10 @@ class ReliabilityEval:
                 model_id = self.team_response.model
                 model_provider = self.team_response.model_provider
 
+            eval_input = {
+                "expected_tool_calls": self.expected_tool_calls,
+            }
+
             log_eval_run(
                 db=self.db,
                 run_id=self.eval_id,  # type: ignore
@@ -157,6 +161,7 @@ class ReliabilityEval:
                 team_id=team_id,
                 model_id=model_id,
                 model_provider=model_provider,
+                eval_input=eval_input,
             )
 
         logger.debug(f"*********** Evaluation End: {self.eval_id} ***********")
@@ -241,6 +246,10 @@ class ReliabilityEval:
                 model_id = self.team_response.model
                 model_provider = self.team_response.model_provider
 
+            eval_input = {
+                "expected_tool_calls": self.expected_tool_calls,
+            }
+
             await async_log_eval_run(
                 db=self.db,
                 run_id=self.eval_id,  # type: ignore
@@ -251,6 +260,7 @@ class ReliabilityEval:
                 team_id=team_id,
                 model_id=model_id,
                 model_provider=model_provider,
+                eval_input=eval_input,
             )
 
         logger.debug(f"*********** Evaluation End: {self.eval_id} ***********")

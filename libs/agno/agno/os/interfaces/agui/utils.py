@@ -24,9 +24,9 @@ from ag_ui.core import (
 from ag_ui.core.types import Message as AGUIMessage
 
 from agno.models.message import Message
-from agno.run.response import RunEvent, RunResponseContentEvent, RunResponseEvent, RunResponsePausedEvent
-from agno.run.team import RunResponseContentEvent as TeamRunResponseContentEvent
-from agno.run.team import TeamRunEvent, TeamRunResponseEvent
+from agno.run.response import RunContentEvent, RunEvent, RunOutputEvent, RunPausedEvent
+from agno.run.team import RunContentEvent as TeamRunContentEvent
+from agno.run.team import TeamRunEvent, TeamRunOutputEvent
 
 
 @dataclass
@@ -89,18 +89,18 @@ def convert_agui_messages_to_agno_messages(messages: List[AGUIMessage]) -> List[
     return result
 
 
-def extract_team_response_chunk_content(response: TeamRunResponseContentEvent) -> str:
+def extract_team_response_chunk_content(response: TeamRunContentEvent) -> str:
     """Given a response stream chunk, find and extract the content."""
 
     # Handle Team members' responses
     members_content = []
     if hasattr(response, "member_responses") and response.member_responses:  # type: ignore
         for member_resp in response.member_responses:  # type: ignore
-            if isinstance(member_resp, RunResponseContentEvent):
+            if isinstance(member_resp, RunContentEvent):
                 member_content = extract_response_chunk_content(member_resp)
                 if member_content:
                     members_content.append(f"Team member: {member_content}")
-            elif isinstance(member_resp, TeamRunResponseContentEvent):
+            elif isinstance(member_resp, TeamRunContentEvent):
                 member_content = extract_team_response_chunk_content(member_resp)
                 if member_content:
                     members_content.append(f"Team member: {member_content}")
@@ -109,7 +109,7 @@ def extract_team_response_chunk_content(response: TeamRunResponseContentEvent) -
     return str(response.content) + members_response
 
 
-def extract_response_chunk_content(response: RunResponseContentEvent) -> str:
+def extract_response_chunk_content(response: RunContentEvent) -> str:
     """Given a response stream chunk, find and extract the content."""
     if hasattr(response, "messages") and response.messages:  # type: ignore
         for msg in reversed(response.messages):  # type: ignore
@@ -120,7 +120,7 @@ def extract_response_chunk_content(response: RunResponseContentEvent) -> str:
 
 
 def _create_events_from_chunk(
-    chunk: Union[RunResponseEvent, TeamRunResponseEvent],
+    chunk: Union[RunOutputEvent, TeamRunOutputEvent],
     message_id: str,
     message_started: bool,
     event_buffer: EventBuffer,
@@ -132,9 +132,9 @@ def _create_events_from_chunk(
     events_to_emit = []
 
     # Extract content if the contextual event is a content event
-    if chunk.event == RunEvent.run_response_content:
+    if chunk.event == RunEvent.run_content:
         content = extract_response_chunk_content(chunk)  # type: ignore
-    elif chunk.event == TeamRunEvent.run_response_content:
+    elif chunk.event == TeamRunEvent.run_content:
         content = extract_team_response_chunk_content(chunk)  # type: ignore
     else:
         content = None
@@ -158,7 +158,7 @@ def _create_events_from_chunk(
                 message_id=message_id,
                 delta=content,
             )
-            events_to_emit.append(content_event)
+            events_to_emit.append(content_event)  # type: ignore
 
     # Handle starting a new tool call
     elif chunk.event == RunEvent.tool_call_started:
@@ -177,7 +177,7 @@ def _create_events_from_chunk(
                 tool_call_id=tool_call.tool_call_id,  # type: ignore
                 delta=json.dumps(tool_call.tool_args),
             )
-            events_to_emit.append(args_event)
+            events_to_emit.append(args_event)  # type: ignore
 
     # Handle tool call completion
     elif chunk.event == RunEvent.tool_call_completed:
@@ -188,7 +188,17 @@ def _create_events_from_chunk(
                     type=EventType.TOOL_CALL_END,
                     tool_call_id=tool_call.tool_call_id,  # type: ignore
                 )
-                events_to_emit.append(end_event)
+                events_to_emit.append(end_event)  # type: ignore
+
+                if tool_call.result is not None:
+                    result_event = ToolCallResultEvent(
+                        type=EventType.TOOL_CALL_RESULT,
+                        tool_call_id=tool_call.tool_call_id,  # type: ignore
+                        content=str(tool_call.result),
+                        role="tool",
+                        message_id=str(uuid.uuid4()),
+                    )
+                    events_to_emit.append(result_event)  # type: ignore
 
                 if tool_call.result is not None:
                     result_event = ToolCallResultEvent(
@@ -202,17 +212,17 @@ def _create_events_from_chunk(
 
     # Handle reasoning
     elif chunk.event == RunEvent.reasoning_started:
-        step_event = StepStartedEvent(type=EventType.STEP_STARTED, step_name="reasoning")
-        events_to_emit.append(step_event)
+        step_event = StepStartedEvent(type=EventType.STEP_STARTED, step_name="reasoning")  # type: ignore
+        events_to_emit.append(step_event)  # type: ignore
     elif chunk.event == RunEvent.reasoning_completed:
-        step_event = StepFinishedEvent(type=EventType.STEP_FINISHED, step_name="reasoning")
-        events_to_emit.append(step_event)
+        step_event = StepFinishedEvent(type=EventType.STEP_FINISHED, step_name="reasoning")  # type: ignore
+        events_to_emit.append(step_event)  # type: ignore
 
-    return events_to_emit, message_started
+    return events_to_emit, message_started  # type: ignore
 
 
 def _create_completion_events(
-    chunk: Union[RunResponseEvent, TeamRunResponseEvent],
+    chunk: Union[RunOutputEvent, TeamRunOutputEvent],
     event_buffer: EventBuffer,
     message_started: bool,
     message_id: str,
@@ -234,10 +244,37 @@ def _create_completion_events(
     # End the message and run, denoting the end of the session
     if message_started:
         end_message_event = TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
-        events_to_emit.append(end_message_event)
+        events_to_emit.append(end_message_event)  # type: ignore
 
     # emit frontend tool calls, i.e. external_execution=True
-    if isinstance(chunk, RunResponsePausedEvent) and chunk.tools is not None:
+    if isinstance(chunk, RunPausedEvent) and chunk.tools is not None:
+        for tool in chunk.tools:
+            if tool.tool_call_id is None or tool.tool_name is None:
+                continue
+
+            start_event = ToolCallStartEvent(
+                type=EventType.TOOL_CALL_START,
+                tool_call_id=tool.tool_call_id,
+                tool_call_name=tool.tool_name,
+                parent_message_id=message_id,
+            )
+            events_to_emit.append(start_event)  # type: ignore
+
+            args_event = ToolCallArgsEvent(
+                type=EventType.TOOL_CALL_ARGS,
+                tool_call_id=tool.tool_call_id,
+                delta=json.dumps(tool.tool_args),
+            )
+            events_to_emit.append(args_event)  # type: ignore
+
+            end_event = ToolCallEndEvent(
+                type=EventType.TOOL_CALL_END,
+                tool_call_id=tool.tool_call_id,
+            )
+            events_to_emit.append(end_event)
+
+    # emit frontend tool calls, i.e. external_execution=True
+    if isinstance(chunk, RunPausedEvent) and chunk.tools is not None:
         for tool in chunk.tools:
             if tool.tool_call_id is None or tool.tool_name is None:
                 continue
@@ -264,9 +301,9 @@ def _create_completion_events(
             events_to_emit.append(end_event)
 
     run_finished_event = RunFinishedEvent(type=EventType.RUN_FINISHED, thread_id=thread_id, run_id=run_id)
-    events_to_emit.append(run_finished_event)
+    events_to_emit.append(run_finished_event)  # type: ignore
 
-    return events_to_emit
+    return events_to_emit  # type: ignore
 
 
 def _emit_event_logic(event: BaseEvent, event_buffer: EventBuffer) -> List[BaseEvent]:
@@ -320,7 +357,7 @@ def _emit_event_logic(event: BaseEvent, event_buffer: EventBuffer) -> List[BaseE
 
 
 def stream_agno_response_as_agui_events(
-    response_stream: Iterator[Union[RunResponseEvent, TeamRunResponseEvent]], thread_id: str, run_id: str
+    response_stream: Iterator[Union[RunOutputEvent, TeamRunOutputEvent]], thread_id: str, run_id: str
 ) -> Iterator[BaseEvent]:
     """Map the Agno response stream to AG-UI format, handling event ordering constraints."""
     message_id = str(uuid.uuid4())
@@ -355,7 +392,7 @@ def stream_agno_response_as_agui_events(
 
 # Async version - thin wrapper
 async def async_stream_agno_response_as_agui_events(
-    response_stream: AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent]],
+    response_stream: AsyncIterator[Union[RunOutputEvent, TeamRunOutputEvent]],
     thread_id: str,
     run_id: str,
 ) -> AsyncIterator[BaseEvent]:

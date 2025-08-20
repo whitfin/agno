@@ -53,8 +53,8 @@ from agno.os.utils import (
     process_image,
     process_video,
 )
-from agno.run.response import RunResponse, RunResponseErrorEvent
-from agno.run.team import RunResponseErrorEvent as TeamRunResponseErrorEvent
+from agno.run.response import RunErrorEvent, RunOutput
+from agno.run.team import RunErrorEvent as TeamRunErrorEvent
 from agno.run.workflow import WorkflowErrorEvent
 from agno.team.team import Team
 from agno.utils.log import log_debug, log_error, log_warning, logger
@@ -128,7 +128,7 @@ async def agent_response_streamer(
 ) -> AsyncGenerator:
     try:
         run_response = agent.arun(
-            message,
+            input=message,
             session_id=session_id,
             user_id=user_id,
             images=images,
@@ -144,7 +144,7 @@ async def agent_response_streamer(
         import traceback
 
         traceback.print_exc(limit=3)
-        error_response = RunResponseErrorEvent(
+        error_response = RunErrorEvent(
             content=str(e),
         )
         yield error_response.to_json()
@@ -172,7 +172,7 @@ async def agent_continue_response_streamer(
         import traceback
 
         traceback.print_exc(limit=3)
-        error_response = RunResponseErrorEvent(
+        error_response = RunErrorEvent(
             content=str(e),
         )
         yield error_response.to_json()
@@ -192,7 +192,7 @@ async def team_response_streamer(
     """Run the given team asynchronously and yield its response"""
     try:
         run_response = team.arun(
-            message,
+            input=message,
             session_id=session_id,
             user_id=user_id,
             images=images,
@@ -208,7 +208,7 @@ async def team_response_streamer(
         import traceback
 
         traceback.print_exc()
-        error_response = TeamRunResponseErrorEvent(
+        error_response = TeamRunErrorEvent(
             content=str(e),
         )
         yield error_response.to_json()
@@ -234,12 +234,16 @@ async def handle_workflow_via_websocket(websocket: WebSocket, message: dict, os:
             return
 
         # Generate session_id if not provided
+        # Use workflow's default session_id if not provided in message
         if not session_id:
-            session_id = str(uuid4())
+            if workflow.session_id:
+                session_id = workflow.session_id
+            else:
+                session_id = str(uuid4())
 
         # Execute workflow in background with streaming
         await workflow.arun(
-            message=user_message,
+            input=user_message,
             session_id=session_id,
             user_id=user_id,
             stream=True,
@@ -255,14 +259,14 @@ async def handle_workflow_via_websocket(websocket: WebSocket, message: dict, os:
 
 async def workflow_response_streamer(
     workflow: Workflow,
-    message: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
+    input: Optional[Union[str, Dict[str, Any], List[Any], BaseModel]] = None,
     session_id: Optional[str] = None,
     user_id: Optional[str] = None,
     **kwargs: Any,
 ) -> AsyncGenerator:
     try:
         run_response = await workflow.arun(
-            message,
+            input=input,
             session_id=session_id,
             user_id=user_id,
             stream=True,
@@ -367,26 +371,9 @@ def get_base_router(
                 for interface in os.interfaces
             ],
             apps=apps_response,
-            agents=[
-                AgentSummaryResponse(agent_id=agent.agent_id, name=agent.name, description=agent.description)
-                for agent in os.agents
-            ]
-            if os.agents
-            else [],
-            teams=[
-                TeamSummaryResponse(team_id=team.team_id, name=team.name, description=team.description)
-                for team in os.teams
-            ]
-            if os.teams
-            else [],
-            workflows=[
-                WorkflowSummaryResponse(
-                    workflow_id=workflow.workflow_id, name=workflow.name, description=workflow.description
-                )
-                for workflow in os.workflows
-            ]
-            if os.workflows
-            else [],
+            agents=[AgentSummaryResponse.from_agent(agent) for agent in os.agents] if os.agents else [],
+            teams=[TeamSummaryResponse.from_team(team) for team in os.teams] if os.teams else [],
+            workflows=[WorkflowSummaryResponse.from_workflow(w) for w in os.workflows] if os.workflows else [],
         )
 
     @router.get(
@@ -504,9 +491,9 @@ def get_base_router(
             )
         else:
             run_response = cast(
-                RunResponse,
+                RunOutput,
                 await agent.arun(
-                    message=message,
+                    input=message,
                     session_id=session_id,
                     user_id=user_id,
                     images=base64_images if base64_images else None,
@@ -567,7 +554,7 @@ def get_base_router(
             )
         else:
             run_response_obj = cast(
-                RunResponse,
+                RunOutput,
                 await agent.acontinue_run(
                     run_id=run_id,  # run_id from path
                     updated_tools=updated_tools,
@@ -695,6 +682,7 @@ def get_base_router(
     @router.get(
         "/agents/{agent_id}",
         response_model=AgentResponse,
+        response_model_exclude_none=True,
     )
     async def get_agent(agent_id: str):
         agent = get_agent_by_id(agent_id, os.agents)
@@ -719,7 +707,7 @@ def get_base_router(
             raise HTTPException(status_code=404, detail="Agent has no database. Sessions are unavailable.")
 
         session = agent.set_session_name(session_id=session_id, session_name=session_name)
-        if not session:
+        if session is None:
             raise HTTPException(status_code=404, detail=f"Session with id {session_id} not found")
 
         return AgentSessionDetailSchema.from_session(session)  # type: ignore
@@ -816,7 +804,7 @@ def get_base_router(
             )
         else:
             run_response = await team.arun(
-                message=message,
+                input=message,
                 session_id=session_id,
                 user_id=user_id,
                 images=base64_images if base64_images else None,
@@ -951,6 +939,7 @@ def get_base_router(
     @router.get(
         "/teams/{team_id}",
         response_model=TeamResponse,
+        response_model_exclude_none=True,
     )
     async def get_team(team_id: str):
         team = get_team_by_id(team_id, os.teams)
@@ -1018,7 +1007,7 @@ def get_base_router(
 
         return [
             WorkflowResponse(
-                workflow_id=str(workflow.workflow_id),
+                id=str(workflow.id),
                 name=workflow.name,
                 description=workflow.description,
                 input_schema=get_workflow_input_schema_dict(workflow),
@@ -1029,6 +1018,7 @@ def get_base_router(
     @router.get(
         "/workflows/{workflow_id}/",
         response_model=WorkflowResponse,
+        response_model_exclude_none=True,
     )
     async def get_workflow(workflow_id: str):
         workflow = get_workflow_by_id(workflow_id, os.workflows)
@@ -1063,7 +1053,7 @@ def get_base_router(
                 return StreamingResponse(
                     workflow_response_streamer(
                         workflow,
-                        message=message,
+                        input=message,
                         session_id=session_id,
                         user_id=user_id,
                         **kwargs,
@@ -1072,7 +1062,7 @@ def get_base_router(
                 )
             else:
                 run_response = await workflow.arun(
-                    message=message,
+                    input=message,
                     session_id=session_id,
                     user_id=user_id,
                     stream=False,

@@ -2,7 +2,7 @@ from typing import Iterator
 
 from agno.agent import Agent
 from agno.models.nebius import Nebius
-from agno.run.response import RunOutputEvent
+from agno.run.agent import RunOutputEvent
 from agno.tools.scrapegraph import ScrapeGraphTools
 from agno.utils.log import logger
 from agno.workflow import Workflow

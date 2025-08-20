@@ -12,7 +12,7 @@ from agno.models.base import MessageData, Model
 from agno.models.message import Citations, Message, UrlCitation
 from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse
-from agno.run.response import RunOutput
+from agno.run.agent import RunOutput
 from agno.utils.log import log_debug, log_error, log_warning
 from agno.utils.models.openai_responses import images_to_message
 from agno.utils.models.schema_utils import get_response_schema_for_provider

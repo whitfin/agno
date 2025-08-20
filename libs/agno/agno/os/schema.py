@@ -15,7 +15,7 @@ from agno.os.utils import (
     get_session_name,
     get_workflow_input_schema_dict,
 )
-from agno.run.response import RunOutput
+from agno.run.agent import RunOutput
 from agno.run.team import TeamRunOutput
 from agno.session import AgentSession, TeamSession, WorkflowSession
 from agno.team.team import Team

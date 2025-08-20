@@ -2,7 +2,7 @@ import asyncio
 
 import nest_asyncio
 import streamlit as st
-from agno.run.response import RunEvent
+from agno.run.agent import RunEvent
 from agno.team import Team
 from agno.utils.log import logger
 from css import CUSTOM_CSS

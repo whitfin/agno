@@ -270,6 +270,7 @@ class RunOutput:
     # These fields establish relationships to parent workflow/step structures
     # and should be treated as foreign keys for data integrity
     workflow_step_id: Optional[str] = None  # FK: Points to StepOutput.step_id
+    loop_iteration_index: Optional[int] = None  # FK: Points to Loop steps' iteration_index
 
     @property
     def is_paused(self):

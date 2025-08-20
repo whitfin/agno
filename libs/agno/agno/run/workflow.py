@@ -213,7 +213,7 @@ class LoopIterationStartedEvent(BaseWorkflowRunOutputEvent):
     event: str = WorkflowRunEvent.loop_iteration_started.value
     step_name: Optional[str] = None
     step_index: Optional[Union[int, tuple]] = None
-    iteration: int = 0
+    iteration_index: int = 0
     max_iterations: Optional[int] = None
 
 
@@ -224,7 +224,7 @@ class LoopIterationCompletedEvent(BaseWorkflowRunOutputEvent):
     event: str = WorkflowRunEvent.loop_iteration_completed.value
     step_name: Optional[str] = None
     step_index: Optional[Union[int, tuple]] = None
-    iteration: int = 0
+    iteration_index: int = 0
     max_iterations: Optional[int] = None
     iteration_results: List["StepOutput"] = field(default_factory=list)  # noqa: F821
     should_continue: bool = True

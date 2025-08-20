@@ -215,6 +215,10 @@ class StepOutput:
     step_type: Optional[str] = None
     executor_type: Optional[str] = None
     executor_name: Optional[str] = None
+
+    # Loop iteration index: only for loop steps
+    loop_iteration_index: Optional[int] = None
+
     # Primary output
     content: Optional[Union[str, Dict[str, Any], List[Any], BaseModel, Any]] = None
 
@@ -255,6 +259,7 @@ class StepOutput:
             "step_type": self.step_type,
             "executor_type": self.executor_type,
             "executor_name": self.executor_name,
+            "loop_iteration_index": self.loop_iteration_index,
             "step_run_id": self.step_run_id,
             "images": [img.to_dict() for img in self.images] if self.images else None,
             "videos": [vid.to_dict() for vid in self.videos] if self.videos else None,
@@ -311,6 +316,7 @@ class StepOutput:
             step_type=data.get("step_type"),
             executor_type=data.get("executor_type"),
             executor_name=data.get("executor_name"),
+            loop_iteration_index=data.get("loop_iteration_index"),
             content=data.get("content"),
             step_run_id=data.get("step_run_id"),
             images=images,

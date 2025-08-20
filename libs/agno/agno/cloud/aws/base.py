@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from agno.cloud.aws.s3.api_client import AwsApiClient
 from agno.utils.log import logger
@@ -15,6 +15,8 @@ class AwsResource(BaseModel):
     # Resource type
     resource_type: Optional[str] = None
     active_resource: Optional[Any] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     skip_delete: bool = False
     skip_create: bool = False

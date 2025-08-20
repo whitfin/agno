@@ -264,7 +264,7 @@ class Loop:
                     session_id=workflow_run_response.session_id or "",
                     step_name=self.name,
                     step_index=step_index,
-                    iteration=iteration + 1,
+                    iteration_index=iteration + 1,
                     max_iterations=self.max_iterations,
                     step_id=loop_step_id,
                     parent_step_id=parent_step_id,
@@ -357,7 +357,7 @@ class Loop:
                     session_id=workflow_run_response.session_id or "",
                     step_name=self.name,
                     step_index=step_index,
-                    iteration=iteration + 1,
+                    iteration_index=iteration + 1,
                     max_iterations=self.max_iterations,
                     iteration_results=iteration_results,
                     should_continue=should_continue,
@@ -547,7 +547,7 @@ class Loop:
                     session_id=workflow_run_response.session_id or "",
                     step_name=self.name,
                     step_index=step_index,
-                    iteration=iteration + 1,
+                    iteration_index=iteration + 1,
                     max_iterations=self.max_iterations,
                     step_id=loop_step_id,
                     parent_step_id=parent_step_id,
@@ -580,6 +580,7 @@ class Loop:
                     store_executor_responses=store_executor_responses,
                     session_state=session_state,
                     parent_step_id=loop_step_id,
+                    loop_iteration_index=iteration + 1,
                 ):
                     if isinstance(event, StepOutput):
                         step_outputs_for_iteration.append(event)
@@ -643,7 +644,7 @@ class Loop:
                     session_id=workflow_run_response.session_id or "",
                     step_name=self.name,
                     step_index=step_index,
-                    iteration=iteration + 1,
+                    iteration_index=iteration + 1,
                     max_iterations=self.max_iterations,
                     iteration_results=iteration_results,
                     should_continue=should_continue,

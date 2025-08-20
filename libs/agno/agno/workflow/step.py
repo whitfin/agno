@@ -630,6 +630,7 @@ class Step:
         step_index: Optional[Union[int, tuple]] = None,
         store_executor_responses: bool = True,
         parent_step_id: Optional[str] = None,
+        loop_iteration_index: Optional[int] = None,
     ) -> AsyncIterator[Union[WorkflowRunOutputEvent, StepOutput]]:
         """Execute the step with event-driven streaming support"""
 
@@ -756,6 +757,7 @@ class Step:
                                 "step_id": self.step_id,
                                 "step_name": self.name,
                                 "step_index": step_index,
+                                "loop_iteration_index": loop_iteration_index,
                             },
                             yield_run_response=True,
                             **kwargs,
@@ -773,9 +775,9 @@ class Step:
                         merge_dictionaries(session_state, session_state_copy)  # type: ignore
 
                         if store_executor_responses and workflow_run_response is not None:
-                            self._store_executor_response(workflow_run_response, active_executor_run_response)  # type: ignore
+                            self._store_executor_response(workflow_run_response, active_executor_run_response, loop_iteration_index)  # type: ignore
 
-                        final_response = self._process_step_output(active_executor_run_response)  # type: ignore
+                        final_response = self._process_step_output(active_executor_run_response, loop_iteration_index)  # type: ignore
                     else:
                         raise ValueError(f"Unsupported executor type: {self._executor_type}")
 
@@ -823,13 +825,14 @@ class Step:
         return
 
     def _store_executor_response(
-        self, workflow_run_response: "WorkflowRunOutput", executor_run_response: Union[RunOutput, TeamRunOutput]
+        self, workflow_run_response: "WorkflowRunOutput", executor_run_response: Union[RunOutput, TeamRunOutput], loop_iteration_index: Optional[int] = None
     ) -> None:
         """Store agent/team responses in step_executor_runs if enabled"""
         if self._executor_type in ["agent", "team"]:
             # propogate the workflow run id as parent run id to the executor response
             executor_run_response.parent_run_id = workflow_run_response.run_id
             executor_run_response.workflow_step_id = self.step_id
+            executor_run_response.loop_iteration_index = loop_iteration_index
 
             # Get the raw response from the step's active executor
             raw_response = executor_run_response
@@ -881,7 +884,7 @@ class Step:
         # If no previous step outputs, return the original message unchanged
         return message
 
-    def _process_step_output(self, response: Union[RunOutput, TeamRunOutput, StepOutput]) -> StepOutput:
+    def _process_step_output(self, response: Union[RunOutput, TeamRunOutput, StepOutput], loop_iteration_index: Optional[int] = None) -> StepOutput:
         """Create StepOutput from execution response"""
         if isinstance(response, StepOutput):
             response.step_name = self.name or "unnamed_step"
@@ -889,6 +892,7 @@ class Step:
             response.step_type = StepType.STEP
             response.executor_type = self._executor_type
             response.executor_name = self.executor_name
+            response.loop_iteration_index = loop_iteration_index
             return response
 
         # Extract media from response
@@ -911,6 +915,7 @@ class Step:
             videos=videos,
             audio=audio,
             metrics=metrics,
+            loop_iteration_index=loop_iteration_index,
         )
 
     def _convert_function_result_to_response(self, result: Any) -> RunOutput:

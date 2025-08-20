@@ -1,8 +1,8 @@
 from agno.agent import Agent
+from agno.db.sqlite import SqliteDb
 from agno.models.openai import OpenAIChat
 from agno.utils.audio import write_audio_to_file
 from rich.pretty import pprint
-from agno.db.sqlite import SqliteDb
 
 agent = Agent(
     model=OpenAIChat(
@@ -11,7 +11,9 @@ agent = Agent(
         audio={"voice": "sage", "format": "wav"},
     ),
     add_history_to_context=True,
-    db=SqliteDb(session_table="audio_multi_turn_sessions", db_file="tmp/audio_multi_turn.db"),
+    db=SqliteDb(
+        session_table="audio_multi_turn_sessions", db_file="tmp/audio_multi_turn.db"
+    ),
 )
 
 run_response = agent.run("Is a golden retriever a good family dog?")

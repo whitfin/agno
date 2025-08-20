@@ -91,7 +91,7 @@ agent.print_response(
     session_id="user_2_session_1",
 )
 agent.print_response(
-    "Add apples and grapesto the shopping list",
+    "Add apples and grapes to the shopping list",
     stream=True,
     user_id=user_id_3,
     session_id="user_3_session_1",

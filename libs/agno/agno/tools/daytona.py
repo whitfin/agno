@@ -24,7 +24,6 @@ except ImportError:
 DEFAULT_INSTRUCTIONS = dedent(
     """\
     You have access to a persistent Daytona sandbox for code execution. The sandbox maintains state across interactions.
-
     Available tools:
     - `run_code`: Execute code in the sandbox
     - `run_shell_command`: Execute shell commands (bash)
@@ -33,13 +32,11 @@ DEFAULT_INSTRUCTIONS = dedent(
     - `list_files`: List directory contents
     - `delete_file`: Delete files or directories
     - `change_directory`: Change the working directory
-
     MANDATORY: When users ask for code (Python, JavaScript, TypeScript, etc.), you MUST:
     1. Write the code
     2. Execute it using run_code tool
     3. Show the actual output/results
     4. Never just provide code without executing it
-
     CRITICAL WORKFLOW:
     1. Before running Python scripts, check if required packages are installed
     2. Install missing packages with: run_shell_command("pip install package1 package2")

@@ -1,15 +1,18 @@
 import requests
 from agno.agent import Agent
+from agno.db.sqlite import SqliteDb
 from agno.media import Audio
 from agno.models.google import Gemini
-from agno.db.sqlite import SqliteDb
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 agent = Agent(
     model=Gemini(id="gemini-2.0-flash-exp"),
     add_history_to_context=True,
     markdown=True,
-    db=SqliteDb(session_table="audio_sentiment_analysis_sessions", db_file="tmp/audio_sentiment_analysis.db"),
+    db=SqliteDb(
+        session_table="audio_sentiment_analysis_sessions",
+        db_file="tmp/audio_sentiment_analysis.db",
+    ),
 )
 
 url = "https://agno-public.s3.amazonaws.com/demo_data/sample_conversation.wav"

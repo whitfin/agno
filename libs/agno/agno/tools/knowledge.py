@@ -2,10 +2,8 @@ import json
 from textwrap import dedent
 from typing import Any, Dict, List, Optional
 
-from agno.agent import Agent
 from agno.knowledge.document import Document
 from agno.knowledge.knowledge import Knowledge
-from agno.team.team import Team
 from agno.tools import Toolkit
 from agno.utils.log import log_debug, log_error
 

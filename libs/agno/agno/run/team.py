@@ -18,6 +18,7 @@ class TeamRunEvent(str, Enum):
 
     run_started = "TeamRunStarted"
     run_content = "TeamRunContent"
+    run_intermediate_content = "TeamRunIntermediateContent"
     run_completed = "TeamRunCompleted"
     run_error = "TeamRunError"
     run_cancelled = "TeamRunCancelled"
@@ -34,6 +35,9 @@ class TeamRunEvent(str, Enum):
 
     parser_model_response_started = "TeamParserModelResponseStarted"
     parser_model_response_completed = "TeamParserModelResponseCompleted"
+
+    output_model_response_started = "TeamOutputModelResponseStarted"
+    output_model_response_completed = "TeamOutputModelResponseCompleted"
 
 
 @dataclass
@@ -94,6 +98,13 @@ class RunContentEvent(BaseTeamRunEvent):
     response_audio: Optional[AudioResponse] = None  # Model audio response
     image: Optional[ImageArtifact] = None  # Image attached to the response
     metadata: Optional[RunOutputMetaData] = None
+
+
+@dataclass
+class IntermediateRunContentEvent(BaseTeamRunEvent):
+    event: str = TeamRunEvent.run_intermediate_content.value
+    content: Optional[Any] = None
+    content_type: str = "str"
 
 
 @dataclass
@@ -180,9 +191,20 @@ class ParserModelResponseCompletedEvent(BaseTeamRunEvent):
     event: str = TeamRunEvent.parser_model_response_completed.value
 
 
+@dataclass
+class OutputModelResponseStartedEvent(BaseTeamRunEvent):
+    event: str = TeamRunEvent.output_model_response_started.value
+
+
+@dataclass
+class OutputModelResponseCompletedEvent(BaseTeamRunEvent):
+    event: str = TeamRunEvent.output_model_response_completed.value
+
+
 TeamRunOutputEvent = Union[
     RunStartedEvent,
     RunContentEvent,
+    IntermediateRunContentEvent,
     RunCompletedEvent,
     RunErrorEvent,
     RunCancelledEvent,
@@ -195,12 +217,15 @@ TeamRunOutputEvent = Union[
     ToolCallCompletedEvent,
     ParserModelResponseStartedEvent,
     ParserModelResponseCompletedEvent,
+    OutputModelResponseStartedEvent,
+    OutputModelResponseCompletedEvent,
 ]
 
 # Map event string to dataclass for team events
 TEAM_RUN_EVENT_TYPE_REGISTRY = {
     TeamRunEvent.run_started.value: RunStartedEvent,
     TeamRunEvent.run_content.value: RunContentEvent,
+    TeamRunEvent.run_intermediate_content.value: IntermediateRunContentEvent,
     TeamRunEvent.run_completed.value: RunCompletedEvent,
     TeamRunEvent.run_error.value: RunErrorEvent,
     TeamRunEvent.run_cancelled.value: RunCancelledEvent,
@@ -213,6 +238,8 @@ TEAM_RUN_EVENT_TYPE_REGISTRY = {
     TeamRunEvent.tool_call_completed.value: ToolCallCompletedEvent,
     TeamRunEvent.parser_model_response_started.value: ParserModelResponseStartedEvent,
     TeamRunEvent.parser_model_response_completed.value: ParserModelResponseCompletedEvent,
+    TeamRunEvent.output_model_response_started.value: OutputModelResponseStartedEvent,
+    TeamRunEvent.output_model_response_completed.value: OutputModelResponseCompletedEvent,
 }
 
 
@@ -402,6 +429,9 @@ class TeamRunOutput:
         if metrics:
             metrics = Metrics(**metrics)
 
+        citations = data.pop("citations", None)
+        citations = Citations.model_validate(citations) if citations else None
+
         return cls(
             messages=messages,
             metrics=metrics,
@@ -411,6 +441,7 @@ class TeamRunOutput:
             videos=videos,
             audio=audio,
             response_audio=response_audio,
+            citations=citations,
             tools=tools,
             events=events,
             **data,

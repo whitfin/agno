@@ -3,12 +3,9 @@
 This is the entrypoint for the `agno` cli application.
 """
 
-from typing import Optional
-
 import typer
 
 from agno.cli.infra_cli import infra_cli as infra_subcommands
-from agno.utilities.logging import set_log_level_to_debug
 
 agno_cli = typer.Typer(
     help="""\b

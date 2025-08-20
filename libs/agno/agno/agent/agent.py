@@ -274,6 +274,10 @@ class Agent:
     parser_model: Optional[Model] = None
     # Provide a prompt for the parser model
     parser_model_prompt: Optional[str] = None
+    # Provide an output model to structure the response from the main model
+    output_model: Optional[Model] = None
+    # Provide a prompt for the output model
+    output_model_prompt: Optional[str] = None
     # If True, the response from the Model is converted into the response_model
     # Otherwise, the response is returned as a JSON string
     parse_response: bool = True
@@ -303,6 +307,8 @@ class Agent:
     # --- If this Agent is part of a workflow ---
     # Optional workflow ID. Indicates this agent is part of a workflow.
     workflow_id: Optional[str] = None
+    # Set when this agent is part of a workflow.
+    workflow_session_id: Optional[str] = None
 
     # Metadata stored with this agent
     metadata: Optional[Dict[str, Any]] = None
@@ -386,6 +392,8 @@ class Agent:
         parser_model_prompt: Optional[str] = None,
         response_model: Optional[Type[BaseModel]] = None,
         parse_response: bool = True,
+        output_model: Optional[Model] = None,
+        output_model_prompt: Optional[str] = None,
         structured_outputs: Optional[bool] = None,
         use_json_mode: bool = False,
         save_response_to_file: Optional[str] = None,
@@ -481,6 +489,8 @@ class Agent:
         self.parser_model_prompt = parser_model_prompt
         self.response_model = response_model
         self.parse_response = parse_response
+        self.output_model = output_model
+        self.output_model_prompt = output_model_prompt
 
         self.structured_outputs = structured_outputs
 
@@ -688,6 +698,8 @@ class Agent:
             response_format=response_format,
             run_response=run_response,
         )
+        # If an output model is provided, generate output using the output model
+        self._generate_response_with_output_model(model_response, run_messages)
 
         # If a parser model is provided, structure the response separately
         self._parse_response_with_parser_model(model_response, run_messages)
@@ -770,14 +782,44 @@ class Agent:
         yield from self._handle_reasoning_stream(run_response=run_response, run_messages=run_messages)
 
         # 2. Process model response
-        yield from self._handle_model_response_stream(
-            session=session,
-            run_response=run_response,
-            run_messages=run_messages,
-            response_format=response_format,
-            stream_intermediate_steps=stream_intermediate_steps,
-            workflow_context=workflow_context,
-        )
+        if self.output_model is None:
+            for event in self._handle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                yield event
+        else:
+            from agno.run.response import IntermediateRunResponseContentEvent, RunResponseContentEvent
+
+            for event in self._handle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                if isinstance(event, RunResponseContentEvent):
+                    if stream_intermediate_steps:
+                        yield IntermediateRunResponseContentEvent(
+                            content=event.content,
+                            content_type=event.content_type,
+                        )
+                else:
+                    yield event
+
+            # If an output model is provided, generate output using the output model
+            yield from self._generate_response_with_output_model_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            )
 
         # If a parser model is provided, structure the response separately
         yield from self._parse_response_with_parser_model_stream(
@@ -1012,6 +1054,7 @@ class Agent:
                         user_id=user_id,
                         session=agent_session,
                         response_format=response_format,
+                        refresh_session_before_write=refresh_session_before_write,
                     )
                     return response
             except ModelProviderError as e:
@@ -1091,6 +1134,9 @@ class Agent:
             tool_call_limit=self.tool_call_limit,
             response_format=response_format,
         )
+
+        # If an output model is provided, generate output using the output model
+        await self._agenerate_response_with_output_model(model_response=model_response, run_messages=run_messages)
 
         # If a parser model is provided, structure the response separately
         await self._aparse_response_with_parser_model(model_response=model_response, run_messages=run_messages)
@@ -1176,15 +1222,45 @@ class Agent:
             yield item
 
         # 2. Generate a response from the Model
-        async for event in self._ahandle_model_response_stream(
-            session=session,
-            run_response=run_response,
-            run_messages=run_messages,
-            response_format=response_format,
-            stream_intermediate_steps=stream_intermediate_steps,
-            workflow_context=workflow_context,
-        ):
-            yield event
+        if self.output_model is None:
+            async for event in self._ahandle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                yield event
+        else:
+            from agno.run.response import IntermediateRunResponseContentEvent, RunResponseContentEvent
+
+            async for event in self._ahandle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                if isinstance(event, RunResponseContentEvent):
+                    if stream_intermediate_steps:
+                        yield IntermediateRunResponseContentEvent(
+                            content=event.content,
+                            content_type=event.content_type,
+                        )
+                else:
+                    yield event
+
+            # If an output model is provided, generate output using the output model
+            async for event in self._agenerate_response_with_output_model_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                workflow_context=workflow_context,
+                stream_intermediate_steps=stream_intermediate_steps,
+            ):
+                yield event
 
         # If a parser model is provided, structure the response separately
         async for event in self._aparse_response_with_parser_model_stream(
@@ -1249,6 +1325,7 @@ class Agent:
         stream: Literal[False] = False,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
+        session_state: Optional[Dict[str, Any]] = None,
         audio: Optional[Sequence[Audio]] = None,
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
@@ -1416,7 +1493,9 @@ class Agent:
                         user_id=user_id,
                         session=agent_session,
                         response_format=response_format,
+                        refresh_session_before_write=refresh_session_before_write,
                     )
+                    return response
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 if isinstance(e, StopAgentRun):
@@ -2001,6 +2080,7 @@ class Agent:
                         session=agent_session,
                         response_format=response_format,
                     )
+                    return response
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 if isinstance(e, StopAgentRun):
@@ -2837,6 +2917,12 @@ class Agent:
                     model_response.thinking = (model_response.thinking or "") + model_response_event.thinking
                     run_response.thinking = model_response.thinking
 
+                if model_response_event.reasoning_content is not None:
+                    model_response.reasoning_content = (
+                        model_response.reasoning_content or ""
+                    ) + model_response_event.reasoning_content
+                    run_response.reasoning_content = model_response.reasoning_content
+
                 if model_response_event.redacted_thinking is not None:
                     model_response.redacted_thinking = (
                         model_response.redacted_thinking or ""
@@ -2863,6 +2949,7 @@ class Agent:
                 elif (
                     model_response_event.content is not None
                     or model_response_event.thinking is not None
+                    or model_response_event.reasoning_content is not None
                     or model_response_event.redacted_thinking is not None
                     or model_response_event.citations is not None
                 ):
@@ -2871,6 +2958,7 @@ class Agent:
                             from_run_response=run_response,
                             content=model_response_event.content,
                             thinking=model_response_event.thinking,
+                            reasoning_content=model_response_event.reasoning_content,
                             redacted_thinking=model_response_event.redacted_thinking,
                             citations=model_response_event.citations,
                         ),
@@ -3534,6 +3622,9 @@ class Agent:
 
     def _update_session_state(self, session: AgentSession, session_state: Dict[str, Any]):
         """Load the existing Agent from an AgentSession (from the database)"""
+
+        if not hasattr(session, "memory"):
+            return
 
         from agno.utils.merge_dict import merge_dictionaries
 
@@ -4398,6 +4489,11 @@ class Agent:
                     except Exception as e:
                         log_warning(f"Failed to validate message: {e}")
 
+        # Add user message to run_messages
+        if user_message is not None:
+            run_messages.user_message = user_message
+            run_messages.messages.append(user_message)
+
         return run_messages
 
     def get_continue_run_messages(
@@ -4470,6 +4566,24 @@ class Agent:
             Message(role="system", content=system_content),
             Message(role="user", content=run_response.content),
         ]
+
+    def get_messages_for_output_model(self, messages: List[Message]) -> List[Message]:
+        """Get the messages for the output model."""
+
+        if self.output_model_prompt is not None:
+            system_message_exists = False
+            for message in messages:
+                if message.role == "system":
+                    system_message_exists = True
+                    message.content = self.output_model_prompt
+                    break
+            if not system_message_exists:
+                messages.insert(0, Message(role="system", content=self.output_model_prompt))
+
+        # Remove the last assistant message from the messages list
+        messages.pop(-1)
+
+        return messages
 
     def get_session_summary(self, session_id: Optional[str] = None):
         """Get the session summary for the given session ID and user ID."""
@@ -4587,6 +4701,8 @@ class Agent:
         """
         from agno.knowledge.document import Document
 
+        if num_documents is None and self.knowledge is not None:
+            num_documents = self.knowledge.num_documents
         # Validate the filters against known valid filter keys
         if self.knowledge is not None:
             valid_filters, invalid_keys = self.knowledge.validate_filters(filters)  # type: ignore
@@ -4649,6 +4765,9 @@ class Agent:
     ) -> Optional[List[Union[Dict[str, Any], str]]]:
         """Get relevant documents from knowledge base asynchronously."""
         from agno.knowledge.document import Document
+
+        if num_documents is None and self.knowledge is not None:
+            num_documents = self.knowledge.num_documents
 
         # Validate the filters against known valid filter keys
         if self.knowledge is not None:
@@ -5086,6 +5205,9 @@ class Agent:
                 telemetry=self.telemetry,
                 debug_mode=self.debug_mode,
                 debug_level=self.debug_level,
+                session_state=self.session_state,
+                context=self.context,
+                extra_data=self.extra_data,
             )
             is_deepseek = is_deepseek_reasoning_model(reasoning_model)
             is_groq = is_groq_reasoning_model(reasoning_model)
@@ -5175,6 +5297,9 @@ class Agent:
                     telemetry=self.telemetry,
                     debug_mode=self.debug_mode,
                     debug_level=self.debug_level,
+                    session_state=self.session_state,
+                    context=self.context,
+                    extra_data=self.extra_data,
                 )
 
             # Validate reasoning agent
@@ -5307,6 +5432,9 @@ class Agent:
                 telemetry=self.telemetry,
                 debug_mode=self.debug_mode,
                 debug_level=self.debug_level,
+                session_state=self.session_state,
+                context=self.context,
+                extra_data=self.extra_data,
             )
             is_deepseek = is_deepseek_reasoning_model(reasoning_model)
             is_groq = is_groq_reasoning_model(reasoning_model)
@@ -5396,6 +5524,9 @@ class Agent:
                     telemetry=self.telemetry,
                     debug_mode=self.debug_mode,
                     debug_level=self.debug_level,
+                    session_state=self.session_state,
+                    context=self.context,
+                    extra_data=self.extra_data,
                 )
 
             # Validate reasoning agent
@@ -5643,6 +5774,115 @@ class Agent:
                     yield self._handle_event(create_parser_model_response_completed_event(run_response), run_response)
             else:
                 log_warning("A response model is required to parse the response with a parser model")
+
+    def _generate_response_with_output_model(self, model_response: ModelResponse, run_messages: RunMessages) -> None:
+        """Parse the model response using the output model."""
+        if self.output_model is None:
+            return
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+        output_model_response: ModelResponse = self.output_model.response(messages=messages_for_output_model)
+        model_response.content = output_model_response.content
+
+    def _generate_response_with_output_model_stream(
+        self,
+        session: AgentSession,
+        run_response: RunOutput,
+        run_messages: RunMessages,
+        stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
+    ):
+        """Parse the model response using the output model."""
+        from agno.utils.events import (
+            create_output_model_response_completed_event,
+            create_output_model_response_started_event,
+        )
+
+        if self.output_model is None:
+            return
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_output_model_response_started_event(run_response), run_response)
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+
+        model_response = ModelResponse(content="")
+
+        for model_response_event in self.output_model.response_stream(messages=messages_for_output_model):
+            yield from self._handle_model_response_chunk(
+                session=session,
+                run_response=run_response,
+                model_response=model_response,
+                model_response_event=model_response_event,
+                workflow_context=workflow_context,
+                stream_intermediate_steps=stream_intermediate_steps,
+            )
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_output_model_response_completed_event(run_response), run_response)
+
+        # Build a list of messages that should be added to the RunResponse
+        messages_for_run_response = [m for m in run_messages.messages if m.add_to_agent_memory]
+        # Update the RunResponse messages
+        run_response.messages = messages_for_run_response
+        # Update the RunResponse metrics
+        run_response.metrics = self.aggregate_metrics_from_messages(messages_for_run_response)
+
+    async def _agenerate_response_with_output_model(self, model_response: ModelResponse, run_messages: RunMessages):
+        """Parse the model response using the output model."""
+        if self.output_model is None:
+            return
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+        output_model_response: ModelResponse = await self.output_model.aresponse(messages=messages_for_output_model)
+        model_response.content = output_model_response.content
+
+    async def _agenerate_response_with_output_model_stream(
+        self,
+        session: AgentSession,
+        run_response: RunOutput,
+        run_messages: RunMessages,
+        stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
+    ):
+        """Parse the model response using the output model."""
+        from agno.utils.events import (
+            create_output_model_response_completed_event,
+            create_output_model_response_started_event,
+        )
+
+        if self.output_model is None:
+            return
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_output_model_response_started_event(run_response), run_response)
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+
+        model_response = ModelResponse(content="")
+
+        model_response_stream = self.output_model.aresponse_stream(messages=messages_for_output_model)
+
+        async for model_response_event in model_response_stream:
+            for event in self._handle_model_response_chunk(
+                session=session,
+                run_response=run_response,
+                model_response=model_response,
+                model_response_event=model_response_event,
+                workflow_context=workflow_context,
+                stream_intermediate_steps=stream_intermediate_steps,
+            ):
+                yield event
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_output_model_response_completed_event(run_response), run_response)
+
+        # Build a list of messages that should be added to the RunResponse
+        messages_for_run_response = [m for m in run_messages.messages if m.add_to_agent_memory]
+        # Update the RunResponse messages
+        run_response.messages = messages_for_run_response
+        # Update the RunResponse metrics
+        run_response.metrics = self.aggregate_metrics_from_messages(messages_for_run_response)
 
     def _handle_event(self, event: RunOutputEvent, run_response: RunOutput, workflow_context: Optional[Dict] = None):
         if workflow_context:

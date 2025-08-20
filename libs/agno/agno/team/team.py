@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 from collections import ChainMap, defaultdict, deque
 from copy import copy
@@ -247,6 +248,10 @@ class Team:
     parser_model: Optional[Model] = None
     # Provide a prompt for the parser model
     parser_model_prompt: Optional[str] = None
+    # Provide an output model to parse the response from the team
+    output_model: Optional[Model] = None
+    # Provide a prompt for the output model
+    output_model_prompt: Optional[str] = None
     # If `response_model` is set, sets the response mode of the model, i.e. if the model should explicitly respond with a JSON object instead of a Pydantic model
     use_json_mode: bool = False
     # If True, parse the response
@@ -363,6 +368,8 @@ class Team:
         response_model: Optional[Type[BaseModel]] = None,
         parser_model: Optional[Model] = None,
         parser_model_prompt: Optional[str] = None,
+        output_model: Optional[Model] = None,
+        output_model_prompt: Optional[str] = None,
         use_json_mode: bool = False,
         parse_response: bool = True,
         db: Optional[BaseDb] = None,
@@ -399,11 +406,11 @@ class Team:
 
         self.name = name
         self.id = id
+        self.role = role
 
         self.user_id = user_id
         self.session_id = session_id
         self.session_state = session_state
-
         self.add_state_in_messages = add_state_in_messages
 
         self.cache_session = cache_session
@@ -446,6 +453,8 @@ class Team:
         self.response_model = response_model
         self.parser_model = parser_model
         self.parser_model_prompt = parser_model_prompt
+        self.output_model = output_model
+        self.output_model_prompt = output_model_prompt
         self.use_json_mode = use_json_mode
         self.parse_response = parse_response
 
@@ -545,6 +554,12 @@ class Team:
         if debug_mode:
             member.debug_mode = True
             member.debug_level = self.debug_level
+
+        if self.workflow_session_state is not None:
+            if member.workflow_session_state is None:
+                member.workflow_session_state = self.workflow_session_state
+            else:
+                merge_dictionaries(member.workflow_session_state, self.workflow_session_state)
 
         if isinstance(member, Agent):
             member.team_id = self.id
@@ -704,6 +719,9 @@ class Team:
             tool_call_limit=self.tool_call_limit,
         )
 
+        # If an output model is provided, generate output using the output model
+        self._parse_response_with_output_model(model_response, run_messages)
+
         # If a parser model is provided, structure the response separately
         self._parse_response_with_parser_model(model_response, run_messages)
 
@@ -773,14 +791,42 @@ class Team:
         )
 
         # 2. Get a response from the model
-        yield from self._handle_model_response_stream(
-            session=session,
-            run_response=run_response,
-            run_messages=run_messages,
-            response_format=response_format,
-            stream_intermediate_steps=stream_intermediate_steps,
-            workflow_context=workflow_context,
-        )
+        if self.output_model is None:
+            yield from self._handle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            )
+        else:
+            for event in self._handle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                from agno.run.team import IntermediateRunResponseContentEvent, RunResponseContentEvent
+
+                if isinstance(event, RunResponseContentEvent):
+                    if stream_intermediate_steps:
+                        yield IntermediateRunResponseContentEvent(
+                            content=event.content,
+                            content_type=event.content_type,
+                        )
+                else:
+                    yield event
+
+            yield from self._generate_response_with_output_model_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            )
 
         # If a parser model is provided, structure the response separately
         yield from self._parse_response_with_parser_model_stream(
@@ -1023,6 +1069,10 @@ class Team:
                 if len(run_messages.messages) == 0:
                     log_error("No messages to be sent to the model.")
 
+                self.run_messages = run_messages
+                if len(run_messages.messages) == 0:
+                    log_error("No messages to be sent to the model.")
+
                 if stream:
                     response_iterator = self._run_stream(
                         run_response=run_response,
@@ -1118,6 +1168,9 @@ class Team:
             response_format=response_format,
         )  # type: ignore
 
+        # If an output model is provided, generate output using the output model
+        await self._agenerate_response_with_output_model(model_response=model_response, run_messages=run_messages)
+
         # If a parser model is provided, structure the response separately
         await self._aparse_response_with_parser_model(model_response=model_response, run_messages=run_messages)
 
@@ -1191,15 +1244,44 @@ class Team:
             yield item
 
         # 2. Get a response from the model
-        async for event in self._ahandle_model_response_stream(
-            session=session,
-            run_response=run_response,
-            run_messages=run_messages,
-            response_format=response_format,
-            stream_intermediate_steps=stream_intermediate_steps,
-            workflow_context=workflow_context,
-        ):
-            yield event
+        if self.output_model is None:
+            async for event in self._ahandle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                yield event
+        else:
+            async for event in self._ahandle_model_response_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                response_format=response_format,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                from agno.run.team import IntermediateRunResponseContentEvent, RunResponseContentEvent
+
+                if isinstance(event, RunResponseContentEvent):
+                    if stream_intermediate_steps:
+                        yield IntermediateRunResponseContentEvent(
+                            content=event.content,
+                            content_type=event.content_type,
+                        )
+                else:
+                    yield event
+
+            async for event in self._agenerate_response_with_output_model_stream(
+                session=session,
+                run_response=run_response,
+                run_messages=run_messages,
+                stream_intermediate_steps=stream_intermediate_steps,
+                workflow_context=workflow_context,
+            ):
+                yield event
 
         # If a parser model is provided, structure the response separately
         async for event in self._aparse_response_with_parser_model_stream(
@@ -2235,6 +2317,119 @@ class Team:
             else:
                 log_warning("A response model is required to parse the response with a parser model")
 
+    def _parse_response_with_output_model(self, model_response: ModelResponse, run_messages: RunMessages) -> None:
+        """Parse the model response using the output model."""
+        if self.output_model is None:
+            return
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+        output_model_response: ModelResponse = self.output_model.response(messages=messages_for_output_model)
+        model_response.content = output_model_response.content
+
+    def _generate_response_with_output_model_stream(
+        self,
+        session: TeamSession,
+        run_response: TeamRunOutput,
+        run_messages: RunMessages,
+        stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
+    ):
+        """Parse the model response using the output model stream."""
+        from agno.utils.events import (
+            create_team_output_model_response_completed_event,
+            create_team_output_model_response_started_event,
+        )
+
+        if self.output_model is None:
+            return
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_team_output_model_response_started_event(run_response), run_response)
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+        model_response = ModelResponse(content="")
+
+        for model_response_event in self.output_model.response_stream(messages=messages_for_output_model):
+            yield from self._handle_model_response_chunk(
+                session=session,
+                run_response=run_response,
+                full_model_response=model_response,
+                model_response_event=model_response_event,
+                workflow_context=workflow_context,
+            )
+
+        # Update the TeamRunResponse content
+        run_response.content = model_response.content
+        run_response.created_at = model_response.created_at
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_team_output_model_response_completed_event(run_response), run_response)
+
+        # Build a list of messages that should be added to the RunResponse
+        messages_for_run_response = [m for m in run_messages.messages if m.add_to_agent_memory]
+        # Update the RunResponse messages
+        run_response.messages = messages_for_run_response
+        # Update the RunResponse metrics
+        run_response.metrics = self._aggregate_metrics_from_messages(messages_for_run_response)
+
+    async def _agenerate_response_with_output_model(
+        self, model_response: ModelResponse, run_messages: RunMessages
+    ) -> None:
+        """Parse the model response using the output model stream."""
+        if self.output_model is None:
+            return
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+        output_model_response: ModelResponse = await self.output_model.aresponse(messages=messages_for_output_model)
+        model_response.content = output_model_response.content
+
+    async def _agenerate_response_with_output_model_stream(
+        self,
+        session: TeamSession,
+        run_response: TeamRunOutput,
+        run_messages: RunMessages,
+        stream_intermediate_steps: bool = False,
+        workflow_context: Optional[Dict] = None,
+    ):
+        """Parse the model response using the output model stream."""
+        from agno.utils.events import (
+            create_team_output_model_response_completed_event,
+            create_team_output_model_response_started_event,
+        )
+
+        if self.output_model is None:
+            return
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_team_output_model_response_started_event(run_response), run_response)
+
+        messages_for_output_model = self.get_messages_for_output_model(run_messages.messages)
+        model_response = ModelResponse(content="")
+
+        async for model_response_event in self.output_model.aresponse_stream(messages=messages_for_output_model):
+            for event in self._handle_model_response_chunk(
+                session=session,
+                run_response=run_response,
+                full_model_response=model_response,
+                model_response_event=model_response_event,
+                workflow_context=workflow_context,
+            ):
+                yield event
+
+        # Update the TeamRunResponse content
+        run_response.content = model_response.content
+        run_response.created_at = model_response.created_at
+
+        if stream_intermediate_steps:
+            yield self._handle_event(create_team_output_model_response_completed_event(run_response), run_response)
+
+        # Build a list of messages that should be added to the RunResponse
+        messages_for_run_response = [m for m in run_messages.messages if m.add_to_agent_memory]
+        # Update the RunResponse messages
+        run_response.messages = messages_for_run_response
+        # Update the RunResponse metrics
+        run_response.metrics = self._aggregate_metrics_from_messages(messages_for_run_response)
+
     def _handle_event(
         self,
         event: Union[RunOutputEvent, TeamRunOutputEvent],
@@ -2623,7 +2818,12 @@ class Team:
             from agno.reasoning.ollama import is_ollama_reasoning_model
             from agno.reasoning.openai import is_openai_reasoning_model
 
-            reasoning_agent = self.reasoning_agent or get_reasoning_agent(reasoning_model=reasoning_model)
+            reasoning_agent = self.reasoning_agent or get_reasoning_agent(
+                reasoning_model=reasoning_model,
+                session_state=self.session_state,
+                dependencies=self.dependencies,
+                metadata=self.metadata,
+            )
             is_deepseek = is_deepseek_reasoning_model(reasoning_model)
             is_groq = is_groq_reasoning_model(reasoning_model)
             is_openai = is_openai_reasoning_model(reasoning_model)
@@ -2714,6 +2914,9 @@ class Team:
                     debug_mode=self.debug_mode,
                     debug_level=self.debug_level,
                     use_json_mode=use_json_mode,
+                    session_state=self.session_state,
+                    context=self.context,
+                    extra_data=self.extra_data,
                 )
 
             # Validate reasoning agent
@@ -2842,7 +3045,12 @@ class Team:
             from agno.reasoning.ollama import is_ollama_reasoning_model
             from agno.reasoning.openai import is_openai_reasoning_model
 
-            reasoning_agent = self.reasoning_agent or get_reasoning_agent(reasoning_model=reasoning_model)
+            reasoning_agent = self.reasoning_agent or get_reasoning_agent(
+                reasoning_model=reasoning_model,
+                session_state=self.session_state,
+                dependencies=self.dependencies,
+                metadata=self.metadata,
+            )
             is_deepseek = is_deepseek_reasoning_model(reasoning_model)
             is_groq = is_groq_reasoning_model(reasoning_model)
             is_openai = is_openai_reasoning_model(reasoning_model)
@@ -2931,6 +3139,9 @@ class Team:
                     debug_mode=self.debug_mode,
                     debug_level=self.debug_level,
                     use_json_mode=use_json_mode,
+                    session_state=self.session_state,
+                    context=self.context,
+                    extra_data=self.extra_data,
                 )
 
             # Validate reasoning agent
@@ -3446,7 +3657,7 @@ class Team:
         system_message_content += "\n<how_to_respond>\n"
         if self.mode == "coordinate":
             system_message_content += (
-                "- You can either respond directly or transfer tasks to members in your team with the highest likelihood of completing the user's request.\n"
+                "- Your role is to forward tasks to members in your team with the highest likelihood of completing the user's request.\n"
                 "- Carefully analyze the tools available to the members and their roles before transferring tasks.\n"
                 "- You cannot use a member tool directly. You can only transfer tasks to members.\n"
                 "- When you transfer a task to another member, make sure to include:\n"
@@ -3457,15 +3668,19 @@ class Team:
                 "- You must always analyze the responses from members before responding to the user.\n"
                 "- After analyzing the responses from the members, if you feel the task has been completed, you can stop and respond to the user.\n"
                 "- If you are not satisfied with the responses from the members, you should re-assign the task.\n"
+                "- For simple greetings, thanks, or questions about the team itself, you should respond directly.\n"
+                "- For all work requests, tasks, or questions requiring expertise, route to appropriate team members.\n"
             )
         elif self.mode == "route":
             system_message_content += (
-                "- You can either respond directly or forward tasks to members in your team with the highest likelihood of completing the user's request.\n"
+                "- Your role is to forward tasks to members in your team with the highest likelihood of completing the user's request.\n"
                 "- Carefully analyze the tools available to the members and their roles before forwarding tasks.\n"
                 "- When you forward a task to another Agent, make sure to include:\n"
                 "  - member_id (str): The ID of the member to forward the task to. Use only the ID of the member, not the ID of the team followed by the ID of the member.\n"
                 "  - expected_output (str): The expected output.\n"
                 "- You can forward tasks to multiple members at once.\n"
+                "- For simple greetings, thanks, or questions about the team itself, you should respond directly.\n"
+                "- For all work requests, tasks, or questions requiring expertise, route to appropriate team members.\n"
             )
         elif self.mode == "collaborate":
             system_message_content += (
@@ -3893,6 +4108,24 @@ class Team:
             Message(role="user", content=run_response.content),
         ]
 
+    def get_messages_for_output_model(self, messages: List[Message]) -> List[Message]:
+        """Get the messages for the output model."""
+
+        if self.output_model_prompt is not None:
+            system_message_exists = False
+            for message in messages:
+                if message.role == "system":
+                    system_message_exists = True
+                    message.content = self.output_model_prompt
+                    break
+            if not system_message_exists:
+                messages.insert(0, Message(role="system", content=self.output_model_prompt))
+
+        # Remove the last assistant message from the messages list
+        messages.pop(-1)
+
+        return messages
+
     def _format_message_with_state_variables(
         self, message: Any, user_id: Optional[str] = None, session_state: Optional[Dict[str, Any]] = None
     ) -> Any:
@@ -4212,6 +4445,23 @@ class Team:
 
         return None
 
+    def _update_workflow_session_state(self, member_agent: Union[Agent, "Team"]) -> None:
+        """Update workflow session state from either an Agent or nested Team member"""
+        # Get member state safely
+        member_state = getattr(member_agent, "workflow_session_state", None)
+
+        # Only proceed if member has valid state
+        if member_state is not None and isinstance(member_state, dict):
+            # Initialize team state if needed
+            if self.workflow_session_state is None:
+                self.workflow_session_state = {}
+
+            # Only merge if both are dictionaries and member state is not empty
+            if isinstance(self.workflow_session_state, dict) and member_state:
+                from agno.utils.merge_dict import merge_dictionaries
+
+                merge_dictionaries(self.workflow_session_state, member_state)
+
     def get_run_member_agents_function(
         self,
         run_response: TeamRunOutput,
@@ -4366,6 +4616,8 @@ class Team:
                 # Update team session state
                 merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
 
+                self._update_workflow_session_state(member_agent)
+
                 # Update the team media
                 if member_agent_run_response is not None:
                     self._update_team_media(member_agent_run_response)  # type: ignore
@@ -4375,7 +4627,7 @@ class Team:
 
         async def arun_member_agents(
             task_description: str, expected_output: Optional[str] = None
-        ) -> AsyncIterator[str]:
+        ) -> AsyncIterator[Union[RunResponseEvent, TeamRunResponseEvent, str]]:
             """
             Send the same task to all the member agents and return the responses.
 
@@ -4394,101 +4646,193 @@ class Team:
                 team_run_context, images, videos, audio
             )
 
-            # 2. Create the member agent task
-            member_agent_task = format_member_agent_task(
-                task_description, expected_output, team_member_interactions_str
-            )
+            if stream:
+                # Concurrent streaming: launch each member as a streaming worker and merge events
+                done_marker = object()
+                queue: "asyncio.Queue[Union[RunResponseEvent, TeamRunResponseEvent, str, object]]" = asyncio.Queue()
 
-            # Create tasks for all member agents
-            tasks = []
+                async def stream_member(agent: Union[Agent, "Team"], idx: int) -> None:
+                    # Compute expected output per agent (do not mutate shared var)
+                    local_expected_output = None if agent.expected_output is not None else expected_output
 
-            for member_agent_index, member_agent in enumerate(self.members):
-                # We cannot stream responses with async gather
-                current_agent = member_agent  # Create a reference to the current agent
-                current_index = member_agent_index  # Create a reference to the current index
-                self._initialize_member(current_agent)
+                    member_agent_task = format_member_agent_task(
+                        task_description, local_expected_output, team_member_interactions_str
+                    )
 
-                # Add history for the member if enabled
-                history = None
-                if member_agent.add_history_to_context:
-                    history = self._get_history_for_member_agent(session, member_agent)
-                    if history:
-                        history.append(Message(role="user", content=member_agent_task))
+                    # Add history for the member if enabled
+                    history = None
+                    if agent.add_history_to_context:
+                        history = self._get_history_for_member_agent(session, agent)
+                        if history:
+                            history.append(Message(role="user", content=member_agent_task))
 
-                member_session_state_copy = copy(session_state)
+                    member_session_state_copy = copy(session_state)
 
-                async def run_member_agent(agent=current_agent, idx=current_index) -> str:
-                    member_agent_run_response = await agent.arun(
-                        message=member_agent_task if history is None else None,
+                    # Stream events from the member
+                    member_stream = await agent.arun(
+                        input=member_agent_task,
                         user_id=user_id,
-                        # All members have the same session_id
-                        session_id=session.session_id,
+                        session_id=session_id,
                         session_state=member_session_state_copy,  # Send a copy to the agent
-                        messages=history if history is not None else None,
                         images=images,
                         videos=videos,
                         audio=audio,
                         files=files,
-                        stream=False,
+                        stream=True,
+                        stream_intermediate_steps=stream_intermediate_steps,
                         refresh_session_before_write=True,
                     )
-                    check_if_run_cancelled(member_agent_run_response)
-
-                    # Add team run id to the member run
-                    if member_agent_run_response is not None:
-                        member_agent_run_response.parent_run_id = run_response.run_id  # type: ignore
-
-                    member_name = agent.name if agent.name else f"agent_{idx}"
-                    self.add_interaction_to_team_run_context(
-                        team_run_context=team_run_context,
-                        member_name=member_name,
-                        task=task_description,
-                        run_response=member_agent_run_response,
-                    )
-
-                    # Add the member run to the team run response
-                    if store_member_responses and run_response:
-                        run_response.add_member_run(member_agent_run_response)
-
-                    # Add the member run to the team session
-                    session.upsert_run(member_agent_run_response)
-
-                    # Update team session state
-                    merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
-
-                    # Update the team media
-                    if member_agent_run_response is not None:
-                        self._update_team_media(member_agent_run_response)
 
                     try:
-                        if member_agent_run_response.content is None and (
-                            member_agent_run_response.tools is None or len(member_agent_run_response.tools) == 0
-                        ):
-                            return f"Agent {member_name}: No response from the member agent."
-                        elif isinstance(member_agent_run_response.content, str):
-                            if len(member_agent_run_response.content.strip()) > 0:
-                                return f"Agent {member_name}: {member_agent_run_response.content}"
-                            elif (
-                                member_agent_run_response.tools is not None and len(member_agent_run_response.tools) > 0
-                            ):
-                                return f"Agent {member_name}: {','.join([tool.result for tool in member_agent_run_response.tools])}"
-                        elif issubclass(type(member_agent_run_response.content), BaseModel):
-                            return f"Agent {member_name}: {member_agent_run_response.content.model_dump_json(indent=2)}"  # type: ignore
+                        async for event in member_stream:
+                            check_if_run_cancelled(event)
+                            await queue.put(event)
+                    finally:
+                        member_agent_run_response = agent.run_response
+
+                        # Add team run id to the member run
+                        if member_agent_run_response is not None:
+                            member_agent_run_response.parent_run_id = run_response.run_id  # type: ignore
+
+                        member_name = agent.name if agent.name else f"agent_{idx}"
+                        self.add_interaction_to_team_run_context(
+                            team_run_context=team_run_context,
+                            member_name=member_name,
+                            task=task_description,
+                            run_response=member_agent_run_response,
+                        )
+
+                        # Add the member run to the team run response
+                        if store_member_responses and run_response:
+                            run_response.add_member_run(member_agent_run_response)
+
+                        # Add the member run to the team session
+                        session.upsert_run(member_agent_run_response)
+
+                        # Update team session state
+                        merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
+
+                        # Update the team media
+                        if member_agent_run_response is not None:
+                            self._update_team_media(member_agent_run_response)
+
+                        # Update team session/workflow state and media
+                        self._update_team_session_state(agent)
+                        self._update_workflow_session_state(agent)
+                        self._update_team_media(agent.run_response)  # type: ignore
+
+                        # Signal completion for this member
+                        await queue.put(done_marker)
+
+                # Initialize and launch all members
+                tasks: List[asyncio.Task[None]] = []
+                for member_agent_index, member_agent in enumerate(self.members):
+                    current_agent = member_agent
+                    current_index = member_agent_index
+                    self._initialize_member(current_agent, session_id=session_id)
+                    tasks.append(asyncio.create_task(stream_member(current_agent, current_index)))
+
+                # Drain queue until all members reported done
+                completed = 0
+                try:
+                    while completed < len(tasks):
+                        item = await queue.get()
+                        if item is done_marker:
+                            completed += 1
                         else:
-                            import json
+                            yield item  # type: ignore
+                finally:
+                    # Ensure tasks do not leak on cancellation
+                    for t in tasks:
+                        if not t.done():
+                            t.cancel()
+                    # Await cancellation to suppress warnings
+                    for t in tasks:
+                        with contextlib.suppress(Exception):
+                            await t
+            else:
+                # Non-streaming concurrent run of members; collect results when done
+                tasks = []
+                for member_agent_index, member_agent in enumerate(self.members):
+                    current_agent = member_agent
+                    current_index = member_agent_index
+                    self._initialize_member(current_agent, session_id=session_id)
 
-                            return f"Agent {member_name}: {json.dumps(member_agent_run_response.content, indent=2)}"
-                    except Exception as e:
-                        return f"Agent {member_name}: Error - {str(e)}"
+                    # Don't override the expected output of a member agent
+                    if current_agent.expected_output is not None:
+                        expected_output = None
 
-                    return f"Agent {member_name}: No Response"
+                    member_agent_task = self._format_member_agent_task(
+                        task_description, expected_output, team_context_str, team_member_interactions_str
+                    )
 
-                tasks.append(run_member_agent)
+                    async def run_member_agent(agent=current_agent, idx=current_index) -> str:
+                        response = await agent.arun(
+                            member_agent_task,
+                            user_id=user_id,
+                            # All members have the same session_id
+                            session_id=session_id,
+                            images=images,
+                            videos=videos,
+                            audio=audio,
+                            files=files,
+                            stream=False,
+                            refresh_session_before_write=True,
+                        )
+                        check_if_run_cancelled(response)
 
-            # Need to collect and process yielded values from each task
-            results = await asyncio.gather(*[task() for task in tasks])
-            for result in results:
-                yield result
+                        member_name = agent.name if agent.name else f"agent_{idx}"
+                        self.memory = cast(TeamMemory, self.memory)
+                        if isinstance(self.memory, TeamMemory):
+                            self.memory = cast(TeamMemory, self.memory)
+                            self.memory.add_interaction_to_team_context(
+                                member_name=member_name, task=task_description, run_response=agent.run_response
+                            )
+                        else:
+                            self.memory = cast(Memory, self.memory)
+                            self.memory.add_interaction_to_team_context(
+                                session_id=session_id,
+                                member_name=member_name,
+                                task=task_description,
+                                run_response=agent.run_response,
+                            )
+
+                        # Add the member run to the team run response
+                        self.run_response = cast(TeamRunOutput, self.run_response)
+                        self.run_response.add_member_run(agent.run_response)
+
+                        # Update team session state
+                        self._update_team_session_state(current_agent)
+
+                        self._update_workflow_session_state(current_agent)
+
+                        # Update the team media
+                        self._update_team_media(agent.run_response)
+
+                        try:
+                            if response.content is None and (response.tools is None or len(response.tools) == 0):
+                                return f"Agent {member_name}: No response from the member agent."
+                            elif isinstance(response.content, str):
+                                if len(response.content.strip()) > 0:
+                                    return f"Agent {member_name}: {response.content}"
+                                elif response.tools is not None and len(response.tools) > 0:
+                                    return f"Agent {member_name}: {','.join([tool.get('content') for tool in response.tools])}"
+                            elif issubclass(type(response.content), BaseModel):
+                                return f"Agent {member_name}: {response.content.model_dump_json(indent=2)}"  # type: ignore
+                            else:
+                                import json
+
+                                return f"Agent {member_name}: {json.dumps(response.content, indent=2)}"
+                        except Exception as e:
+                            return f"Agent {member_name}: Error - {str(e)}"
+
+                        return f"Agent {member_name}: No Response"
+
+                    tasks.append(run_member_agent)  # type: ignore
+
+                results = await asyncio.gather(*[task() for task in tasks])  # type: ignore
+                for result in results:
+                    yield result
 
             # Afterward, switch back to the team logger
             use_team_logger()
@@ -4686,6 +5030,8 @@ class Team:
             # Update team session state
             merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
 
+            self._update_workflow_session_state(member_agent)
+
             # Update the team media
             if member_agent_run_response is not None:
                 self._update_team_media(member_agent_run_response)  # type: ignore
@@ -4840,6 +5186,8 @@ class Team:
 
             # Update team session state
             merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
+
+            self._update_workflow_session_state(member_agent)
 
             # Update the team media
             if member_agent_run_response is not None:
@@ -5037,6 +5385,8 @@ class Team:
             # Update team session state
             merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
 
+            self._update_workflow_session_state(member_agent)
+
             # Update the team media
             if member_agent_run_response is not None:
                 self._update_team_media(member_agent_run_response)  # type: ignore
@@ -5186,6 +5536,8 @@ class Team:
 
             # Update team session state
             merge_dictionaries(session_state, member_session_state_copy)  # type: ignore
+
+            self._update_workflow_session_state(member_agent)
 
             # Update the team media
             if member_agent_run_response is not None:
@@ -5780,6 +6132,9 @@ class Team:
         """Return a list of references from the knowledge base"""
         from agno.knowledge.document import Document
 
+        if num_documents is None and self.knowledge is not None:
+            num_documents = self.knowledge.num_documents
+
         # Validate the filters against known valid filter keys
         if self.knowledge is not None:
             valid_filters, invalid_keys = self.knowledge.validate_filters(filters)  # type: ignore
@@ -5836,6 +6191,9 @@ class Team:
     ) -> Optional[List[Union[Dict[str, Any], str]]]:
         """Get relevant documents from knowledge base asynchronously."""
         from agno.knowledge.document import Document
+
+        if num_documents is None and self.knowledge is not None:
+            num_documents = self.knowledge.num_documents
 
         # Validate the filters against known valid filter keys
         if self.knowledge is not None:

@@ -4767,7 +4767,7 @@ class Team:
                             debug_mode=debug_mode,
                         )
                         check_if_run_cancelled(member_agent_run_response)
-                        
+
                         # Add team run id to the member run
                         if member_agent_run_response is not None:
                             member_agent_run_response.parent_run_id = run_response.run_id  # type: ignore

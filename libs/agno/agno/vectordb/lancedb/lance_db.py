@@ -652,14 +652,7 @@ class LanceDb(VectorDb):
 
                 # Check if we're already in an async context
                 try:
-                    loop = asyncio.get_running_loop()
-                    # We're in an async context, can't use asyncio.run
-                    # Use threading to run in a separate thread with its own event loop
-                    import concurrent.futures
-
-                    with concurrent.futures.ThreadPoolExecutor() as executor:
-                        future = executor.submit(self._async_get_count_sync)
-                        return future.result(timeout=5)
+                    return self._async_get_count_sync()
                 except RuntimeError:
                     # No event loop running, safe to use asyncio.run
                     return asyncio.run(self.async_get_count())

@@ -636,8 +636,10 @@ class OpenAIResponses(Model):
                 **request_params,
             ):
                 model_response, tool_use = self._parse_provider_response_delta(
-                    stream_event=chunk, assistant_message=assistant_message, tool_use=tool_use  # type: ignore
-                )  
+                    stream_event=chunk,  # type: ignore
+                    assistant_message=assistant_message,
+                    tool_use=tool_use,  # type: ignore
+                )
                 yield model_response
 
             assistant_message.metrics.stop_timer()

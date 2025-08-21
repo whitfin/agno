@@ -5600,7 +5600,9 @@ class Team:
             log_warning(f"Error upserting session into db: {e}")
         return None
 
-    def get_run_output(self, run_id: str, session_id: Optional[str] = None) -> Optional[TeamRunOutput | RunOutput]:
+    def get_run_output(
+        self, run_id: str, session_id: Optional[str] = None
+    ) -> Optional[Union[TeamRunOutput, RunOutput]]:
         """
         Get a RunOutput from the database.
 

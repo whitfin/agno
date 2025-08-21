@@ -68,5 +68,5 @@ if __name__ == "__main__":
     agent.print_response(
         "Find a lighthearted moment from this transcript",  # No need to pass the txt file
     )
-    run_response = agent.get_last_run_response()
+    run_response = agent.get_last_run_output()
     print("Metrics: ", run_response.metrics)

@@ -5600,7 +5600,7 @@ class Team:
             log_warning(f"Error upserting session into db: {e}")
         return None
 
-    def get_run_response(self, run_id: str, session_id: Optional[str] = None) -> Optional[TeamRunOutput | RunOutput]:
+    def get_run_output(self, run_id: str, session_id: Optional[str] = None) -> Optional[TeamRunOutput | RunOutput]:
         """
         Get a RunOutput from the database.
 
@@ -5625,7 +5625,7 @@ class Team:
                     log_warning(f"RunOutput {run_id} not found in AgentSession {session_id}")
         return None
 
-    def get_last_run_response(self, session_id: Optional[str] = None) -> Optional[TeamRunOutput]:
+    def get_last_run_output(self, session_id: Optional[str] = None) -> Optional[TeamRunOutput]:
         """
         Get the last run response from the database.
 

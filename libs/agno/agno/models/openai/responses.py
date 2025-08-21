@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from typing_extensions import Literal
 
 from agno.exceptions import ModelProviderError
-from agno.media import AudioResponse, File
+from agno.media import File
 from agno.models.base import MessageData, Model
 from agno.models.message import Citations, Message, UrlCitation
 from agno.models.metrics import Metrics
@@ -19,7 +19,8 @@ from agno.utils.models.schema_utils import get_response_schema_for_provider
 
 try:
     from openai import APIConnectionError, APIStatusError, AsyncOpenAI, OpenAI, RateLimitError
-    from openai.resources.responses.responses import Response, ResponseStreamEvent
+    from openai.types.responses.response import Response
+    from openai.types.responses.response_stream_event import ResponseStreamEvent
     from openai.types.responses.response_usage import ResponseUsage
 except (ImportError, ModuleNotFoundError) as e:
     raise ImportError("`openai` not installed. Please install using `pip install openai -U`") from e

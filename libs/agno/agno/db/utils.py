@@ -2,11 +2,52 @@
 
 import json
 from datetime import date, datetime
+from typing import List, Optional, Union
 from uuid import UUID
 
 from agno.db.base import SessionType
 from agno.models.message import Message
 from agno.models.metrics import Metrics
+
+
+def parse_model_ids(model_id: Optional[Union[str, List[str]]]) -> Optional[List[str]]:
+    """Parse model IDs from various input formats into a list of strings.
+    
+    This function handles:
+    - Single string: "gpt-4"
+    - Comma-separated string: "gpt-4,gpt-3.5"
+    - List with comma-separated strings: ["gpt-4,gpt-3.5", "claude"]
+    - List of individual strings: ["gpt-4", "gpt-3.5"]
+    
+    Args:
+        model_id: The model ID(s) to parse. Can be None, string, or list of strings.
+        
+    Returns:
+        Optional[List[str]]: A list of individual model ID strings, or None if input is None/empty.
+    """
+    if model_id is None:
+        return None
+        
+    model_id_list = []
+    
+    if isinstance(model_id, str):
+        # Handle single string or comma-separated string
+        model_id_list = [mid.strip() for mid in model_id.split(',') if mid.strip()]
+    elif isinstance(model_id, list):
+        for item in model_id:
+            if ',' in str(item):
+                model_id_list.extend([mid.strip() for mid in str(item).split(',') if mid.strip()])
+            else:
+                model_id_list.append(str(item).strip())
+    
+    result = []
+    seen = set()
+    for mid in model_id_list:
+        if mid and mid not in seen:
+            result.append(mid)
+            seen.add(mid)
+    
+    return result if result else None
 
 
 class CustomJSONEncoder(json.JSONEncoder):

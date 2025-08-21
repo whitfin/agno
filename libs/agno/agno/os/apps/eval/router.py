@@ -39,7 +39,7 @@ def attach_routes(
         agent_id: Optional[str] = Query(default=None, description="Agent ID"),
         team_id: Optional[str] = Query(default=None, description="Team ID"),
         workflow_id: Optional[str] = Query(default=None, description="Workflow ID"),
-        model_id: Optional[str] = Query(default=None, description="Model ID"),
+        model_id: Optional[List[str]] = Query(default=None, description="Model ID"),
         filter_type: Optional[EvalFilterType] = Query(default=None, description="Filter type", alias="type"),
         eval_types: Optional[List[EvalType]] = Depends(parse_eval_types_filter),
         limit: Optional[int] = Query(default=20, description="Number of eval runs to return"),

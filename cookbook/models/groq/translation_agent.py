@@ -11,6 +11,7 @@ agent = Agent(
     name="Groq Translation Agent",
     model=OpenAIChat(id="gpt-4o-mini"),
     tools=[GroqTools()],
+    cache_session=True,
 )
 
 agent.print_response(

@@ -560,7 +560,7 @@ class Team:
 
         # Handle Message objects - extract content
         if isinstance(input, Message):
-            input = input.content
+            input = input.content  # type: ignore
 
         # Case 1: Message is already a BaseModel instance
         if isinstance(input, BaseModel):
@@ -908,7 +908,7 @@ class Team:
     @overload
     def run(
         self,
-        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
+        input: Union[str, List, Dict, Message, BaseModel, List[Message]],
         *,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
@@ -929,7 +929,7 @@ class Team:
     @overload
     def run(
         self,
-        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
+        input: Union[str, List, Dict, Message, BaseModel, List[Message]],
         *,
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
@@ -950,7 +950,7 @@ class Team:
 
     def run(
         self,
-        input: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None,
+        input: Union[str, List, Dict, Message, BaseModel, List[Message]],
         *,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,

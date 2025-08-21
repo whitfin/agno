@@ -396,7 +396,7 @@ class Groq(Model):
                 stream=True,
                 **self.get_request_params(response_format=response_format, tools=tools, tool_choice=tool_choice),
             )
-            async for chunk in async_stream:
+            async for chunk in async_stream:  # type: ignore
                 yield self._parse_provider_response_delta(chunk)  # type: ignore
 
             assistant_message.metrics.stop_timer()

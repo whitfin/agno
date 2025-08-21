@@ -3756,7 +3756,7 @@ class Agent:
 
         return agent_session
 
-    def get_run_response(self, run_id: str, session_id: Optional[str] = None) -> Optional[RunOutput]:
+    def get_run_output(self, run_id: str, session_id: Optional[str] = None) -> Optional[RunOutput]:
         """
         Get a RunOutput from the database.
 
@@ -3781,7 +3781,7 @@ class Agent:
                     log_warning(f"RunOutput {run_id} not found in AgentSession {session_id}")
         return None
 
-    def get_last_run_response(self, session_id: Optional[str] = None) -> Optional[RunOutput]:
+    def get_last_run_output(self, session_id: Optional[str] = None) -> Optional[RunOutput]:
         """
         Get the last run response from the database.
 

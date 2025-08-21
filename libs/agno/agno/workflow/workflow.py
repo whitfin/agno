@@ -917,7 +917,7 @@ class Workflow:
                     workflow_run_response.content = "No steps executed"
 
                 # TODO: Check for when self.agent is not used
-                workflow_run_response.step_responses.extend(collected_step_outputs)
+                workflow_run_response.step_results.extend(collected_step_outputs)
 
                 # workflow_run_response.step_results = collected_step_outputs
                 workflow_run_response.images = output_images
@@ -1699,16 +1699,6 @@ class Workflow:
 
         return None
 
-    # NOTE: Models have a bias towards always running tools, even when explicitly told not to
-    def run_step(self, step_name: str, step_input: str) -> StepOutput:
-        """Run a step"""
-        step_output: Optional[StepOutput] = None
-        for step in self.steps:
-            if step.name == step_name:
-                step_output = step.execute(StepInput(message=step_input))
-
-        return step_output
-
     def _get_step_information(self):
         """Get the step information to provide to the workflow agent"""
         from inspect import isfunction
@@ -1725,76 +1715,73 @@ class Workflow:
 
         return step_information
 
-    def _initialize_agent(self):
+    def _initialize_agent(self, session: WorkflowSession):
         """Initialize the agent"""
         import json
 
-        from agno.workflow.utils import WorkflowResponse
+        from agno.workflow.utils import WORKFLOW_AGENT_INSTRUCTIONS, WorkflowResponse
 
         self.agent.response_model = WorkflowResponse
         step_information = self._get_step_information()
         self.agent.session_id = f"agent_{self.session_id}"
 
-        instructions = f"""
-            You are controlling a multi-step workflow. For each user message, choose one action:
+        instructions = WORKFLOW_AGENT_INSTRUCTIONS
 
-            1. **respond_directly** – Answer the question using available information
-            2. **ask_for_more_information** – Request clarification when the query is unclear
-            3. **continue_workflow** – Execute the next workflow step
-            - MUST include `workflow_input` as a simple string with essential information only
-
-            Steps in the workflow:
-            {json.dumps(step_information, indent=2)}
-            """
-
-        results = self._get_messages_from_session()
+        instructions += f"""
+Steps in the workflow:
+{json.dumps(step_information, indent=2)}
+"""
+        results = self._get_messages_from_session(session=session)
         if results:
             instructions += f"""
-            Previous results from workflow:
-            {json.dumps(results, indent=2)}
-
-            Decision guidelines:
-            - Question answered by these results → **respond_directly**
-            - User query is unrelated to past results → **continue_workflow** 
-            - Query unclear or incomplete → **ask_for_more_information**
+Previous results from workflow:
+{json.dumps(results, indent=2)}
             """
         else:
             instructions += """
-            No previous results available.
-
-            Decision guidelines:
-            - Can answer the question now → **respond_directly**
-            - User wants workflow execution → **continue_workflow**
-            - Query unclear or incomplete → **ask_for_more_information**
+No previous results available.
             """
 
         self.agent.instructions = instructions
 
-    def _get_messages_from_session(self):
+    def _get_messages_from_session(self, session: WorkflowSession) -> Optional[List[str]]:
         """Get the messages from the session"""
-        if self.workflow_session is None:
+        if session is None:
             return None
 
         messages = []
-        for run in self.workflow_session.runs:
+        for run in session.runs:
             messages.append(run.content)
-        # TODO: Add ability to add individual results from steps to the workflow agent context
+        # TODO for V2: Add ability to add individual results from steps to the workflow agent context
 
         return messages
 
     def _execute_agent(self, inputs: WorkflowExecutionInput):
         """Execute the agent"""
-        from agno.workflow.utils import WorkflowAction, WorkflowResponse
+        from agno.workflow.utils import WorkflowResponse
 
-        response = self.agent.run(message=inputs.message).content
+        response: Optional[WorkflowResponse] = self.agent.run(input=inputs.input).content
 
         if isinstance(response, WorkflowResponse):
-            if response.action == WorkflowAction.respond_directly:
-                return response.model_dump(exclude_none=True), False
-            elif response.action == WorkflowAction.continue_workflow:
-                return response.model_dump(exclude_none=True), True
-            elif response.action == WorkflowAction.ask_for_more_information:
-                return response.model_dump(exclude_none=True), False
+            if response.continue_workflow:
+                return response, True
+            else:
+                return response, False
+        else:
+            log_error(f"Invalid response from Workflow Agent: {response}. Continuing workflow")
+            return None, False
+
+    async def _aexecute_agent(self, inputs: WorkflowExecutionInput):
+        """Execute the agent asynchronously"""
+        from agno.workflow.utils import WorkflowResponse
+
+        response: Optional[WorkflowResponse] = await self.agent.arun(input=inputs.input).content
+
+        if isinstance(response, WorkflowResponse):
+            if response.continue_workflow:
+                return response, True
+            else:
+                return response, False
         else:
             log_error(f"Invalid response from Workflow Agent: {response}. Continuing workflow")
             return None, False
@@ -1910,21 +1897,18 @@ class Workflow:
         self.update_agents_and_teams_session_info()
 
         if self.agent is not None:
-            self._initialize_agent()
+            self._initialize_agent(session=workflow_session)
 
             content, continue_workflow = self._execute_agent(inputs=inputs)
-            step_output = StepOutput(
-                step_name="Workflow Agent",
-                content=content,
-            )
-            workflow_run_response.step_responses = [step_output]
+            workflow_run_response.agent_response = content
 
             if not continue_workflow:
                 return workflow_run_response
             else:
                 # If the workflow_input is provided, use it as input for the workflow
-                if content.get("workflow_input") is not None:
-                    inputs.message = content.get("workflow_input")
+                # TODO: Look into making it optional
+                if content.workflow_input is not None:
+                    inputs.message = content.workflow_input
 
         if stream:
             return self._execute_stream(
@@ -2089,6 +2073,19 @@ class Workflow:
         )
 
         self.update_agents_and_teams_session_info()
+
+        if self.agent is not None:
+            self._initialize_agent(session=workflow_session)
+
+            content, continue_workflow = await self._aexecute_agent(inputs=inputs)
+            workflow_run_response.agent_response = content
+
+            if not continue_workflow:
+                return workflow_run_response
+            else:
+                # If the workflow_input is provided, use it as input for the workflow
+                if content.workflow_input is not None:
+                    inputs.message = content.workflow_input
 
         if stream:
             return self._aexecute_stream(
@@ -2286,6 +2283,63 @@ class Workflow:
                 console=console,
                 **kwargs,
             )
+
+    def cli_app(
+        self,
+        message: Optional[str] = None,
+        user: str = "User",
+        emoji: str = "🤖",
+        stream: bool = False,
+        markdown: bool = True,
+        exit_on: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        """Run an interactive command-line interface for the workflow."""
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.prompt import Prompt
+
+        console = Console()
+
+        # Welcome message
+        console.print(
+            Panel.fit(
+                f"[bold blue]Welcome to {self.name or 'Workflow Chat'}![/bold blue]\n"
+                f"[dim]{self.description or 'Interactive workflow assistant'}[/dim]\n\n"
+                f"[yellow]Type your questions and I'll help you through the workflow.[/yellow]\n"
+                f"[dim]Type 'exit', 'quit', or 'bye' to end the conversation.[/dim]",
+                title="🚀 Workflow Chat",
+                border_style="blue",
+            )
+        )
+
+        if message:
+            console.print(f"\n[bold]{emoji} {user}:[/bold] {message}")
+            self.print_response(input=message, stream=stream, markdown=markdown, console=console, **kwargs)
+
+        _exit_on = exit_on or ["exit", "quit", "bye"]
+        session_id = session_id
+
+        while True:
+            try:
+                message = Prompt.ask(f"\n[bold]{emoji} {user}[/bold]")
+                if message.lower().strip() in _exit_on:
+                    console.print("\n[yellow]👋 Thanks for using the workflow chat! Goodbye![/yellow]")
+                    break
+
+                if not message.strip():
+                    continue
+
+                self.print_response(
+                    input=message, stream=stream, markdown=markdown, session_id=session_id, console=console, **kwargs
+                )
+
+            except KeyboardInterrupt:
+                console.print("\n[yellow]👋 Chat interrupted. Goodbye![/yellow]")
+                break
+            except Exception as e:
+                console.print(f"\n[red]❌ Error: {e}[/red]")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert workflow to dictionary representation"""

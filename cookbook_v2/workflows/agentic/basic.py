@@ -29,7 +29,6 @@ def add_references(step_input: StepInput):
 
 workflow_agent = Agent(
     model=OpenAIChat(id="gpt-4o-mini"),
-    instructions="You are tasked with chatting to the user",
     db=PostgresDb(db_url),
     add_history_to_context=True,
 )
@@ -41,6 +40,7 @@ workflow = Workflow(
     db=PostgresDb(db_url),
 )
 
-
-workflow.print_response("Tell me a story about a husky names Max")
+workflow.print_response("Tell me a story about a husky named Max")
 workflow.print_response("What was Max like?")
+
+# workflow.cli_app()

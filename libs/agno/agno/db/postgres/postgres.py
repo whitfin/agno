@@ -1507,10 +1507,7 @@ class PostgresDb(BaseDb):
                 if workflow_id is not None:
                     stmt = stmt.where(table.c.workflow_id == workflow_id)
                 if model_id is not None:
-                    from agno.db.utils import parse_model_ids
-                    parsed_model_ids = parse_model_ids(model_id)
-                    if parsed_model_ids:
-                        stmt = stmt.where(table.c.model_id.in_(parsed_model_ids))
+                    stmt = stmt.where(table.c.model_id.in_(model_id))
                 if eval_type is not None and len(eval_type) > 0:
                     stmt = stmt.where(table.c.eval_type.in_(eval_type))
                 if filter_type is not None:

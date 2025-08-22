@@ -84,7 +84,7 @@ class Gemini(Model):
     presence_penalty: Optional[float] = None
     frequency_penalty: Optional[float] = None
     seed: Optional[int] = None
-    response_modalities: Optional[list[str]] = None  # "TEXT", "IMAGE", and/or "AUDIO"
+    response_modalities: Optional[list[str]] = None  # "Text" and/or "Image"
     speech_config: Optional[dict[str, Any]] = None
     cached_content: Optional[Any] = None
     thinking_budget: Optional[int] = None  # Thinking budget for Gemini 2.5 models
@@ -208,9 +208,7 @@ class Gemini(Model):
         builtin_tools = []
 
         if self.grounding:
-            log_info(
-                "Grounding enabled. This is a legacy tool. For Gemini 2.0+ Please use enable `search` flag instead."
-            )
+            log_info("Grounding enabled. This is a legacy tool. For Gemini 2.0+ Please use enable `search` flag instead.")
             builtin_tools.append(
                 Tool(
                     google_search=GoogleSearchRetrieval(
@@ -235,7 +233,13 @@ class Gemini(Model):
                 log_error("vertexai_search_datastore must be provided when vertexai_search is enabled.")
                 raise ValueError("vertexai_search_datastore must be provided when vertexai_search is enabled.")
             builtin_tools.append(
-                Tool(retrieval=Retrieval(vertex_ai_search=VertexAISearch(datastore=self.vertexai_search_datastore)))
+                Tool(
+                    retrieval=Retrieval(
+                        vertex_ai_search=VertexAISearch(
+                            datastore=self.vertexai_search_datastore
+                        )
+                    )
+                )
             )
 
         # Set tools in config
@@ -765,21 +769,9 @@ class Gemini(Model):
                                 model_response.content += content_str
 
                 if hasattr(part, "inline_data") and part.inline_data is not None:
-                    # Handle audio responses (for TTS models)
-                    if part.inline_data.mime_type and part.inline_data.mime_type.startswith("audio/"):
-                        from agno.media import AudioResponse
-
-                        # Store raw binary data 
-                        model_response.audio = AudioResponse(
-                            id=str(uuid4()),
-                            raw_content=part.inline_data.data,  # Raw binary data
-                            mime_type=part.inline_data.mime_type,
-                        )
-                    #Image responses
-                    else:
-                        model_response.image = ImageArtifact(
-                            id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
-                        )
+                    model_response.image = ImageArtifact(
+                        id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
+                    )
 
                 # Extract function call if present
                 if hasattr(part, "function_call") and part.function_call is not None:
@@ -892,21 +884,9 @@ class Gemini(Model):
                                 model_response.content += text_content
 
                     if hasattr(part, "inline_data") and part.inline_data is not None:
-                        # Audio responses
-                        if part.inline_data.mime_type and part.inline_data.mime_type.startswith("audio/"):
-                            from agno.media import AudioResponse
-
-                            # Store raw binary data directly - no conversion needed!
-                            model_response.audio = AudioResponse(
-                                id=str(uuid4()),
-                                raw_content=part.inline_data.data,  # Raw binary data
-                                mime_type=part.inline_data.mime_type,
-                            )
-                        # Image responses
-                        else:
-                            model_response.image = ImageArtifact(
-                                id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
-                            )
+                        model_response.image = ImageArtifact(
+                            id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
+                        )
 
                     # Extract function call if present
                     if hasattr(part, "function_call") and part.function_call is not None:

@@ -6111,7 +6111,7 @@ class Team:
             append_to_reasoning_content(run_response, formatted_content)
             return reasoning_step
 
-        # Case 3: ThinkingTools.think (simple format, just has 'thought')
+        # Case 3: ReasoningTool.think (simple format, just has 'thought')
         elif tool_name.lower() == "think" and "thought" in tool_args:
             thought = tool_args["thought"]
             reasoning_step = ReasoningStep(

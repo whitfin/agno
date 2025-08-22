@@ -139,7 +139,7 @@ class Workflow:
     events_to_skip: Optional[List[WorkflowRunEvent]] = None
 
     # Control whether to store executor responses (agent/team responses) in flattened runs
-    store_executor_responses: bool = True
+    store_executor_outputs: bool = True
 
     websocket_handler: Optional[WebSocketHandler] = None
 
@@ -164,7 +164,7 @@ class Workflow:
         stream_intermediate_steps: bool = False,
         store_events: bool = False,
         events_to_skip: Optional[List[WorkflowRunEvent]] = None,
-        store_executor_responses: bool = True,
+        store_executor_outputs: bool = True,
         input_schema: Optional[Type[BaseModel]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         cache_session: bool = False,
@@ -181,7 +181,7 @@ class Workflow:
         self.events_to_skip = events_to_skip or []
         self.stream = stream
         self.stream_intermediate_steps = stream_intermediate_steps
-        self.store_executor_responses = store_executor_responses
+        self.store_executor_outputs = store_executor_outputs
         self.input_schema = input_schema
         self.metadata = metadata
         self.cache_session = cache_session
@@ -866,7 +866,7 @@ class Workflow:
                         user_id=self.user_id,
                         workflow_run_response=workflow_run_response,
                         session_state=session_state,
-                        store_executor_responses=self.store_executor_responses,
+                        store_executor_outputs=self.store_executor_outputs,
                     )
 
                     # Update the workflow-level previous_step_outputs dictionary
@@ -1002,7 +1002,7 @@ class Workflow:
                         workflow_run_response=workflow_run_response,
                         session_state=session_state,
                         step_index=i,
-                        store_executor_responses=self.store_executor_responses,
+                        store_executor_outputs=self.store_executor_outputs,
                     ):
                         # Handle events
                         if isinstance(event, StepOutput):
@@ -1237,7 +1237,7 @@ class Workflow:
                         user_id=self.user_id,
                         workflow_run_response=workflow_run_response,
                         session_state=session_state,
-                        store_executor_responses=self.store_executor_responses,
+                        store_executor_outputs=self.store_executor_outputs,
                     )
 
                     # Update the workflow-level previous_step_outputs dictionary
@@ -1377,7 +1377,7 @@ class Workflow:
                         workflow_run_response=workflow_run_response,
                         session_state=session_state,
                         step_index=i,
-                        store_executor_responses=self.store_executor_responses,
+                        store_executor_outputs=self.store_executor_outputs,
                     ):
                         if isinstance(event, StepOutput):
                             step_output = event

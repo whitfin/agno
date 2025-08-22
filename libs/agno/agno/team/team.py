@@ -307,9 +307,6 @@ class Team:
     # Store member agent runs inside the team's RunOutput
     store_member_responses: bool = False
 
-    # Optional app ID. Indicates this team is part of an app.
-    os_id: Optional[str] = None
-
     # --- Debug ---
     # Enable debug logs
     debug_mode: bool = False

@@ -33,7 +33,7 @@ classifiers = [
 dependencies = [
   "docstring-parser",
   "gitpython",
-  "httpx",  
+  "httpx",
   "packaging",
   "pydantic-settings",
   "pydantic",
@@ -124,6 +124,7 @@ trafilatura = ["trafilatura"]
 # Dependencies for Storage
 sql = ["sqlalchemy"]
 postgres = ["psycopg-binary"]
+async_postgres = ["asyncpg"]
 sqlite = ["sqlalchemy"]
 gcs = ["google-cloud-storage"]
 firestore = ["google-cloud-firestore"]
@@ -236,6 +237,7 @@ tools = [
 storage = [
   "agno[sql]",
   "agno[postgres]",
+  "agno[async_postgres]",
   "agno[sqlite]",
   "agno[gcs]",
   "agno[firestore]",

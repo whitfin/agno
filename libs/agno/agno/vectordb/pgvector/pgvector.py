@@ -306,26 +306,7 @@ class PgVector(VectorDb):
                         batch_records = []
                         for doc in batch_docs:
                             try:
-                                doc.embed(embedder=self.embedder)
-                                cleaned_content = self._clean_content(doc.content)
-                                record_id = doc.id or content_hash
-
-                                meta_data = doc.meta_data or {}
-                                if filters:
-                                    meta_data.update(filters)
-
-                                record = {
-                                    "id": record_id,
-                                    "name": doc.name,
-                                    "meta_data": doc.meta_data,
-                                    "filters": filters,
-                                    "content": cleaned_content,
-                                    "embedding": doc.embedding,
-                                    "usage": doc.usage,
-                                    "content_hash": content_hash,
-                                    "content_id": doc.content_id,
-                                }
-                                batch_records.append(record)
+                                batch_records.append(self._get_document_record(doc, filters, content_hash))
                             except Exception as e:
                                 logger.error(f"Error processing document '{doc.name}': {e}")
 
@@ -453,26 +434,7 @@ class PgVector(VectorDb):
                         batch_records_dict = {}  # Use dict to deduplicate by ID
                         for doc in batch_docs:
                             try:
-                                doc.embed(embedder=self.embedder)
-                                cleaned_content = self._clean_content(doc.content)
-                                record_id = md5(cleaned_content.encode()).hexdigest()
-
-                                meta_data = doc.meta_data or {}
-                                if filters:
-                                    meta_data.update(filters)
-
-                                record = {
-                                    "id": record_id,  # use record_id as a reproducible id to avoid duplicates while upsert
-                                    "name": doc.name,
-                                    "meta_data": doc.meta_data,
-                                    "filters": filters,
-                                    "content": cleaned_content,
-                                    "embedding": doc.embedding,
-                                    "usage": doc.usage,
-                                    "content_hash": content_hash,
-                                    "content_id": doc.content_id,
-                                }
-                                batch_records_dict[record_id] = record  # This deduplicates by ID
+                                batch_records.append(self._get_document_record(doc, filters, content_hash))
                             except Exception as e:
                                 logger.error(f"Error processing document '{doc.name}': {e}")
 
@@ -507,6 +469,29 @@ class PgVector(VectorDb):
         except Exception as e:
             logger.error(f"Error upserting documents: {e}")
             raise
+
+    def _get_document_record(
+        self, doc: Document, filters: Optional[Dict[str, Any]] = None, content_hash: str = ""
+    ) -> Dict[str, Any]:
+        doc.embed(embedder=self.embedder)
+        cleaned_content = self._clean_content(doc.content)
+        record_id = doc.id or content_hash
+
+        meta_data = doc.meta_data or {}
+        if filters:
+            meta_data.update(filters)
+
+        return {
+            "id": record_id,
+            "name": doc.name,
+            "meta_data": doc.meta_data,
+            "filters": filters,
+            "content": cleaned_content,
+            "embedding": doc.embedding,
+            "usage": doc.usage,
+            "content_hash": content_hash,
+            "content_id": doc.content_id,
+        }
 
     async def async_upsert(
         self,

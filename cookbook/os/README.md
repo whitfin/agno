@@ -59,7 +59,7 @@ pip install -U agno fastapi uvicorn sqlalchemy pgvector psycopg openai
 
 For additional tools and integrations:
 ```bash
-pip install duckduckgo-search yfinance
+pip install ddgs yfinance
 ```
 
 ## Examples
@@ -103,7 +103,7 @@ This directory contains comprehensive examples demonstrating different aspects o
 - [`interfaces/slack/agent_with_user_memory.py`](interfaces/slack/agent_with_user_memory.py) - Slack bot with persistent memory
 - [`interfaces/slack/reasoning_agent.py`](interfaces/slack/reasoning_agent.py) - Advanced reasoning agent for Slack
 
-#### WhatsApp Integration  
+#### WhatsApp Integration
 - [`interfaces/whatsapp/basic.py`](interfaces/whatsapp/basic.py) - Basic WhatsApp bot
 - [`interfaces/whatsapp/agent_with_user_memory.py`](interfaces/whatsapp/agent_with_user_memory.py) - WhatsApp bot with memory
 - [`interfaces/whatsapp/agent_with_media.py`](interfaces/whatsapp/agent_with_media.py) - Media handling in WhatsApp

@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from agno.agent.agent import Agent
 from agno.db.base import BaseDb, SessionType
-from agno.media import Audio, AudioArtifact, Image, ImageArtifact, Video, VideoArtifact
+from agno.media import Audio, AudioArtifact, Image, ImageArtifact, Video, VideoArtifact, File
 from agno.models.message import Message
 from agno.models.metrics import Metrics
 from agno.run.base import RunStatus
@@ -720,6 +720,7 @@ class Workflow:
         shared_images: Optional[List[ImageArtifact]] = None,
         shared_videos: Optional[List[VideoArtifact]] = None,
         shared_audio: Optional[List[AudioArtifact]] = None,
+        shared_files: Optional[List[File]] = None,
     ) -> StepInput:
         """Helper method to create StepInput with enhanced data flow support"""
 
@@ -737,6 +738,7 @@ class Workflow:
             images=shared_images or [],
             videos=shared_videos or [],
             audio=shared_audio or [],
+            files=shared_files or [],
         )
 
     def _get_step_count(self) -> int:
@@ -860,7 +862,9 @@ class Workflow:
                 output_videos: List[VideoArtifact] = (execution_input.videos or []).copy()  # Start with input videos
                 shared_audio: List[AudioArtifact] = execution_input.audio or []
                 output_audio: List[AudioArtifact] = (execution_input.audio or []).copy()  # Start with input audio
-
+                shared_files: List[File] = execution_input.files or []
+                output_files: List[File] = (execution_input.files or []).copy()  # Start with input files
+                
                 for i, step in enumerate(self.steps):  # type: ignore[arg-type]
                     step_name = getattr(step, "name", f"step_{i + 1}")
                     log_debug(f"Executing step {i + 1}/{self._get_step_count()}: {step_name}")
@@ -872,6 +876,7 @@ class Workflow:
                         shared_images=shared_images,
                         shared_videos=shared_videos,
                         shared_audio=shared_audio,
+                        shared_files=shared_files,
                     )
 
                     step_output = step.execute(  # type: ignore[union-attr]
@@ -893,10 +898,12 @@ class Workflow:
                     shared_images.extend(step_output.images or [])
                     shared_videos.extend(step_output.videos or [])
                     shared_audio.extend(step_output.audio or [])
+                    shared_files.extend(step_output.files or [])
                     output_images.extend(step_output.images or [])
                     output_videos.extend(step_output.videos or [])
                     output_audio.extend(step_output.audio or [])
-
+                    output_files.extend(step_output.files or [])
+                    
                     collected_step_outputs.append(step_output)
 
                 # Update the workflow_run_response with completion data
@@ -995,7 +1002,9 @@ class Workflow:
                 output_videos: List[VideoArtifact] = (execution_input.videos or []).copy()  # Start with input videos
                 shared_audio: List[AudioArtifact] = execution_input.audio or []
                 output_audio: List[AudioArtifact] = (execution_input.audio or []).copy()  # Start with input audio
-
+                shared_files: List[File] = execution_input.files or []
+                output_files: List[File] = (execution_input.files or []).copy()  # Start with input files
+                
                 early_termination = False
 
                 for i, step in enumerate(self.steps):  # type: ignore[arg-type]
@@ -1009,6 +1018,7 @@ class Workflow:
                         shared_images=shared_images,
                         shared_videos=shared_videos,
                         shared_audio=shared_audio,
+                        shared_files=shared_files,
                     )
 
                     # Execute step with streaming and yield all events
@@ -1041,10 +1051,12 @@ class Workflow:
                                 shared_images.extend(step_output.images or [])
                                 shared_videos.extend(step_output.videos or [])
                                 shared_audio.extend(step_output.audio or [])
+                                shared_files.extend(step_output.files or [])
                                 output_images.extend(step_output.images or [])
                                 output_videos.extend(step_output.videos or [])
                                 output_audio.extend(step_output.audio or [])
-
+                                output_files.extend(step_output.files or [])
+                                
                                 # Only yield StepOutputEvent for function executors, not for agents/teams
                                 if getattr(step, "executor_type", None) == "function":
                                     yield step_output_event
@@ -1057,10 +1069,12 @@ class Workflow:
                             shared_images.extend(step_output.images or [])
                             shared_videos.extend(step_output.videos or [])
                             shared_audio.extend(step_output.audio or [])
+                            shared_files.extend(step_output.files or [])
                             output_images.extend(step_output.images or [])
                             output_videos.extend(step_output.videos or [])
                             output_audio.extend(step_output.audio or [])
-
+                            output_files.extend(step_output.files or [])
+                            
                             # Only yield StepOutputEvent for generator functions, not for agents/teams
                             if getattr(step, "executor_type", None) == "function":
                                 yield step_output_event
@@ -1239,6 +1253,8 @@ class Workflow:
                 output_videos: List[VideoArtifact] = (execution_input.videos or []).copy()  # Start with input videos
                 shared_audio: List[AudioArtifact] = execution_input.audio or []
                 output_audio: List[AudioArtifact] = (execution_input.audio or []).copy()  # Start with input audio
+                shared_files: List[File] = execution_input.files or []
+                output_files: List[File] = (execution_input.files or []).copy()  # Start with input files
 
                 for i, step in enumerate(self.steps):  # type: ignore[arg-type]
                     step_name = getattr(step, "name", f"step_{i + 1}")
@@ -1251,6 +1267,7 @@ class Workflow:
                         shared_images=shared_images,
                         shared_videos=shared_videos,
                         shared_audio=shared_audio,
+                        shared_files=shared_files,
                     )
 
                     step_output = await step.aexecute(  # type: ignore[union-attr]
@@ -1272,10 +1289,12 @@ class Workflow:
                     shared_images.extend(step_output.images or [])
                     shared_videos.extend(step_output.videos or [])
                     shared_audio.extend(step_output.audio or [])
+                    shared_files.extend(step_output.files or [])
                     output_images.extend(step_output.images or [])
                     output_videos.extend(step_output.videos or [])
                     output_audio.extend(step_output.audio or [])
-
+                    output_files.extend(step_output.files or [])
+                    
                     collected_step_outputs.append(step_output)
 
                 # Update the workflow_run_response with completion data
@@ -1378,6 +1397,8 @@ class Workflow:
                 output_videos: List[VideoArtifact] = (execution_input.videos or []).copy()  # Start with input videos
                 shared_audio: List[AudioArtifact] = execution_input.audio or []
                 output_audio: List[AudioArtifact] = (execution_input.audio or []).copy()  # Start with input audio
+                shared_files: List[File] = execution_input.files or []
+                output_files: List[File] = (execution_input.files or []).copy()  # Start with input files
 
                 early_termination = False
 
@@ -1392,6 +1413,7 @@ class Workflow:
                         shared_images=shared_images,
                         shared_videos=shared_videos,
                         shared_audio=shared_audio,
+                        shared_files=shared_files,
                     )
 
                     # Execute step with streaming and yield all events
@@ -1423,9 +1445,11 @@ class Workflow:
                                 shared_images.extend(step_output.images or [])
                                 shared_videos.extend(step_output.videos or [])
                                 shared_audio.extend(step_output.audio or [])
+                                shared_files.extend(step_output.files or [])
                                 output_images.extend(step_output.images or [])
                                 output_videos.extend(step_output.videos or [])
                                 output_audio.extend(step_output.audio or [])
+                                output_files.extend(step_output.files or [])
 
                                 if getattr(step, "executor_type", None) == "function":
                                     yield step_output_event
@@ -1438,9 +1462,11 @@ class Workflow:
                             shared_images.extend(step_output.images or [])
                             shared_videos.extend(step_output.videos or [])
                             shared_audio.extend(step_output.audio or [])
+                            shared_files.extend(step_output.files or [])
                             output_images.extend(step_output.images or [])
                             output_videos.extend(step_output.videos or [])
                             output_audio.extend(step_output.audio or [])
+                            output_files.extend(step_output.files or [])
 
                             # Only yield StepOutputEvent for generator functions, not for agents/teams
                             if getattr(step, "executor_type", None) == "function":
@@ -1532,6 +1558,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         **kwargs: Any,
     ) -> WorkflowRunOutput:
         """Execute workflow in background using asyncio.create_task()"""
@@ -1574,6 +1601,7 @@ class Workflow:
             audio=audio,  # type: ignore
             images=images,  # type: ignore
             videos=videos,  # type: ignore
+            files=files,  # type: ignore
         )
 
         self.update_agents_and_teams_session_info()
@@ -1618,6 +1646,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream_intermediate_steps: bool = False,
         websocket_handler: Optional[WebSocketHandler] = None,
         **kwargs: Any,
@@ -1662,6 +1691,7 @@ class Workflow:
             audio=audio,  # type: ignore
             images=images,  # type: ignore
             videos=videos,  # type: ignore
+            files=files,  # type: ignore
         )
 
         self.update_agents_and_teams_session_info()
@@ -1725,6 +1755,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
@@ -1741,6 +1772,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
@@ -1756,6 +1788,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: bool = False,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
@@ -1817,6 +1850,7 @@ class Workflow:
             audio=audio,  # type: ignore
             images=images,  # type: ignore
             videos=videos,  # type: ignore
+            files=files,  # type: ignore
         )
         log_debug(
             f"Created pipeline input with session state keys: {list(session_state.keys()) if session_state else 'None'}"
@@ -1853,6 +1887,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: Literal[False] = False,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
@@ -1870,6 +1905,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: Literal[True] = True,
         stream_intermediate_steps: Optional[bool] = None,
         background: Optional[bool] = False,
@@ -1886,6 +1922,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: bool = False,
         stream_intermediate_steps: Optional[bool] = False,
         background: Optional[bool] = False,
@@ -1915,6 +1952,7 @@ class Workflow:
                     audio=audio,
                     images=images,
                     videos=videos,
+                    files=files,
                     stream_intermediate_steps=stream_intermediate_steps or False,
                     websocket_handler=websocket_handler,
                     **kwargs,
@@ -1932,6 +1970,7 @@ class Workflow:
                     audio=audio,
                     images=images,
                     videos=videos,
+                    files=files,
                     **kwargs,
                 )
 
@@ -1995,6 +2034,7 @@ class Workflow:
                 session=workflow_session,
                 stream_intermediate_steps=stream_intermediate_steps,
                 websocket=websocket,
+                files=files,
                 session_state=session_state,
                 **kwargs,
             )
@@ -2004,6 +2044,7 @@ class Workflow:
                 workflow_run_response=workflow_run_response,
                 session=workflow_session,
                 websocket=websocket,
+                files=files,
                 session_state=session_state,
                 **kwargs,
             )
@@ -2045,6 +2086,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
         markdown: bool = True,
@@ -2087,6 +2129,7 @@ class Workflow:
                 audio=audio,
                 images=images,
                 videos=videos,
+                files=files,
                 stream_intermediate_steps=stream_intermediate_steps,
                 markdown=markdown,
                 show_time=show_time,
@@ -2104,6 +2147,7 @@ class Workflow:
                 audio=audio,
                 images=images,
                 videos=videos,
+                files=files,
                 markdown=markdown,
                 show_time=show_time,
                 show_step_details=show_step_details,
@@ -2120,6 +2164,7 @@ class Workflow:
         audio: Optional[List[Audio]] = None,
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
+        files: Optional[List[File]] = None,
         stream: Optional[bool] = None,
         stream_intermediate_steps: Optional[bool] = None,
         markdown: bool = True,
@@ -2161,6 +2206,7 @@ class Workflow:
                 audio=audio,
                 images=images,
                 videos=videos,
+                files=files,
                 stream_intermediate_steps=stream_intermediate_steps,
                 markdown=markdown,
                 show_time=show_time,
@@ -2178,6 +2224,7 @@ class Workflow:
                 audio=audio,
                 images=images,
                 videos=videos,
+                files=files,
                 markdown=markdown,
                 show_time=show_time,
                 show_step_details=show_step_details,

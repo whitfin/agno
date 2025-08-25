@@ -1,6 +1,12 @@
+<<<<<<< HEAD:cookbook/db/mysql/mysql_for_team.py
 """Use MySQL as the database for a team.
 
-Run `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
+Run `pip install openai ddgs newspaper4k lxml_html_clean agno` to install the dependencies
+=======
+"""
+1. Run: `pip install openai ddgs newspaper4k lxml_html_clean agno` to install the dependencies
+2. Run: `python cookbook/storage/json_storage/json_storage_for_team.py` to run the team
+>>>>>>> 6901605678366bab6617a4cda9d874d8118bef13:cookbook/storage/json_storage/json_storage_for_team.py
 """
 
 from typing import List

@@ -41,7 +41,7 @@ from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse, ModelResponseEvent
 from agno.reasoning.step import NextAction, ReasoningStep, ReasoningSteps
 from agno.run.agent import RunEvent, RunOutput, RunOutputEvent
-from agno.run.base import RunOutputMetaData, RunStatus
+from agno.run.base import RunStatus
 from agno.run.messages import RunMessages
 from agno.run.team import TeamRunEvent, TeamRunOutput, TeamRunOutputEvent
 from agno.session import SessionSummaryManager, TeamSession
@@ -143,8 +143,8 @@ class Team:
     # If True, cache the current Team session in memory for faster access
     cache_session: bool = False
 
-    # If True, add the session state variables in the user and system messages
-    add_state_in_messages: bool = False
+    # If True, resolve the session_state, dependencies, and metadata in the user and system messages
+    resolve_in_context: bool = True
 
     # --- System message settings ---
     # A description of the Team that is added to the start of the system message.
@@ -315,6 +315,14 @@ class Team:
     # Enable member logs - Sets the debug_mode for team and members
     show_members_responses: bool = False
 
+    # --- Team Response Settings ---
+    # Number of retries to attempt
+    retries: int = 0
+    # Delay between retries (in seconds)
+    delay_between_retries: int = 1
+    # Exponential backoff: if True, the delay between retries is doubled each time
+    exponential_backoff: bool = False
+
     # --- Telemetry ---
     # telemetry=True logs minimal telemetry for analytics
     # This helps us improve the Teams implementation and provide better support
@@ -331,7 +339,7 @@ class Team:
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
-        add_state_in_messages: bool = False,
+        resolve_in_context: bool = True,
         cache_session: bool = False,
         description: Optional[str] = None,
         instructions: Optional[Union[str, List[str], Callable]] = None,
@@ -395,6 +403,9 @@ class Team:
         debug_mode: bool = False,
         debug_level: Literal[1, 2] = 1,
         show_members_responses: bool = False,
+        retries: int = 0,
+        delay_between_retries: int = 1,
+        exponential_backoff: bool = False,
         telemetry: bool = True,
     ):
         self.members = members
@@ -410,7 +421,7 @@ class Team:
         self.user_id = user_id
         self.session_id = session_id
         self.session_state = session_state
-        self.add_state_in_messages = add_state_in_messages
+        self.resolve_in_context = resolve_in_context
         self.cache_session = cache_session
 
         self.description = description
@@ -494,6 +505,10 @@ class Team:
             debug_level = 1
         self.debug_level = debug_level
         self.show_members_responses = show_members_responses
+
+        self.retries = retries
+        self.delay_between_retries = delay_between_retries
+        self.exponential_backoff = exponential_backoff
 
         self.telemetry = telemetry
 
@@ -1063,7 +1078,8 @@ class Team:
             store_member_responses=store_member_responses,
         )
 
-        retries = retries or 3
+        # If no retries are set, use the team's default retries
+        retries = retries if retries is not None else self.retries
 
         # Run the team
         last_exception = None
@@ -1138,8 +1154,12 @@ class Team:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
 
                 last_exception = e
-                if attempt < num_attempts - 1:
-                    time.sleep(2**attempt)
+                if attempt < num_attempts - 1:  # Don't sleep on the last attempt
+                    if self.exponential_backoff:
+                        delay = 2**attempt * self.delay_between_retries
+                    else:
+                        delay = self.delay_between_retries
+                    time.sleep(delay)
             except (KeyboardInterrupt, RunCancelledException):
                 run_response.content = "Operation cancelled by user"
                 run_response.status = RunStatus.cancelled
@@ -1515,7 +1535,8 @@ class Team:
             store_member_responses=store_member_responses,
         )
 
-        retries = retries or 3
+        # If no retries are set, use the team's default retries
+        retries = retries if retries is not None else self.retries
 
         # Run the team
         last_exception = None
@@ -1579,10 +1600,14 @@ class Team:
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
                 last_exception = e
-                if attempt < num_attempts - 1:
+                if attempt < num_attempts - 1:  # Don't sleep on the last attempt
+                    if self.exponential_backoff:
+                        delay = 2**attempt * self.delay_between_retries
+                    else:
+                        delay = self.delay_between_retries
                     import time
 
-                    time.sleep(2**attempt)
+                    time.sleep(delay)
             except (KeyboardInterrupt, RunCancelledException):
                 run_response.status = RunStatus.cancelled
                 run_response.content = "Operation cancelled by user"
@@ -1722,8 +1747,8 @@ class Team:
 
         if stream_intermediate_steps and reasoning_state["reasoning_started"]:
             all_reasoning_steps: List[ReasoningStep] = []
-            if run_response.metadata and hasattr(run_response.metadata, "reasoning_steps"):
-                all_reasoning_steps = cast(List[ReasoningStep], run_response.metadata.reasoning_steps)
+            if run_response.reasoning_steps:
+                all_reasoning_steps = cast(List[ReasoningStep], run_response.reasoning_steps)
 
             if all_reasoning_steps:
                 add_reasoning_metrics_to_metadata(run_response, reasoning_state["reasoning_time_taken"])
@@ -1816,8 +1841,8 @@ class Team:
 
         if stream_intermediate_steps and reasoning_state["reasoning_started"]:
             all_reasoning_steps: List[ReasoningStep] = []
-            if run_response.metadata and hasattr(run_response.metadata, "reasoning_steps"):
-                all_reasoning_steps = cast(List[ReasoningStep], run_response.metadata.reasoning_steps)
+            if run_response.reasoning_steps:
+                all_reasoning_steps = cast(List[ReasoningStep], run_response.reasoning_steps)
 
             if all_reasoning_steps:
                 add_reasoning_metrics_to_metadata(run_response, reasoning_state["reasoning_time_taken"])
@@ -3591,7 +3616,7 @@ class Team:
                     raise Exception("system_message must return a string")
 
             # Format the system message with the session state variables
-            if self.add_state_in_messages:
+            if self.resolve_in_context:
                 sys_message_content = self._format_message_with_state_variables(sys_message_content, user_id=user_id)
 
             # type: ignore
@@ -3814,7 +3839,7 @@ class Team:
                 system_message_content += f"{_ti}\n"
 
         # Format the system message with the session state variables
-        if self.add_state_in_messages:
+        if self.resolve_in_context:
             system_message_content = self._format_message_with_state_variables(system_message_content, user_id=user_id)
 
         system_message_from_model = self.model.get_system_message_for_model(self._tools_for_model)
@@ -3900,12 +3925,10 @@ class Team:
             # Add the extra messages to the run_response
             if len(messages_to_add_to_run_response) > 0:
                 log_debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
-                if run_response.metadata is None:
-                    run_response.metadata = RunOutputMetaData(additional_input=messages_to_add_to_run_response)
-                    if run_response.metadata.additional_input is None:
-                        run_response.metadata.additional_input = messages_to_add_to_run_response
-                    else:
-                        run_response.metadata.additional_input.extend(messages_to_add_to_run_response)
+                if run_response.additional_input is None:
+                    run_response.additional_input = messages_to_add_to_run_response
+                else:
+                    run_response.additional_input.extend(messages_to_add_to_run_response)
 
         # 3. Add history to run_messages
         if self.add_history_to_context:
@@ -4045,17 +4068,15 @@ class Team:
                                 time=round(retrieval_timer.elapsed, 4),
                             )
                             # Add the references to the run_response
-                            if run_response.metadata is None:
-                                run_response.metadata = RunOutputMetaData()
-                            if run_response.metadata.references is None:
-                                run_response.metadata.references = []
-                            run_response.metadata.references.append(references)
+                            if run_response.references is None:
+                                run_response.references = []
+                            run_response.references.append(references)
                         retrieval_timer.stop()
                         log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
                     except Exception as e:
                         log_warning(f"Failed to get references: {e}")
 
-                if self.add_state_in_messages:
+                if self.resolve_in_context:
                     user_msg_content = self._format_message_with_state_variables(
                         user_msg_content,
                         user_id=user_id,
@@ -6342,11 +6363,9 @@ class Team:
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
                 # Add the references to the run_response
-                if run_response.metadata is None:
-                    run_response.metadata = RunOutputMetaData()
-                if run_response.metadata.references is None:
-                    run_response.metadata.references = []
-                run_response.metadata.references.append(references)
+                if run_response.references is None:
+                    run_response.references = []
+                run_response.references.append(references)
             retrieval_timer.stop()
             log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
@@ -6370,11 +6389,9 @@ class Team:
                 references = MessageReferences(
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
-                if run_response.metadata is None:
-                    run_response.metadata = RunOutputMetaData()
-                if run_response.metadata.references is None:
-                    run_response.metadata.references = []
-                run_response.metadata.references.append(references)
+                if run_response.references is None:
+                    run_response.references = []
+                run_response.references.append(references)
             retrieval_timer.stop()
             log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
@@ -6418,11 +6435,9 @@ class Team:
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
                 # Add the references to the run_response
-                if run_response.metadata is None:
-                    run_response.metadata = RunOutputMetaData()
-                if run_response.metadata.references is None:
-                    run_response.metadata.references = []
-                run_response.metadata.references.append(references)
+                if run_response.references is None:
+                    run_response.references = []
+                run_response.references.append(references)
             retrieval_timer.stop()
             log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
@@ -6449,11 +6464,9 @@ class Team:
                 references = MessageReferences(
                     query=query, references=docs_from_knowledge, time=round(retrieval_timer.elapsed, 4)
                 )
-                if run_response.metadata is None:
-                    run_response.metadata = RunOutputMetaData()
-                if run_response.metadata.references is None:
-                    run_response.metadata.references = []
-                run_response.metadata.references.append(references)
+                if run_response.references is None:
+                    run_response.references = []
+                run_response.references.append(references)
             retrieval_timer.stop()
             log_debug(f"Time to get references: {retrieval_timer.elapsed:.4f}s")
 
@@ -6492,9 +6505,12 @@ class Team:
         """Get the telemetry data for the team"""
         return {
             "team_id": self.id,
+            "db_type": self.db.__class__.__name__ if self.db else None,
             "model_provider": self.model.provider if self.model else None,
             "model_name": self.model.name if self.model else None,
             "model_id": self.model.id if self.model else None,
+            "parser_model": self.parser_model.to_dict() if self.parser_model else None,
+            "output_model": self.output_model.to_dict() if self.output_model else None,
             "member_count": len(self.members) if self.members else 0,
             "has_knowledge": self.knowledge is not None,
             "has_tools": self.tools is not None,

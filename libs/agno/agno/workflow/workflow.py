@@ -2308,7 +2308,9 @@ class Workflow:
     def _get_telemetry_data(self) -> Dict[str, Any]:
         """Get the telemetry data for the workflow"""
         return {
-            # TODO:
+            "workflow_id": self.id,
+            "db_type": self.db.__class__.__name__ if self.db else None,
+            "has_input_schema": self.input_schema is not None,
         }
 
     def _log_workflow_telemetry(self, session_id: str, run_id: Optional[str] = None) -> None:

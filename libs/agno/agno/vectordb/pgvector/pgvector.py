@@ -431,10 +431,10 @@ class PgVector(VectorDb):
                     log_info(f"Processing batch starting at index {i}, size: {len(batch_docs)}")
                     try:
                         # Prepare documents for upserting
-                        batch_records_dict = {}  # Use dict to deduplicate by ID
+                        batch_records_dict: Dict[str, Dict[str, Any]] = {}  # Use dict to deduplicate by ID
                         for doc in batch_docs:
                             try:
-                                batch_records.append(self._get_document_record(doc, filters, content_hash))
+                                batch_records_dict[doc.id] = self._get_document_record(doc, filters, content_hash)  # type: ignore
                             except Exception as e:
                                 logger.error(f"Error processing document '{doc.name}': {e}")
 

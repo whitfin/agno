@@ -1,13 +1,7 @@
-<<<<<<< HEAD:cookbook/examples/teams/coordinate_mode/hackernews_team.py
 """Example of a Team using the `coordinate` mode to play the role of a HackerNews Researcher.
 
 1. Run: `pip install openai ddgs newspaper4k lxml_html_clean agno` to install the dependencies
 2. Run: `python cookbook/examples/teams/coordinate_mode/hackernews_team.py` to run the agent
-=======
-"""
-1. Run: `pip install openai ddgs newspaper4k lxml_html_clean agno` to install the dependencies
-2. Run: `python cookbook/teams/coordinate/hackernews_team.py` to run the agent
->>>>>>> 6901605678366bab6617a4cda9d874d8118bef13:cookbook/examples/teams/coordinate/hackernews_team.py
 """
 
 from typing import List

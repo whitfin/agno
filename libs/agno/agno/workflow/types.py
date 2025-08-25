@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from fastapi import WebSocket
 from pydantic import BaseModel
 
-from agno.media import AudioArtifact, ImageArtifact, VideoArtifact, File
+from agno.media import AudioArtifact, File, ImageArtifact, VideoArtifact
 from agno.models.metrics import Metrics
 from agno.utils.log import log_warning
 
@@ -295,7 +295,7 @@ class StepOutput:
         files = data.get("files")
         if files:
             files = [File.model_validate(file) for file in files]
-            
+
         metrics_data = data.get("metrics")
         metrics = None
         if metrics_data:

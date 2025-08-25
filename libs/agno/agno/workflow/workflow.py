@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from agno.agent.agent import Agent
 from agno.db.base import BaseDb, SessionType
-from agno.media import Audio, AudioArtifact, Image, ImageArtifact, Video, VideoArtifact, File
+from agno.media import Audio, AudioArtifact, File, Image, ImageArtifact, Video, VideoArtifact
 from agno.models.message import Message
 from agno.models.metrics import Metrics
 from agno.run.base import RunStatus
@@ -864,7 +864,7 @@ class Workflow:
                 output_audio: List[AudioArtifact] = (execution_input.audio or []).copy()  # Start with input audio
                 shared_files: List[File] = execution_input.files or []
                 output_files: List[File] = (execution_input.files or []).copy()  # Start with input files
-                
+
                 for i, step in enumerate(self.steps):  # type: ignore[arg-type]
                     step_name = getattr(step, "name", f"step_{i + 1}")
                     log_debug(f"Executing step {i + 1}/{self._get_step_count()}: {step_name}")
@@ -903,7 +903,7 @@ class Workflow:
                     output_videos.extend(step_output.videos or [])
                     output_audio.extend(step_output.audio or [])
                     output_files.extend(step_output.files or [])
-                    
+
                     collected_step_outputs.append(step_output)
 
                 # Update the workflow_run_response with completion data
@@ -1004,7 +1004,7 @@ class Workflow:
                 output_audio: List[AudioArtifact] = (execution_input.audio or []).copy()  # Start with input audio
                 shared_files: List[File] = execution_input.files or []
                 output_files: List[File] = (execution_input.files or []).copy()  # Start with input files
-                
+
                 early_termination = False
 
                 for i, step in enumerate(self.steps):  # type: ignore[arg-type]
@@ -1056,7 +1056,7 @@ class Workflow:
                                 output_videos.extend(step_output.videos or [])
                                 output_audio.extend(step_output.audio or [])
                                 output_files.extend(step_output.files or [])
-                                
+
                                 # Only yield StepOutputEvent for function executors, not for agents/teams
                                 if getattr(step, "executor_type", None) == "function":
                                     yield step_output_event
@@ -1074,7 +1074,7 @@ class Workflow:
                             output_videos.extend(step_output.videos or [])
                             output_audio.extend(step_output.audio or [])
                             output_files.extend(step_output.files or [])
-                            
+
                             # Only yield StepOutputEvent for generator functions, not for agents/teams
                             if getattr(step, "executor_type", None) == "function":
                                 yield step_output_event
@@ -1294,7 +1294,7 @@ class Workflow:
                     output_videos.extend(step_output.videos or [])
                     output_audio.extend(step_output.audio or [])
                     output_files.extend(step_output.files or [])
-                    
+
                     collected_step_outputs.append(step_output)
 
                 # Update the workflow_run_response with completion data

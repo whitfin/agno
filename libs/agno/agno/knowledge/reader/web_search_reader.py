@@ -20,9 +20,7 @@ except ImportError:
 try:
     from ddgs import DDGS
 except ImportError:
-    raise ImportError(
-        "The `ddgs` package is not installed. Please install it via `pip install ddgs`."
-    )
+    raise ImportError("The `ddgs` package is not installed. Please install it via `pip install ddgs`.")
 
 
 @dataclass

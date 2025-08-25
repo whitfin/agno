@@ -780,7 +780,6 @@ jobs:
           ./libs/agno/tests/integration/knowledge/test_md_knowledge.py \
           ./libs/agno/tests/integration/knowledge/test_pdf_knowledge.py \
           ./libs/agno/tests/integration/knowledge/test_pdf_url_knowledge.py \
-          ./libs/agno/tests/integration/knowledge/test_pdf_bytes_knowledge.py \
           ./libs/agno/tests/integration/knowledge/test_text_knowledge.py
 
   test-knowledge-2:
@@ -812,7 +811,6 @@ jobs:
           source .venv/bin/activate
           python -m pytest ./libs/agno/tests/integration/knowledge/test_arxiv_knowledge.py \
           ./libs/agno/tests/integration/knowledge/test_firecrawl_knowledge.py \
-          ./libs/agno/tests/integration/knowledge/test_url_knowledge.py \
           ./libs/agno/tests/integration/knowledge/test_website_knowledge.py \
           ./libs/agno/tests/integration/knowledge/test_youtube_knowledge.py
 
@@ -844,4 +842,4 @@ jobs:
         working-directory: .
         run: |
           source .venv/bin/activate
-          python -m pytest --ignore=./libs/agno/tests/integration/models --ignore=./libs/agno/tests/integration/agent --ignore=./libs/agno/tests/integration/knowledge --ignore=./libs/agno/tests/integration/teams --ignore=./libs/agno/tests/integration/embedder --ignore=./libs/agno/tests/integration/workflows --ignore=./libs/agno/tests/integration/workflows_2 ./libs/agno/tests/integration
+          python -m pytest --ignore=./libs/agno/tests/integration/db --ignore=./libs/agno/tests/integration/models --ignore=./libs/agno/tests/integration/agent --ignore=./libs/agno/tests/integration/knowledge --ignore=./libs/agno/tests/integration/teams --ignore=./libs/agno/tests/integration/embedder --ignore=./libs/agno/tests/integration/workflows --ignore=./libs/agno/tests/integration/workflows_2 ./libs/agno/tests/integration

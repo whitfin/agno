@@ -112,7 +112,7 @@ class ChunkerSchema(BaseModel):
 
 
 class ConfigResponseSchema(BaseModel):
-    readers: Optional[List[ReaderSchema]] = None
+    readers: Optional[Dict[str, ReaderSchema]] = None
     readersForType: Optional[Dict[str, List[str]]] = None
-    chunkers: Optional[List[ChunkerSchema]] = None
+    chunkers: Optional[Dict[str, ChunkerSchema]] = None
     filters: Optional[List[str]] = None

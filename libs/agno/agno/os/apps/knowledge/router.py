@@ -16,6 +16,7 @@ from agno.os.apps.knowledge.schemas import (
     ContentStatusResponse,
     ContentUpdateSchema,
     ReaderSchema,
+    ChunkerSchema,
 )
 from agno.os.apps.utils import PaginatedResponse, PaginationInfo, SortOrder
 from agno.utils.log import log_debug, log_info
@@ -269,16 +270,14 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
     def get_config() -> ConfigResponseSchema:
         # Get factory readers info
         readers_info = get_all_readers_info()
-        reader_schemas = []
+        reader_schemas = {}
         # Add factory readers
         for reader_info in readers_info:
-            reader_schemas.append(
-                ReaderSchema(
-                    id=reader_info["id"],
-                    name=reader_info["name"],
-                    description=reader_info.get("description"),
-                    chunkers=reader_info.get("chunking_strategies", []),
-                )
+            reader_schemas[reader_info["id"]] = ReaderSchema(
+                id=reader_info["id"],
+                name=reader_info["name"],
+                description=reader_info.get("description"),
+                chunkers=reader_info.get("chunking_strategies", []), 
             )
 
         # Add custom readers from knowledge.readers
@@ -293,25 +292,33 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
                     chunking_strategies = []
 
                 # Check if this reader ID already exists in factory readers
-                existing_ids = [schema.id for schema in reader_schemas]
-                if reader_id not in existing_ids:
-                    reader_schemas.append(
-                        ReaderSchema(
-                            id=reader_id,
-                            name=getattr(reader, "name", reader.__class__.__name__),
-                            description=getattr(reader, "description", f"Custom {reader.__class__.__name__}"),
-                            chunkers=chunking_strategies,
-                        )
+                if reader_id not in reader_schemas:
+                    reader_schemas[reader_id] = ReaderSchema(
+                        id=reader_id,
+                        name=getattr(reader, "name", reader.__class__.__name__),
+                        description=getattr(reader, "description", f"Custom {reader.__class__.__name__}"),
+                        chunkers=chunking_strategies,
                     )
 
         # Get content types to readers mapping
-
         types_of_readers = get_content_types_to_readers_mapping()
-        chunkers = get_all_chunkers_info()
+        chunkers_list = get_all_chunkers_info()
+        
+        # Convert chunkers list to dictionary format expected by schema
+        chunkers_dict = {}
+        for chunker_info in chunkers_list:
+            chunker_key = chunker_info.get("key")
+            if chunker_key:
+                chunkers_dict[chunker_key] = ChunkerSchema(
+                    key=chunker_key,
+                    name=chunker_info.get("name"),
+                    description=chunker_info.get("description")
+                )
+        
         return ConfigResponseSchema(
             readers=reader_schemas,
             readersForType=types_of_readers,
-            chunkers=chunkers,
+            chunkers=chunkers_dict,
             filters=knowledge.get_filters(),
         )
 

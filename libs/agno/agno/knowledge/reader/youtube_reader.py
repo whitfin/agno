@@ -5,12 +5,8 @@ from agno.knowledge.chunking.recursive import RecursiveChunking
 from agno.knowledge.chunking.strategy import ChunkingStrategy, ChunkingStrategyType
 from agno.knowledge.document.base import Document
 from agno.knowledge.reader.base import Reader
-<<<<<<< HEAD
-from agno.utils.log import log_debug, log_info, logger
-=======
 from agno.knowledge.types import ContentType
-from agno.utils.log import log_info, logger
->>>>>>> 6161f1dac (update)
+from agno.utils.log import log_debug, log_error, log_info
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -75,7 +71,7 @@ class YouTubeReader(Reader):
             return documents
 
         except Exception as e:
-            logger.error(f"Error reading transcript for {url}: {e}")
+            log_error(f"Error reading transcript for {url}: {e}")
             return []
 
     async def async_read(self, url: str) -> List[Document]:

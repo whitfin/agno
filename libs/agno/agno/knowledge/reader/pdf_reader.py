@@ -328,7 +328,8 @@ class PDFReader(BasePDFReader):
     def get_supported_content_types(self) -> List[ContentType]:
         return [ContentType.PDF]
 
-    def read(self, pdf: Union[str, Path, IO[Any]], name: Optional[str] = None) -> List[Document]:
+    def read(
+        self, pdf: Union[str, Path, IO[Any]], name: Optional[str] = None, password: Optional[str] = None) -> List[Document]:
         try:
             if name:
                 doc_name = name

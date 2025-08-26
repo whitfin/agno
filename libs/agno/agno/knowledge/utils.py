@@ -73,15 +73,15 @@ def get_content_types_to_readers_mapping() -> Dict[str, List[str]]:
 def get_chunker_info(chunker_key: str) -> Dict:
     """Get information about a chunker without instantiating it."""
     try:
-        # Try to get chunker info from the factory first
-        chunker_method_name = f"_get_{chunker_key}_chunker"
+        # Use chunking strategies directly
+        from agno.knowledge.chunking.strategy import ChunkingStrategyType, ChunkingStrategyFactory
         
-        if hasattr(ChunkerFactory, chunker_method_name):
-            # Use the factory method if it exists
-            chunker_method = getattr(ChunkerFactory, chunker_method_name)
+        try:
+            # Use the chunker key directly as the strategy type value
+            strategy_type = ChunkingStrategyType.from_string(chunker_key)
             
-            # Get the chunker class to extract information
-            chunker_instance = chunker_method()
+            # Create an instance to get class information
+            chunker_instance = ChunkingStrategyFactory.create_strategy(strategy_type)
             chunker_class = chunker_instance.__class__
             
             # Extract class information
@@ -89,47 +89,14 @@ def get_chunker_info(chunker_key: str) -> Dict:
             docstring = chunker_class.__doc__ or f"{class_name} chunking strategy"
             
             return {
-                "id": chunker_key,
+                "key": chunker_key,
                 "class_name": class_name,
                 "name": class_name.replace("Chunking", "").replace("Strategy", ""),
                 "description": docstring.strip(),
-                "factory_method": chunker_method_name
+                "strategy_type": strategy_type.value
             }
-        else:
-            # Dynamic discovery from chunking strategies
-            from agno.knowledge.chunking.strategy import ChunkingStrategyType, ChunkingStrategyFactory
-            
-            # Map chunker key to strategy type
-            strategy_mapping = {
-                "agentic": ChunkingStrategyType.AGENTIC_CHUNKING,
-                "document": ChunkingStrategyType.DOCUMENT_CHUNKING,
-                "recursive": ChunkingStrategyType.RECURSIVE_CHUNKING,
-                "semantic": ChunkingStrategyType.SEMANTIC_CHUNKING,
-                "fixed": ChunkingStrategyType.FIXED_SIZE_CHUNKING,
-                "row": ChunkingStrategyType.ROW_CHUNKING,
-                "markdown": ChunkingStrategyType.MARKDOWN_CHUNKING,
-            }
-            
-            if chunker_key in strategy_mapping:
-                strategy_type = strategy_mapping[chunker_key]
-                
-                # Create an instance to get class information
-                chunker_instance = ChunkingStrategyFactory.create_strategy(strategy_type)
-                chunker_class = chunker_instance.__class__
-                
-                # Extract class information
-                class_name = chunker_class.__name__
-                docstring = chunker_class.__doc__ or f"{class_name} chunking strategy"
-                
-                return {
-                    "id": chunker_key,
-                    "class_name": class_name,
-                    "name": class_name.replace("Chunking", "").replace("Strategy", ""),
-                    "description": docstring.strip(),
-                    "strategy_type": strategy_type.value
-                }
-            else:
-                raise ValueError(f"Unknown chunker key: {chunker_key}")
+        except ValueError:
+            raise ValueError(f"Unknown chunker key: {chunker_key}")
                 
     except ImportError as e:
         # Skip chunkers with missing dependencies

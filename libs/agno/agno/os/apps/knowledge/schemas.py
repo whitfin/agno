@@ -106,7 +106,7 @@ class ReaderSchema(BaseModel):
 
 
 class ChunkerSchema(BaseModel):
-    id: str
+    key: str
     name: Optional[str] = None
     description: Optional[str] = None
 

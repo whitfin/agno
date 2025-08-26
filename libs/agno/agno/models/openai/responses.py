@@ -969,7 +969,6 @@ class OpenAIResponses(Model):
         # 3. Add content
         elif stream_event.type == "response.output_text.delta":
             model_response.content = stream_event.delta
-            stream_event.response_content += stream_event.delta
 
             # Treat the output_text deltas as reasoning content if the reasoning summary is not requested.
             if self.reasoning is not None and self.reasoning_summary is None:

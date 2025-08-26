@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Path,
 from agno.knowledge.content import Content, FileData
 from agno.knowledge.knowledge import Knowledge
 from agno.knowledge.reader import ReaderFactory
-from agno.knowledge.utils import get_all_readers_info, get_content_types_to_readers_mapping
+from agno.knowledge.utils import get_all_readers_info, get_content_types_to_readers_mapping, get_all_chunkers_info
 from agno.os.apps.knowledge.schemas import (
     ConfigResponseSchema,
     ContentResponseSchema,
@@ -270,16 +270,14 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
         # Get factory readers info
         readers_info = get_all_readers_info()
         reader_schemas = []
-        print("HERE")
         # Add factory readers
         for reader_info in readers_info:
-            print("reader_info", reader_info)
             reader_schemas.append(
                 ReaderSchema(
                     id=reader_info["id"],
                     name=reader_info["name"],
                     description=reader_info.get("description"),
-                    chunking_strategies=reader_info.get("chunking_strategies", []),
+                    chunkers=reader_info.get("chunking_strategies", []),
                 )
             )
 
@@ -302,17 +300,18 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
                             id=reader_id,
                             name=getattr(reader, "name", reader.__class__.__name__),
                             description=getattr(reader, "description", f"Custom {reader.__class__.__name__}"),
-                            chunking_strategies=chunking_strategies,
+                            chunkers=chunking_strategies,
                         )
                     )
 
         # Get content types to readers mapping
 
         types_of_readers = get_content_types_to_readers_mapping()
-
+        chunkers = get_all_chunkers_info()
         return ConfigResponseSchema(
             readers=reader_schemas,
             readersForType=types_of_readers,
+            chunkers=chunkers,
             filters=knowledge.get_filters(),
         )
 

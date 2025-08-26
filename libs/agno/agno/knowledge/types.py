@@ -11,18 +11,18 @@ class ContentType(str, Enum):
     TOPIC = "topic"
     YOUTUBE = "youtube"
 
-    # # Document file extensions
-    # PDF = ".pdf"
-    # TXT = ".txt"
-    # MARKDOWN = ".md"
-    # DOCX = ".docx"
-    # DOC = ".doc"
-    # JSON = ".json"
+    # Document file extensions
+    PDF = ".pdf"
+    TXT = ".txt"
+    MARKDOWN = ".md"
+    DOCX = ".docx"
+    DOC = ".doc"
+    JSON = ".json"
 
-    # # Spreadsheet file extensions
-    # CSV = ".csv"
-    # XLSX = ".xlsx"
-    # XLS = ".xls"
+    # Spreadsheet file extensions
+    CSV = ".csv"
+    XLSX = ".xlsx"
+    XLS = ".xls"
 
 
 def get_content_type_enum(content_type_str: str) -> ContentType:

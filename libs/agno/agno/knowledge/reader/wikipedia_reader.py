@@ -35,7 +35,7 @@ class WikipediaReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.TEXT]
+        return [ContentType.TOPIC]
 
     def read(self, topic: str) -> List[Document]:
         log_debug(f"Reading Wikipedia topic: {topic}")

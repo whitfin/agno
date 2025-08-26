@@ -30,7 +30,7 @@ from uuid import NAMESPACE_DNS, uuid4, uuid5
 from pydantic import BaseModel
 
 from agno.agent import Agent
-from agno.db.base import BaseDb, SessionType, UserMemory
+from agno.db.base import AsyncBaseDb, BaseDb, SessionType, UserMemory
 from agno.exceptions import ModelProviderError, RunCancelledException
 from agno.knowledge.knowledge import Knowledge
 from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
@@ -180,7 +180,7 @@ class Team:
 
     # --- Database ---
     # Database to use for this agent
-    db: Optional[BaseDb] = None
+    db: Optional[Union[BaseDb, AsyncBaseDb]] = None
 
     # Memory manager to use for this agent
     memory_manager: Optional[MemoryManager] = None
@@ -379,7 +379,7 @@ class Team:
         output_model_prompt: Optional[str] = None,
         use_json_mode: bool = False,
         parse_response: bool = True,
-        db: Optional[BaseDb] = None,
+        db: Optional[Union[BaseDb, AsyncBaseDb]] = None,
         enable_agentic_memory: bool = False,
         enable_user_memories: bool = False,
         add_memories_to_context: Optional[bool] = None,
@@ -1606,6 +1606,7 @@ class Team:
                     else:
                         delay = self.delay_between_retries
                     import time
+
                     time.sleep(delay)
             except (KeyboardInterrupt, RunCancelledException):
                 run_response.status = RunStatus.cancelled

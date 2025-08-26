@@ -3,7 +3,6 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 from uuid import uuid4
 
-from agno.db.async_base import AsyncBaseDb, SessionType
 from agno.db.async_postgres.schemas import get_table_schema_definition
 from agno.db.async_postgres.utils import (
     apply_sorting,
@@ -15,6 +14,7 @@ from agno.db.async_postgres.utils import (
     is_table_available,
     is_valid_table,
 )
+from agno.db.base import AsyncBaseDb, SessionType
 from agno.db.schemas.evals import EvalFilterType, EvalRunRecord, EvalType
 from agno.db.schemas.knowledge import KnowledgeRow
 from agno.db.schemas.memory import UserMemory
@@ -24,7 +24,7 @@ from agno.utils.log import log_debug, log_error, log_info, log_warning
 try:
     from sqlalchemy import Index, String, UniqueConstraint, func, update
     from sqlalchemy.dialects import postgresql
-    from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine, async_sessionmaker
+    from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
     from sqlalchemy.schema import Column, MetaData, Table
     from sqlalchemy.sql.expression import select, text
 except ImportError:
@@ -240,9 +240,10 @@ class AsyncPostgresDb(AsyncBaseDb):
 
         try:
             async with self.db_engine.connect() as conn:
+
                 def create_table(connection):
                     return Table(table_name, self.metadata, schema=db_schema, autoload_with=connection.sync_connection)
-                
+
                 table = await conn.run_sync(create_table)
                 return table
 

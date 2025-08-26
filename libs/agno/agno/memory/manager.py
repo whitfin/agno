@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Type, Union
 
 from pydantic import BaseModel, Field
 
-from agno.db.base import BaseDb
+from agno.db.base import AsyncBaseDb, BaseDb
 from agno.db.schemas import UserMemory
 from agno.models.base import Model
 from agno.models.message import Message
@@ -48,7 +48,7 @@ class MemoryManager:
     clear_memories: bool = False
 
     # The database to store memories
-    db: Optional[BaseDb] = None
+    db: Optional[Union[BaseDb, AsyncBaseDb]] = None
 
     debug_mode: bool = False
 
@@ -58,7 +58,7 @@ class MemoryManager:
         system_message: Optional[str] = None,
         memory_capture_instructions: Optional[str] = None,
         additional_instructions: Optional[str] = None,
-        db: Optional[BaseDb] = None,
+        db: Optional[Union[BaseDb, AsyncBaseDb]] = None,
         delete_memories: bool = False,
         clear_memories: bool = False,
         debug_mode: bool = False,

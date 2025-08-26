@@ -1,19 +1,16 @@
 """Integration tests for the Session related methods of the AsyncPostgresDb class"""
 
 import time
-from datetime import datetime
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import text
 
-from agno.db.async_base import SessionType
 from agno.db.async_postgres.async_postgres import AsyncPostgresDb
+from agno.db.base import SessionType
 from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 from agno.run.team import TeamRunOutput
 from agno.session.agent import AgentSession
-from agno.session.summary import SessionSummary
 from agno.session.team import TeamSession
 
 
@@ -82,17 +79,17 @@ async def test_upsert_agent_session(async_postgres_db_real: AsyncPostgresDb, sam
     """Test upserting an agent session"""
     # First insert
     result = await async_postgres_db_real.upsert_session(sample_agent_session)
-    
+
     assert result is not None
     assert isinstance(result, AgentSession)
     assert result.session_id == "test_agent_session_1"
     assert result.agent_id == "test_agent_1"
     assert result.user_id == "test_user_1"
-    
+
     # Update the session
     sample_agent_session.session_data["updated"] = True
     updated_result = await async_postgres_db_real.upsert_session(sample_agent_session)
-    
+
     assert updated_result is not None
     assert updated_result.session_data["updated"] is True
 
@@ -102,7 +99,7 @@ async def test_upsert_team_session(async_postgres_db_real: AsyncPostgresDb, samp
     """Test upserting a team session"""
     # First insert
     result = await async_postgres_db_real.upsert_session(sample_team_session)
-    
+
     assert result is not None
     assert isinstance(result, TeamSession)
     assert result.session_id == "test_team_session_1"
@@ -115,13 +112,10 @@ async def test_get_agent_session(async_postgres_db_real: AsyncPostgresDb, sample
     """Test getting an agent session"""
     # First upsert the session
     await async_postgres_db_real.upsert_session(sample_agent_session)
-    
+
     # Now get it back
-    result = await async_postgres_db_real.get_session(
-        session_id="test_agent_session_1",
-        session_type=SessionType.AGENT
-    )
-    
+    result = await async_postgres_db_real.get_session(session_id="test_agent_session_1", session_type=SessionType.AGENT)
+
     assert result is not None
     assert isinstance(result, AgentSession)
     assert result.session_id == "test_agent_session_1"
@@ -134,13 +128,10 @@ async def test_get_team_session(async_postgres_db_real: AsyncPostgresDb, sample_
     """Test getting a team session"""
     # First upsert the session
     await async_postgres_db_real.upsert_session(sample_team_session)
-    
+
     # Now get it back
-    result = await async_postgres_db_real.get_session(
-        session_id="test_team_session_1",
-        session_type=SessionType.TEAM
-    )
-    
+    result = await async_postgres_db_real.get_session(session_id="test_team_session_1", session_type=SessionType.TEAM)
+
     assert result is not None
     assert isinstance(result, TeamSession)
     assert result.session_id == "test_team_session_1"
@@ -149,31 +140,26 @@ async def test_get_team_session(async_postgres_db_real: AsyncPostgresDb, sample_
 
 
 @pytest_asyncio.async_def
-async def test_get_sessions_with_filtering(async_postgres_db_real: AsyncPostgresDb, sample_agent_session: AgentSession, sample_team_session: TeamSession):
+async def test_get_sessions_with_filtering(
+    async_postgres_db_real: AsyncPostgresDb, sample_agent_session: AgentSession, sample_team_session: TeamSession
+):
     """Test getting sessions with various filters"""
     # Insert both sessions
     await async_postgres_db_real.upsert_session(sample_agent_session)
     await async_postgres_db_real.upsert_session(sample_team_session)
-    
+
     # Get all agent sessions
-    agent_sessions = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.AGENT
-    )
+    agent_sessions = await async_postgres_db_real.get_sessions(session_type=SessionType.AGENT)
     assert len(agent_sessions) == 1
     assert agent_sessions[0].session_id == "test_agent_session_1"
-    
+
     # Get all team sessions
-    team_sessions = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.TEAM
-    )
+    team_sessions = await async_postgres_db_real.get_sessions(session_type=SessionType.TEAM)
     assert len(team_sessions) == 1
     assert team_sessions[0].session_id == "test_team_session_1"
-    
+
     # Filter by user_id
-    user_sessions = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.AGENT,
-        user_id="test_user_1"
-    )
+    user_sessions = await async_postgres_db_real.get_sessions(session_type=SessionType.AGENT, user_id="test_user_1")
     assert len(user_sessions) == 1
     assert user_sessions[0].user_id == "test_user_1"
 
@@ -202,26 +188,20 @@ async def test_get_sessions_with_pagination(async_postgres_db_real: AsyncPostgre
         )
         sessions.append(session)
         await async_postgres_db_real.upsert_session(session)
-    
+
     # Test pagination - get first page
     result, total_count = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.AGENT,
-        limit=2,
-        page=1,
-        deserialize=False
+        session_type=SessionType.AGENT, limit=2, page=1, deserialize=False
     )
-    
+
     assert len(result) == 2
     assert total_count == 5
-    
+
     # Test pagination - get second page
     result, total_count = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.AGENT,
-        limit=2,
-        page=2,
-        deserialize=False
+        session_type=SessionType.AGENT, limit=2, page=2, deserialize=False
     )
-    
+
     assert len(result) == 2
     assert total_count == 5
 
@@ -231,23 +211,17 @@ async def test_delete_session(async_postgres_db_real: AsyncPostgresDb, sample_ag
     """Test deleting a single session"""
     # First insert the session
     await async_postgres_db_real.upsert_session(sample_agent_session)
-    
+
     # Verify it exists
-    result = await async_postgres_db_real.get_session(
-        session_id="test_agent_session_1",
-        session_type=SessionType.AGENT
-    )
+    result = await async_postgres_db_real.get_session(session_id="test_agent_session_1", session_type=SessionType.AGENT)
     assert result is not None
-    
+
     # Delete it
     success = await async_postgres_db_real.delete_session("test_agent_session_1")
     assert success is True
-    
+
     # Verify it's gone
-    result = await async_postgres_db_real.get_session(
-        session_id="test_agent_session_1",
-        session_type=SessionType.AGENT
-    )
+    result = await async_postgres_db_real.get_session(session_id="test_agent_session_1", session_type=SessionType.AGENT)
     assert result is None
 
 
@@ -272,20 +246,16 @@ async def test_delete_sessions_bulk(async_postgres_db_real: AsyncPostgresDb):
         )
         session_ids.append(f"test_session_{i}")
         await async_postgres_db_real.upsert_session(session)
-    
+
     # Verify they exist
-    sessions = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.AGENT
-    )
+    sessions = await async_postgres_db_real.get_sessions(session_type=SessionType.AGENT)
     assert len(sessions) == 3
-    
+
     # Delete all of them
     await async_postgres_db_real.delete_sessions(session_ids)
-    
+
     # Verify they're gone
-    sessions = await async_postgres_db_real.get_sessions(
-        session_type=SessionType.AGENT
-    )
+    sessions = await async_postgres_db_real.get_sessions(session_type=SessionType.AGENT)
     assert len(sessions) == 0
 
 
@@ -294,21 +264,18 @@ async def test_rename_session(async_postgres_db_real: AsyncPostgresDb, sample_ag
     """Test renaming a session"""
     # First insert the session
     await async_postgres_db_real.upsert_session(sample_agent_session)
-    
+
     # Rename it
     result = await async_postgres_db_real.rename_session(
-        session_id="test_agent_session_1",
-        session_type=SessionType.AGENT,
-        session_name="New Session Name"
+        session_id="test_agent_session_1", session_type=SessionType.AGENT, session_name="New Session Name"
     )
-    
+
     assert result is not None
     assert isinstance(result, AgentSession)
     assert result.session_data["session_name"] == "New Session Name"
-    
+
     # Verify the change persisted
     retrieved = await async_postgres_db_real.get_session(
-        session_id="test_agent_session_1",
-        session_type=SessionType.AGENT
+        session_id="test_agent_session_1", session_type=SessionType.AGENT
     )
     assert retrieved.session_data["session_name"] == "New Session Name"

@@ -1,6 +1,5 @@
 from typing import Dict, List
 
-from agno.knowledge.chunking.factory import ChunkerFactory
 from agno.knowledge.reader.reader_factory import ReaderFactory
 from agno.knowledge.types import ContentType
 from agno.utils.log import log_debug
@@ -155,14 +154,16 @@ def get_all_content_types() -> List[ContentType]:
 def get_all_chunkers_info() -> List[Dict]:
     """Get information about all available chunkers."""
     chunkers_info = []
-    keys = ChunkerFactory.get_all_chunker_keys()
+
+    from agno.knowledge.chunking.strategy import ChunkingStrategyType
+
+    keys = [strategy_type.value for strategy_type in ChunkingStrategyType]
+
     for key in keys:
         try:
             chunker_info = get_chunker_info(key)
             chunkers_info.append(chunker_info)
         except ValueError as e:
-            # Skip chunkers with missing dependencies or other issues
-            # Log the error but don't fail the entire request
             log_debug(f"Skipping chunker '{key}': {e}")
             continue
     return chunkers_info

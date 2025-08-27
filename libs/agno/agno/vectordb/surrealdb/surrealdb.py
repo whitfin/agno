@@ -265,8 +265,7 @@ class SurrealDb(VectorDb):
         """
         log_debug(f"Checking if document exists by content hash: {content_hash}")
         result = self.client.query(
-            self.CONTENT_HASH_EXISTS_QUERY.format(collection=self.collection), 
-            {"content_hash": content_hash}
+            self.CONTENT_HASH_EXISTS_QUERY.format(collection=self.collection), {"content_hash": content_hash}
         )
         return bool(self._extract_result(result))
 
@@ -438,7 +437,9 @@ class SurrealDb(VectorDb):
 
         """
         log_debug(f"Deleting documents by content ID: {content_id}")
-        result = self.client.query(self.DELETE_BY_CONTENT_ID_QUERY.format(collection=self.collection), {"content_id": content_id})
+        result = self.client.query(
+            self.DELETE_BY_CONTENT_ID_QUERY.format(collection=self.collection), {"content_id": content_id}
+        )
         return bool(result)
 
     @staticmethod
@@ -500,7 +501,9 @@ class SurrealDb(VectorDb):
         )
         return bool(self._extract_result(response))
 
-    async def async_insert(self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
+    async def async_insert(
+        self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Insert documents into the vector store asynchronously.
 
         Args:
@@ -519,7 +522,9 @@ class SurrealDb(VectorDb):
             log_debug(f"Inserting document asynchronously: {doc.name} ({doc.meta_data})")
             await self.async_client.create(self.collection, data)
 
-    async def async_upsert(self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None) -> None:
+    async def async_upsert(
+        self, content_hash: str, documents: List[Document], filters: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Upsert documents into the vector store asynchronously.
 
         Args:

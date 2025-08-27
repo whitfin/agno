@@ -1046,7 +1046,7 @@ class MongoDb(VectorDb):
         """Upsert documents asynchronously."""
         log_info(f"Upserting {len(documents)} documents asynchronously")
         collection = await self._get_async_collection()
-        
+
         embed_tasks = [document.async_embed(embedder=self.embedder) for document in documents]
         await asyncio.gather(*embed_tasks, return_exceptions=True)
 

@@ -374,7 +374,7 @@ async def test_async_insert_documents(chroma_db, sample_documents):
     # Set embeddings on documents to avoid None embeddings issue
     for doc in sample_documents:
         doc.embedding = chroma_db.embedder.get_embedding(doc.content)
-    
+
     await chroma_db.async_insert(content_hash="test_hash", documents=sample_documents)
     assert chroma_db.get_count() == 3
 
@@ -385,7 +385,7 @@ async def test_async_search_documents(chroma_db, sample_documents):
     # Set embeddings on documents to avoid None embeddings issue
     for doc in sample_documents:
         doc.embedding = chroma_db.embedder.get_embedding(doc.content)
-    
+
     await chroma_db.async_insert(content_hash="test_hash", documents=sample_documents)
 
     # Search for coconut-related dishes
@@ -399,7 +399,7 @@ async def test_async_upsert_documents(chroma_db, sample_documents):
     """Test upserting documents asynchronously"""
     # Set embedding on the initial document
     sample_documents[0].embedding = chroma_db.embedder.get_embedding(sample_documents[0].content)
-    
+
     # Initial insert
     await chroma_db.async_insert(content_hash="test_hash", documents=[sample_documents[0]])
     assert chroma_db.get_count() == 1
@@ -412,7 +412,7 @@ async def test_async_upsert_documents(chroma_db, sample_documents):
     )
     # Set embedding on the modified document
     modified_doc.embedding = chroma_db.embedder.get_embedding(modified_doc.content)
-    
+
     await chroma_db.async_upsert(content_hash="test_hash", documents=[modified_doc])
 
     # Search to verify the update
@@ -426,7 +426,7 @@ async def test_async_name_exists(chroma_db, sample_documents):
     """Test document name existence check asynchronously"""
     # Set embedding on the document
     sample_documents[0].embedding = chroma_db.embedder.get_embedding(sample_documents[0].content)
-    
+
     await chroma_db.async_insert(content_hash="test_hash", documents=[sample_documents[0]])
     exists = await chroma_db.async_name_exists("tom_kha")
     assert exists is True

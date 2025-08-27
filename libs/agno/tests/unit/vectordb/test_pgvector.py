@@ -401,14 +401,14 @@ async def test_async_insert(mock_pgvector):
     with patch("agno.vectordb.pgvector.pgvector.postgresql.insert") as mock_insert:
         mock_stmt = MagicMock()
         mock_insert.return_value = mock_stmt
-        
+
         # Mock the session execute to avoid actual database operations
         with patch.object(mock_pgvector, "Session") as mock_session_class:
             mock_session = MagicMock()
             mock_session_class.return_value.__enter__.return_value = mock_session
-            
+
             await mock_pgvector.async_insert(content_hash="test_hash", documents=docs)
-            
+
             # Verify the insert was attempted
             mock_insert.assert_called_once_with(mock_pgvector.table)
 
@@ -424,7 +424,7 @@ async def test_async_upsert(mock_pgvector):
         mock_values_stmt = MagicMock()
         mock_stmt.values.return_value = mock_values_stmt
         mock_insert.return_value = mock_stmt
-        
+
         # Mock content_hash_exists to control flow
         with patch.object(mock_pgvector, "content_hash_exists", return_value=True):
             # Mock _delete_by_content_hash to avoid database operations
@@ -433,9 +433,9 @@ async def test_async_upsert(mock_pgvector):
                 with patch.object(mock_pgvector, "Session") as mock_session_class:
                     mock_session = MagicMock()
                     mock_session_class.return_value.__enter__.return_value = mock_session
-                    
+
                     await mock_pgvector.async_upsert(content_hash="test_hash", documents=docs)
-                    
+
                     # Verify the insert was attempted
                     mock_insert.assert_called_once_with(mock_pgvector.table)
 

@@ -35,7 +35,7 @@ def save_json(response: Dict[str, Any], file_path: Path):
         return extracted_data
     else:
         print(f"❌ No structured data extracted from {file_path.name}")
-        return None)
+        return None
 
 # Utility functions
 def detect_document_type(file_path: Path) -> str:
@@ -116,7 +116,7 @@ def extract_data(file_path: Path) -> Optional[Dict[str, Any]]:
     # get document type and schema
     document_type, output_schema = get_document_type_and_schema(file_path)
     # Set the output schema based on the document type
-    extraction_agent.output_schema = output_schema
+    agent.output_schema = output_schema
     
     # RUN OCR ON PDF
     uploaded_pdf = mistral_client.files.upload( # type: ignore

@@ -4,7 +4,6 @@ from agno.agent.agent import Agent
 from agno.db.base import SessionType
 from agno.db.in_memory.in_memory_db import InMemoryDb
 from agno.media import AudioArtifact, ImageArtifact
-from agno.models.google import Gemini
 from agno.models.openai.chat import OpenAIChat
 from agno.tools.dalle import DalleTools
 

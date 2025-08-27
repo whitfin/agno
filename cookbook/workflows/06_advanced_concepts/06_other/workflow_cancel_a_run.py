@@ -107,7 +107,9 @@ def long_running_task(workflow: Workflow, run_id_container: dict):
         }
 
 
-def cancel_after_delay(workflow: Workflow, run_id_container: dict, delay_seconds: int = 3):
+def cancel_after_delay(
+    workflow: Workflow, run_id_container: dict, delay_seconds: int = 3
+):
     """
     Cancel the workflow run after a specified delay.
 
@@ -161,7 +163,6 @@ def main():
         description="Write an article based on the research",
     )
 
-
     # Create a Steps sequence that chains these above steps together
     article_workflow = Workflow(
         description="Automated article creation from research to writing",
@@ -177,7 +178,8 @@ def main():
 
     # Start the workflow run in a separate thread
     workflow_thread = threading.Thread(
-        target=lambda: long_running_task(article_workflow, run_id_container), name="WorkflowRunThread"
+        target=lambda: long_running_task(article_workflow, run_id_container),
+        name="WorkflowRunThread",
     )
 
     # Start the cancellation thread

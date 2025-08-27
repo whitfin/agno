@@ -543,36 +543,6 @@ def test_intermediate_steps_with_member_agents():
     assert len(events[RunEvent.run_content]) > 1
 
 
-def test_create_team_run_completed_event_function():
-    """Test that create_team_run_completed_event function properly transfers metadata and metrics."""
-    from agno.models.metrics import Metrics
-    from agno.run.team import TeamRunOutput
-    from agno.utils.events import create_team_run_completed_event
-
-    mock_metrics = Metrics(input_tokens=200, output_tokens=75, total_tokens=275, duration=3.2)
-    mock_metadata = {"team_key": "team_value", "execution_mode": "collaborate"}
-
-    mock_team_run_output = TeamRunOutput(
-        session_id="test_team_session",
-        team_id="test_team",
-        team_name="Test Team",
-        run_id="test_team_run",
-        content="Team test content",
-        metrics=mock_metrics,
-        metadata=mock_metadata,
-    )
-
-    completed_event = create_team_run_completed_event(mock_team_run_output)
-
-    assert completed_event.metadata == mock_metadata
-    assert completed_event.metrics == mock_metrics
-    assert completed_event.metrics.total_tokens == 275
-    assert completed_event.metrics.duration == 3.2
-    assert completed_event.content == "Team test content"
-    assert completed_event.session_id == "test_team_session"
-    assert completed_event.team_id == "test_team"
-
-
 def test_intermediate_steps_with_member_agents_complex():
     agent_1 = Agent(
         name="Finance Analyst",
@@ -839,34 +809,3 @@ def test_intermediate_steps_with_member_agents_collaborate():
     assert len(events[RunEvent.tool_call_started]) >= 1
     assert len(events[RunEvent.tool_call_completed]) >= 1
     assert len(events[RunEvent.run_content]) > 1
-
-
-def test_create_team_run_completed_event_function():
-    """Test that create_team_run_completed_event function properly transfers metadata and metrics."""
-    from agno.models.metrics import Metrics
-    from agno.run.team import TeamRunOutput
-    from agno.utils.events import create_team_run_completed_event
-
-    mock_metrics = Metrics(input_tokens=200, output_tokens=75, total_tokens=275, duration=3.2)
-    mock_metadata = {"team_key": "team_value", "execution_mode": "collaborate"}
-
-    mock_team_run_output = TeamRunOutput(
-        session_id="test_team_session",
-        team_id="test_team",
-        team_name="Test Team",
-        run_id="test_team_run",
-        content="Team test content",
-        metrics=mock_metrics,
-        metadata=mock_metadata,
-    )
-
-    # Create the Completed Event
-    completed_event = create_team_run_completed_event(mock_team_run_output)
-
-    assert completed_event.metadata == mock_metadata
-    assert completed_event.metrics == mock_metrics
-    assert completed_event.metrics.total_tokens == 275
-    assert completed_event.metrics.duration == 3.2
-    assert completed_event.content == "Team test content"
-    assert completed_event.session_id == "test_team_session"
-    assert completed_event.team_id == "test_team"

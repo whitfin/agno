@@ -1024,7 +1024,7 @@ class Qdrant(VectorDb):
         except Exception as e:
             log_error(f"Error updating metadata for content_id '{content_id}': {e}")
             raise
-        
+
     def close(self) -> None:
         """Close the Qdrant client connections."""
         if self._client is not None:

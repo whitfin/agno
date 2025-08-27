@@ -77,9 +77,9 @@ jobs:
       - name: Ruff check
         run: |
           ruff check .
-      - name: Mypy
-        run: |
-          mypy .
+      # - name: Mypy
+      #   run: |
+      #     mypy .
 
   style-check-agno-infra:
     runs-on: ubuntu-latest

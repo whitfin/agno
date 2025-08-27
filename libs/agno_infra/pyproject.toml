@@ -29,6 +29,8 @@ classifiers = [
 ]
 
 dependencies = [
+  "gitpython",
+  "httpx",
   "python-dotenv",
   "python-multipart",
   "pydantic-settings",

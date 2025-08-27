@@ -31,6 +31,8 @@ classifiers = [
 dependencies = [
   "python-dotenv",
   "python-multipart",
+  "pydantic-settings",
+  "pydantic",
   "rich",
   "tomli",
   "typer",

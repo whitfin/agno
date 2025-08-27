@@ -15,19 +15,6 @@ def openai_agent():
     return Agent(model=OpenAIChat(id="gpt-4o-mini"), db=InMemoryDb(), tools=[DalleTools()], debug_mode=True)
 
 
-@pytest.fixture
-def gemini_agent():
-    """Create an agent with Gemini model for audio generation."""
-    from agno.tools.openai import OpenAITools
-
-    return Agent(
-        model=Gemini(id="gemini-2.5-pro"),
-        db=InMemoryDb(),
-        tools=[OpenAITools(enable_speech_generation=True)],
-        debug_mode=True,
-    )
-
-
 def test_dalle_image_generation_in_run_output(openai_agent):
     """Test that DALL-E generated images appear in RunOutput."""
     # Run agent with image generation request
@@ -136,10 +123,10 @@ def test_image_analysis_after_generation(openai_agent):
     assert last_output is not None
 
 
-def test_openai_speech_generation_in_run_output(gemini_agent):
+def test_openai_speech_generation_in_run_output(openai_agent):
     """Test that OpenAI TTS generated audio appears in RunOutput."""
     # Run agent with speech generation request
-    response = gemini_agent.run("Generate speech saying 'Hello, this is a test'")
+    response = openai_agent.run("Generate speech saying 'Hello, this is a test'")
 
     # Verify response contains generated audio
     assert response is not None

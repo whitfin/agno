@@ -6,6 +6,34 @@ from agno.knowledge.types import ContentType
 from agno.utils.log import log_debug
 
 
+def _get_chunker_class(strategy_type):
+    """Get the chunker class for a given strategy type without instantiation."""
+    from agno.knowledge.chunking.strategy import ChunkingStrategyType
+    
+    # Map strategy types to their corresponding classes
+    strategy_class_mapping = {
+        ChunkingStrategyType.AGENTIC_CHUNKING: lambda: _import_class("agno.knowledge.chunking.agentic", "AgenticChunking"),
+        ChunkingStrategyType.DOCUMENT_CHUNKING: lambda: _import_class("agno.knowledge.chunking.document", "DocumentChunking"),
+        ChunkingStrategyType.RECURSIVE_CHUNKING: lambda: _import_class("agno.knowledge.chunking.recursive", "RecursiveChunking"),
+        ChunkingStrategyType.SEMANTIC_CHUNKING: lambda: _import_class("agno.knowledge.chunking.semantic", "SemanticChunking"),
+        ChunkingStrategyType.FIXED_SIZE_CHUNKING: lambda: _import_class("agno.knowledge.chunking.fixed", "FixedSizeChunking"),
+        ChunkingStrategyType.ROW_CHUNKING: lambda: _import_class("agno.knowledge.chunking.row", "RowChunking"),
+        ChunkingStrategyType.MARKDOWN_CHUNKING: lambda: _import_class("agno.knowledge.chunking.markdown", "MarkdownChunking"),
+    }
+    
+    if strategy_type not in strategy_class_mapping:
+        raise ValueError(f"Unknown strategy type: {strategy_type}")
+    
+    return strategy_class_mapping[strategy_type]()
+
+
+def _import_class(module_name: str, class_name: str):
+    """Dynamically import a class from a module."""
+    import importlib
+    module = importlib.import_module(module_name)
+    return getattr(module, class_name)
+
+
 def get_reader_info(reader_key: str) -> Dict:
     """Get information about a reader without instantiating it."""
     # Try to create the reader to get its info, but don't cache it
@@ -74,15 +102,14 @@ def get_chunker_info(chunker_key: str) -> Dict:
     """Get information about a chunker without instantiating it."""
     try:
         # Use chunking strategies directly
-        from agno.knowledge.chunking.strategy import ChunkingStrategyType, ChunkingStrategyFactory
+        from agno.knowledge.chunking.strategy import ChunkingStrategyType
         
         try:
             # Use the chunker key directly as the strategy type value
             strategy_type = ChunkingStrategyType.from_string(chunker_key)
             
-            # Create an instance to get class information
-            chunker_instance = ChunkingStrategyFactory.create_strategy(strategy_type)
-            chunker_class = chunker_instance.__class__
+            # Get class directly without instantiation
+            chunker_class = _get_chunker_class(strategy_type)
             
             # Extract class information
             class_name = chunker_class.__name__

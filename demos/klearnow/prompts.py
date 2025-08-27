@@ -1,4 +1,4 @@
-def get_fedex_label_prompt(doc_name: str, ocr_text: str) -> str:
+def get_fedex_label_prompt(ocr_text: str) -> str:
     return f"""
         You are a specialist in extracting structured data from documents. The input is extracted text from a document.
 
@@ -28,9 +28,9 @@ def get_fedex_label_prompt(doc_name: str, ocr_text: str) -> str:
     """
 
 
-def get_commercial_invoice_prompt(doc_name: str, ocr_text: str) -> str:
+def get_commercial_invoice_prompt(ocr_text: str) -> str:
     return f"""
-Convert this Mistral OCR text from a {doc_name} into structured data.
+Convert this Mistral OCR text from a into structured data.
 
 🎯 CRITICAL REQUIREMENTS - Extract BOTH header data AND every single line item:
 
@@ -71,9 +71,9 @@ Extract EVERY line item completely. Missing line items will cause downstream sys
 """
 
 
-def get_packing_list_prompt(doc_name: str, ocr_text: str) -> str:
+def get_packing_list_prompt(ocr_text: str) -> str:
     return f"""
-Convert this Mistral OCR text from a {doc_name} into structured data.
+Convert this Mistral OCR text from a into structured data.
 
 🎯 PACKING LIST EXTRACTION - All details needed for downstream processing:
 
@@ -109,12 +109,12 @@ Extract all packing details completely - this data is reused in downstream logis
 
 
 def get_prompt_for_document_type(
-    document_type: str, doc_name: str, ocr_text: str
+    document_type: str, ocr_text: str
 ) -> str:
 
     if document_type == "fedex_label":
-        return get_fedex_label_prompt(doc_name, ocr_text)
+        return get_fedex_label_prompt(ocr_text)
     elif document_type == "commercial_invoice":
-        return get_commercial_invoice_prompt(doc_name, ocr_text)
+        return get_commercial_invoice_prompt(ocr_text)
     else:  # packing_list or unknown
-        return get_packing_list_prompt(doc_name, ocr_text)
+        return get_packing_list_prompt(ocr_text)

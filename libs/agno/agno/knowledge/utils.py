@@ -97,7 +97,7 @@ def get_content_types_to_readers_mapping() -> Dict[str, List[str]]:
     Returns:
         Dictionary mapping content type strings (ContentType enum values) to list of reader IDs.
     """
-    content_type_mapping = {}
+    content_type_mapping: Dict[str, List[str]] = {}
     readers_info = get_all_readers_info()
 
     for reader_info in readers_info:

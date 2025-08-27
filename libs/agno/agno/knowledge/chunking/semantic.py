@@ -41,6 +41,9 @@ class SemanticChunking(ChunkingStrategy):
         self._initialize_chunker()
 
         # Use chonkie to split into semantic chunks
+        if self.chunker is None:
+            raise RuntimeError("Chunker failed to initialize")
+
         chunks = self.chunker.chunk(self.clean_text(document.content))
 
         # Convert chunks to Documents

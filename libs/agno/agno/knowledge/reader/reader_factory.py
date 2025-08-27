@@ -1,9 +1,7 @@
-import inspect
 import os
 from typing import Any, Callable, Dict, List, Optional
 
 from agno.knowledge.reader.base import Reader
-from agno.utils.log import log_debug
 
 
 class ReaderFactory:

@@ -4,8 +4,7 @@ from pathlib import Path
 from typing import IO, Any, List, Optional, Tuple, Union
 from uuid import uuid4
 
-from agno.knowledge.chunking.document import DocumentChunking
-from agno.knowledge.chunking.strategy import ChunkingStrategy, ChunkingStrategyType
+from agno.knowledge.chunking.strategy import ChunkingStrategyType
 from agno.knowledge.document.base import Document
 from agno.knowledge.reader.base import Reader
 from agno.knowledge.types import ContentType
@@ -344,7 +343,7 @@ class PDFReader(BasePDFReader):
         log_info(f"Reading: {doc_name}")
 
         try:
-            doc_reader = DocumentReader(pdf)
+            DocumentReader(pdf)
         except PdfStreamError as e:
             logger.error(f"Error reading PDF: {e}")
             return []
@@ -417,7 +416,7 @@ class PDFUrlReader(BasePDFReader):
     def get_supported_content_types(self) -> List[ContentType]:
         return [ContentType.URL]
 
-    def read(self, url: str, name: Optional[str] = None) -> List[Document]:
+    def read(self, url: str, name: Optional[str] = None, password: Optional[str] = None) -> List[Document]:
         if not url:
             raise ValueError("No url provided")
 

@@ -49,7 +49,7 @@ class Reader:
         except ValueError as e:
             raise ValueError(f"Failed to set chunking strategy: {e}")
 
-    def read(self, obj: Any, name: Optional[str] = None) -> List[Document]:
+    def read(self, obj: Any, name: Optional[str] = None, password: Optional[str] = None) -> List[Document]:
         raise NotImplementedError
 
     async def async_read(self, obj: Any, name: Optional[str] = None, password: Optional[str] = None) -> List[Document]:

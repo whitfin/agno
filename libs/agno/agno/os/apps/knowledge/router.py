@@ -1,6 +1,6 @@
 import json
 import math
-from typing import Dict, List, Optional
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Path, Query, UploadFile
@@ -142,7 +142,7 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
         )
 
         if update_data.reader_id:
-            if update_data.reader_id in knowledge.readers:
+            if knowledge.readers and update_data.reader_id in knowledge.readers:
                 content.reader = knowledge.readers[update_data.reader_id]
             else:
                 raise HTTPException(status_code=400, detail=f"Invalid reader_id: {update_data.reader_id}")
@@ -362,7 +362,9 @@ async def process_content(
         log_info(f"Error processing content {content_id}: {e}")
         # Mark content as failed in the contents DB
         try:
-            content.status = ContentStatus.FAILED
+            from agno.knowledge.content import ContentStatus as KnowledgeContentStatus
+
+            content.status = KnowledgeContentStatus.FAILED
             content.status_message = str(e)
             content.id = content_id
             knowledge.patch_content(content)

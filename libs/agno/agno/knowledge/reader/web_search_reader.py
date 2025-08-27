@@ -56,8 +56,6 @@ class WebSearchReader(Reader):
 
     def __post_init__(self):
         """Initialize the URL reader and chunking strategy after dataclass initialization"""
-        # Call parent's __post_init__ if it exists
-        super().__post_init__()
         self._url_reader = URLReader()
 
     @classmethod

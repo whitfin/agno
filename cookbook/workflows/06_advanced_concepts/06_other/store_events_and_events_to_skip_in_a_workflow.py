@@ -3,12 +3,12 @@ from agno.db.sqlite import SqliteDb
 from agno.models.openai import OpenAIChat
 from agno.run.agent import (
     RunContentEvent,
+    RunEvent,
     ToolCallCompletedEvent,
     ToolCallStartedEvent,
 )
 from agno.run.workflow import WorkflowRunEvent, WorkflowRunOutput
 from agno.tools.hackernews import HackerNewsTools
-from agno.run.agent import RunEvent
 from agno.workflow.parallel import Parallel
 from agno.workflow.step import Step
 from agno.workflow.workflow import Workflow

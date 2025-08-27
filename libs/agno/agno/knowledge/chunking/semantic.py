@@ -25,7 +25,7 @@ class SemanticChunking(ChunkingStrategy):
                     "`chonkie` is required for semantic chunking. "
                     "Please install it using `pip install chonkie` to use SemanticChunking."
                 )
-            
+
             self.chunker = SemanticChunker(
                 embedding_model=self.embedder.id,  # type: ignore
                 chunk_size=self.chunk_size,

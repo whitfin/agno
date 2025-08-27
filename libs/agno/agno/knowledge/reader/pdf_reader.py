@@ -329,7 +329,8 @@ class PDFReader(BasePDFReader):
         return [ContentType.PDF]
 
     def read(
-        self, pdf: Union[str, Path, IO[Any]], name: Optional[str] = None, password: Optional[str] = None) -> List[Document]:
+        self, pdf: Union[str, Path, IO[Any]], name: Optional[str] = None, password: Optional[str] = None
+    ) -> List[Document]:
         try:
             if name:
                 doc_name = name

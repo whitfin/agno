@@ -8,15 +8,15 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Path,
 from agno.knowledge.content import Content, FileData
 from agno.knowledge.knowledge import Knowledge
 from agno.knowledge.reader import ReaderFactory
-from agno.knowledge.utils import get_all_readers_info, get_content_types_to_readers_mapping, get_all_chunkers_info
+from agno.knowledge.utils import get_all_chunkers_info, get_all_readers_info, get_content_types_to_readers_mapping
 from agno.os.apps.knowledge.schemas import (
+    ChunkerSchema,
     ConfigResponseSchema,
     ContentResponseSchema,
     ContentStatus,
     ContentStatusResponse,
     ContentUpdateSchema,
     ReaderSchema,
-    ChunkerSchema,
 )
 from agno.os.apps.utils import PaginatedResponse, PaginationInfo, SortOrder
 from agno.utils.log import log_debug, log_info
@@ -277,7 +277,7 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
                 id=reader_info["id"],
                 name=reader_info["name"],
                 description=reader_info.get("description"),
-                chunkers=reader_info.get("chunking_strategies", []), 
+                chunkers=reader_info.get("chunking_strategies", []),
             )
 
         # Add custom readers from knowledge.readers
@@ -303,18 +303,16 @@ def attach_routes(router: APIRouter, knowledge: Knowledge) -> APIRouter:
         # Get content types to readers mapping
         types_of_readers = get_content_types_to_readers_mapping()
         chunkers_list = get_all_chunkers_info()
-        
+
         # Convert chunkers list to dictionary format expected by schema
         chunkers_dict = {}
         for chunker_info in chunkers_list:
             chunker_key = chunker_info.get("key")
             if chunker_key:
                 chunkers_dict[chunker_key] = ChunkerSchema(
-                    key=chunker_key,
-                    name=chunker_info.get("name"),
-                    description=chunker_info.get("description")
+                    key=chunker_key, name=chunker_info.get("name"), description=chunker_info.get("description")
                 )
-        
+
         return ConfigResponseSchema(
             readers=reader_schemas,
             readersForType=types_of_readers,

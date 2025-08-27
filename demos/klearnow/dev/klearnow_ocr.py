@@ -6,6 +6,13 @@ from typing import Any, Dict
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
 from mistralai import Mistral
+import sys
+from pathlib import Path
+
+# Add parent directory to path so we can import prompts and schemas
+parent_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(parent_dir))
+
 from prompts import get_prompt_for_document_type
 from schemas import CommercialInvoice, FedExLabel, PackingList
 
@@ -126,11 +133,23 @@ def extract_data(file_path: Path):
 
     prompt = get_prompt_for_document_type(document_type, doc_name, ocr_text)
 
-    extraction_agent.print_response(prompt)
+    # Get the response instead of just printing it
+    response = extraction_agent.run(prompt)
+    
+    # For API usage, return the structured data
+    return {
+        "document_type": document_type,
+        "extracted_data": response,
+        "ocr_text": ocr_text
+    }
 
 
 if __name__ == "__main__":
     invoice_files = list(data_dir.glob("*.PDF")) + list(data_dir.glob("*.pdf"))
 
     for file_path in invoice_files:
-        extract_data(file_path)
+        result = extract_data(file_path)
+        print(f"\n=== Processing {file_path.name} ===")
+        print(f"Document Type: {result['document_type']}")
+        print(f"Extracted Data: {result['extracted_data']}")
+        print("=" * 50)

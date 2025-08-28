@@ -44,7 +44,6 @@ class Reader:
     def set_chunking_strategy_from_string(self, strategy_name: str, **kwargs) -> None:
         """Set the chunking strategy from a string name."""
         try:
-            print(f"Setting chunking strategy from string: {strategy_name}")
             strategy_type = ChunkingStrategyType.from_string(strategy_name)
             self.chunking_strategy = ChunkingStrategyFactory.create_strategy(strategy_type, **kwargs)
         except ValueError as e:
@@ -65,7 +64,6 @@ class Reader:
          raise NotImplementedError
 
     def chunk_document(self, document: Document) -> List[Document]:
-        print(self.chunking_strategy)
         if self.chunking_strategy is None:
             self.chunking_strategy = FixedSizeChunking(chunk_size=self.chunk_size)
         return self.chunking_strategy.chunk(document)  # type: ignore

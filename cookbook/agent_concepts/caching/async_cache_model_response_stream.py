@@ -7,6 +7,7 @@ The second time should be instant.
 """
 
 import asyncio
+
 from agno.agent.agent import Agent
 from agno.models.openai.chat import OpenAIChat
 
@@ -15,6 +16,9 @@ agent = Agent(
 )
 
 # Should take a while to run the first time, then replay from cache
-asyncio.run(agent.aprint_response(
-    "Write me a short story about a cat that can talk and solve problems.", stream=True,
-))
+asyncio.run(
+    agent.aprint_response(
+        "Write me a short story about a dog that can talk and solve problems.",
+        stream=True,
+    )
+)

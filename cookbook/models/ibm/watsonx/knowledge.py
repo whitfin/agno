@@ -15,5 +15,8 @@ knowledge.add_content_sync(
     url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
 )
 
-agent = Agent(model=WatsonX(id="mistralai/mistral-small-3-1-24b-instruct-2503"), knowledge=knowledge)
+agent = Agent(
+    model=WatsonX(id="mistralai/mistral-small-3-1-24b-instruct-2503"),
+    knowledge=knowledge,
+)
 agent.print_response("How to make Thai curry?", markdown=True)

@@ -6,7 +6,6 @@ stock information with async streaming output.
 """
 
 import asyncio
-from typing import Iterator  # noqa
 
 from agno.agent import Agent
 from agno.models.openai import OpenAIChat
@@ -17,7 +16,7 @@ from agno.utils.pprint import apprint_run_response
 # Stock price and analyst data agent
 stock_searcher = Agent(
     name="Stock Searcher",
-    model=OpenAIChat("gpt-4o"),
+    model=OpenAIChat("o3-mini"),
     role="Searches the web for information on a stock.",
     tools=[
         YFinanceTools(
@@ -30,7 +29,7 @@ stock_searcher = Agent(
 # Company information agent
 company_info_agent = Agent(
     name="Company Info Searcher",
-    model=OpenAIChat("gpt-4o"),
+    model=OpenAIChat("o3-mini"),
     role="Searches the web for information on a company.",
     tools=[
         YFinanceTools(
@@ -45,7 +44,7 @@ company_info_agent = Agent(
 team = Team(
     name="Stock Research Team",
     mode="route",
-    model=OpenAIChat("gpt-4o"),
+    model=OpenAIChat("o3-mini"),
     members=[stock_searcher, company_info_agent],
     markdown=True,
     show_members_responses=True,
@@ -67,4 +66,4 @@ async def streaming_with_aprint_response():
 if __name__ == "__main__":
     asyncio.run(streaming_with_arun())
 
-    asyncio.run(streaming_with_aprint_response())
+    # asyncio.run(streaming_with_aprint_response())

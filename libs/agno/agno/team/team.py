@@ -4349,11 +4349,13 @@ class Team:
                 return None
 
         else:
-            # Handle list messages by converting to string
             if isinstance(input_message, list):
-                # Convert list to string (join with newlines if all elements are strings)
-                if all(isinstance(item, str) for item in input_message):
-                    input_content = "\n".join(input_message)  # type: ignore
+                input_content: Union[str, list[Any], list[Message]]
+                if len(input_message) > 0 and isinstance(input_message[0], dict) and "type" in input_message[0]:
+                    # This is multimodal content (text + images/audio/video), preserve the structure
+                    input_content = input_message
+                elif all(isinstance(item, str) for item in input_message):
+                    input_content = "\n".join([str(item) for item in input_message])
                 else:
                     input_content = str(input_message)
 

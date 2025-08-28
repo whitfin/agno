@@ -18,7 +18,7 @@ Setup:
 from agno.agent import Agent
 from agno.knowledge.embedder.cohere import CohereEmbedder
 from agno.knowledge.knowledge import Knowledge
-from agno.knowledge.reranker import CohereReranker
+from agno.knowledge.reranker.cohere import CohereReranker
 from agno.models.anthropic import Claude
 from agno.team.team import Team
 from agno.tools.reasoning import ReasoningTools
@@ -34,9 +34,6 @@ knowledge = Knowledge(
         reranker=CohereReranker(model="rerank-v3.5"),
     ),
 )
-
-# Add documentation content
-knowledge.add_contents(urls=["https://docs.agno.com/introduction/agents.md"])
 
 # Information Gatherer Agent - Specialized in comprehensive information retrieval
 information_gatherer = Agent(
@@ -135,6 +132,9 @@ async def async_reasoning_demo():
 
     query = "What are Agents and how do they work with tools? Explain the reasoning behind their design."
 
+    # Add documentation content
+    await knowledge.add_contents(urls=["https://docs.agno.com/introduction/agents.md"])
+
     # Run async with streaming and reasoning
     await coordinated_reasoning_team.aprint_response(
         query, stream=True, stream_intermediate_steps=True, show_full_reasoning=True
@@ -147,6 +147,9 @@ def sync_reasoning_demo():
     print("=" * 50)
 
     query = "What are Agents and how do they work with tools? Explain the reasoning behind their design."
+
+    # Add documentation content
+    knowledge.add_contents_sync(urls=["https://docs.agno.com/introduction/agents.md"])
 
     # Run with detailed reasoning output
     coordinated_reasoning_team.print_response(

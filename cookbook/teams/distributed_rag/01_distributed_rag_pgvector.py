@@ -15,6 +15,8 @@ Setup:
 3. Run this script to see distributed PgVector RAG in action
 """
 
+import asyncio # noqa: F401
+
 from agno.agent import Agent
 from agno.knowledge.embedder.openai import OpenAIEmbedder
 from agno.knowledge.knowledge import Knowledge
@@ -45,18 +47,10 @@ hybrid_knowledge = Knowledge(
     ),
 )
 
-# Add content to knowledge bases
-vector_knowledge.add_content(
-    url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
-)
-hybrid_knowledge.add_content(
-    url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
-)
-
 # Vector Retriever Agent - Specialized in vector similarity search
 vector_retriever = Agent(
     name="Vector Retriever",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Retrieve information using vector similarity search in PostgreSQL",
     knowledge=vector_knowledge,
     search_knowledge=True,
@@ -72,7 +66,7 @@ vector_retriever = Agent(
 # Hybrid Searcher Agent - Specialized in hybrid search
 hybrid_searcher = Agent(
     name="Hybrid Searcher",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Perform hybrid search combining vector and text search",
     knowledge=hybrid_knowledge,
     search_knowledge=True,
@@ -88,7 +82,7 @@ hybrid_searcher = Agent(
 # Data Validator Agent - Specialized in data quality validation
 data_validator = Agent(
     name="Data Validator",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Validate retrieved data quality and relevance",
     instructions=[
         "Assess the quality and relevance of retrieved information.",
@@ -103,7 +97,7 @@ data_validator = Agent(
 # Response Composer Agent - Specialized in response composition
 response_composer = Agent(
     name="Response Composer",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Compose comprehensive responses with proper source attribution",
     instructions=[
         "Combine validated information from all team members.",
@@ -119,7 +113,7 @@ response_composer = Agent(
 distributed_pgvector_team = Team(
     name="Distributed PgVector RAG Team",
     mode="coordinate",  # Sequential coordination for database operations
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     members=[vector_retriever, hybrid_searcher, data_validator, response_composer],
     instructions=[
         "Work together to provide comprehensive RAG responses using PostgreSQL pgvector.",
@@ -143,10 +137,15 @@ async def async_pgvector_rag_demo():
     query = "How do I make chicken and galangal in coconut milk soup? What are the key ingredients and techniques?"
 
     try:
-        # Run async distributed PgVector RAG
-        await distributed_pgvector_team.aprint_response(
-            query, stream=True, stream_intermediate_steps=True
+        # Add content to knowledge bases
+        await vector_knowledge.add_contents(
+            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
         )
+        await hybrid_knowledge.add_contents(
+            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+        )
+        # Run async distributed PgVector RAG
+        await distributed_pgvector_team.aprint_response(input=query)
     except Exception as e:
         print(f"❌ Error: {e}")
         print("💡 Make sure PostgreSQL with pgvector is running!")
@@ -161,10 +160,15 @@ def sync_pgvector_rag_demo():
     query = "How do I make chicken and galangal in coconut milk soup? What are the key ingredients and techniques?"
 
     try:
-        # Run distributed PgVector RAG
-        distributed_pgvector_team.print_response(
-            query, stream=True, stream_intermediate_steps=True
+        # Add content to knowledge bases
+        vector_knowledge.add_contents_sync(
+            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
         )
+        hybrid_knowledge.add_contents_sync(
+            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+        )
+        # Run distributed PgVector RAG
+        distributed_pgvector_team.print_response(input=query)
     except Exception as e:
         print(f"❌ Error: {e}")
         print("💡 Make sure PostgreSQL with pgvector is running!")
@@ -184,9 +188,15 @@ def complex_query_demo():
     - Any dietary considerations or alternatives"""
 
     try:
-        distributed_pgvector_team.print_response(
-            query, stream=True, stream_intermediate_steps=True
+        # Add content to knowledge bases
+        vector_knowledge.add_contents_sync(
+            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
         )
+        hybrid_knowledge.add_contents_sync(
+            url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+        )
+
+        distributed_pgvector_team.print_response(input=query)
     except Exception as e:
         print(f"❌ Error: {e}")
         print("💡 Make sure PostgreSQL with pgvector is running!")

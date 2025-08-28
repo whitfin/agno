@@ -684,7 +684,7 @@ class Agent:
         log_debug(f"Session ID: {session_id}", center=True)
 
         # Use the default user_id when necessary
-        if user_id is None:
+        if user_id is None or user_id == "":
             user_id = self.user_id
 
         # Determine the session_state

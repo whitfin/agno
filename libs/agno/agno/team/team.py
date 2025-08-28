@@ -169,6 +169,8 @@ class Team:
     add_datetime_to_context: bool = False
     # If True, add the current location to the instructions to give the team a sense of location
     add_location_to_context: bool = False
+    # Allows for custom timezone for datetime instructions following the TZ Database format (e.g. "Etc/UTC")
+    timezone_identifier: Optional[str] = None
     # If True, add the team name to the instructions
     add_name_to_context: bool = False
     # If True, add the tools available to team members to the context
@@ -355,6 +357,7 @@ class Team:
         markdown: bool = False,
         add_datetime_to_context: bool = False,
         add_location_to_context: bool = False,
+        timezone_identifier: Optional[str] = None,
         add_name_to_context: bool = False,
         add_member_tools_to_context: bool = True,
         system_message: Optional[Union[str, Callable, Message]] = None,
@@ -439,6 +442,7 @@ class Team:
         self.add_datetime_to_context = add_datetime_to_context
         self.add_location_to_context = add_location_to_context
         self.add_name_to_context = add_name_to_context
+        self.timezone_identifier = timezone_identifier
         self.add_member_tools_to_context = add_member_tools_to_context
         self.system_message = system_message
         self.system_message_role = system_message_role
@@ -3972,7 +3976,19 @@ class Team:
         if self.add_datetime_to_context:
             from datetime import datetime
 
-            additional_information.append(f"The current time is {datetime.now()}")
+            tz = None
+
+            if self.timezone_identifier:
+                try:
+                    from zoneinfo import ZoneInfo
+
+                    tz = ZoneInfo(self.timezone_identifier)
+                except Exception:
+                    log_warning("Invalid timezone identifier")
+
+            time = datetime.now(tz) if tz else datetime.now()
+
+            additional_information.append(f"The current time is {time}.")
 
         # 1.3.3 Add the current location
         if self.add_location_to_context:

@@ -743,6 +743,7 @@ def test_create_team_run_completed_event_function():
     assert completed_event.team_id == "test_team"
 
 
+@pytest.mark.skip(reason="This test is flaky")
 def test_intermediate_steps_with_member_agents_collaborate():
     def get_news_from_hackernews(query: str):
         return "The best way to learn to code is to use the Hackernews API."

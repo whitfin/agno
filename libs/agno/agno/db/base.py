@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union
+from uuid import uuid4
 
 from agno.db.schemas import UserMemory
 from agno.db.schemas.evals import EvalFilterType, EvalRunRecord, EvalType
@@ -23,7 +24,9 @@ class BaseDb(ABC):
         metrics_table: Optional[str] = None,
         eval_table: Optional[str] = None,
         knowledge_table: Optional[str] = None,
+        id: Optional[str] = None,
     ):
+        self.id = id or str(uuid4())
         self.session_table_name = session_table or "agno_sessions"
         self.memory_table_name = memory_table or "agno_memories"
         self.metrics_table_name = metrics_table or "agno_metrics"
@@ -135,7 +138,9 @@ class BaseDb(ABC):
     # --- Metrics ---
     @abstractmethod
     def get_metrics(
-        self, starting_date: Optional[date] = None, ending_date: Optional[date] = None
+        self,
+        starting_date: Optional[date] = None,
+        ending_date: Optional[date] = None,
     ) -> Tuple[List[Dict[str, Any]], Optional[int]]:
         raise NotImplementedError
 

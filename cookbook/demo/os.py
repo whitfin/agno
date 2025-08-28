@@ -26,7 +26,7 @@ basic_agent = Agent(
     markdown=True,
 )
 basic_team = Team(
-    team_id="basic-team",
+    id="basic-team",
     name="Basic Team",
     model=OpenAIChat(id="gpt-4o"),
     db=db,
@@ -34,7 +34,7 @@ basic_team = Team(
     enable_user_memories=True,
 )
 basic_workflow = Workflow(
-    workflow_id="basic-workflow",
+    id="basic-workflow",
     name="Basic Workflow",
     description="Just a simple workflow",
     db=db,

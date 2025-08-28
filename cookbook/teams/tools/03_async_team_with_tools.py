@@ -32,7 +32,7 @@ wikipedia_agent = Agent(
 website_agent = Agent(
     name="Website Agent",
     role="Search the website for information",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     tools=[DuckDuckGoTools()],
     instructions=[
         "Search the website for information",
@@ -55,7 +55,7 @@ team_id = str(uuid4())
 company_info_team = Team(
     name="Company Info Team",
     mode="coordinate",
-    team_id=team_id,
+    id=team_id,
     model=Claude(id="claude-3-7-sonnet-latest"),
     tools=[AgentQLTools(agentql_query=custom_query)],
     members=[

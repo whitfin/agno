@@ -90,11 +90,7 @@ shopping_mgmt_team = Team(
 
 
 def get_ingredients(session_state) -> str:
-    """Retrieve ingredients from the shopping list to use for recipe suggestions.
-
-    Args:
-        meal_type (str): Type of meal to suggest (breakfast, lunch, dinner, snack, or any)
-    """
+    """Retrieve ingredients from the shopping list to use for recipe suggestions."""
     shopping_list = session_state["shopping_list"]
 
     if not shopping_list:
@@ -123,9 +119,9 @@ recipe_agent = Agent(
 )
 
 
-def list_items(team: Team) -> str:
+def list_items(session_state) -> str:
     """List all items in the shopping list."""
-    shopping_list = team.team_session_state["shopping_list"]
+    shopping_list = session_state["shopping_list"]
 
     if not shopping_list:
         return "The shopping list is empty."
@@ -151,7 +147,7 @@ meal_planning_team = Team(
 )
 
 
-def add_chore(team: Team, chore: str, priority: str = "medium") -> str:
+def add_chore(session_state, chore: str, priority: str = "medium") -> str:
     """Add a chore to the list with priority level.
 
     Args:
@@ -162,8 +158,8 @@ def add_chore(team: Team, chore: str, priority: str = "medium") -> str:
         str: Confirmation message
     """
     # Initialize chores list if it doesn't exist
-    if "chores" not in team.session_state:
-        team.session_state["chores"] = []
+    if "chores" not in session_state:
+        session_state["chores"] = []
 
     # Validate priority
     valid_priorities = ["low", "medium", "high"]
@@ -179,7 +175,7 @@ def add_chore(team: Team, chore: str, priority: str = "medium") -> str:
         "added_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
 
-    team.session_state["chores"].append(chore_entry)
+    session_state["chores"].append(chore_entry)
 
     return f"Added chore: '{chore}' with {priority} priority"
 

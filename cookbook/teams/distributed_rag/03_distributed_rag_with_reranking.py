@@ -14,12 +14,15 @@ Setup:
 2. Run this script to see advanced reranking RAG in action
 """
 
+import asyncio
+
 from agno.agent import Agent
 from agno.knowledge.embedder.openai import OpenAIEmbedder
 from agno.knowledge.knowledge import Knowledge
 from agno.knowledge.reranker import CohereReranker
 from agno.models.openai import OpenAIChat
 from agno.team.team import Team
+from agno.utils.print_response.team import aprint_response, print_response
 from agno.vectordb.lancedb import LanceDb, SearchType
 
 # Knowledge base with advanced reranking
@@ -43,18 +46,10 @@ validation_knowledge = Knowledge(
     ),
 )
 
-# Add content to knowledge bases
-reranked_knowledge.add_content(
-    url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
-)
-validation_knowledge.add_content(
-    url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
-)
-
 # Initial Retriever Agent - Specialized in broad initial retrieval
 initial_retriever = Agent(
     name="Initial Retriever",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Perform broad initial retrieval to gather candidate information",
     knowledge=reranked_knowledge,
     search_knowledge=True,
@@ -70,7 +65,7 @@ initial_retriever = Agent(
 # Reranking Specialist Agent - Specialized in result optimization
 reranking_specialist = Agent(
     name="Reranking Specialist",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Apply advanced reranking to optimize retrieval results",
     knowledge=reranked_knowledge,
     search_knowledge=True,
@@ -86,7 +81,7 @@ reranking_specialist = Agent(
 # Context Analyzer Agent - Specialized in context analysis
 context_analyzer = Agent(
     name="Context Analyzer",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Analyze context and relevance of reranked results",
     knowledge=validation_knowledge,
     search_knowledge=True,
@@ -102,7 +97,7 @@ context_analyzer = Agent(
 # Final Synthesizer Agent - Specialized in optimal synthesis
 final_synthesizer = Agent(
     name="Final Synthesizer",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     role="Synthesize reranked results into optimal comprehensive responses",
     instructions=[
         "Synthesize information from all team members into optimal responses.",
@@ -118,7 +113,7 @@ final_synthesizer = Agent(
 distributed_reranking_team = Team(
     name="Distributed Reranking RAG Team",
     mode="coordinate",  # Sequential coordination for reranking optimization
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     members=[
         initial_retriever,
         reranking_specialist,
@@ -146,10 +141,16 @@ async def async_reranking_rag_demo():
 
     query = "What's the best way to prepare authentic Tom Kha Gai? I want traditional methods and modern variations."
 
-    # Run async distributed reranking RAG
-    await distributed_reranking_team.aprint_response(
-        query, stream=True, stream_intermediate_steps=True
+    # Add content to knowledge bases
+    await reranked_knowledge.add_contents(
+        url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
     )
+    await validation_knowledge.add_contents(
+        url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+    )
+
+    # Run async distributed reranking RAG
+    await aprint_response(input=query, team=distributed_reranking_team)
 
 
 def sync_reranking_rag_demo():
@@ -159,10 +160,16 @@ def sync_reranking_rag_demo():
 
     query = "What's the best way to prepare authentic Tom Kha Gai? I want traditional methods and modern variations."
 
-    # Run distributed reranking RAG
-    distributed_reranking_team.print_response(
-        query, stream=True, stream_intermediate_steps=True
+    # Add content to knowledge bases
+    reranked_knowledge.add_contents_sync(
+        url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
     )
+    validation_knowledge.add_contents_sync(
+        url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+    )
+
+    # Run distributed reranking RAG
+    print_response(distributed_reranking_team, query)
 
 
 def advanced_culinary_demo():
@@ -177,16 +184,21 @@ def advanced_culinary_demo():
     - Best practices for storage and usage
     - How to adapt recipes for different dietary needs"""
 
-    distributed_reranking_team.print_response(
-        query, stream=True, stream_intermediate_steps=True
+    # Add content to knowledge bases
+    reranked_knowledge.add_contents_sync(
+        url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
     )
+    validation_knowledge.add_contents_sync(
+        url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
+    )
+
+    print_response(distributed_reranking_team, query)
 
 
 if __name__ == "__main__":
     # Choose which demo to run
-
-    # asyncio.run(async_reranking_rag_demo())
+    asyncio.run(async_reranking_rag_demo())
 
     # advanced_culinary_demo()
 
-    sync_reranking_rag_demo()
+    # sync_reranking_rag_demo()

@@ -22,7 +22,7 @@ Setup:
 from agno.agent import Agent
 from agno.knowledge.embedder.cohere import CohereEmbedder
 from agno.knowledge.knowledge import Knowledge
-from agno.knowledge.reranker import InfinityReranker
+from agno.knowledge.reranker.infinity import InfinityReranker
 from agno.models.anthropic import Claude
 from agno.team.team import Team
 from agno.vectordb.lancedb import LanceDb, SearchType
@@ -52,10 +52,6 @@ knowledge_secondary = Knowledge(
         ),
     ),
 )
-
-# Add content to both knowledge bases
-knowledge_primary.add_contents(urls=["https://docs.agno.com/introduction/agents.md"])
-knowledge_secondary.add_contents(urls=["https://docs.agno.com/introduction/agents.md"])
 
 # Primary Searcher Agent - Broad search with infinity reranking
 primary_searcher = Agent(
@@ -149,6 +145,14 @@ async def async_distributed_search():
 
     query = "How do Agents work with tools and what are the performance considerations?"
 
+    # Add content to both knowledge bases
+    await knowledge_primary.add_contents(
+        urls=["https://docs.agno.com/introduction/agents.md"]
+    )
+    await knowledge_secondary.add_contents(
+        urls=["https://docs.agno.com/introduction/agents.md"]
+    )
+
     # Run async distributed search
     await distributed_search_team.aprint_response(
         query, stream=True, stream_intermediate_steps=True
@@ -161,6 +165,14 @@ def sync_distributed_search():
     print("=" * 55)
 
     query = "How do Agents work with tools and what are the performance considerations?"
+
+    # Add content to both knowledge bases
+    knowledge_primary.add_contents_sync(
+        urls=["https://docs.agno.com/introduction/agents.md"]
+    )
+    knowledge_secondary.add_contents_sync(
+        urls=["https://docs.agno.com/introduction/agents.md"]
+    )
 
     # Run distributed search
     distributed_search_team.print_response(

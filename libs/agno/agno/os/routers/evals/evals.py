@@ -30,7 +30,7 @@ def get_eval_router(
     teams: Optional[List[Team]] = None,
     settings: AgnoAPISettings = AgnoAPISettings(),
 ) -> APIRouter:
-    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))])
+    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))], tags=["Evals"])
     return attach_routes(router=router, dbs=dbs, agents=agents, teams=teams)
 
 

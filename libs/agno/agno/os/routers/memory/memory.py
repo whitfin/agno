@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_memory_router(dbs: dict[str, BaseDb], settings: AgnoAPISettings = AgnoAPISettings(), **kwargs) -> APIRouter:
-    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))])
+    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))], tags=["Memory"])
     return attach_routes(router=router, dbs=dbs)
 
 

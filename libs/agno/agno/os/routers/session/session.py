@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_session_router(dbs: dict[str, BaseDb], settings: AgnoAPISettings = AgnoAPISettings()) -> APIRouter:
-    session_router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))])
+    session_router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))], tags=["Sessions"])
     return attach_routes(router=session_router, dbs=dbs)
 
 

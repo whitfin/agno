@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def get_knowledge_router(
     knowledge_instances: List[Knowledge], settings: AgnoAPISettings = AgnoAPISettings()
 ) -> APIRouter:
-    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))])
+    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))], tags=["Knowledge"])
     return attach_routes(router=router, knowledge_instances=knowledge_instances)
 
 

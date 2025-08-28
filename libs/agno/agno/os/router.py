@@ -288,10 +288,10 @@ def get_base_router(
     os: "AgentOS",
     settings: AgnoAPISettings = AgnoAPISettings(),
 ) -> APIRouter:
-    router = APIRouter(tags=["Core"], dependencies=[Depends(get_authentication_dependency(settings))])
+    router = APIRouter(dependencies=[Depends(get_authentication_dependency(settings))])
 
     # -- Main Routes ---
-    @router.get("/health")
+    @router.get("/health", tags=["Core"])
     async def health_check():
         return JSONResponse(content={"status": "ok"})
 
@@ -299,6 +299,7 @@ def get_base_router(
         "/config",
         response_model=ConfigResponse,
         response_model_exclude_none=True,
+        tags=["Core"],
     )
     async def config() -> ConfigResponse:
         return ConfigResponse(
@@ -324,6 +325,7 @@ def get_base_router(
         "/models",
         response_model=List[Model],
         response_model_exclude_none=True,
+        tags=["Core"],
     )
     async def get_models():
         """Return the list of all models used by agents and teams in the contextual OS"""
@@ -345,7 +347,7 @@ def get_base_router(
 
     # -- Agent routes ---
 
-    @router.post("/agents/{agent_id}/runs")
+    @router.post("/agents/{agent_id}/runs", tags=["Agents"])
     async def create_agent_run(
         agent_id: str,
         message: str = Form(...),
@@ -451,6 +453,7 @@ def get_base_router(
 
     @router.post(
         "/agents/{agent_id}/runs/{run_id}/cancel",
+        tags=["Agents"],
     )
     async def cancel_agent_run(
         agent_id: str,
@@ -464,6 +467,7 @@ def get_base_router(
 
     @router.post(
         "/agents/{agent_id}/runs/{run_id}/continue",
+        tags=["Agents"],
     )
     async def continue_agent_run(
         agent_id: str,
@@ -525,6 +529,7 @@ def get_base_router(
     @router.delete(
         "/agents/{agent_id}/sessions/{session_id}",
         status_code=204,
+        tags=["Agents"],
     )
     async def delete_agent_session(agent_id: str, session_id: str) -> None:
         agent = get_agent_by_id(agent_id, os.agents)
@@ -539,6 +544,7 @@ def get_base_router(
         "/agents",
         response_model=List[AgentResponse],
         response_model_exclude_none=True,
+        tags=["Agents"],
     )
     async def get_agents():
         """Return the list of all Agents present in the contextual OS"""
@@ -555,6 +561,7 @@ def get_base_router(
         "/agents/{agent_id}/sessions",
         response_model=PaginatedResponse[SessionSchema],
         status_code=200,
+        tags=["Agents"],
     )
     async def get_agent_sessions(
         agent_id: str,
@@ -595,6 +602,7 @@ def get_base_router(
         "/agents/{agent_id}/sessions/{session_id}",
         response_model=AgentSessionDetailSchema,
         status_code=200,
+        tags=["Agents"],
     )
     async def get_agent_session_by_id(
         agent_id: str,
@@ -617,6 +625,7 @@ def get_base_router(
         "/agents/{agent_id}/sessions/{session_id}/runs",
         response_model=List[RunSchema],
         status_code=200,
+        tags=["Agents"],
     )
     async def get_agent_session_runs(
         agent_id: str,
@@ -639,6 +648,7 @@ def get_base_router(
         "/agents/{agent_id}",
         response_model=AgentResponse,
         response_model_exclude_none=True,
+        tags=["Agents"],
     )
     async def get_agent(agent_id: str):
         agent = get_agent_by_id(agent_id, os.agents)
@@ -650,6 +660,7 @@ def get_base_router(
     @router.post(
         "/agents/{agent_id}/sessions/{session_id}/rename",
         response_model=AgentSessionDetailSchema,
+        tags=["Agents"],
     )
     async def rename_agent_session(
         agent_id: str,
@@ -670,7 +681,7 @@ def get_base_router(
 
     # -- Team routes ---
 
-    @router.post("/teams/{team_id}/runs")
+    @router.post("/teams/{team_id}/runs", tags=["Teams"])
     async def create_team_run(
         team_id: str,
         message: str = Form(...),
@@ -773,6 +784,7 @@ def get_base_router(
 
     @router.post(
         "/teams/{team_id}/runs/{run_id}/cancel",
+        tags=["Teams"],
     )
     async def cancel_team_run(
         team_id: str,
@@ -788,6 +800,7 @@ def get_base_router(
     @router.delete(
         "/teams/{team_id}/sessions/{session_id}",
         status_code=204,
+        tags=["Teams"],
     )
     async def delete_team_session(team_id: str, session_id: str) -> None:
         team = get_team_by_id(team_id, os.teams)
@@ -802,6 +815,7 @@ def get_base_router(
         "/teams",
         response_model=List[TeamResponse],
         response_model_exclude_none=True,
+        tags=["Teams"],
     )
     async def get_teams():
         """Return the list of all Teams present in the contextual OS"""
@@ -818,6 +832,7 @@ def get_base_router(
         "/teams/{team_id}/sessions",
         response_model=PaginatedResponse[SessionSchema],
         status_code=200,
+        tags=["Teams"],
     )
     async def get_team_sessions(
         team_id: str,
@@ -861,6 +876,7 @@ def get_base_router(
         "/teams/{team_id}/sessions/{session_id}",
         response_model=TeamSessionDetailSchema,
         status_code=200,
+        tags=["Teams"],
     )
     async def get_team_session_by_id(
         team_id: str,
@@ -883,6 +899,7 @@ def get_base_router(
         "/teams/{team_id}/sessions/{session_id}/runs",
         response_model=List[TeamRunSchema],
         status_code=200,
+        tags=["Teams"],
     )
     async def get_team_session_runs(
         team_id: str,
@@ -909,6 +926,7 @@ def get_base_router(
         "/teams/{team_id}",
         response_model=TeamResponse,
         response_model_exclude_none=True,
+        tags=["Teams"],
     )
     async def get_team(team_id: str):
         team = get_team_by_id(team_id, os.teams)
@@ -920,6 +938,7 @@ def get_base_router(
     @router.post(
         "/teams/{team_id}/sessions/{session_id}/rename",
         response_model=TeamSessionDetailSchema,
+        tags=["Teams"],
     )
     async def rename_team_session(
         team_id: str,
@@ -969,6 +988,7 @@ def get_base_router(
         "/workflows/",
         response_model=List[WorkflowResponse],
         response_model_exclude_none=True,
+        tags=["Workflows"],
     )
     async def get_workflows():
         if os.workflows is None:
@@ -988,6 +1008,7 @@ def get_base_router(
         "/workflows/{workflow_id}/",
         response_model=WorkflowResponse,
         response_model_exclude_none=True,
+        tags=["Workflows"],
     )
     async def get_workflow(workflow_id: str):
         workflow = get_workflow_by_id(workflow_id, os.workflows)
@@ -996,7 +1017,7 @@ def get_base_router(
 
         return WorkflowResponse.from_workflow(workflow)
 
-    @router.post("/workflows/{workflow_id}/runs")
+    @router.post("/workflows/{workflow_id}/runs", tags=["Workflows"])
     async def create_workflow_run(
         workflow_id: str,
         message: str = Form(...),
@@ -1042,7 +1063,7 @@ def get_base_router(
             # Handle unexpected runtime errors
             raise HTTPException(status_code=500, detail=f"Error running workflow: {str(e)}")
 
-    @router.post("/workflows/{workflow_id}/runs/{run_id}/cancel")
+    @router.post("/workflows/{workflow_id}/runs/{run_id}/cancel", tags=["Workflows"])
     async def cancel_workflow_run(workflow_id: str, run_id: str):
         workflow = get_workflow_by_id(workflow_id, os.workflows)
         if workflow is None:
@@ -1054,6 +1075,7 @@ def get_base_router(
         "/workflows/{workflow_id}/sessions",
         response_model=PaginatedResponse[SessionSchema],
         response_model_exclude_none=True,
+        tags=["Workflows"],
     )
     async def get_workflow_sessions(
         workflow_id: str,
@@ -1094,6 +1116,7 @@ def get_base_router(
         "/workflows/{workflow_id}/sessions/{session_id}",
         response_model=WorkflowSessionDetailSchema,
         response_model_exclude_none=True,
+        tags=["Workflows"],
     )
     async def get_workflow_session(workflow_id: str, session_id: str):
         workflow = get_workflow_by_id(workflow_id, os.workflows)
@@ -1112,6 +1135,7 @@ def get_base_router(
         "/workflows/{workflow_id}/sessions/{session_id}/runs",
         response_model=List[WorkflowRunSchema],
         response_model_exclude_none=True,
+        tags=["Workflows"],
     )
     async def get_workflow_session_runs(workflow_id: str, session_id: str):
         workflow = get_workflow_by_id(workflow_id, os.workflows)

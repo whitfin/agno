@@ -138,7 +138,7 @@ jobs:
         run: |
           set -e
           ./scripts/dev_setup.sh
-          uv pip install chonkie
+          pip install chonkie[st]
       - name: Run tests for Agno
         working-directory: .
         run: |

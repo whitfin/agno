@@ -65,11 +65,11 @@ class VoyageAIEmbedder(Embedder):
             response = self._standard_response(text=text)
             return {
                 "embeddings": response.embeddings[0],
-                "usage": {"total_tokens": response.total_tokens}
+                "total_tokens": response.total_tokens
             }
         except Exception as e:
             logger.warning(f"Error getting standard embedding: {e}")
-            return {"embeddings": [], "usage": None}
+            return {"embeddings": [], "total_tokens": None}
 
     def get_contextualized_embeddings(
         self, 
@@ -84,8 +84,8 @@ class VoyageAIEmbedder(Embedder):
             embeddings = [emb for r in response.results for emb in r.embeddings]
             return {
                 "embeddings": embeddings,
-                "usage": {"total_tokens": response.total_tokens}
+                "total_tokens": response.total_tokens
             }
         except Exception as e:
             logger.warning(f"Error getting contextualized embeddings: {e}")
-            return {"embeddings": [], "usage": None}
+            return {"embeddings": [], "total_tokens": None}

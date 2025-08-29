@@ -6,11 +6,11 @@ embedder = VoyageAIEmbedder(
     id="voyage-2",
 )
 
-embeddings = embedder.get_standard_embedding(
+embeddings = embedder.get_embedding(
     "The quick brown fox jumps over the lazy dog."
 )
 
-print(f"Standard Embeddings: {embeddings['embeddings'][:5]}")
+print(f"Embeddings: {embeddings['embeddings'][:5]}")
 print(f"Usage: {embeddings['usage']}")
 
 # Contextualized embeddings

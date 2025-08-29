@@ -59,8 +59,8 @@ class VoyageAIEmbedder(Embedder):
             _request_params.update(self.request_params)
         return self.client.embed(**_request_params)
 
-    def get_standard_embedding(self, text: str) -> Dict[str, Any]:
-        """Get standard embedding for a single text with usage info"""
+    def get_embedding(self, text: str) -> Dict[str, Any]:
+        """Get embedding for a single text with usage info"""
         try:
             response = self._standard_response(text=text)
             return {

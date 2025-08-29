@@ -44,7 +44,7 @@ def complex_csv_file(temp_dir):
 
 @pytest.fixture
 def csv_reader():
-    return CSVReader()
+    return CSVReader(chunking_strategy=None)
 
 
 def test_read_path(csv_reader, csv_file):
@@ -196,7 +196,7 @@ async def test_async_read_empty_file(csv_reader, temp_dir):
 
 @pytest.fixture
 def csv_url_reader():
-    return CSVUrlReader()
+    return CSVUrlReader(chunking_strategy=None)
 
 
 def test_read_url(csv_url_reader):

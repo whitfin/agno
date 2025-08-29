@@ -39,8 +39,10 @@ def test_read_video(mock_transcript):
 def test_read_video_with_chunking(mock_transcript):
     video_url = "https://www.youtube.com/watch?v=test_video_id"
 
-    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api:
-        mock_api.get_transcript.return_value = mock_transcript
+    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api_class:
+        mock_api_instance = MagicMock()
+        mock_api_class.return_value = mock_api_instance
+        mock_api_instance.fetch.return_value = mock_transcript
 
         reader = YouTubeReader()
         reader.chunk = True
@@ -76,8 +78,10 @@ def test_read_invalid_video_url():
 def test_read_video_api_error():
     video_url = "https://www.youtube.com/watch?v=test_video_id"
 
-    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api:
-        mock_api.get_transcript.side_effect = Exception("API Error")
+    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api_class:
+        mock_api_instance = MagicMock()
+        mock_api_class.return_value = mock_api_instance
+        mock_api_instance.fetch.side_effect = Exception("API Error")
 
         reader = YouTubeReader()
         documents = reader.read(video_url)
@@ -110,10 +114,12 @@ def test_read_large_transcript():
 def test_read_video_with_params():
     video_url = "https://www.youtube.com/watch?v=test_video_id&t=30s"
 
-    mock_transcript = [{"text": "Test content", "start": 0.0, "duration": 2.0}]
+    mock_transcript = [MagicMock(text="Test content", start=0.0, duration=2.0)]
 
-    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api:
-        mock_api.get_transcript.return_value = mock_transcript
+    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api_class:
+        mock_api_instance = MagicMock()
+        mock_api_class.return_value = mock_api_instance
+        mock_api_instance.fetch.return_value = mock_transcript
 
         reader = YouTubeReader()
         reader.chunk = False
@@ -168,8 +174,10 @@ async def test_async_read_video(mock_transcript):
 async def test_async_read_video_with_chunking(mock_transcript):
     video_url = "https://www.youtube.com/watch?v=test_video_id"
 
-    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api:
-        mock_api.get_transcript.return_value = mock_transcript
+    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api_class:
+        mock_api_instance = MagicMock()
+        mock_api_class.return_value = mock_api_instance
+        mock_api_instance.fetch.return_value = mock_transcript
 
         reader = YouTubeReader()
         reader.chunk = True
@@ -207,8 +215,10 @@ async def test_async_read_invalid_video_url():
 async def test_async_read_video_api_error():
     video_url = "https://www.youtube.com/watch?v=test_video_id"
 
-    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api:
-        mock_api.get_transcript.side_effect = Exception("API Error")
+    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api_class:
+        mock_api_instance = MagicMock()
+        mock_api_class.return_value = mock_api_instance
+        mock_api_instance.fetch.side_effect = Exception("API Error")
 
         reader = YouTubeReader()
         documents = await reader.async_read(video_url)
@@ -243,10 +253,12 @@ async def test_async_read_large_transcript():
 async def test_async_read_video_with_params():
     video_url = "https://www.youtube.com/watch?v=test_video_id&t=30s"
 
-    mock_transcript = [{"text": "Test content", "start": 0.0, "duration": 2.0}]
+    mock_transcript = [MagicMock(text="Test content", start=0.0, duration=2.0)]
 
-    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api:
-        mock_api.get_transcript.return_value = mock_transcript
+    with patch("agno.knowledge.reader.youtube_reader.YouTubeTranscriptApi") as mock_api_class:
+        mock_api_instance = MagicMock()
+        mock_api_class.return_value = mock_api_instance
+        mock_api_instance.fetch.return_value = mock_transcript
 
         reader = YouTubeReader()
         reader.chunk = False

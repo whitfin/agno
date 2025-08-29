@@ -14,8 +14,11 @@ from agno.utils.log import log_info, logger
 class TextReader(Reader):
     """Reader for Text files"""
 
-    def __init__(self, chunking_strategy: Optional[ChunkingStrategy] = FixedSizeChunking(), **kwargs):
-        super().__init__(chunking_strategy=chunking_strategy, **kwargs)
+    def __init__(self, chunking_strategy: Optional[ChunkingStrategy] = None, chunk_size: int = 5000, **kwargs):
+        # Set default chunking strategy if none provided
+        if chunking_strategy is None:
+            chunking_strategy = FixedSizeChunking(chunk_size=chunk_size)
+        super().__init__(chunking_strategy=chunking_strategy, chunk_size=chunk_size, **kwargs)
 
     @classmethod
     def get_supported_chunking_strategies(self) -> List[ChunkingStrategyType]:

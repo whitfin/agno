@@ -28,10 +28,14 @@ class FirecrawlReader(Reader):
         mode: Literal["scrape", "crawl"] = "scrape",
         chunk: bool = True,
         chunk_size: int = 5000,
-        chunking_strategy: Optional[ChunkingStrategy] = SemanticChunking(),
+        chunking_strategy: Optional[ChunkingStrategy] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
     ) -> None:
+        # Set default chunking strategy if none provided and chunking is enabled
+        if chunking_strategy is None and chunk:
+            chunking_strategy = SemanticChunking()
+        
         # Initialise base Reader (handles chunk_size / strategy)
         super().__init__(
             chunk=chunk, chunk_size=chunk_size, chunking_strategy=chunking_strategy, name=name, description=description
@@ -90,11 +94,17 @@ class FirecrawlReader(Reader):
             content = ""  # or you could use metadata to create a meaningful message
             logger.warning(f"No content received for URL: {url}")
 
+        # Replace newlines with spaces for consistent formatting
+        content = content.replace("\n", " ").replace("\r", "")
+        # Remove multiple spaces
+        import re
+        content = re.sub(r'\s+', ' ', content).strip()
+
         documents = []
         if self.chunk and content:  # Only chunk if there's content
             documents.extend(self.chunk_document(Document(name=name or url, id=url, content=content)))
         else:
-            documents.append(Document(name=name or url, id=url, content=content))
+            documents.append(Document(name=name or url, id=f"{url}_1", content=content))
         return documents
 
     async def async_scrape(self, url: str, name: Optional[str] = None) -> List[Document]:
@@ -144,6 +154,12 @@ class FirecrawlReader(Reader):
                 content = getattr(result, "markdown", "")
 
             if content:  # Only create document if content exists
+                # Replace newlines with spaces for consistent formatting
+                content = content.replace("\n", " ").replace("\r", "")
+                # Remove multiple spaces
+                import re
+                content = re.sub(r'\s+', ' ', content).strip()
+                
                 if self.chunk:
                     documents.extend(self.chunk_document(Document(name=name or url, id=url, content=content)))
                 else:

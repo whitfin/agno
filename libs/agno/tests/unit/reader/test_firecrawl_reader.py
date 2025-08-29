@@ -44,7 +44,7 @@ def test_scrape_basic(mock_scrape_response):
         mock_app.scrape_url.return_value = mock_scrape_response
 
         # Create reader and call scrape
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         documents = reader.scrape("https://example.com")
 
         # Verify results
@@ -70,7 +70,7 @@ def test_scrape_with_api_key_and_params():
         # Create reader with API key and params
         api_key = "test_api_key"
         params = {"waitUntil": "networkidle2"}
-        reader = FirecrawlReader(api_key=api_key, params=params)
+        reader = FirecrawlReader(api_key=api_key, params=params, chunk=False)
         reader.scrape("https://example.com")
 
         # Verify FirecrawlApp was called with correct parameters
@@ -91,7 +91,7 @@ def test_scrape_with_api_key_and_formats_params():
             "waitUntil": "networkidle2",  # This should be ignored
             "formats": ["markdown"],
         }
-        reader = FirecrawlReader(api_key=api_key, params=params)
+        reader = FirecrawlReader(api_key=api_key, params=params, chunk=False)
         reader.scrape("https://example.com")
 
         # Verify FirecrawlApp was called with correct parameters
@@ -107,7 +107,7 @@ def test_scrape_empty_response():
         mock_app.scrape_url.return_value = {}
 
         # Create reader and call scrape
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         documents = reader.scrape("https://example.com")
 
         # Verify results
@@ -123,7 +123,7 @@ def test_scrape_none_content():
         mock_app.scrape_url.return_value = {"markdown": None}
 
         # Create reader and call scrape
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         documents = reader.scrape("https://example.com")
 
         # Verify results
@@ -139,7 +139,7 @@ def test_scrape_with_chunking(mock_scrape_response):
         mock_app.scrape_url.return_value = mock_scrape_response
 
         # Create reader with chunking enabled
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         reader.chunk = True
         reader.chunking_strategy = FixedSizeChunking(chunk_size=10)  # Small chunk size to ensure multiple chunks
 
@@ -175,7 +175,7 @@ def test_crawl_basic(mock_crawl_response):
         mock_app.crawl_url.return_value = mock_crawl_response
 
         # Create reader and call crawl
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         documents = reader.crawl("https://example.com")
 
         # Verify results
@@ -199,7 +199,7 @@ def test_crawl_empty_response():
         mock_app.crawl_url.return_value = {}
 
         # Create reader and call crawl
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         documents = reader.crawl("https://example.com")
 
         # Verify results
@@ -214,7 +214,7 @@ def test_crawl_empty_data():
         mock_app.crawl_url.return_value = {"data": []}
 
         # Create reader and call crawl
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         documents = reader.crawl("https://example.com")
 
         # Verify results
@@ -229,7 +229,7 @@ def test_crawl_with_chunking(mock_crawl_response):
         mock_app.crawl_url.return_value = mock_crawl_response
 
         # Create reader with chunking enabled
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         reader.chunk = True
         reader.chunking_strategy = FixedSizeChunking(chunk_size=10)  # Small chunk size to ensure multiple chunks
 
@@ -252,7 +252,7 @@ def test_read_scrape_mode(mock_scrape_response):
         mock_app = MockFirecrawlApp.return_value
         mock_app.scrape_url.return_value = mock_scrape_response
 
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         documents = reader.read("https://example.com")
 
         assert len(documents) == 1
@@ -271,7 +271,7 @@ def test_read_crawl_mode(mock_crawl_response):
         mock_app.crawl_url.return_value = mock_crawl_response
 
         # Create reader in crawl mode
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         documents = reader.read("https://example.com")
 
         assert len(documents) == 2
@@ -282,7 +282,7 @@ def test_read_crawl_mode(mock_crawl_response):
 
 def test_read_invalid_mode():
     """Test read method with invalid mode"""
-    reader = FirecrawlReader(mode="invalid")
+    reader = FirecrawlReader(mode="invalid", chunk=False)
 
     with pytest.raises(NotImplementedError):
         reader.read("https://example.com")
@@ -304,7 +304,7 @@ async def test_async_scrape_basic(mock_scrape_response):
         )
         mock_to_thread.return_value = [document]
 
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         documents = await reader.async_scrape("https://example.com")
 
         assert len(documents) == 1
@@ -339,7 +339,7 @@ async def test_async_crawl_basic(mock_crawl_response):
         ]
         mock_to_thread.return_value = documents
 
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         result = await reader.async_crawl("https://example.com")
 
         assert len(result) == 2
@@ -363,7 +363,7 @@ async def test_async_read_scrape_mode(mock_scrape_response):
         )
         mock_async_scrape.return_value = [document]
 
-        reader = FirecrawlReader()
+        reader = FirecrawlReader(chunk=False)
         documents = await reader.async_read("https://example.com")
 
         assert len(documents) == 1
@@ -392,7 +392,7 @@ async def test_async_read_crawl_mode(mock_crawl_response):
         ]
         mock_async_crawl.return_value = documents
 
-        reader = FirecrawlReader(mode="crawl")
+        reader = FirecrawlReader(mode="crawl", chunk=False)
         result = await reader.async_read("https://example.com")
 
         assert len(result) == 2
@@ -404,7 +404,7 @@ async def test_async_read_crawl_mode(mock_crawl_response):
 @pytest.mark.asyncio
 async def test_async_read_invalid_mode():
     """Test async_read method with invalid mode"""
-    reader = FirecrawlReader(mode="invalid")
+    reader = FirecrawlReader(mode="invalid", chunk=False)
 
     with pytest.raises(NotImplementedError):
         await reader.async_read("https://example.com")

@@ -44,7 +44,7 @@ class CSVReader(Reader):
         return [ContentType.FILE, ContentType.URL, ContentType.CSV, ContentType.XLSX, ContentType.XLS]
 
     def read(
-        self, file: Union[Path, IO[Any]], delimiter: str = ",", quotechar: str = '"', name: Optional[str] = None
+        self, file: Union[Path, IO[Any]], delimiter: str = ",", quotechar: str = '"', name: Optional[str] = None, page_size: int = 1000
     ) -> List[Document]:
         try:
             if isinstance(file, Path):
@@ -62,19 +62,38 @@ class CSVReader(Reader):
                 if isinstance(file, Path)
                 else (getattr(file, "name", "csv_file").split(".")[0] if hasattr(file, "name") else "csv_file")
             )
-            csv_content = ""
+            
             with file_content as csvfile:
                 csv_reader = csv.reader(csvfile, delimiter=delimiter, quotechar=quotechar)
-                for row in csv_reader:
-                    csv_content += ", ".join(row) + "\n"
+                rows = list(csv_reader)
+                total_rows = len(rows)
 
-            documents = [
-                Document(
-                    name=csv_name,
-                    id=str(uuid4()),
-                    content=csv_content,
-                )
-            ]
+                if total_rows <= 10:
+                    csv_content = " ".join(", ".join(row) for row in rows) + " "
+                    documents = [
+                        Document(
+                            name=csv_name,
+                            id=str(uuid4()),
+                            content=csv_content,
+                        )
+                    ]
+                else:
+                    # Create pages for large CSVs
+                    documents = []
+                    for i in range(0, total_rows, page_size):
+                        page_rows = rows[i : i + page_size]
+                        start_row = i + 1
+                        page_content = " ".join(", ".join(row) for row in page_rows)
+                        page_number = (i // page_size) + 1
+                        
+                        document = Document(
+                            name=csv_name,
+                            id=f"{str(uuid4())}_{page_number}",
+                            meta_data={"page": page_number, "start_row": start_row, "rows": len(page_rows)},
+                            content=page_content,
+                        )
+                        documents.append(document)
+
             if self.chunk:
                 chunked_documents = []
                 for document in documents:
@@ -205,7 +224,7 @@ class CSVUrlReader(Reader):
 
         file_obj = io.BytesIO(response.content)
         file_obj.name = filename
-        documents = CSVReader().read(file=file_obj, name=name)
+        documents = CSVReader(chunking_strategy=self.chunking_strategy).read(file=file_obj, name=name)
 
         file_obj.close()
 
@@ -230,7 +249,7 @@ class CSVUrlReader(Reader):
             file_obj.name = filename
 
             # Use the async version of CSVReader
-            documents = await CSVReader().async_read(file=file_obj, name=name)
+            documents = await CSVReader(chunking_strategy=self.chunking_strategy).async_read(file=file_obj, name=name)
 
             file_obj.close()
 

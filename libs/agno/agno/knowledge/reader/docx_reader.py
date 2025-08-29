@@ -53,12 +53,12 @@ class DocxReader(Reader):
                     getattr(file, "name", "docx_file").split(".")[0] if hasattr(file, "name") else "docx_file"
                 )
 
-            doc_content = "\n\n".join([para.text for para in docx_document.paragraphs])
+            doc_content = " ".join([para.text for para in docx_document.paragraphs if para.text.strip()])
 
             documents = [
                 Document(
                     name=doc_name,
-                    id=str(uuid4()),
+                    id=f"{str(uuid4())}_1",
                     content=doc_content,
                 )
             ]

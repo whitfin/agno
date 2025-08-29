@@ -35,7 +35,7 @@ def mock_html_content_with_article():
 
 
 def test_delay():
-    reader = WebsiteReader()
+    reader = WebsiteReader(chunk=False)
 
     with patch("time.sleep", return_value=None) as mock_sleep:
         reader.delay(1, 2)
@@ -43,7 +43,7 @@ def test_delay():
 
 
 def test_crawl_basic(mock_html_content):
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
 
     # Create a mock crawl result
     crawl_result = {"https://example.com": "This is the main content"}
@@ -58,7 +58,7 @@ def test_crawl_basic(mock_html_content):
 
 
 def test_read_basic(mock_html_content):
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
 
     # Create a simple crawler result to return
     crawler_result = {"https://example.com": "This is the main content"}
@@ -74,7 +74,7 @@ def test_read_basic(mock_html_content):
 
 
 def test_read_with_chunking(mock_html_content):
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
     reader.chunk = True
 
     # Create a simple crawler result to return
@@ -102,7 +102,7 @@ def test_read_with_chunking(mock_html_content):
 
 
 def test_read_error_handling():
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
 
     # Mock crawl to simulate an error by returning empty dict
     with patch.object(reader, "crawl", return_value={}):
@@ -113,7 +113,7 @@ def test_read_error_handling():
 
 
 def test_extract_main_content():
-    reader = WebsiteReader()
+    reader = WebsiteReader(chunk=False)
 
     from bs4 import BeautifulSoup
 
@@ -135,7 +135,7 @@ def test_extract_main_content():
 
 
 def test_get_primary_domain():
-    reader = WebsiteReader()
+    reader = WebsiteReader(chunk=False)
 
     # Test with standard URL
     assert reader._get_primary_domain("https://example.com/page1") == "example.com"
@@ -151,7 +151,7 @@ def test_get_primary_domain():
 
 
 def test_crawl_max_depth(mock_html_content, mock_html_content_with_article):
-    reader = WebsiteReader(max_depth=2, max_links=5)
+    reader = WebsiteReader(max_depth=2, max_links=5, chunk=False)
 
     # Create a mock crawl result with multiple URLs
     crawl_result = {
@@ -171,7 +171,7 @@ def test_crawl_max_depth(mock_html_content, mock_html_content_with_article):
 
 @pytest.mark.asyncio
 async def test_async_delay():
-    reader = WebsiteReader()
+    reader = WebsiteReader(chunk=False)
 
     # Simple patch for asyncio.sleep
     with patch("asyncio.sleep", return_value=None) as mock_sleep:
@@ -181,7 +181,7 @@ async def test_async_delay():
 
 @pytest.mark.asyncio
 async def test_async_crawl_basic(mock_html_content):
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
 
     # Create a mock crawl result
     crawl_result = {"https://example.com": "This is the main content"}
@@ -197,7 +197,7 @@ async def test_async_crawl_basic(mock_html_content):
 
 @pytest.mark.asyncio
 async def test_async_read_basic(mock_html_content):
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
 
     # Create a simple crawler result to return
     crawler_result = {"https://example.com": "This is the main content"}
@@ -214,7 +214,7 @@ async def test_async_read_basic(mock_html_content):
 
 @pytest.mark.asyncio
 async def test_async_read_with_chunking(mock_html_content):
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
     reader.chunk = True
 
     # Create a simple crawler result to return
@@ -243,7 +243,7 @@ async def test_async_read_with_chunking(mock_html_content):
 
 @pytest.mark.asyncio
 async def test_async_read_error_handling():
-    reader = WebsiteReader(max_depth=1, max_links=1)
+    reader = WebsiteReader(max_depth=1, max_links=1, chunk=False)
 
     # Mock async_crawl to simulate an error by returning empty dict
     with patch.object(reader, "async_crawl", return_value={}):
@@ -255,7 +255,7 @@ async def test_async_read_error_handling():
 
 @pytest.mark.asyncio
 async def test_async_crawl_max_depth(mock_html_content, mock_html_content_with_article):
-    reader = WebsiteReader(max_depth=2, max_links=5)
+    reader = WebsiteReader(max_depth=2, max_links=5, chunk=False)
 
     # Create a mock crawl result with multiple URLs
     crawl_result = {

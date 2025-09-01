@@ -102,9 +102,13 @@ class Memory:
     team_context: Optional[Dict[str, TeamContext]] = None
 
     # Whether to delete memories
-    delete_memories: bool = False
+    delete_memories: bool = True
     # Whether to clear memories
-    clear_memories: bool = False
+    clear_memories: bool = True
+    # Whether to update memories
+    update_memories: bool = True
+    # whether to add memories
+    add_memories: bool = True
 
     debug_mode: bool = False
     version: int = 2
@@ -119,8 +123,10 @@ class Memory:
         summaries: Optional[Dict[str, Dict[str, SessionSummary]]] = None,
         runs: Optional[Dict[str, List[Union[RunResponse, TeamRunResponse]]]] = None,
         debug_mode: bool = False,
-        delete_memories: bool = False,
-        clear_memories: bool = False,
+        delete_memories: bool = True,
+        clear_memories: bool = True,
+        update_memories: bool = True,
+        add_memories: bool = True,
     ):
         self.memories = memories or {}
         self.summaries = summaries or {}
@@ -130,6 +136,8 @@ class Memory:
 
         self.delete_memories = delete_memories
         self.clear_memories = clear_memories
+        self.update_memories = update_memories
+        self.add_memories = add_memories
 
         self.model = model
 
@@ -485,6 +493,8 @@ class Memory:
             db=self.db,
             delete_memories=self.delete_memories,
             clear_memories=self.clear_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
         )
 
         # We refresh from the DB
@@ -534,6 +544,8 @@ class Memory:
             db=self.db,
             delete_memories=self.delete_memories,
             clear_memories=self.clear_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
         )
 
         # We refresh from the DB
@@ -567,6 +579,8 @@ class Memory:
             db=self.db,
             delete_memories=self.delete_memories,
             clear_memories=self.clear_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
         )
 
         # We refresh from the DB
@@ -601,6 +615,8 @@ class Memory:
             db=self.db,
             delete_memories=self.delete_memories,
             clear_memories=self.clear_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
         )
 
         # We refresh from the DB

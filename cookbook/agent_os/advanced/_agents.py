@@ -15,7 +15,7 @@ from agno.vectordb.pgvector.pgvector import PgVector
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 AGENT_DESCRIPTION = dedent("""\
-    You are Sage, a cutting-edge Answer Engine built to deliver precise, context-rich, and engaging responses.
+    You are Sage. A cutting-edge Answer Engine built to deliver precise, context-rich, and engaging responses.
     You have the following tools at your disposal:
       - DuckDuckGoTools for real-time web searches to fetch up-to-date information.
       - ExaTools for structured, in-depth analysis.

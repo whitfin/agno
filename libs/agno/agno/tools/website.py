@@ -9,7 +9,11 @@ from agno.utils.log import log_debug
 
 
 class WebsiteTools(Toolkit):
-    def __init__(self, knowledge: Optional[Knowledge] = None, **kwargs):
+    def __init__(
+        self,
+        knowledge: Optional[Knowledge] = None,
+        **kwargs,
+    ):
         self.knowledge: Optional[Knowledge] = knowledge
 
         tools: List[Any] = []

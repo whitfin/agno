@@ -10,7 +10,12 @@ from agno.utils.log import log_debug, log_info
 
 
 class WikipediaTools(Toolkit):
-    def __init__(self, knowledge: Optional[Knowledge] = None, **kwargs):
+    def __init__(
+        self,
+        knowledge: Optional[Knowledge] = None,
+        all: bool = False,
+        **kwargs,
+    ):
         tools = []
 
         self.knowledge: Optional[Knowledge] = knowledge

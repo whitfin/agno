@@ -53,7 +53,7 @@
 #     print(f"From: {first_email.sender}")
 #     print(f"Date: {first_email.date}")
 #     print(f"Is Unread: {first_email.is_unread}")
-    
+
 #     # Mark email as read with structured response
 #     mark_response: MarkAsReadResponse = tool.mark_email_as_read(first_email.id)
 #     print(f"Mark as read success: {mark_response.success}")
@@ -90,10 +90,6 @@
 # # )
 
 
-
-
-
-
 """
 Gmail Agent that can read, draft and send emails using the Gmail.
 """
@@ -102,8 +98,12 @@ from agno.agent import Agent
 from agno.models.google import Gemini
 from agno.models.openai import OpenAIChat
 from agno.tools.gmail import GmailTools
+from agno.tools.gmail_models import (
+    EmailSearchResponse,
+    MarkAsReadResponse,
+    SendEmailResponse,
+)
 from pydantic import BaseModel, Field
-from agno.tools.gmail_models import MarkAsReadResponse, EmailSearchResponse, SendEmailResponse
 
 
 class FindEmailOutput(BaseModel):

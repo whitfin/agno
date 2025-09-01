@@ -53,12 +53,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Union
 
 from agno.tools import Toolkit
-from agno.tools.gmail_models import (
-    MarkAsReadResponse, 
-    EmailInfo, 
-    EmailSearchResponse, 
-    SendEmailResponse
-)
+from agno.tools.gmail_models import EmailInfo, EmailSearchResponse, MarkAsReadResponse, SendEmailResponse
 
 try:
     from email.mime.application import MIMEApplication
@@ -303,7 +298,7 @@ class GmailTools(Toolkit):
             query = f"from:{user}" if "@" in user else f"from:{user}*"
             results = self.service.users().messages().list(userId="me", q=query, maxResults=count).execute()  # type: ignore
             messages = results.get("messages", [])
-            
+
             # Get full message details
             email_infos = []
             for msg in messages:
@@ -316,7 +311,7 @@ class GmailTools(Toolkit):
                 except Exception as e:
                     # Skip this email if we can't process it, but continue with others
                     continue
-            
+
             return EmailSearchResponse.success_response(email_infos)
         except HttpError as error:
             return EmailSearchResponse.error_response(f"HTTP Error: {error}")
@@ -337,7 +332,7 @@ class GmailTools(Toolkit):
         try:
             results = self.service.users().messages().list(userId="me", q="is:unread", maxResults=count).execute()  # type: ignore
             messages = results.get("messages", [])
-            
+
             # Get full message details
             email_infos = []
             for msg in messages:
@@ -350,7 +345,7 @@ class GmailTools(Toolkit):
                 except Exception as e:
                     # Skip this email if we can't process it, but continue with others
                     continue
-            
+
             return EmailSearchResponse.success_response(email_infos)
         except HttpError as error:
             return EmailSearchResponse.error_response(f"HTTP Error: {error}")
@@ -464,18 +459,12 @@ class GmailTools(Toolkit):
         """
         try:
             # Remove the UNREAD label to mark the email as read
-            modify_request = {
-                'removeLabelIds': ['UNREAD']
-            }
-            
-            result = self.service.users().messages().modify(
-                userId="me", 
-                id=message_id, 
-                body=modify_request
-            ).execute()  # type: ignore
-            
+            modify_request = {"removeLabelIds": ["UNREAD"]}
+
+            result = self.service.users().messages().modify(userId="me", id=message_id, body=modify_request).execute()  # type: ignore
+
             return MarkAsReadResponse.success_response(message_id, result)
-            
+
         except HttpError as error:
             return MarkAsReadResponse.error_response(message_id, f"HTTP Error: {error}")
         except Exception as error:

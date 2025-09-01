@@ -45,12 +45,10 @@ async def test_multi_user_multi_session_chat(memory_agent, shared_db):
     # Define user and session IDs
     user_1_id = "user_1@example.com"
     user_2_id = "user_2@example.com"
-    user_3_id = "user_3@example.com"
 
     user_1_session_1_id = "user_1_session_1"
     user_1_session_2_id = "user_1_session_2"
     user_2_session_1_id = "user_2_session_1"
-    user_3_session_1_id = "user_3_session_1"
 
     # Chat with user 1 - Session 1
     await memory_agent.arun(

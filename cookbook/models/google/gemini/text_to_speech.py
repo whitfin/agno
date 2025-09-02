@@ -1,6 +1,6 @@
 from agno.agent import Agent
 from agno.models.google import Gemini
-from agno.utils.audio import save_wave_file
+from agno.utils.audio import save_wav_file
 
 agent = Agent(
     model=Gemini(
@@ -17,4 +17,4 @@ agent.run("Say cheerfully: Have a wonderful day!")
 if agent.run_response.response_audio is not None:
     audio_data = agent.run_response.response_audio.binary_data
     output_file = "tmp/generated_speech.wav"
-    save_wave_file(output_file, audio_data)
+    save_wav_file(output_file, audio_data)

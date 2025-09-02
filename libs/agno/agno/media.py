@@ -232,8 +232,7 @@ class Audio(BaseModel):
 
 class AudioResponse(BaseModel):
     id: Optional[str] = None
-    content: Optional[str] = None  # Base64 encoded (legacy)
-    raw_content: Optional[bytes] = None  # Raw binary data (for TTS)
+    content: Optional[bytes] = None  # Raw binary audio data
     expires_at: Optional[int] = None
     transcript: Optional[str] = None
 
@@ -243,26 +242,16 @@ class AudioResponse(BaseModel):
 
     @property
     def binary_data(self) -> bytes:
-        """Get audio data as binary bytes, handling both raw and base64 formats."""
-        if self.raw_content:
-            return self.raw_content
-        elif self.content:
-            import base64
-
-            return base64.b64decode(self.content)
-        return b""
+        """Get audio data as binary bytes."""
+        return self.content or b""
 
     def to_dict(self) -> Dict[str, Any]:
         import base64
 
-        # Serialize audio content - prefer base64
+        # Serialize audio content
         content_value = None
-        if self.raw_content:
-            content_value = base64.b64encode(self.raw_content).decode("utf-8")
-        elif self.content:
-            content_value = (
-                base64.b64encode(self.content).decode("utf-8") if isinstance(self.content, bytes) else self.content
-            )
+        if self.content:
+            content_value = base64.b64encode(self.content).decode("utf-8")
 
         response_dict = {
             "id": self.id,

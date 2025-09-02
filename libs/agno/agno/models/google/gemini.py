@@ -769,13 +769,13 @@ class Gemini(Model):
                     if part.inline_data.mime_type and part.inline_data.mime_type.startswith("audio/"):
                         from agno.media import AudioResponse
 
-                        # Store raw binary data 
+                        # Store raw binary data
                         model_response.audio = AudioResponse(
                             id=str(uuid4()),
-                            raw_content=part.inline_data.data,  # Raw binary data
+                            content=part.inline_data.data,  # Raw binary data
                             mime_type=part.inline_data.mime_type,
                         )
-                    #Image responses
+                    # Image responses
                     else:
                         model_response.image = ImageArtifact(
                             id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
@@ -905,7 +905,7 @@ class Gemini(Model):
                             # Store raw binary data directly - no conversion needed!
                             model_response.audio = AudioResponse(
                                 id=str(uuid4()),
-                                raw_content=part.inline_data.data,  # Raw binary data
+                                content=part.inline_data.data,  # Raw binary data
                                 mime_type=part.inline_data.mime_type,
                             )
                         # Image responses

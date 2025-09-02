@@ -1,15 +1,15 @@
-"""Run `pip install duckduckgo-search sqlalchemy anthropic` to install dependencies."""
+"""Run `pip install ddgs sqlalchemy anthropic` to install dependencies."""
 
 from agno.agent import Agent
 from agno.models.azure import AzureOpenAI
-from agno.storage.agent.postgres import PostgresAgentStorage
+from agno.storage.postgres import PostgresStorage
 from agno.tools.duckduckgo import DuckDuckGoTools
 
 db_url = "postgresql+psycopg://ai:ai@localhost:5532/ai"
 
 agent = Agent(
     model=AzureOpenAI(id="gpt-4o-mini"),
-    storage=PostgresAgentStorage(table_name="agent_sessions", db_url=db_url),
+    storage=PostgresStorage(table_name="agent_sessions", db_url=db_url),
     tools=[DuckDuckGoTools()],
     add_history_to_messages=True,
 )

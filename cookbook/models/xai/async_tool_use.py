@@ -1,4 +1,4 @@
-"""Run `pip install duckduckgo-search` to install dependencies."""
+"""Run `pip install ddgs` to install dependencies."""
 
 import asyncio
 
@@ -7,7 +7,7 @@ from agno.models.xai import xAI
 from agno.tools.duckduckgo import DuckDuckGoTools
 
 agent = Agent(
-    model=xAI(id="grok-beta"),
+    model=xAI(id="grok-2"),
     tools=[DuckDuckGoTools()],
     show_tool_calls=True,
     markdown=True,

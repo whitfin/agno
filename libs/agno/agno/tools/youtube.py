@@ -4,7 +4,7 @@ from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import urlopen
 
 from agno.tools import Toolkit
-from agno.utils.log import logger
+from agno.utils.log import log_debug
 
 try:
     from youtube_transcript_api import YouTubeTranscriptApi
@@ -22,17 +22,20 @@ class YouTubeTools(Toolkit):
         get_video_timestamps: bool = True,
         languages: Optional[List[str]] = None,
         proxies: Optional[Dict[str, Any]] = None,
+        **kwargs,
     ):
-        super().__init__(name="youtube_tools")
-
         self.languages: Optional[List[str]] = languages
         self.proxies: Optional[Dict[str, Any]] = proxies
+
+        tools: List[Any] = []
         if get_video_captions:
-            self.register(self.get_youtube_video_captions)
+            tools.append(self.get_youtube_video_captions)
         if get_video_data:
-            self.register(self.get_youtube_video_data)
+            tools.append(self.get_youtube_video_data)
         if get_video_timestamps:
-            self.register(self.get_video_timestamps)
+            tools.append(self.get_video_timestamps)
+
+        super().__init__(name="youtube_tools", tools=tools, **kwargs)
 
     def get_youtube_video_id(self, url: str) -> Optional[str]:
         """Function to get the video ID from a YouTube URL.
@@ -71,7 +74,7 @@ class YouTubeTools(Toolkit):
         if not url:
             return "No URL provided"
 
-        logger.debug(f"Getting video data for youtube video: {url}")
+        log_debug(f"Getting video data for youtube video: {url}")
 
         try:
             video_id = self.get_youtube_video_id(url)
@@ -115,7 +118,7 @@ class YouTubeTools(Toolkit):
         if not url:
             return "No URL provided"
 
-        logger.debug(f"Getting captions for youtube video: {url}")
+        log_debug(f"Getting captions for youtube video: {url}")
 
         try:
             video_id = self.get_youtube_video_id(url)
@@ -123,18 +126,19 @@ class YouTubeTools(Toolkit):
             return "Error getting video ID from URL, please provide a valid YouTube url"
 
         try:
-            captions = None
-            kwargs: Dict = {}
-            if self.languages:
-                kwargs["languages"] = self.languages or ["en"]
-            if self.proxies:
-                kwargs["proxies"] = self.proxies
-            captions = YouTubeTranscriptApi.get_transcript(video_id, **kwargs)
-            # logger.debug(f"Captions for video {video_id}: {captions}")
-            if captions:
-                return " ".join(line["text"] for line in captions)
-            return "No captions found for video"
+            ytt_api = YouTubeTranscriptApi()
+            captions_data = ytt_api.fetch(video_id)
+
+            # log_info(f"Captions for video {video_id}: {captions_data}")
+
+            transcript_text = ""
+
+            for segment in captions_data:
+                transcript_text += f"{segment.text} "
+
+            return transcript_text.strip() if transcript_text else "No captions found for video"
         except Exception as e:
+            # log_info(f"Error getting captions for video {video_id}: {e}")
             return f"Error getting captions for video: {e}"
 
     def get_video_timestamps(self, url: str) -> str:
@@ -149,7 +153,7 @@ class YouTubeTools(Toolkit):
         if not url:
             return "No URL provided"
 
-        logger.debug(f"Getting timestamps for youtube video: {url}")
+        log_debug(f"Getting timestamps for youtube video: {url}")
 
         try:
             video_id = self.get_youtube_video_id(url)

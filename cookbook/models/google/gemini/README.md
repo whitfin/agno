@@ -2,7 +2,7 @@
 
 > Note: Fork and clone this repository if needed
 >
-> This cookbook is for testing Gemini models. You can also 
+> This cookbook is for testing Gemini models.
 
 ### 1. Create and activate a virtual environment
 
@@ -11,16 +11,26 @@ python3 -m venv ~/.venvs/aienv
 source ~/.venvs/aienv/bin/activate
 ```
 
-### 2. Export `GOOGLE_API_KEY`
+### 2. Export environment variables
+
+If you want to use the Gemini API, you need to export the following environment variables:
 
 ```shell
 export GOOGLE_API_KEY=***
 ```
 
+If you want to use Vertex AI, you need to export the following environment variables:
+
+```shell
+export GOOGLE_GENAI_USE_VERTEXAI="true"
+export GOOGLE_CLOUD_PROJECT="your-project-id"
+export GOOGLE_CLOUD_LOCATION="your-location"
+```
+
 ### 3. Install libraries
 
 ```shell
-pip install -U google-generativeai duckduckgo-search yfinance agno
+pip install -U google-generativeai ddgs yfinance agno
 ```
 
 ### 4. Run basic Agent
@@ -44,7 +54,6 @@ python cookbook/models/google/gemini/basic.py
 ```shell
 python cookbook/models/google/gemini/tool_use.py
 ```
-
 
 ### 6. Run Agent that returns structured output
 
@@ -93,3 +102,40 @@ python cookbook/models/google/gemini/video_agent_input_bytes_content.py
 ```shell
 python cookbook/models/google/gemini/flash_thinking_agent.py
 ```
+
+### 13. Run Agent with thinking budget configuration
+
+```shell
+python cookbook/models/google/gemini/agent_with_thinking_budget.py
+```
+
+### 14. Run agent with URL context
+
+```shell
+python cookbook/models/google/gemini/url_context.py
+```
+
+### 15. Run agent with URL context + Search Grounding
+
+```shell
+python cookbook/models/google/gemini/url_context_with_search.py
+```
+
+### 16. Run agent with Google Search
+
+```shell
+python cookbook/models/google/gemini/search.py
+```
+
+### 17. Run agent with Google Search Grounding
+
+```shell
+python cookbook/models/google/gemini/grounding.py
+```
+
+### 18. Run agent with Vertex AI Search
+
+```shell
+python cookbook/models/google/gemini/vertex_ai_search.py
+```
+

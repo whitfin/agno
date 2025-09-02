@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Any, Dict, List, Optional
 
@@ -30,8 +29,6 @@ class WhatsAppTools(Toolkit):
             recipient_waid: Default recipient WhatsApp ID (optional)
             async_mode: Whether to use async methods (default: False)
         """
-        super().__init__(name="whatsapp")
-
         # Core credentials
         self.access_token = access_token or os.getenv("WHATSAPP_ACCESS_TOKEN") or os.getenv("WHATSAPP_ACCESS_TOKEN")
         if not self.access_token:
@@ -79,6 +76,16 @@ class WhatsAppTools(Toolkit):
             },
         }
         logger.debug(f"WhatsApp toolkit configuration status: {json.dumps(config_status, indent=2)}")
+        
+        tools: List[Any] = []
+        if self.async_mode:
+            tools.append(self.send_text_message_async)
+            tools.append(self.send_template_message_async)
+        else:
+            tools.append(self.send_text_message_sync)
+            tools.append(self.send_template_message_sync)
+
+        super().__init__(name="whatsapp", tools=tools)
 
     def _get_headers(self) -> Dict[str, str]:
         """Get headers for API requests."""
@@ -101,8 +108,6 @@ class WhatsAppTools(Toolkit):
         headers = self._get_headers()
 
         logger.debug(f"Sending WhatsApp request to URL: {url}")
-        logger.debug(f"Request data: {json.dumps(data, indent=2)}")
-        logger.debug(f"Headers: {json.dumps(headers, indent=2)}")
 
         async with httpx.AsyncClient() as client:
             response = await client.post(url, headers=headers, json=data)
@@ -139,7 +144,13 @@ class WhatsAppTools(Toolkit):
         response.raise_for_status()
         return response.json()
 
-    def send_text_message_sync(self, text: str = "", recipient: Optional[str] = None, preview_url: bool = False) -> str:
+    def send_text_message_sync(
+        self,
+        text: str = "",
+        recipient: Optional[str] = None,
+        preview_url: bool = False,
+        recipient_type: str = "individual",
+    ) -> str:
         """Send a text message to a WhatsApp user (synchronous version).
 
         Args:
@@ -162,7 +173,7 @@ class WhatsAppTools(Toolkit):
 
         data = {
             "messaging_product": "whatsapp",
-            "recipient_type": "individual",
+            "recipient_type": recipient_type,
             "to": recipient,
             "type": "text",
             "text": {"preview_url": preview_url, "body": text},
@@ -171,7 +182,6 @@ class WhatsAppTools(Toolkit):
         try:
             response = self._send_message_sync(data)
             message_id = response.get("messages", [{}])[0].get("id", "unknown")
-            logger.debug(f"Full API response: {json.dumps(response, indent=2)}")
             return f"Message sent successfully! Message ID: {message_id}"
         except httpx.HTTPStatusError as e:
             logger.error(f"Failed to send WhatsApp message: {e}")
@@ -226,7 +236,11 @@ class WhatsAppTools(Toolkit):
             raise
 
     async def send_text_message_async(
-        self, text: str = "", recipient: Optional[str] = None, preview_url: bool = False
+        self,
+        text: str = "",
+        recipient: Optional[str] = None,
+        preview_url: bool = False,
+        recipient_type: str = "individual",
     ) -> str:
         """Send a text message to a WhatsApp user (asynchronous version).
 
@@ -250,7 +264,7 @@ class WhatsAppTools(Toolkit):
 
         data = {
             "messaging_product": "whatsapp",
-            "recipient_type": "individual",
+            "recipient_type": recipient_type,
             "to": recipient,
             "type": "text",
             "text": {"preview_url": preview_url, "body": text},
@@ -259,7 +273,6 @@ class WhatsAppTools(Toolkit):
         try:
             response = await self._send_message_async(data)
             message_id = response.get("messages", [{}])[0].get("id", "unknown")
-            logger.debug(f"Full API response: {json.dumps(response, indent=2)}")
             return f"Message sent successfully! Message ID: {message_id}"
         except httpx.HTTPStatusError as e:
             logger.error(f"Failed to send WhatsApp message: {e}")

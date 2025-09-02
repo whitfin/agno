@@ -30,9 +30,11 @@ try:
         GoogleSearch,
         GoogleSearchRetrieval,
         Part,
+        Retrieval,
         ThinkingConfig,
         Tool,
         UrlContext,
+        VertexAISearch,
     )
     from google.genai.types import (
         File as GeminiFile,
@@ -70,6 +72,8 @@ class Gemini(Model):
     grounding: bool = False
     grounding_dynamic_threshold: Optional[float] = None
     url_context: bool = False
+    vertexai_search: bool = False
+    vertexai_search_datastore: Optional[str] = None
 
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -204,7 +208,9 @@ class Gemini(Model):
         builtin_tools = []
 
         if self.grounding:
-            log_info("Grounding enabled. This is a legacy tool. For Gemini 2.0+ Please use enable `search` flag instead.")
+            log_info(
+                "Grounding enabled. This is a legacy tool. For Gemini 2.0+ Please use enable `search` flag instead."
+            )
             builtin_tools.append(
                 Tool(
                     google_search=GoogleSearchRetrieval(
@@ -222,6 +228,15 @@ class Gemini(Model):
         if self.url_context:
             log_info("URL context enabled.")
             builtin_tools.append(Tool(url_context=UrlContext()))
+
+        if self.vertexai_search:
+            log_info("Vertex AI Search enabled.")
+            if not self.vertexai_search_datastore:
+                log_error("vertexai_search_datastore must be provided when vertexai_search is enabled.")
+                raise ValueError("vertexai_search_datastore must be provided when vertexai_search is enabled.")
+            builtin_tools.append(
+                Tool(retrieval=Retrieval(vertex_ai_search=VertexAISearch(datastore=self.vertexai_search_datastore)))
+            )
 
         # Set tools in config
         if builtin_tools:
@@ -778,12 +793,18 @@ class Gemini(Model):
                 grounding_metadata = response.candidates[0].grounding_metadata.model_dump()
                 citations_raw["grounding_metadata"] = grounding_metadata
 
-                chunks = grounding_metadata.get("grounding_chunks", [])
-                citation_pairs = [
-                    (chunk.get("web", {}).get("uri"), chunk.get("web", {}).get("title"))
-                    for chunk in chunks
-                    if chunk.get("web", {}).get("uri")
-                ]
+                chunks = grounding_metadata.get("grounding_chunks", []) or []
+                citation_pairs = []
+                for chunk in chunks:
+                    if not isinstance(chunk, dict):
+                        continue
+                    web = chunk.get("web")
+                    if not isinstance(web, dict):
+                        continue
+                    uri = web.get("uri")
+                    title = web.get("title")
+                    if uri:
+                        citation_pairs.append((uri, title))
 
                 # Create citation objects from filtered pairs
                 grounding_urls = [UrlCitation(url=url, title=title) for url, title in citation_pairs]
@@ -892,11 +913,17 @@ class Gemini(Model):
 
                 # Extract url and title
                 chunks = grounding_metadata.pop("grounding_chunks", None) or []
-                citation_pairs = [
-                    (chunk.get("web", {}).get("uri"), chunk.get("web", {}).get("title"))
-                    for chunk in chunks
-                    if chunk.get("web", {}).get("uri")
-                ]
+                citation_pairs = []
+                for chunk in chunks:
+                    if not isinstance(chunk, dict):
+                        continue
+                    web = chunk.get("web")
+                    if not isinstance(web, dict):
+                        continue
+                    uri = web.get("uri")
+                    title = web.get("title")
+                    if uri:
+                        citation_pairs.append((uri, title))
 
                 # Create citation objects from filtered pairs
                 citations.urls = [UrlCitation(url=url, title=title) for url, title in citation_pairs]

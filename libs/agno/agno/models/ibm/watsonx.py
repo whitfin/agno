@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import json
 from os import getenv
 from typing import Any, AsyncGenerator, Dict, Iterator, List, Optional, Type, Union
 
@@ -286,7 +287,35 @@ class WatsonX(Model):
                 if _function_name:
                     tool_call_entry["function"]["name"] += _function_name
                 if _function_arguments:
-                    tool_call_entry["function"]["arguments"] += _function_arguments
+                    # Check if current arguments are complete JSON to avoid concatenation duplication
+                    current_args = tool_call_entry["function"]["arguments"]
+                    should_concatenate = True
+                    
+                    if current_args and current_args.strip():
+                        try:
+                            # If current args are valid JSON, this might be a separate tool call
+                            json.loads(current_args)
+                            log_debug(f"IBM WatsonX: Detected complete JSON in streaming tool call arguments: {current_args[:100]}...")
+                            log_debug(f"IBM WatsonX: Attempting to concatenate with: {_function_arguments[:100]}...")
+                            
+                            # Try to parse the new arguments too
+                            try:
+                                json.loads(_function_arguments)
+                                # Both are complete JSON objects - this is likely a duplication issue
+                                log_warning(f"IBM WatsonX: Preventing tool call argument concatenation - both current and new arguments are complete JSON")
+                                should_concatenate = False
+                            except json.JSONDecodeError:
+                                # New arguments are fragments, safe to concatenate
+                                log_debug(f"IBM WatsonX: New arguments are fragments, concatenating")
+                        except json.JSONDecodeError:
+                            # Current args are incomplete fragments, safe to concatenate
+                            log_debug(f"IBM WatsonX: Current arguments are fragments, concatenating")
+                    
+                    if should_concatenate:
+                        tool_call_entry["function"]["arguments"] += _function_arguments
+                    else:
+                        log_debug(f"IBM WatsonX: Skipping argument concatenation to prevent duplication")
+                        
                 if _tool_call_id:
                     tool_call_entry["id"] = _tool_call_id
                 if _tool_call_type:

@@ -4,6 +4,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 from pydantic import model_validator
 
 from agno.document import Document
+from agno.document.chunking.fixed import FixedSizeChunking
 from agno.document.reader.website_reader import WebsiteReader
 from agno.knowledge.agent import AgentKnowledge
 from agno.utils.log import log_debug, log_info, logger
@@ -21,7 +22,9 @@ class WebsiteKnowledgeBase(AgentKnowledge):
     def set_reader(self) -> "WebsiteKnowledgeBase":
         if self.reader is None:
             self.reader = WebsiteReader(
-                max_depth=self.max_depth, max_links=self.max_links, chunking_strategy=self.chunking_strategy
+                max_depth=self.max_depth,
+                max_links=self.max_links,
+                chunking_strategy=self.chunking_strategy or FixedSizeChunking(),
             )
         return self
 
@@ -74,7 +77,6 @@ class WebsiteKnowledgeBase(AgentKnowledge):
         self.vector_db.create()
 
         log_info("Loading knowledge base")
-        num_documents = 0
 
         # Given that the crawler needs to parse the URL before existence can be checked
         # We check if the website url exists in the vector db if recreate is False
@@ -86,11 +88,14 @@ class WebsiteKnowledgeBase(AgentKnowledge):
                     log_debug(f"Skipping {url} as it exists in the vector db")
                     urls_to_read.remove(url)
 
+        num_documents = 0
         for url in urls_to_read:
             if document_list := self.reader.read(url=url):
                 # Filter out documents which already exist in the vector db
                 if not recreate:
                     document_list = [document for document in document_list if not self.vector_db.doc_exists(document)]
+                    if not document_list:
+                        continue
                 if upsert and self.vector_db.upsert_available():
                     self.vector_db.upsert(documents=document_list, filters=filters)
                 else:

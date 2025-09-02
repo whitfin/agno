@@ -1,5 +1,5 @@
 """
-1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
+1. Run: `pip install openai ddgs newspaper4k lxml_html_clean agno` to install the dependencies
 2. Run: `python cookbook/storage/mongodb_storage/mongodb_storage_for_team.py` to run the agent
 """
 
@@ -57,6 +57,7 @@ hn_team = Team(
     markdown=True,
     debug_mode=True,
     show_members_responses=True,
+    add_member_tools_to_system_message=False,
 )
 
 hn_team.print_response("Write an article about the top 2 stories on hackernews")

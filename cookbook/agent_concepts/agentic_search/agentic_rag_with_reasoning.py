@@ -26,7 +26,7 @@ knowledge_base = UrlKnowledge(
 )
 
 agent = Agent(
-    model=Claude(id="claude-3-7-sonnet-latest"),
+    model=Claude(id="claude-sonnet-4-20250514"),
     # Agentic RAG is enabled by default when `knowledge` is provided to the Agent.
     knowledge=knowledge_base,
     # search_knowledge=True gives the Agent the ability to search on demand
@@ -36,7 +36,6 @@ agent = Agent(
     instructions=[
         "Include sources in your response.",
         "Always search your knowledge before answering the question.",
-        "Only include the output in your response. No other text.",
     ],
     markdown=True,
 )

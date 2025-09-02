@@ -3,6 +3,7 @@ from typing import Iterator
 
 from agno.agent import Agent, RunResponse
 from agno.models.openai import OpenAIChat
+from agno.run.team import TeamRunResponse
 from agno.team.team import Team
 from agno.tools.duckduckgo import DuckDuckGoTools
 from agno.tools.exa import ExaTools
@@ -63,7 +64,6 @@ class TeamWorkflow(Workflow):
         enable_agentic_context=True,
         show_tool_calls=True,
         markdown=True,
-        debug_mode=True,
         show_members_responses=True,
     )
 
@@ -86,8 +86,8 @@ class TeamWorkflow(Workflow):
     )
 
     def run(self) -> Iterator[RunResponse]:
-        logger.info(f"Getting top stories from HackerNews.")
-        discussion: RunResponse = self.agent_team.run(
+        logger.info("Getting top stories from HackerNews.")
+        discussion: TeamRunResponse = self.agent_team.run(
             "Getting 2 top stories from HackerNews and reddit and write a brief report on them"
         )
         if discussion is None or not discussion.content:

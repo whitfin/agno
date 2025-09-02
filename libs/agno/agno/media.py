@@ -11,9 +11,25 @@ class Media(BaseModel):
 
 
 class VideoArtifact(Media):
-    url: str  # Remote location for file
+    url: Optional[str] = None  # Remote location for file (if no inline content)
+    content: Optional[Union[str, bytes]] = None  # type: ignore
+    mime_type: Optional[str] = None  # MIME type of the video content
     eta: Optional[str] = None
     length: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        response_dict = {
+            "id": self.id,
+            "url": self.url,
+            "content": self.content
+            if isinstance(self.content, str)
+            else self.content.decode("utf-8")
+            if self.content
+            else None,
+            "mime_type": self.mime_type,
+            "eta": self.eta,
+        }
+        return {k: v for k, v in response_dict.items() if v is not None}
 
 
 class ImageArtifact(Media):
@@ -21,6 +37,39 @@ class ImageArtifact(Media):
     content: Optional[bytes] = None  # Actual image bytes content
     mime_type: Optional[str] = None
     alt_text: Optional[str] = None
+
+    def _normalise_content(self) -> Optional[Union[str, bytes]]:
+        if self.content is None:
+            return None
+        content_normalised: Union[str, bytes] = self.content
+        if content_normalised and isinstance(content_normalised, bytes):
+            from base64 import b64encode
+
+            try:
+                # First try to decode as UTF-8
+                content_normalised = content_normalised.decode("utf-8")  # type: ignore
+            except UnicodeDecodeError:
+                # Fallback to base64 encoding for binary content
+                content_normalised = b64encode(bytes(content_normalised)).decode("utf-8")  # type: ignore
+            except Exception:
+                # Last resort: try to convert to base64
+                try:
+                    content_normalised = b64encode(bytes(content_normalised)).decode("utf-8")  # type: ignore
+                except Exception:
+                    pass
+        return content_normalised
+
+    def to_dict(self) -> Dict[str, Any]:
+        content_normalised = self._normalise_content()
+
+        response_dict = {
+            "id": self.id,
+            "url": self.url,
+            "content": content_normalised,
+            "mime_type": self.mime_type,
+            "alt_text": self.alt_text,
+        }
+        return {k: v for k, v in response_dict.items() if v is not None}
 
 
 class AudioArtifact(Media):
@@ -40,21 +89,33 @@ class AudioArtifact(Media):
             raise ValueError("Either `url` or `base64_audio` must be provided.")
         return data
 
+    def to_dict(self) -> Dict[str, Any]:
+        response_dict = {
+            "id": self.id,
+            "url": self.url,
+            "content": self.base64_audio,
+            "mime_type": self.mime_type,
+            "length": self.length,
+        }
+        return {k: v for k, v in response_dict.items() if v is not None}
+
 
 class Video(BaseModel):
     filepath: Optional[Union[Path, str]] = None  # Absolute local location for video
     content: Optional[Any] = None  # Actual video bytes content
+    url: Optional[str] = None  # Remote location for video
     format: Optional[str] = None  # E.g. `mp4`, `mov`, `avi`, `mkv`, `webm`, `flv`, `mpeg`, `mpg`, `wmv`, `three_gp`
 
     @model_validator(mode="before")
     def validate_data(cls, data: Any):
         """
-        Ensure that exactly one of `filepath`, or `content` is provided.
+        Ensure that exactly one of `filepath`, or `content` or `url` is provided.
         Also converts content to bytes if it's a string.
         """
         # Extract the values from the input data
         filepath = data.get("filepath")
         content = data.get("content")
+        url = data.get("url")
 
         # Convert and decompress content to bytes if it's a string
         if content and isinstance(content, str):
@@ -70,12 +131,12 @@ class Video(BaseModel):
         data["content"] = content
 
         # Count how many fields are set (not None)
-        count = len([field for field in [filepath, content] if field is not None])
+        count = len([field for field in [filepath, content, url] if field is not None])
 
         if count == 0:
-            raise ValueError("One of `filepath` or `content` must be provided.")
+            raise ValueError("One of `filepath` or `content` or `url` must be provided.")
         elif count > 1:
-            raise ValueError("Only one of `filepath` or `content` should be provided.")
+            raise ValueError("Only one of `filepath` or `content` or `url` should be provided.")
 
         return data
 
@@ -96,7 +157,7 @@ class Video(BaseModel):
 
     @classmethod
     def from_artifact(cls, artifact: VideoArtifact) -> "Video":
-        return cls(url=artifact.url)
+        return cls(url=artifact.url, content=artifact.content, format=artifact.mime_type)
 
 
 class Audio(BaseModel):
@@ -268,7 +329,7 @@ class Image(BaseModel):
 
     @classmethod
     def from_artifact(cls, artifact: ImageArtifact) -> "Image":
-        return cls(url=artifact.url)
+        return cls(url=artifact.url, content=artifact.content, format=artifact.mime_type)
 
 
 class File(BaseModel):
@@ -279,6 +340,8 @@ class File(BaseModel):
     mime_type: Optional[str] = None
     # External file object (e.g. GeminiFile, must be a valid object as expected by the model you are using)
     external: Optional[Any] = None
+    format: Optional[str] = None  # E.g. `pdf`, `txt`, `csv`, `xml`, etc.
+    name: Optional[str] = None  # Name of the file, mandatory for AWS Bedrock document input
 
     @model_validator(mode="before")
     @classmethod

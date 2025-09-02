@@ -94,7 +94,7 @@ class RunContentEvent(BaseTeamRunEvent):
     event: str = TeamRunEvent.run_content.value
     content: Optional[Any] = None
     content_type: str = "str"
-    thinking: Optional[str] = None
+    reasoning_content: Optional[str] = None
     citations: Optional[Citations] = None
     response_audio: Optional[AudioResponse] = None  # Model audio response
     image: Optional[ImageArtifact] = None  # Image attached to the response
@@ -117,7 +117,6 @@ class RunCompletedEvent(BaseTeamRunEvent):
     content: Optional[Any] = None
     content_type: str = "str"
     reasoning_content: Optional[str] = None
-    thinking: Optional[str] = None
     citations: Optional[Citations] = None
     images: Optional[List[ImageArtifact]] = None  # Images attached to the response
     videos: Optional[List[VideoArtifact]] = None  # Videos attached to the response
@@ -128,6 +127,8 @@ class RunCompletedEvent(BaseTeamRunEvent):
     reasoning_steps: Optional[List[ReasoningStep]] = None
     reasoning_messages: Optional[List[Message]] = None
     member_responses: List[Union["TeamRunOutput", RunOutput]] = field(default_factory=list)
+    metadata: Optional[Dict[str, Any]] = None
+    metrics: Optional[Metrics] = None
 
 
 @dataclass
@@ -140,6 +141,10 @@ class RunErrorEvent(BaseTeamRunEvent):
 class RunCancelledEvent(BaseTeamRunEvent):
     event: str = TeamRunEvent.run_cancelled.value
     reason: Optional[str] = None
+
+    @property
+    def is_cancelled(self):
+        return True
 
 
 @dataclass
@@ -267,7 +272,6 @@ class TeamRunOutput:
 
     content: Optional[Any] = None
     content_type: str = "str"
-    thinking: Optional[str] = None
     messages: Optional[List[Message]] = None
     metrics: Optional[Metrics] = None
     model: Optional[str] = None
@@ -282,7 +286,6 @@ class TeamRunOutput:
     parent_run_id: Optional[str] = None
 
     tools: Optional[List[ToolExecution]] = None
-    formatted_tool_calls: Optional[List[str]] = None
 
     images: Optional[List[ImageArtifact]] = None  # Images from member runs
     videos: Optional[List[VideoArtifact]] = None  # Videos from member runs
@@ -293,6 +296,8 @@ class TeamRunOutput:
     reasoning_content: Optional[str] = None
 
     citations: Optional[Citations] = None
+
+    metadata: Optional[Dict[str, Any]] = None
 
     references: Optional[List[MessageReferences]] = None
     additional_input: Optional[List[Message]] = None

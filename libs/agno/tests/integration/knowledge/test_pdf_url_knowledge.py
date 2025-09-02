@@ -29,13 +29,13 @@ def prepare_knowledge_base(vector_db):
     )
 
     # Load Thai recipes PDF with Thai cuisine metadata
-    knowledge.add_content_sync(
+    knowledge.add_content(
         url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
         metadata={"cuisine": "Thai", "source": "Thai Cookbook"},
     )
 
     # Load Cape recipes PDF with Cape cuisine metadata
-    knowledge.add_content_sync(
+    knowledge.add_content(
         url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
         metadata={"cuisine": "Cape", "source": "Cape Cookbook"},
     )
@@ -51,13 +51,13 @@ async def aprepare_knowledge_base(vector_db):
     )
 
     # Load Thai recipes PDF with Thai cuisine metadata
-    await knowledge.add_content(
+    await knowledge.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
         metadata={"cuisine": "Thai", "source": "Thai Cookbook"},
     )
 
     # Load Cape recipes PDF with Cape cuisine metadata
-    await knowledge.add_content(
+    await knowledge.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
         metadata={"cuisine": "Cape", "source": "Cape Cookbook"},
     )
@@ -76,7 +76,7 @@ def test_pdf_url_knowledge_base():
         vector_db=vector_db,
     )
 
-    knowledge.add_contents_sync(
+    knowledge.add_contents(
         urls=[
             "https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
             "https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
@@ -85,7 +85,7 @@ def test_pdf_url_knowledge_base():
 
     assert vector_db.exists()
 
-    assert vector_db.get_count() == 13  # 3 from the first pdf and 10 from the second pdf
+    assert vector_db.get_count() == 13
 
     # Create and use the agent
     agent = Agent(knowledge=knowledge)
@@ -115,7 +115,7 @@ async def test_pdf_url_knowledge_base_async():
         vector_db=vector_db,
     )
 
-    await knowledge.add_contents(
+    await knowledge.add_contents_async(
         urls=[
             "https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
             "https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
@@ -144,18 +144,19 @@ async def test_pdf_url_knowledge_base_async():
 
 
 # for the one with new knowledge filter DX- filters at initialize
-def test_pdf_url_knowledge_base_with_metadata_path(setup_vector_db):
+@pytest.mark.asyncio
+async def test_pdf_url_knowledge_base_with_metadata_path(setup_vector_db):
     """Test loading PDF URLs with metadata using the new path structure."""
     kb = Knowledge(
         vector_db=setup_vector_db,
     )
 
-    kb.add_content_sync(
+    await kb.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
         metadata={"cuisine": "Thai", "source": "Thai Cookbook", "region": "Southeast Asia"},
     )
 
-    kb.add_content_sync(
+    await kb.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
         metadata={"cuisine": "Cape", "source": "Cape Cookbook", "region": "South Africa"},
     )
@@ -178,12 +179,12 @@ def test_pdf_url_knowledge_base_with_metadata_path_invalid_filter(setup_vector_d
         vector_db=setup_vector_db,
     )
 
-    kb.add_content_sync(
+    kb.add_content(
         url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
         metadata={"cuisine": "Thai", "source": "Thai Cookbook", "region": "Southeast Asia"},
     )
 
-    kb.add_content_sync(
+    kb.add_content(
         url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
         metadata={"cuisine": "Cape", "source": "Cape Cookbook", "region": "South Africa"},
     )
@@ -246,11 +247,11 @@ async def test_async_pdf_url_knowledge_base_with_metadata_path(setup_vector_db):
         vector_db=setup_vector_db,
     )
 
-    await kb.add_content(
+    await kb.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
         metadata={"cuisine": "Thai", "source": "Thai Cookbook", "region": "Southeast Asia"},
     )
-    await kb.add_content(
+    await kb.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
         metadata={"cuisine": "Cape", "source": "Cape Cookbook", "region": "South Africa"},
     )
@@ -273,11 +274,11 @@ async def test_async_pdf_url_knowledge_base_with_metadata_path_invalid_filter(se
         vector_db=setup_vector_db,
     )
 
-    await kb.add_content(
+    await kb.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/thai_recipes_short.pdf",
         metadata={"cuisine": "Thai", "source": "Thai Cookbook", "region": "Southeast Asia"},
     )
-    await kb.add_content(
+    await kb.add_content_async(
         url="https://agno-public.s3.amazonaws.com/recipes/cape_recipes_short_2.pdf",
         metadata={"cuisine": "Cape", "source": "Cape Cookbook", "region": "South Africa"},
     )

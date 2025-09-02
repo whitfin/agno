@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from agno.media import Audio, AudioResponse, File, Image, ImageArtifact, Video
+from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
 from agno.models.metrics import Metrics
 from agno.utils.log import log_debug, log_error, log_info, log_warning
 
@@ -71,12 +71,12 @@ class Message(BaseModel):
     files: Optional[Sequence[File]] = None
 
     # Output from the models
-    audio_output: Optional[AudioResponse] = None
+    audio_output: Optional[Union[AudioResponse, AudioArtifact]] = None
     image_output: Optional[ImageArtifact] = None
+    video_output: Optional[VideoArtifact] = None
 
     # The thinking content from the model
-    thinking: Optional[str] = None
-    redacted_thinking: Optional[str] = None
+    redacted_reasoning_content: Optional[str] = None
 
     # Data from the provider we might need on subsequent messages
     provider_data: Optional[Dict[str, Any]] = None
@@ -137,8 +137,7 @@ class Message(BaseModel):
             "tool_args": self.tool_args,
             "tool_call_error": self.tool_call_error,
             "tool_calls": self.tool_calls,
-            "thinking": self.thinking,
-            "redacted_thinking": self.redacted_thinking,
+            "redacted_reasoning_content": self.redacted_reasoning_content,
             "provider_data": self.provider_data,
         }
         # Filter out None and empty collections
@@ -207,8 +206,8 @@ class Message(BaseModel):
             _logger(f"Name: {self.name}")
         if self.tool_call_id:
             _logger(f"Tool call Id: {self.tool_call_id}")
-        if self.thinking:
-            _logger(f"<thinking>\n{self.thinking}\n</thinking>")
+        if self.reasoning_content:
+            _logger(f"<reasoning>\n{self.reasoning_content}\n</reasoning>")
         if self.content:
             if isinstance(self.content, str) or isinstance(self.content, list):
                 _logger(self.content)

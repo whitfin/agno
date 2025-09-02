@@ -12,6 +12,7 @@ The team consists of:
 - A code execution agent that can execute code in a secure E2B sandbox
 """
 
+import asyncio
 from pathlib import Path
 from textwrap import dedent
 
@@ -30,7 +31,6 @@ from agno.tools.pubmed import PubmedTools
 from agno.tools.python import PythonTools
 from agno.tools.reasoning import ReasoningTools
 from agno.tools.yfinance import YFinanceTools
-from agno.utils.print_response.team import print_response
 from agno.vectordb.lancedb.lance_db import LanceDb
 from agno.vectordb.search import SearchType
 
@@ -129,12 +129,11 @@ agno_assist_knowledge = Knowledge(
         embedder=OpenAIEmbedder(id="text-embedding-3-small"),
     ),
 )
-# Add content to the knowledge
-agno_assist_knowledge.add_content(url="https://docs.agno.com/llms-full.txt")
+
 agno_assist = Agent(
     name="Agno Assist",
     role="You help answer questions about the Agno framework.",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     instructions="Search your knowledge before answering the question. Help me to write working code for Agno Agents.",
     tools=[
         KnowledgeTools(
@@ -148,14 +147,13 @@ agno_assist = Agent(
 github_agent = Agent(
     name="Github Agent",
     role="Do analysis on Github repositories",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     instructions=[
         "Use your tools to answer questions about the repo: agno-agi/agno",
         "Do not create any issues or pull requests unless explicitly asked to do so",
     ],
     tools=[
         GithubTools(
-            list_pull_requests=True,
             list_issues=True,
             list_issue_comments=True,
             get_pull_request=True,
@@ -168,7 +166,7 @@ github_agent = Agent(
 local_python_agent = Agent(
     name="Local Python Agent",
     role="Run Python code locally",
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     instructions=[
         "Use your tools to run Python code locally",
     ],
@@ -211,8 +209,12 @@ agent_team = Team(
 )
 
 if __name__ == "__main__":
-    # Load the knowledge base (comment out after first run)
-    # asyncio.run(agno_assist_knowledge.aload())
+    # Load the knowledge base
+    asyncio.run(
+        agno_assist_knowledge.add_contents_async(
+            url="https://docs.agno.com/llms-full.txt"
+        )
+    )
 
     # asyncio.run(agent_team.aprint_response("Hi! What are you capable of doing?"))
 
@@ -234,10 +236,9 @@ if __name__ == "__main__":
 
     # Medical research
     txt_path = Path(__file__).parent.resolve() / "medical_history.txt"
-    loaded_txt = open(txt_path, "r").read()
-    print_response(
+    loaded_txt = open(txt_path, "r", encoding="utf-8").read()
+    agent_team.print_response(
         input=dedent(f"""I have a patient with the following medical information:\n {loaded_txt}
                          What is the most likely diagnosis?
                         """),
-        team=agent_team,
     )

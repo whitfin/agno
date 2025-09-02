@@ -537,12 +537,12 @@ class Claude(Model):
                                     )
                                 )
                 elif block.type == "thinking":
-                    model_response.thinking = block.thinking
+                    model_response.reasoning_content = block.thinking
                     model_response.provider_data = {
                         "signature": block.signature,
                     }
                 elif block.type == "redacted_thinking":
-                    model_response.redacted_thinking = block.data
+                    model_response.redacted_reasoning_content = block.data
 
         # Extract tool calls from the response
         if response.stop_reason == "tool_use":
@@ -593,8 +593,8 @@ class Claude(Model):
         model_response = ModelResponse()
 
         if isinstance(response, ContentBlockStartEvent):
-            if response.content_block.type == "redacted_thinking":
-                model_response.redacted_thinking = response.content_block.data
+            if response.content_block.type == "redacted_reasoning_content":
+                model_response.redacted_reasoning_content = response.content_block.data
 
         if isinstance(response, ContentBlockDeltaEvent):
             # Handle text content
@@ -602,23 +602,14 @@ class Claude(Model):
                 model_response.content = response.delta.text
             # Handle thinking content
             elif response.delta.type == "thinking_delta":
-                model_response.thinking = response.delta.thinking
+                model_response.reasoning_content = response.delta.thinking
             elif response.delta.type == "signature_delta":
                 model_response.provider_data = {
                     "signature": response.delta.signature,
                 }
 
         elif isinstance(response, ContentBlockStopEvent):
-            # Handle completed thinking content
-            if response.content_block.type == "thinking":  # type: ignore
-                model_response.thinking = response.content_block.thinking  # type: ignore
-                # Store signature if available
-                if hasattr(response.content_block, "signature"):  # type: ignore
-                    model_response.provider_data = {
-                        "signature": response.content_block.signature,  # type: ignore
-                    }
-            # Handle tool calls
-            elif response.content_block.type == "tool_use":  # type: ignore
+            if response.content_block.type == "tool_use":  # type: ignore
                 tool_use = response.content_block  # type: ignore
                 tool_name = tool_use.name
                 tool_input = tool_use.input

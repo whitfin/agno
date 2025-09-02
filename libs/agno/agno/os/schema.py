@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from enum import Enum
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -7,7 +8,7 @@ from pydantic import BaseModel
 from agno.agent import Agent
 from agno.db.base import SessionType
 from agno.models.message import Message
-from agno.os.apps.memory import MemoryApp
+from agno.os.config import ChatConfig, EvalsConfig, KnowledgeConfig, MemoryConfig, MetricsConfig, SessionConfig
 from agno.os.utils import (
     format_team_tools,
     format_tools,
@@ -35,53 +36,64 @@ class ManagerResponse(BaseModel):
     route: str
 
 
-class AppsResponse(BaseModel):
-    session: Optional[List[ManagerResponse]] = None
-    knowledge: Optional[List[ManagerResponse]] = None
-    memory: Optional[List[ManagerResponse]] = None
-    eval: Optional[List[ManagerResponse]] = None
-    metrics: Optional[List[ManagerResponse]] = None
-
-
 class AgentSummaryResponse(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    db_id: Optional[str] = None
 
     @classmethod
     def from_agent(cls, agent: Agent) -> "AgentSummaryResponse":
-        return cls(id=agent.id, name=agent.name, description=agent.description)
+        return cls(id=agent.id, name=agent.name, description=agent.description, db_id=agent.db.id if agent.db else None)
 
 
 class TeamSummaryResponse(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    db_id: Optional[str] = None
 
     @classmethod
     def from_team(cls, team: Team) -> "TeamSummaryResponse":
-        return cls(id=team.id, name=team.name, description=team.description)
+        return cls(id=team.id, name=team.name, description=team.description, db_id=team.db.id if team.db else None)
 
 
 class WorkflowSummaryResponse(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
     description: Optional[str] = None
+    db_id: Optional[str] = None
 
     @classmethod
     def from_workflow(cls, workflow: Workflow) -> "WorkflowSummaryResponse":
-        return cls(id=workflow.id, name=workflow.name, description=workflow.description)
+        return cls(
+            id=workflow.id,
+            name=workflow.name,
+            description=workflow.description,
+            db_id=workflow.db.id if workflow.db else None,
+        )
 
 
 class ConfigResponse(BaseModel):
+    """Response schema for the general config endpoint"""
+
     os_id: str
     name: Optional[str] = None
     description: Optional[str] = None
-    interfaces: List[InterfaceResponse]
-    apps: AppsResponse
+    available_models: Optional[List[str]] = None
+    databases: List[str]
+    chat: Optional[ChatConfig] = None
+
+    session: Optional[SessionConfig] = None
+    metrics: Optional[MetricsConfig] = None
+    memory: Optional[MemoryConfig] = None
+    knowledge: Optional[KnowledgeConfig] = None
+    evals: Optional[EvalsConfig] = None
+
     agents: List[AgentSummaryResponse]
     teams: List[TeamSummaryResponse]
     workflows: List[WorkflowSummaryResponse]
+    interfaces: List[InterfaceResponse]
 
 
 class Model(BaseModel):
@@ -98,6 +110,7 @@ class ModelResponse(BaseModel):
 class AgentResponse(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
+    db_id: Optional[str] = None
     model: Optional[ModelResponse] = None
     tools: Optional[Dict[str, Any]] = None
     sessions: Optional[Dict[str, Any]] = None
@@ -115,7 +128,7 @@ class AgentResponse(BaseModel):
         exclude_none = True
 
     @classmethod
-    def from_agent(cls, agent: Agent, memory_app: Optional[MemoryApp] = None) -> "AgentResponse":
+    def from_agent(cls, agent: Agent) -> "AgentResponse":
         def filter_meaningful_config(d: Dict[str, Any], defaults: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             """Filter out fields that match their default values, keeping only meaningful user configurations"""
             filtered = {}
@@ -160,7 +173,7 @@ class AgentResponse(BaseModel):
             "add_name_to_context": False,
             "add_datetime_to_context": False,
             "add_location_to_context": False,
-            "add_state_in_messages": False,
+            "resolve_in_context": True,
             # Extra messages defaults
             "user_message_role": "user",
             "build_user_context": True,
@@ -225,10 +238,7 @@ class AgentResponse(BaseModel):
 
         memory_info: Optional[Dict[str, Any]] = None
         if agent.memory_manager is not None:
-            memory_app_name = memory_app.display_name if memory_app else "Memory"
             memory_info = {
-                "app_name": memory_app_name,
-                "app_url": memory_app.router_prefix if memory_app else None,
                 "enable_agentic_memory": agent.enable_agentic_memory,
                 "enable_user_memories": agent.enable_user_memories,
                 "metadata": agent.metadata,
@@ -276,12 +286,11 @@ class AgentResponse(BaseModel):
             "add_datetime_to_context": agent.add_datetime_to_context,
             "add_location_to_context": agent.add_location_to_context,
             "timezone_identifier": agent.timezone_identifier,
-            "add_state_in_messages": agent.add_state_in_messages,
+            "resolve_in_context": agent.resolve_in_context,
         }
 
         extra_messages_info = {
             "additional_input": additional_input,  # type: ignore
-            "user_message": str(agent.user_message) if agent.user_message else None,
             "user_message_role": agent.user_message_role,
             "build_user_context": agent.build_user_context,
         }
@@ -312,6 +321,7 @@ class AgentResponse(BaseModel):
         return AgentResponse(
             id=agent.id,
             name=agent.name,
+            db_id=agent.db.id if agent.db else None,
             model=ModelResponse(**_agent_model_data) if _agent_model_data else None,
             tools=filter_meaningful_config(tools_info, {}),
             sessions=filter_meaningful_config(sessions_info, agent_defaults),
@@ -330,6 +340,7 @@ class AgentResponse(BaseModel):
 class TeamResponse(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
+    db_id: Optional[str] = None
     description: Optional[str] = None
     mode: Optional[str] = None
     model: Optional[ModelResponse] = None
@@ -345,11 +356,8 @@ class TeamResponse(BaseModel):
     members: Optional[List[Union[AgentResponse, "TeamResponse"]]] = None
     metadata: Optional[Dict[str, Any]] = None
 
-    class Config:
-        exclude_none = True
-
     @classmethod
-    def from_team(cls, team: Team, memory_app: Optional[MemoryApp] = None) -> "TeamResponse":
+    def from_team(cls, team: Team) -> "TeamResponse":
         def filter_meaningful_config(d: Dict[str, Any], defaults: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             """Filter out fields that match their default values, keeping only meaningful user configurations"""
             filtered = {}
@@ -390,7 +398,7 @@ class TeamResponse(BaseModel):
             "markdown": False,
             "add_datetime_to_context": False,
             "add_location_to_context": False,
-            "add_state_in_messages": False,
+            "resolve_in_context": True,
             # Response settings defaults
             "parse_response": True,
             "use_json_mode": False,
@@ -450,10 +458,7 @@ class TeamResponse(BaseModel):
 
         memory_info: Optional[Dict[str, Any]] = None
         if team.memory_manager is not None:
-            memory_app_name = memory_app.display_name if memory_app else "Memory"
             memory_info = {
-                "app_name": memory_app_name,
-                "app_url": memory_app.router_prefix if memory_app else None,
                 "enable_agentic_memory": team.enable_agentic_memory,
                 "enable_user_memories": team.enable_user_memories,
                 "metadata": team.metadata,
@@ -501,7 +506,7 @@ class TeamResponse(BaseModel):
             "markdown": team.markdown,
             "add_datetime_to_context": team.add_datetime_to_context,
             "add_location_to_context": team.add_location_to_context,
-            "add_state_in_messages": team.add_state_in_messages,
+            "resolve_in_context": team.resolve_in_context,
         }
 
         response_settings_info: Dict[str, Any] = {
@@ -537,6 +542,7 @@ class TeamResponse(BaseModel):
             id=team.id,
             name=team.name,
             mode=team.mode,
+            db_id=team.db.id if team.db else None,
             model=ModelResponse(**_team_model_data) if _team_model_data else None,
             tools=filter_meaningful_config(tools_info, {}),
             sessions=filter_meaningful_config(sessions_info, team_defaults),
@@ -548,9 +554,9 @@ class TeamResponse(BaseModel):
             response_settings=filter_meaningful_config(response_settings_info, team_defaults),
             streaming=filter_meaningful_config(streaming_info, team_defaults),
             members=[  # type: ignore
-                AgentResponse.from_agent(member, memory_app)
+                AgentResponse.from_agent(member)
                 if isinstance(member, Agent)
-                else TeamResponse.from_team(member, memory_app)
+                else TeamResponse.from_team(member)
                 if isinstance(member, Team)
                 else None
                 for member in team.members
@@ -562,6 +568,7 @@ class TeamResponse(BaseModel):
 class WorkflowResponse(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
+    db_id: Optional[str] = None
     description: Optional[str] = None
     input_schema: Optional[Dict[str, Any]] = None
     steps: Optional[List[Dict[str, Any]]] = None
@@ -615,6 +622,7 @@ class WorkflowResponse(BaseModel):
         return cls(
             id=workflow.id,
             name=workflow.name,
+            db_id=workflow.db.id if workflow.db else None,
             description=workflow.description,
             steps=steps,
             input_schema=get_workflow_input_schema_dict(workflow),
@@ -768,7 +776,7 @@ class RunSchema(BaseModel):
     agent_session_id: Optional[str]
     user_id: Optional[str]
     run_input: Optional[str]
-    content: Optional[str]
+    content: Optional[Union[str, dict]]
     run_response_format: Optional[str]
     reasoning_content: Optional[str]
     metrics: Optional[dict]
@@ -802,7 +810,7 @@ class RunSchema(BaseModel):
 class TeamRunSchema(BaseModel):
     run_id: str
     parent_run_id: Optional[str]
-    content: Optional[str]
+    content: Optional[Union[str, dict]]
     reasoning_content: Optional[str]
     run_input: Optional[str]
     run_response_format: Optional[str]
@@ -837,7 +845,7 @@ class WorkflowRunSchema(BaseModel):
     run_id: str
     run_input: Optional[str]
     user_id: Optional[str]
-    content: Optional[str]
+    content: Optional[Union[str, dict]]
     content_type: Optional[str]
     status: Optional[str]
     step_results: Optional[list[dict]]
@@ -860,3 +868,25 @@ class WorkflowRunSchema(BaseModel):
             step_executor_runs=run_response.get("step_executor_runs", []),
             created_at=run_response["created_at"],
         )
+
+
+T = TypeVar("T")
+
+
+class SortOrder(str, Enum):
+    ASC = "asc"
+    DESC = "desc"
+
+
+class PaginationInfo(BaseModel):
+    page: Optional[int] = 0
+    limit: Optional[int] = 20
+    total_pages: Optional[int] = 0
+    total_count: Optional[int] = 0
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """Wrapper to add pagination info to classes used as response models"""
+
+    data: List[T]
+    meta: PaginationInfo

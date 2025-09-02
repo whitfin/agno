@@ -33,7 +33,7 @@ knowledge = Knowledge(
 )
 
 # Add documents with metadata for agentic filtering
-knowledge.add_contents_sync(
+knowledge.add_contents(
     [
         {
             "path": downloaded_cv_paths[0],
@@ -83,7 +83,7 @@ web_agent = Agent(
     name="Knowledge Search Agent",
     role="Handle knowledge search",
     knowledge=knowledge,
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     instructions=["Always take into account filters"],
 )
 
@@ -93,7 +93,7 @@ team_with_knowledge = Team(
     members=[
         web_agent
     ],  # If you omit the member, the leader will search the knowledge base itself.
-    model=OpenAIChat(id="gpt-4o"),
+    model=OpenAIChat(id="o3-mini"),
     knowledge=knowledge,
     show_members_responses=True,
     markdown=True,

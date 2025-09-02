@@ -1,4 +1,4 @@
-"""Run `pip install duckduckgo-search sqlalchemy pgvector pypdf openai ibm-watsonx-ai` to install dependencies."""
+"""Run `pip install ddgs sqlalchemy pgvector pypdf openai ibm-watsonx-ai` to install dependencies."""
 
 from agno.agent import Agent
 from agno.knowledge.knowledge import Knowledge
@@ -15,5 +15,8 @@ knowledge.add_content(
     url="https://agno-public.s3.amazonaws.com/recipes/ThaiRecipes.pdf"
 )
 
-agent = Agent(model=WatsonX(id="ibm/granite-20b-code-instruct"), knowledge=knowledge)
+agent = Agent(
+    model=WatsonX(id="mistralai/mistral-small-3-1-24b-instruct-2503"),
+    knowledge=knowledge,
+)
 agent.print_response("How to make Thai curry?", markdown=True)

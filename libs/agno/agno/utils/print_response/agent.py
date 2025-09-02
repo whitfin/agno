@@ -42,10 +42,13 @@ def print_response_stream(
     show_full_reasoning: bool = False,
     tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
     console: Optional[Any] = None,
+    add_history_to_context: Optional[bool] = None,
+    dependencies: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ):
     _response_content: str = ""
-    _response_thinking: str = ""
+    _response_reasoning_content: str = ""
     response_content_batch: Union[str, JSON, Markdown] = ""
     reasoning_steps: List[ReasoningStep] = []
     accumulated_tool_calls: List = []
@@ -86,6 +89,9 @@ def print_response_stream(
             stream_intermediate_steps=stream_intermediate_steps,
             knowledge_filters=knowledge_filters,
             debug_mode=debug_mode,
+            add_history_to_context=add_history_to_context,
+            dependencies=dependencies,
+            metadata=metadata,
             **kwargs,
         ):
             if isinstance(response_event, tuple(get_args(RunOutputEvent))):
@@ -119,10 +125,10 @@ def print_response_stream(
                                 response_content_batch = JSON(json.dumps(response_event.content), indent=4)
                             except Exception as e:
                                 log_warning(f"Failed to convert response to JSON: {e}")
-                    if hasattr(response_event, "thinking") and response_event.thinking is not None:
-                        _response_thinking += response_event.thinking
-                if hasattr(response_event, "reasoning_steps") and response_event.reasoning_steps is not None:
-                    reasoning_steps = response_event.reasoning_steps
+                    if hasattr(response_event, "reasoning_content") and response_event.reasoning_content is not None:  # type: ignore
+                        _response_reasoning_content += response_event.reasoning_content  # type: ignore
+                if hasattr(response_event, "reasoning_steps") and response_event.reasoning_steps is not None:  # type: ignore
+                    reasoning_steps = response_event.reasoning_steps  # type: ignore
 
             # Escape special tags before markdown conversion
             if markdown:
@@ -157,7 +163,7 @@ def print_response_stream(
                 response_content=response_content,
                 response_event=response_event,  # type: ignore
                 response_timer=response_timer,
-                response_thinking_buffer=_response_thinking,
+                response_reasoning_content_buffer=_response_reasoning_content,
                 reasoning_steps=reasoning_steps,
                 show_reasoning=show_reasoning,
                 show_full_reasoning=show_full_reasoning,
@@ -213,10 +219,13 @@ async def aprint_response_stream(
     show_full_reasoning: bool = False,
     tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
     console: Optional[Any] = None,
+    add_history_to_context: Optional[bool] = None,
+    dependencies: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ):
     _response_content: str = ""
-    _response_thinking: str = ""
+    _response_reasoning_content: str = ""
     reasoning_steps: List[ReasoningStep] = []
     response_content_batch: Union[str, JSON, Markdown] = ""
     accumulated_tool_calls: List = []
@@ -257,6 +266,9 @@ async def aprint_response_stream(
             stream_intermediate_steps=stream_intermediate_steps,
             knowledge_filters=knowledge_filters,
             debug_mode=debug_mode,
+            add_history_to_context=add_history_to_context,
+            dependencies=dependencies,
+            metadata=metadata,
             **kwargs,
         )
 
@@ -288,11 +300,11 @@ async def aprint_response_stream(
                             response_content_batch = JSON(json.dumps(resp.content), indent=4)
                         except Exception as e:
                             log_warning(f"Failed to convert response to JSON: {e}")
-                    if resp.thinking is not None:  # type: ignore
-                        _response_thinking += resp.thinking  # type: ignore
+                    if resp.reasoning_content is not None:  # type: ignore
+                        _response_reasoning_content += resp.reasoning_content  # type: ignore
 
-                if hasattr(resp, "reasoning_steps") and resp.reasoning_steps is not None:
-                    reasoning_steps = resp.reasoning_steps
+                if hasattr(resp, "reasoning_steps") and resp.reasoning_steps is not None:  # type: ignore
+                    reasoning_steps = resp.reasoning_steps  # type: ignore
 
             response_content_stream: str = _response_content
 
@@ -329,7 +341,7 @@ async def aprint_response_stream(
                 response_content=response_content,
                 response_event=resp,  # type: ignore
                 response_timer=response_timer,
-                response_thinking_buffer=_response_thinking,
+                response_reasoning_content_buffer=_response_reasoning_content,
                 reasoning_steps=reasoning_steps,
                 show_reasoning=show_reasoning,
                 show_full_reasoning=show_full_reasoning,
@@ -370,7 +382,7 @@ def build_panels_stream(
     response_content: Union[str, JSON, Markdown],
     response_event: RunOutputEvent,
     response_timer: Timer,
-    response_thinking_buffer: str,
+    response_reasoning_content_buffer: str,
     reasoning_steps: List[ReasoningStep],
     show_reasoning: bool = True,
     show_full_reasoning: bool = False,
@@ -399,10 +411,10 @@ def build_panels_stream(
             reasoning_panel = create_panel(content=step_content, title=f"Reasoning step {i}", border_style="green")
             panels.append(reasoning_panel)
 
-    if len(response_thinking_buffer) > 0:
+    if len(response_reasoning_content_buffer) > 0:
         # Create panel for thinking
         thinking_panel = create_panel(
-            content=Text(response_thinking_buffer),
+            content=Text(response_reasoning_content_buffer),
             title=f"Thinking ({response_timer.elapsed:.1f}s)",
             border_style="green",
         )
@@ -472,6 +484,9 @@ def print_response(
     show_full_reasoning: bool = False,
     tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
     console: Optional[Any] = None,
+    add_history_to_context: Optional[bool] = None,
+    dependencies: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ):
     with Live(console=console) as live_log:
@@ -490,7 +505,7 @@ def print_response(
                 title="Message",
                 border_style="cyan",
             )
-            panels.append(message_panel)
+            panels.append(message_panel)  # type: ignore
             live_log.update(Group(*panels))
 
         # Run the agent
@@ -507,6 +522,9 @@ def print_response(
             stream_intermediate_steps=stream_intermediate_steps,
             knowledge_filters=knowledge_filters,
             debug_mode=debug_mode,
+            add_history_to_context=add_history_to_context,
+            dependencies=dependencies,
+            metadata=metadata,
             **kwargs,
         )
         response_timer.stop()
@@ -566,6 +584,9 @@ async def aprint_response(
     show_full_reasoning: bool = False,
     tags_to_include_in_markdown: Set[str] = {"think", "thinking"},
     console: Optional[Any] = None,
+    add_history_to_context: Optional[bool] = None,
+    dependencies: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ):
     with Live(console=console) as live_log:
@@ -601,6 +622,9 @@ async def aprint_response(
             stream_intermediate_steps=stream_intermediate_steps,
             knowledge_filters=knowledge_filters,
             debug_mode=debug_mode,
+            add_history_to_context=add_history_to_context,
+            dependencies=dependencies,
+            metadata=metadata,
             **kwargs,
         )
         response_timer.stop()
@@ -683,20 +707,21 @@ def build_panels(
             reasoning_panel = create_panel(content=step_content, title=f"Reasoning step {i}", border_style="green")
             panels.append(reasoning_panel)
 
-    if isinstance(run_response, RunOutput) and run_response.thinking is not None:
+    if isinstance(run_response, RunOutput) and run_response.reasoning_content is not None:
         # Create panel for thinking
         thinking_panel = create_panel(
-            content=Text(run_response.thinking),
+            content=Text(run_response.reasoning_content),
             title=f"Thinking ({response_timer.elapsed:.1f}s)",
             border_style="green",
         )
         panels.append(thinking_panel)
 
     # Add tool calls panel if available
-    if isinstance(run_response, RunOutput) and run_response.formatted_tool_calls:
+    if isinstance(run_response, RunOutput) and run_response.tools:
         # Create bullet points for each tool call
         tool_calls_content = Text()
-        for formatted_tool_call in run_response.formatted_tool_calls:
+        formatted_tool_calls = format_tool_calls(run_response.tools)
+        for formatted_tool_call in formatted_tool_calls:
             tool_calls_content.append(f"• {formatted_tool_call}\n")
 
         tool_calls_panel = create_panel(

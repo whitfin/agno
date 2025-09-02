@@ -7,6 +7,7 @@ from requests import post
 from agno.agent import Agent
 from agno.media import ImageArtifact
 from agno.tools import Toolkit
+from agno.tools.function import ToolResult
 from agno.utils.log import log_debug, logger
 
 
@@ -31,6 +32,8 @@ class AzureOpenAITools(Toolkit):
         image_deployment: Optional[str] = None,
         image_model: str = "dall-e-3",
         image_quality: Literal["standard", "hd"] = "standard",  # Note: "hd" quality is only available for dall-e-3.
+        enable_generate_image: bool = True,
+        all: bool = False,
     ):
         # Set credentials from parameters or environment variables
         self.api_key = api_key or getenv("AZURE_OPENAI_API_KEY")
@@ -54,7 +57,8 @@ class AzureOpenAITools(Toolkit):
         if self.image_deployment and self.image_model in self.VALID_MODELS:
             # Create and store the base URL
             self.image_base_url = f"{self.azure_endpoint}/openai/deployments/{self.image_deployment}/images/generations?api-version={self.api_version}"
-            tools.append(self.generate_image)
+            if all or enable_generate_image:
+                tools.append(self.generate_image)
         else:
             logger.error("Missing required image generation parameters or invalid model")
 
@@ -100,7 +104,7 @@ class AzureOpenAITools(Toolkit):
         n: int = 1,
         size: Optional[Literal["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"]] = "1024x1024",
         style: Literal["vivid", "natural"] = "vivid",
-    ) -> str:
+    ) -> ToolResult:
         """Generate an image using Azure OpenAI image generation.
 
         Args:
@@ -116,7 +120,7 @@ class AzureOpenAITools(Toolkit):
                 Note: "vivid" produces more dramatic images, while "natural" produces more realistic ones.
 
         Returns:
-            A message with image URLs or an error message
+            ToolResult: A ToolResult containing the generated images or error message.
 
         Note:
             Invalid parameters will be automatically corrected to valid values. For example:
@@ -127,7 +131,9 @@ class AzureOpenAITools(Toolkit):
         """
         # Check if image generation is properly initialized
         if not hasattr(self, "image_base_url"):
-            return "Image generation tool not properly initialized. Please check your configuration."
+            return ToolResult(
+                content="Image generation tool not properly initialized. Please check your configuration."
+            )
 
         # Enforce valid parameters
         params = self._enforce_valid_image_parameters(
@@ -149,26 +155,36 @@ class AzureOpenAITools(Toolkit):
             response = post(self.image_base_url, headers=headers, json=params)
 
             if response.status_code != 200:
-                return f"Error {response.status_code}: {response.text}"
+                return ToolResult(content=f"Error {response.status_code}: {response.text}")
 
             # Process results
             data = response.json()
             log_debug("Image generated successfully")
 
-            # Add images to agent
+            # Create ImageArtifact objects for generated images
+            generated_images = []
             response_str = ""
+
             for img in data.get("data", []):
                 image_url = img.get("url")
                 revised_prompt = img.get("revised_prompt")
 
-                # Add image to agent
-                agent.add_image(
-                    ImageArtifact(id=str(uuid4()), url=image_url, original_prompt=prompt, revised_prompt=revised_prompt)
+                # Create ImageArtifact with URL
+                image_artifact = ImageArtifact(
+                    id=str(uuid4()), url=image_url, original_prompt=prompt, revised_prompt=revised_prompt
                 )
+                generated_images.append(image_artifact)
 
                 response_str += f"Image has been generated at the URL {image_url}\n"
-            return response_str
+
+            if generated_images:
+                return ToolResult(
+                    content=response_str.strip(),
+                    images=generated_images,
+                )
+            else:
+                return ToolResult(content="No images were generated.")
 
         except Exception as e:
             logger.error(f"Failed to generate image: {e}")
-            return f"Error: {e}"
+            return ToolResult(content=f"Error: {e}")

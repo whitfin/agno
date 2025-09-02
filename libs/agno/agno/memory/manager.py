@@ -42,10 +42,15 @@ class MemoryManager:
     # Whether memories were created in the last run
     memories_updated: bool = False
 
+    # ----- db tools ---------
     # Whether to delete memories
-    delete_memories: bool = False
+    delete_memories: bool = True
     # Whether to clear memories
-    clear_memories: bool = False
+    clear_memories: bool = True
+    # Whether to update memories
+    update_memories: bool = True
+    # whether to add memories
+    add_memories: bool = True
 
     # The database to store memories
     db: Optional[Union[BaseDb, AsyncBaseDb]] = None
@@ -60,6 +65,8 @@ class MemoryManager:
         additional_instructions: Optional[str] = None,
         db: Optional[Union[BaseDb, AsyncBaseDb]] = None,
         delete_memories: bool = False,
+        update_memories: bool = True,
+        add_memories: bool = True,
         clear_memories: bool = False,
         debug_mode: bool = False,
     ):
@@ -71,6 +78,8 @@ class MemoryManager:
         self.additional_instructions = additional_instructions
         self.db = db
         self.delete_memories = delete_memories
+        self.update_memories = update_memories
+        self.add_memories = add_memories
         self.clear_memories = clear_memories
         self.debug_mode = debug_mode
         self._tools_for_model: Optional[List[Dict[str, Any]]] = None
@@ -175,7 +184,7 @@ class MemoryManager:
                 memory.updated_at = datetime.now()
 
             self._upsert_db_memory(memory=memory)
-            return memory_id
+            return memory.memory_id
 
         else:
             log_warning("Memory Db not provided.")
@@ -207,7 +216,7 @@ class MemoryManager:
 
             self._upsert_db_memory(memory=memory)
 
-            return memory_id
+            return memory.memory_id
         else:
             log_warning("Memory Db not provided.")
             return None
@@ -274,8 +283,8 @@ class MemoryManager:
             agent_id=agent_id,
             team_id=team_id,
             db=self.db,
-            delete_memories=self.delete_memories,
-            clear_memories=self.clear_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
         )
 
         # We refresh from the DB
@@ -323,8 +332,8 @@ class MemoryManager:
             agent_id=agent_id,
             team_id=team_id,
             db=self.db,
-            delete_memories=self.delete_memories,
-            clear_memories=self.clear_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
         )
 
         # We refresh from the DB
@@ -355,6 +364,8 @@ class MemoryManager:
             user_id=user_id,
             db=self.db,
             delete_memories=self.delete_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
             clear_memories=self.clear_memories,
         )
 
@@ -387,6 +398,8 @@ class MemoryManager:
             user_id=user_id,
             db=self.db,
             delete_memories=self.delete_memories,
+            update_memories=self.update_memories,
+            add_memories=self.add_memories,
             clear_memories=self.clear_memories,
         )
 
@@ -646,6 +659,8 @@ class MemoryManager:
         existing_memories: Optional[List[Dict[str, Any]]] = None,
         enable_delete_memory: bool = True,
         enable_clear_memory: bool = True,
+        enable_update_memory: bool = True,
+        enable_add_memory: bool = True,
     ) -> Message:
         if self.system_message is not None:
             return Message(role="system", content=self.system_message)
@@ -691,13 +706,16 @@ class MemoryManager:
             "## Updating memories",
             "You will also be provided with a list of existing memories in the <existing_memories> section. You can:",
             "  1. Decide to make no changes.",
-            "  2. Decide to add a new memory, using the `add_memory` tool.",
-            "  3. Decide to update an existing memory, using the `update_memory` tool.",
         ]
+        if enable_add_memory:
+            system_prompt_lines.append("  2. Decide to add a new memory, using the `add_memory` tool.")
+        if enable_update_memory:
+            system_prompt_lines.append("  3. Decide to update an existing memory, using the `update_memory` tool.")
         if enable_delete_memory:
             system_prompt_lines.append("  4. Decide to delete an existing memory, using the `delete_memory` tool.")
         if enable_clear_memory:
             system_prompt_lines.append("  5. Decide to clear all memories, using the `clear_memory` tool.")
+
         system_prompt_lines += [
             "You can call multiple tools in a single response if needed. ",
             "Only add or update memories if it is necessary to capture key information provided by the user.",
@@ -724,8 +742,8 @@ class MemoryManager:
         db: BaseDb,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
-        delete_memories: bool = True,
-        clear_memories: bool = True,
+        update_memories: bool = True,
+        add_memories: bool = True,
     ) -> str:
         if self.model is None:
             log_error("No model provided for memory manager")
@@ -747,8 +765,10 @@ class MemoryManager:
                 input_string,
                 agent_id=agent_id,
                 team_id=team_id,
-                enable_delete_memory=delete_memories,
-                enable_clear_memory=clear_memories,
+                enable_add_memory=add_memories,
+                enable_update_memory=update_memories,
+                enable_delete_memory=False,
+                enable_clear_memory=False,
             ),
         )
 
@@ -756,8 +776,10 @@ class MemoryManager:
         messages_for_model: List[Message] = [
             self.get_system_message(
                 existing_memories=existing_memories,
-                enable_delete_memory=delete_memories,
-                enable_clear_memory=clear_memories,
+                enable_update_memory=update_memories,
+                enable_add_memory=add_memories,
+                enable_delete_memory=False,
+                enable_clear_memory=False,
             ),
             *messages,
         ]
@@ -781,8 +803,8 @@ class MemoryManager:
         db: BaseDb,
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
-        delete_memories: bool = True,
-        clear_memories: bool = True,
+        update_memories: bool = True,
+        add_memories: bool = True,
     ) -> str:
         if self.model is None:
             log_error("No model provided for memory manager")
@@ -804,8 +826,10 @@ class MemoryManager:
                 input_string,
                 agent_id=agent_id,
                 team_id=team_id,
-                enable_delete_memory=delete_memories,
-                enable_clear_memory=clear_memories,
+                enable_add_memory=add_memories,
+                enable_update_memory=update_memories,
+                enable_delete_memory=False,
+                enable_clear_memory=False,
             ),
         )
 
@@ -813,8 +837,10 @@ class MemoryManager:
         messages_for_model: List[Message] = [
             self.get_system_message(
                 existing_memories=existing_memories,
-                enable_delete_memory=delete_memories,
-                enable_clear_memory=clear_memories,
+                enable_update_memory=update_memories,
+                enable_add_memory=add_memories,
+                enable_delete_memory=False,
+                enable_clear_memory=False,
             ),
             *messages,
         ]
@@ -837,6 +863,8 @@ class MemoryManager:
         user_id: str,
         db: BaseDb,
         delete_memories: bool = True,
+        update_memories: bool = True,
+        add_memories: bool = True,
         clear_memories: bool = True,
     ) -> str:
         if self.model is None:
@@ -849,14 +877,24 @@ class MemoryManager:
         # Update the Model (set defaults, add logit etc.)
         self.determine_tools_for_model(
             self._get_db_tools(
-                user_id, db, task, enable_delete_memory=delete_memories, enable_clear_memory=clear_memories
+                user_id,
+                db,
+                task,
+                enable_delete_memory=delete_memories,
+                enable_clear_memory=clear_memories,
+                enable_update_memory=update_memories,
+                enable_add_memory=add_memories,
             ),
         )
 
         # Prepare the List of messages to send to the Model
         messages_for_model: List[Message] = [
             self.get_system_message(
-                existing_memories, enable_delete_memory=delete_memories, enable_clear_memory=clear_memories
+                existing_memories,
+                enable_delete_memory=delete_memories,
+                enable_clear_memory=clear_memories,
+                enable_update_memory=update_memories,
+                enable_add_memory=add_memories,
             ),
             # For models that require a non-system message
             Message(role="user", content=task),
@@ -881,6 +919,8 @@ class MemoryManager:
         db: BaseDb,
         delete_memories: bool = True,
         clear_memories: bool = True,
+        update_memories: bool = True,
+        add_memories: bool = True,
     ) -> str:
         if self.model is None:
             log_error("No model provided for memory manager")
@@ -892,14 +932,24 @@ class MemoryManager:
         # Update the Model (set defaults, add logit etc.)
         self.determine_tools_for_model(
             self._get_db_tools(
-                user_id, db, task, enable_delete_memory=delete_memories, enable_clear_memory=clear_memories
+                user_id,
+                db,
+                task,
+                enable_delete_memory=delete_memories,
+                enable_clear_memory=clear_memories,
+                enable_update_memory=update_memories,
+                enable_add_memory=add_memories,
             ),
         )
 
         # Prepare the List of messages to send to the Model
         messages_for_model: List[Message] = [
             self.get_system_message(
-                existing_memories, enable_delete_memory=delete_memories, enable_clear_memory=clear_memories
+                existing_memories,
+                enable_delete_memory=delete_memories,
+                enable_clear_memory=clear_memories,
+                enable_update_memory=update_memories,
+                enable_add_memory=add_memories,
             ),
             # For models that require a non-system message
             Message(role="user", content=task),

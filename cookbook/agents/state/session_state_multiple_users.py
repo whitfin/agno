@@ -5,7 +5,7 @@ The shopping list is stored in a dictionary, organized by user ID and session ID
 
 Agno automatically creates the "current_user_id" and "current_session_id" variables in the session state.
 
-You can access these variables in your functions using the `agent.session_state` dictionary.
+You can access these variables in your functions using the `agent.get_session_state()` dictionary.
 """
 
 import json
@@ -68,8 +68,6 @@ agent = Agent(
         "Current User ID: {current_user_id}",
         "Current Session ID: {current_session_id}",
     ],
-    # Important: Add the state in the instructions
-    add_state_in_messages=True,
     markdown=True,
 )
 

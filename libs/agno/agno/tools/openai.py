@@ -103,7 +103,6 @@ class OpenAITools(Toolkit):
 
     def generate_image(
         self,
-        agent: Union[Agent, Team],
         prompt: str,
     ) -> ToolResult:
         """Generate images based on a text prompt.

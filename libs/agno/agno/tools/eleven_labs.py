@@ -129,9 +129,7 @@ class ElevenLabsTools(Toolkit):
 
         return base64_audio
 
-    def generate_sound_effect(
-        self, agent: Union[Agent, Team], prompt: str, duration_seconds: Optional[float] = None
-    ) -> ToolResult:
+    def generate_sound_effect(self, prompt: str, duration_seconds: Optional[float] = None) -> ToolResult:
         """
         Use this function to generate sound effect audio from a text prompt.
 

@@ -34,6 +34,7 @@ except ImportError:
 class AsyncPostgresDb(AsyncBaseDb):
     def __init__(
         self,
+        db_id: Optional[str] = None,
         db_url: Optional[str] = None,
         db_engine: Optional[AsyncEngine] = None,
         db_schema: Optional[str] = None,
@@ -52,6 +53,7 @@ class AsyncPostgresDb(AsyncBaseDb):
             3. Raise an error if neither is provided
 
         Args:
+            db_id (Optional[str]): The ID of the database.
             db_url (Optional[str]): The database URL to connect to.
             db_engine (Optional[AsyncEngine]): The SQLAlchemy async database engine to use.
             db_schema (Optional[str]): The database schema to use.
@@ -66,6 +68,7 @@ class AsyncPostgresDb(AsyncBaseDb):
             ValueError: If none of the tables are provided.
         """
         super().__init__(
+            id=db_id,
             session_table=session_table,
             memory_table=memory_table,
             metrics_table=metrics_table,

@@ -1601,10 +1601,13 @@ class Model(ABC):
 
                         # Yield the event itself to bubble it up
                         yield item
+
+                    # Yield custom events emitted by the tool
                     else:
                         function_call_output += str(item)
                         if function_call.function.show_result:
-                            yield ModelResponse(content=str(item))
+                            yield item
+
             elif isinstance(function_call.result, (AsyncGeneratorType, collections.abc.AsyncIterator)):
                 async for item in function_call.result:
                     # This function yields agent/team run events

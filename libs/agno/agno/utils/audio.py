@@ -23,7 +23,7 @@ def write_audio_to_file(audio, filename: str):
     log_info(f"Audio file saved to {filename}")
 
 
-def save_wave_file(filename: str, pcm_data: bytes, channels: int = 1, rate: int = 24000, sample_width: int = 2):
+def save_wav_file(filename: str, pcm_data: bytes, channels: int = 1, rate: int = 24000, sample_width: int = 2):
     """
     Create a WAV file from raw PCM audio data.
 

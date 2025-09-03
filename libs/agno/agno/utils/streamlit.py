@@ -1,8 +1,12 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import streamlit as st
 from agno.agent import Agent
+from agno.db.base import SessionType
+from agno.models.anthropic import Claude
+from agno.models.google import Gemini
+from agno.models.openai import OpenAIChat
 from agno.utils.log import logger
 
 
@@ -13,7 +17,7 @@ def add_message(
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
-    message = {"role": role, "content": content}
+    message: Dict[str, Any] = {"role": role, "content": content}
     if tool_calls:
         message["tool_calls"] = tool_calls
 
@@ -46,7 +50,7 @@ def display_tool_calls(container, tools: List[Any]):
 
 
 def session_selector_widget(
-    agent: Agent, model_id: str, agent_creation_callback: callable
+    agent: Agent, model_id: str, agent_creation_callback: Callable[[str, str], Agent]
 ) -> None:
     """Session selector widget"""
     if not agent.db:
@@ -55,7 +59,7 @@ def session_selector_widget(
 
     try:
         sessions = agent.db.get_sessions(
-            session_type="agent",
+            session_type=SessionType.AGENT,
             deserialize=True,
             sort_by="created_at",
             sort_order="desc",
@@ -204,10 +208,10 @@ def session_selector_widget(
                     st.rerun()
 
 
-def _load_session(session_id: str, model_id: str, agent_creation_callback: callable):
+def _load_session(session_id: str, model_id: str, agent_creation_callback: Callable[[str, str], Agent]):
     try:
         logger.info(f"Creating agent with session_id: {session_id}")
-        new_agent = agent_creation_callback(model_id=model_id, session_id=session_id)
+        new_agent = agent_creation_callback(model_id, session_id)
 
         st.session_state["agent"] = new_agent
         st.session_state["session_id"] = session_id
@@ -215,9 +219,12 @@ def _load_session(session_id: str, model_id: str, agent_creation_callback: calla
         st.session_state["current_model"] = model_id  # Keep current_model in sync
 
         try:
-            selected_session = new_agent.db.get_session(
-                session_id=session_id, session_type="agent", deserialize=True
-            )
+            if new_agent.db:
+                selected_session = new_agent.db.get_session(
+                    session_id=session_id, session_type=SessionType.AGENT, deserialize=True
+                )
+            else:
+                selected_session = None
 
             # Recreate the chat history
             if selected_session:
@@ -325,6 +332,9 @@ def display_response(agent: Agent, question: str) -> None:
 
 def display_chat_messages() -> None:
     """Display all chat messages from session state."""
+    if "messages" not in st.session_state:
+        return
+    
     for message in st.session_state["messages"]:
         if message["role"] in ["user", "assistant"]:
             content = message["content"]
@@ -341,12 +351,12 @@ def display_chat_messages() -> None:
                     st.markdown(content)
 
 
-def initialize_agent(model_id: str, agent_creation_callback: callable) -> Agent:
+def initialize_agent(model_id: str, agent_creation_callback: Callable[[str, Optional[str]], Agent]) -> Agent:
     """Initialize or get agent with proper session management."""
     if "agent" not in st.session_state or st.session_state["agent"] is None:
         # First time initialization - get existing session_id if any
         session_id = st.session_state.get("session_id")
-        agent = agent_creation_callback(model_id=model_id, session_id=session_id)
+        agent = agent_creation_callback(model_id, session_id)
         st.session_state["agent"] = agent
         st.session_state["current_model"] = model_id
 
@@ -414,6 +424,39 @@ def export_chat_history(app_name: str = "Chat") -> str:
         role_display = "## 🙋 User" if role == "user" else "## 🤖 Assistant"
         chat_text += f"{role_display}\n\n{content}\n\n---\n\n"
     return chat_text
+
+
+def get_model_from_id(model_id: str):
+    """Get a model instance from a model ID string."""
+    if model_id.startswith("openai:"):
+        return OpenAIChat(id=model_id.split("openai:")[1])
+    elif model_id.startswith("anthropic:"):
+        return Claude(id=model_id.split("anthropic:")[1])
+    elif model_id.startswith("google:"):
+        return Gemini(id=model_id.split("google:")[1])
+    else:
+        return OpenAIChat(id="gpt-4o")
+
+def about_section(description: str):
+    """About section"""
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### ℹ️ About")
+    st.sidebar.markdown(f"""
+    {description}
+
+    Built with:
+    - 🚀 Agno
+    - 💫 Streamlit
+    """)
+
+
+MODELS = [
+    "gpt-4o",
+    "o3-mini",
+    "gpt-5",
+    "claude-4-sonnet",
+    "gemini-2.5-pro",
+]
 
 
 COMMON_CSS = """

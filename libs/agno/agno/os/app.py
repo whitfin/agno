@@ -187,7 +187,7 @@ class AgentOS:
                     DatabaseConfig(
                         db_id=db_id,
                         domain_config=SessionDomainConfig(
-                            display_name="Sessions" if not multiple_dbs else "Sessions in database" + db_id
+                            display_name="Sessions" if not multiple_dbs else "Sessions in database '" + db_id + "'"
                         ),
                     )
                 )
@@ -209,7 +209,7 @@ class AgentOS:
                     DatabaseConfig(
                         db_id=db_id,
                         domain_config=MemoryDomainConfig(
-                            display_name="Memory" if not multiple_dbs else "Memory in database " + db_id
+                            display_name="Memory" if not multiple_dbs else "Memory in database '" + db_id + "'"
                         ),
                     )
                 )
@@ -253,7 +253,7 @@ class AgentOS:
                     DatabaseConfig(
                         db_id=db_id,
                         domain_config=MetricsDomainConfig(
-                            display_name="Metrics" if not multiple_dbs else "Metrics in database " + db_id
+                            display_name="Metrics" if not multiple_dbs else "Metrics in database '" + db_id + "'"
                         ),
                     )
                 )
@@ -275,7 +275,7 @@ class AgentOS:
                     DatabaseConfig(
                         db_id=db_id,
                         domain_config=EvalsDomainConfig(
-                            display_name="Evals" if not multiple_dbs else "Evals in database " + db_id
+                            display_name="Evals" if not multiple_dbs else "Evals in database '" + db_id + "'"
                         ),
                     )
                 )

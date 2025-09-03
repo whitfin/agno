@@ -1,6 +1,11 @@
+"""
+Prerequisites:
+ - pip install langchain-qdrant langchain-text-splitters langchain-community fastembed
+"""
+
 from agno.agent import Agent
-from agno.knowledge.langchain import LangChainKnowledgeBase
 from agno.models.ollama import Ollama
+from agno.vectordb.langchaindb import LangChainVectorDb
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_qdrant import QdrantVectorStore
@@ -39,7 +44,7 @@ vector_store = QdrantVectorStore(
 vector_store.add_documents(documents=chunks)
 retriever = vector_store.as_retriever()
 
-knowledge_base = LangChainKnowledgeBase(retriever=retriever)
+knowledge_base = LangChainVectorDb(knowledge_retriever=retriever)
 
 agent = Agent(
     model=Ollama(id="qwen2.5:latest"),

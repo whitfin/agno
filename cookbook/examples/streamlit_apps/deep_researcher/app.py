@@ -101,7 +101,7 @@ def main():
             if st.sidebar.download_button(
                 "💾 Export Report",
                 export_chat_history("Deep Research Report"),
-                file_name=f"research_report.md",
+                file_name="research_report.md",
                 mime="text/markdown",
                 use_container_width=True,
                 help=f"Export {len(st.session_state['messages'])} messages",

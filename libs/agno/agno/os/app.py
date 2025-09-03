@@ -38,8 +38,6 @@ from agno.workflow.workflow import Workflow
 
 
 class AgentOS:
-    host_url: Optional[str] = None
-
     def __init__(
         self,
         os_id: Optional[str] = None,
@@ -356,6 +354,16 @@ class AgentOS:
         )
 
         return self.fastapi_app
+
+    def get_routes(self) -> List[Any]:
+        """Retrieve all routes from the FastAPI app.
+
+        Returns:
+            List[Any]: List of routes included in the FastAPI app.
+        """
+        app = self.get_app()
+
+        return app.routes
 
     def serve(
         self,

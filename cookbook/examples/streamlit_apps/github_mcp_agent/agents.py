@@ -13,7 +13,9 @@ async def run_github_agent(message: str, model_id: str = "gpt-4o"):
 
     try:
         # Initialize MCP toolkit
-        async with MCPTools(command="npx -y @modelcontextprotocol/server-github") as mcp_tools:
+        async with MCPTools(
+            command="npx -y @modelcontextprotocol/server-github"
+        ) as mcp_tools:
             model = get_model_from_id(model_id)
 
             # Create agent

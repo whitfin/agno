@@ -5,11 +5,11 @@ import streamlit as st
 from agents import run_github_agent
 from agno.utils.streamlit import (
     COMMON_CSS,
+    MODELS,
+    about_section,
     add_message,
     display_chat_messages,
     export_chat_history,
-    about_section,
-    MODELS
 )
 
 st.set_page_config(
@@ -84,20 +84,17 @@ def main():
     # Repository and Query Input
     ####################################################################
     col1, col2 = st.columns([3, 1])
-    
+
     with col1:
         repo = st.text_input(
-            "Repository", 
-            value="agno-agi/agno", 
-            help="Format: owner/repo",
-            key="repo"
+            "Repository", value="agno-agi/agno", help="Format: owner/repo", key="repo"
         )
-    
+
     with col2:
         st.selectbox(
-            "Query Type", 
+            "Query Type",
             ["Issues", "Pull Requests", "Repository Activity", "Custom"],
-            key="query_type"
+            key="query_type",
         )
 
     ####################################################################
@@ -115,7 +112,7 @@ def main():
     # Utility buttons
     ####################################################################
     st.sidebar.markdown("#### 🛠️ Utilities")
-    
+
     col1, col2 = st.sidebar.columns([1, 1])
     with col1:
         if st.sidebar.button("🔄 New Chat", use_container_width=True):
@@ -137,7 +134,9 @@ def main():
                 st.sidebar.success("Chat history exported!")
 
     # About section
-    about_section("This GitHub MCP Agent helps you analyze repositories using natural language queries.")
+    about_section(
+        "This GitHub MCP Agent helps you analyze repositories using natural language queries."
+    )
 
     ####################################################################
     # Chat input and processing
@@ -152,7 +151,7 @@ def main():
         last_message = st.session_state["messages"][-1]
         if last_message["role"] == "user":
             user_query = last_message["content"]
-            
+
             # Ensure repo is mentioned in query
             if repo and repo not in user_query:
                 full_query = f"{user_query} in {repo}"

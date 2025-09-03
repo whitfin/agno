@@ -2,13 +2,12 @@
 Example AgentOS app with custom routers.
 """
 
-from fastapi import FastAPI, APIRouter
-
 from agno.agent import Agent
 from agno.db.postgres import PostgresDb
 from agno.models.anthropic import Claude
 from agno.os import AgentOS
 from agno.tools.duckduckgo import DuckDuckGoTools
+from fastapi import APIRouter, FastAPI
 
 # Setup the database
 db = PostgresDb(db_url="postgresql+psycopg://ai:ai@localhost:5532/ai")
@@ -29,6 +28,7 @@ web_research_agent = Agent(
 custom_app = FastAPI()
 router = APIRouter()
 
+
 @router.post("/customers")
 async def get_customers():
     return [
@@ -43,6 +43,7 @@ async def get_customers():
             "email": "jane.doe@example.com",
         },
     ]
+
 
 custom_app.include_router(router)
 

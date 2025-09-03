@@ -1,4 +1,6 @@
-"""Minimal example for AgentOS."""
+"""
+Example AgentOS app with custom routers.
+"""
 
 from fastapi import FastAPI, APIRouter
 
@@ -13,7 +15,7 @@ db = PostgresDb(db_url="postgresql+psycopg://ai:ai@localhost:5532/ai")
 
 # Setup basic agents, teams and workflows
 web_research_agent = Agent(
-    name="Basic Agent",
+    name="Web Research Agent",
     model=Claude(id="claude-sonnet-4-0"),
     db=db,
     tools=[DuckDuckGoTools()],

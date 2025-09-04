@@ -148,6 +148,7 @@ class AgentOS:
         # Adjust the FastAPI app lifespan to handle MCP connections if relevant
         app_lifespan = lifespan
         if self.mcp_tools is not None:
+            mcp_tools_lifespan = partial(mcp_lifespan, mcp_tools=self.mcp_tools)
             # If there is already a lifespan, combine it with the MCP lifespan
             if lifespan is not None:
                 # Combine both lifespans
@@ -155,11 +156,12 @@ class AgentOS:
                 async def combined_lifespan(app: FastAPI):
                     # Run both lifespans
                     async with lifespan(app):  # type: ignore
-                        mcp_tools_lifespan = partial(mcp_lifespan, mcp_tools=self.mcp_tools)
                         async with mcp_tools_lifespan(app):  # type: ignore
                             yield
 
                 app_lifespan = combined_lifespan  # type: ignore
+            else:
+                app_lifespan = mcp_tools_lifespan
 
         return FastAPI(
             title=self.name or "Agno AgentOS",

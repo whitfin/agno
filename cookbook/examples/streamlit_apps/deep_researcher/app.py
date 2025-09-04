@@ -1,6 +1,6 @@
 import nest_asyncio
 import streamlit as st
-from agents import DeepResearcherAgent
+from agents import get_deep_researcher_workflow
 from agno.utils.streamlit import (
     COMMON_CSS,
     add_message,
@@ -139,25 +139,23 @@ def main():
             
             try:
                 # Get the workflow
-                app = DeepResearcherAgent()
+                app = get_deep_researcher_workflow()
 
                 # Execute the research workflow with status updates
                 with st.status("🔎 Executing research workflow...", expanded=True) as status:
                     status.write("🧠 **Phase 1: Researching** - Finding and extracting relevant information...")
-                    research_content = app.searcher.run(research_topic)
-
                     status.write("📊 **Phase 2: Analyzing** - Synthesizing and interpreting the research findings...")
-                    analysis = app.analyst.run(research_content.content)
-
                     status.write("📝 **Phase 3: Writing** - Crafting the final report...")
-                    report_iterator = app.writer.run(analysis.content, stream=True)
 
+                    result = app.run(topic=research_topic)
+                    
                     full_report = ""
-                    # Run the workflow and collect streaming results
-                    for chunk in report_iterator:
-                        if chunk.content:
-                            full_report += chunk.content
-                            response_container.markdown(full_report)
+                    if result and result.content:
+                        full_report = result.content
+                        response_container.markdown(full_report)
+                    else:
+                        full_report = "❌ Failed to generate research report. Please try again."
+                        response_container.markdown(full_report)
                     
                     status.update(label="✅ Research completed!", state="complete")
 

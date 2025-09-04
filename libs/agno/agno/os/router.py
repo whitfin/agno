@@ -370,7 +370,8 @@ def get_base_router(
 
     # -- Agent routes ---
 
-    @router.post("/agents/{agent_id}/runs", tags=["Agents"], operation_id="create_agent_run")
+    @router.post("/agents/{agent_id}/runs", tags=["Agents"], operation_id="create_agent_run", 
+        response_model_exclude_none=True)
     async def create_agent_run(
         agent_id: str,
         message: str = Form(...),
@@ -478,6 +479,7 @@ def get_base_router(
         "/agents/{agent_id}/runs/{run_id}/cancel",
         tags=["Agents"],
         operation_id="cancel_agent_run",
+        response_model_exclude_none=True,
     )
     async def cancel_agent_run(
         agent_id: str,
@@ -496,6 +498,7 @@ def get_base_router(
         "/agents/{agent_id}/runs/{run_id}/continue",
         tags=["Agents"],
         operation_id="continue_agent_run",
+        response_model_exclude_none=True,
     )
     async def continue_agent_run(
         agent_id: str,
@@ -588,7 +591,7 @@ def get_base_router(
 
     # -- Team routes ---
 
-    @router.post("/teams/{team_id}/runs", tags=["Teams"], operation_id="create_team_run")
+    @router.post("/teams/{team_id}/runs", tags=["Teams"], operation_id="create_team_run", response_model_exclude_none=True)
     async def create_team_run(
         team_id: str,
         message: str = Form(...),
@@ -693,6 +696,7 @@ def get_base_router(
         "/teams/{team_id}/runs/{run_id}/cancel",
         tags=["Teams"],
         operation_id="cancel_team_run",
+        response_model_exclude_none=True,
     )
     async def cancel_team_run(
         team_id: str,
@@ -758,9 +762,10 @@ def get_base_router(
                 elif action == "start-workflow":
                     # Handle workflow execution directly via WebSocket
                     await handle_workflow_via_websocket(websocket, message, os)
-
         except Exception as e:
-            logger.error(f"WebSocket error: {e}")
+            if "1012" not in str(e):
+                logger.error(f"WebSocket error: {e}")
+        finally:
             # Clean up any run_ids associated with this websocket
             runs_to_remove = [run_id for run_id, ws in websocket_manager.active_connections.items() if ws == websocket]
             for run_id in runs_to_remove:
@@ -793,7 +798,7 @@ def get_base_router(
 
         return WorkflowResponse.from_workflow(workflow)
 
-    @router.post("/workflows/{workflow_id}/runs", tags=["Workflows"], operation_id="create_workflow_run")
+    @router.post("/workflows/{workflow_id}/runs", tags=["Workflows"], operation_id="create_workflow_run", response_model_exclude_none=True)
     async def create_workflow_run(
         workflow_id: str,
         message: str = Form(...),

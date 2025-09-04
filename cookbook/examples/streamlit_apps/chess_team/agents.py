@@ -52,10 +52,10 @@ def get_chess_team(
     """
     
     # Get model instances
-    white_model_instance = get_model_from_id(f"openai:{white_model}" if not ":" in white_model else white_model)
-    black_model_instance = get_model_from_id(f"anthropic:{black_model}" if not ":" in black_model else black_model)
-    master_model_instance = get_model_from_id(f"openai:{master_model}" if not ":" in master_model else master_model)
-    
+    white_model_instance = get_model_from_id(f"openai:{white_model}" if ":" not in white_model else white_model)
+    black_model_instance = get_model_from_id(f"anthropic:{black_model}" if ":" not in black_model else black_model)
+    master_model_instance = get_model_from_id(f"openai:{master_model}" if ":" not in master_model else master_model)
+
     # Create specialized chess agents
     white_player_agent = Agent(
         name="White Player",

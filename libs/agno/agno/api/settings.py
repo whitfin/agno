@@ -42,7 +42,7 @@ class AgnoAPISettings(BaseSettings):
         elif api_runtime == "stg":
             return "https://api-stg.agno.com"
         else:
-            return "https://api.agno.com"
+            return "https://os-api.agno.com"
 
     def gate_alpha_feature(self):
         if not self.alpha_features:

@@ -328,7 +328,9 @@ class RunInput:
             result["videos"] = [vid.to_dict() for vid in self.videos]
         if self.audios:
             result["audios"] = [aud.to_dict() for aud in self.audios]
-
+        if self.files:
+            result["files"] = [fl.to_dict() for fl in self.files]
+            
         return result
 
     @classmethod

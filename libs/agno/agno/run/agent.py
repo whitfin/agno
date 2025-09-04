@@ -330,7 +330,7 @@ class RunInput:
             result["audios"] = [aud.to_dict() for aud in self.audios]
         if self.files:
             result["files"] = [fl.to_dict() for fl in self.files]
-            
+
         return result
 
     @classmethod

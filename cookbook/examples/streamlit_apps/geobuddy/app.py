@@ -181,7 +181,7 @@ def main():
                             tmp_path.unlink()
                             
                             if result:
-                                add_message("user", f"Please analyze this uploaded image for geographical location identification.")
+                                add_message("user", "Please analyze this uploaded image for geographical location identification.")
                                 add_message("assistant", result)
                                 st.success("✅ Analysis complete! Check the results below.")
                                 st.rerun()

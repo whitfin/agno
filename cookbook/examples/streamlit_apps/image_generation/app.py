@@ -212,8 +212,8 @@ def main():
                             # Display tool calls if available
                             if hasattr(resp_chunk, "tool") and resp_chunk.tool:
                                 display_tool_calls(tool_calls_container, [resp_chunk.tool])
-                        except Exception as tool_error:
-                            pass  # Continue if tool display fails
+                        except Exception:
+                            pass
 
                         if resp_chunk.content is not None:
                             content = str(resp_chunk.content)

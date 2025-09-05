@@ -1552,8 +1552,7 @@ class Agent:
 
         # 5. Update metadata and session state
         self._update_metadata(session=agent_session)
-        if session_state is not None:
-            session_state = self._update_session_state(session=agent_session, session_state=session_state)
+        session_state = self._update_session_state(session=agent_session, session_state=session_state)
 
         self.model = cast(Model, self.model)
 

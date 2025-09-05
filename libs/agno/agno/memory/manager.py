@@ -384,6 +384,11 @@ class MemoryManager:
             log_warning("MemoryDb not provided.")
             return "Please provide a db to store memories"
 
+        if not isinstance(self.db, BaseDb):
+            raise ValueError(
+                "update_memory_task() is not supported with an async DB. Please use aupdate_memory_task() instead."
+            )
+
         if user_id is None:
             user_id = "default"
 
@@ -428,7 +433,7 @@ class MemoryManager:
         existing_memories = memories.get(user_id, [])  # type: ignore
         existing_memories = [{"memory_id": memory.memory_id, "memory": memory.memory} for memory in existing_memories]
         # The memory manager updates the DB directly
-        response = await self.arun_memory_task(  # type: ignore
+        response = await self.arun_memory_task(
             task=task,
             existing_memories=existing_memories,
             user_id=user_id,
@@ -952,7 +957,7 @@ class MemoryManager:
         task: str,
         existing_memories: List[Dict[str, Any]],
         user_id: str,
-        db: BaseDb,
+        db: Union[BaseDb, AsyncBaseDb],
         delete_memories: bool = True,
         clear_memories: bool = True,
         update_memories: bool = True,
@@ -966,17 +971,30 @@ class MemoryManager:
 
         model_copy = deepcopy(self.model)
         # Update the Model (set defaults, add logit etc.)
-        self.determine_tools_for_model(
-            self._get_db_tools(
-                user_id,
-                db,
-                task,
-                enable_delete_memory=delete_memories,
-                enable_clear_memory=clear_memories,
-                enable_update_memory=update_memories,
-                enable_add_memory=add_memories,
-            ),
-        )
+        if isinstance(db, AsyncBaseDb):
+            self.determine_tools_for_model(
+                await self._aget_db_tools(
+                    user_id,
+                    db,
+                    task,
+                    enable_delete_memory=delete_memories,
+                    enable_clear_memory=clear_memories,
+                    enable_update_memory=update_memories,
+                    enable_add_memory=add_memories,
+                ),
+            )
+        else:
+            self.determine_tools_for_model(
+                self._get_db_tools(
+                    user_id,
+                    db,
+                    task,
+                    enable_delete_memory=delete_memories,
+                    enable_clear_memory=clear_memories,
+                    enable_update_memory=update_memories,
+                    enable_add_memory=add_memories,
+                ),
+            )
 
         # Prepare the List of messages to send to the Model
         messages_for_model: List[Message] = [
@@ -1006,7 +1024,7 @@ class MemoryManager:
     def _get_db_tools(
         self,
         user_id: str,
-        db: Union[BaseDb, AsyncBaseDb],
+        db: BaseDb,
         input_string: str,
         enable_add_memory: bool = True,
         enable_update_memory: bool = True,

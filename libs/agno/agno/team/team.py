@@ -1800,8 +1800,6 @@ class Team:
                 await self.asave_session(session=team_session)
             else:
                 self.save_session(session=team_session)
-
-            return run_response
         finally:
             # Always clean up the run tracking
             cleanup_run(run_response.run_id)  # type: ignore

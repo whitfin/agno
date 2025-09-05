@@ -922,6 +922,11 @@ class Knowledge:
 
     def _update_content(self, content: Content) -> Optional[Dict[str, Any]]:
         if self.contents_db:
+            if isinstance(self.contents_db, AsyncBaseDb):
+                raise ValueError(
+                    "update_content() is not supported with an async DB. Please use aupdate_content() instead."
+                )
+
             if not content.id:
                 log_warning("Content id is required to update Knowledge content")
                 return None

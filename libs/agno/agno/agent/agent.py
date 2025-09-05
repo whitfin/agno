@@ -1064,9 +1064,7 @@ class Agent:
     ) -> Union[RunOutput, Iterator[Union[RunOutputEvent, RunOutput]]]:
         """Run the Agent and return the response."""
         if self._has_async_db():
-            raise Exception(
-                "`run()` is not supported with an async DB. Please use `arun()`."
-            )
+            raise Exception("`run()` is not supported with an async DB. Please use `arun()`.")
 
         # Create a run_id for this specific run
         run_id = str(uuid4())
@@ -1552,7 +1550,8 @@ class Agent:
 
         # 5. Update metadata and session state
         self._update_metadata(session=agent_session)
-        session_state = self._update_session_state(session=agent_session, session_state=session_state)
+        if session_state is not None:
+            session_state = self._update_session_state(session=agent_session, session_state=session_state)
 
         self.model = cast(Model, self.model)
 
@@ -2506,6 +2505,7 @@ class Agent:
 
                     time.sleep(delay)
             except KeyboardInterrupt:
+                run_response = cast(RunOutput, run_response)
                 if stream:
                     return async_generator_wrapper(  # type: ignore
                         create_run_cancelled_event(run_response, "Operation cancelled by user")

@@ -1351,7 +1351,6 @@ class Agent:
             session_state = self._update_session_state(session=agent_session, session_state=session_state)
 
         self.model = cast(Model, self.model)
-
         # 6. Determine tools for model
         await self._adetermine_tools_for_model(
             model=self.model,
@@ -1385,24 +1384,91 @@ class Agent:
         if len(run_messages.messages) == 0:
             log_error("No messages to be sent to the model.")
 
-        run_messages = run_messages
-
-        # Register run for cancellation tracking
-        register_run(run_response.run_id)  # type: ignore
-
-        # 9. Generate a response from the Model (includes running function calls)
-        model_response: ModelResponse = await self.model.aresponse(
-            messages=run_messages.messages,
-            tools=self._tools_for_model,
-            functions=self._functions_for_model,
-            tool_choice=self.tool_choice,
-            tool_call_limit=self.tool_call_limit,
-            response_format=response_format,
-        )
-
-        # Check for cancellation after model call
         try:
+            await self._ahandle_reasoning(run_response=run_response, run_messages=run_messages)
             raise_if_cancelled(run_response.run_id)  # type: ignore
+
+            # Register run for cancellation tracking
+            register_run(run_response.run_id)  # type: ignore
+
+            # 9. Generate a response from the Model (includes running function calls)
+            model_response: ModelResponse = await self.model.aresponse(
+                messages=run_messages.messages,
+                tools=self._tools_for_model,
+                functions=self._functions_for_model,
+                tool_choice=self.tool_choice,
+                tool_call_limit=self.tool_call_limit,
+                response_format=response_format,
+            )
+
+            # Check for cancellation after model call
+            raise_if_cancelled(run_response.run_id)  # type: ignore
+
+            # If an output model is provided, generate output using the output model
+            await self._agenerate_response_with_output_model(model_response=model_response, run_messages=run_messages)
+
+            # If a parser model is provided, structure the response separately
+            await self._aparse_response_with_parser_model(model_response=model_response, run_messages=run_messages)
+
+            # 10. Update the RunOutput with the model response
+            self._update_run_response(
+                model_response=model_response, run_response=run_response, run_messages=run_messages
+            )
+
+            if self.store_media:
+                self._store_media(run_response, model_response)
+            else:
+                self._scrub_media_from_run_output(run_response)
+
+            # We should break out of the run function
+            if any(tool_call.is_paused for tool_call in run_response.tools or []):
+                return self._handle_agent_run_paused(
+                    run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
+                )
+
+            raise_if_cancelled(run_response.run_id)  # type: ignore
+
+            # 11. Update Agent Memory
+            async for _ in self._amake_memories_and_summaries(
+                run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
+            ):
+                pass
+
+            # 12. Calculate session metrics
+            self._update_session_metrics(session=agent_session, run_response=run_response)
+
+            run_response.status = RunStatus.completed
+
+            # Convert the response to the structured format if needed
+            self._convert_response_to_structured_format(run_response)
+
+            # Set the run duration
+            if run_response.metrics:
+                run_response.metrics.stop_timer()
+
+            # Optional: Save output to file if save_response_to_file is set
+            self.save_run_response_to_file(
+                run_response=run_response,
+                input=run_messages.user_message,
+                session_id=agent_session.session_id,
+                user_id=user_id,
+            )
+
+            # 13. Add RunOutput to Agent Session
+            agent_session.upsert_run(run=run_response)
+
+            # 14. Save session to storage
+            await self.asave_session(session=agent_session)
+
+            # Log Agent Telemetry
+            await self._alog_agent_telemetry(session_id=agent_session.session_id, run_id=run_response.run_id)
+
+            log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
+
+            # Always clean up the run tracking
+            cleanup_run(run_response.run_id)  # type: ignore
+
+            return run_response
         except RunCancelledException as e:
             # Handle run cancellation
             log_info(f"Run {run_response.run_id} was cancelled")
@@ -1414,68 +1480,6 @@ class Agent:
             await self.asave_session(session=agent_session)
 
             return run_response
-
-        # If an output model is provided, generate output using the output model
-        await self._agenerate_response_with_output_model(model_response=model_response, run_messages=run_messages)
-
-        # If a parser model is provided, structure the response separately
-        await self._aparse_response_with_parser_model(model_response=model_response, run_messages=run_messages)
-
-        # 10. Update the RunOutput with the model response
-        self._update_run_response(model_response=model_response, run_response=run_response, run_messages=run_messages)
-
-        if self.store_media:
-            self._store_media(run_response, model_response)
-        else:
-            self._scrub_media_from_run_output(run_response)
-
-        # We should break out of the run function
-        if any(tool_call.is_paused for tool_call in run_response.tools or []):
-            return self._handle_agent_run_paused(
-                run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
-            )
-
-        # 11. Update Agent Memory
-        async for _ in self._amake_memories_and_summaries(
-            run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
-        ):
-            pass
-
-        # 12. Calculate session metrics
-        self._update_session_metrics(session=agent_session, run_response=run_response)
-
-        run_response.status = RunStatus.completed
-
-        # Convert the response to the structured format if needed
-        self._convert_response_to_structured_format(run_response)
-
-        # Set the run duration
-        if run_response.metrics:
-            run_response.metrics.stop_timer()
-
-        # Optional: Save output to file if save_response_to_file is set
-        self.save_run_response_to_file(
-            run_response=run_response,
-            input=run_messages.user_message,
-            session_id=agent_session.session_id,
-            user_id=user_id,
-        )
-
-        # 13. Add RunOutput to Agent Session
-        agent_session.upsert_run(run=run_response)
-
-        # 14. Save session to storage
-        await self.asave_session(session=agent_session)
-
-        # Log Agent Telemetry
-        await self._alog_agent_telemetry(session_id=agent_session.session_id, run_id=run_response.run_id)
-
-        log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
-
-        # Always clean up the run tracking
-        cleanup_run(run_response.run_id)  # type: ignore
-
-        return run_response
 
     async def _arun_stream(
         self,

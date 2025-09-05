@@ -1009,7 +1009,6 @@ class Team:
             # Add the RunOutput to Team Session even when cancelled
             session.upsert_run(run_response=run_response)
             self.save_session(session=session)
-            return run_response
         finally:
             # Always clean up the run tracking
             cleanup_run(run_response.run_id)  # type: ignore
@@ -6982,6 +6981,7 @@ class Team:
         try:
             if not self.db:
                 raise ValueError("Db not initialized")
+            self.db = cast(AsyncBaseDb, self.db)
             session = await self.db.get_session(session_id=session_id, session_type=SessionType.TEAM)
             return session  # type: ignore
         except Exception as e:

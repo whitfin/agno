@@ -7746,6 +7746,8 @@ class Agent:
             if self.db is None:
                 return "Previous session messages not available"
 
+            self.db = cast(BaseDb, self.db)
+
             selected_sessions = self.db.get_sessions(session_type=SessionType.AGENT, limit=num_history_sessions)
 
             all_messages = []

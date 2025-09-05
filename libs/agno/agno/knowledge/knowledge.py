@@ -1224,7 +1224,40 @@ class Knowledge:
     def get_content_by_id(self, content_id: str) -> Optional[Content]:
         if self.contents_db is None:
             raise ValueError("No contents db provided")
+
+        if isinstance(self.contents_db, AsyncBaseDb):
+            raise ValueError(
+                "get_content_by_id() is not supported for async databases. Please use aget_content_by_id() instead."
+            )
+
         content_row = self.contents_db.get_knowledge_content(content_id)
+
+        if content_row is None:
+            return None
+        content = Content(
+            id=content_row.id,
+            name=content_row.name,
+            description=content_row.description,
+            metadata=content_row.metadata,
+            file_type=content_row.type,
+            size=content_row.size,
+            status=ContentStatus(content_row.status) if content_row.status else None,
+            status_message=content_row.status_message,
+            created_at=content_row.created_at,
+            updated_at=content_row.updated_at if content_row.updated_at else content_row.created_at,
+            external_id=content_row.external_id,
+        )
+        return content
+
+    async def aget_content_by_id(self, content_id: str) -> Optional[Content]:
+        if self.contents_db is None:
+            raise ValueError("No contents db provided")
+
+        if isinstance(self.contents_db, AsyncBaseDb):
+            content_row = await self.contents_db.get_knowledge_content(content_id)
+        else:
+            content_row = self.contents_db.get_knowledge_content(content_id)
+
         if content_row is None:
             return None
         content = Content(
@@ -1251,6 +1284,10 @@ class Knowledge:
     ) -> Tuple[List[Content], int]:
         if self.contents_db is None:
             raise ValueError("No contents db provided")
+
+        if isinstance(self.contents_db, AsyncBaseDb):
+            raise ValueError("get_content() is not supported for async databases. Please use aget_content() instead.")
+
         contents, count = self.contents_db.get_knowledge_contents(
             limit=limit, page=page, sort_by=sort_by, sort_order=sort_order
         )
@@ -1274,10 +1311,81 @@ class Knowledge:
             result.append(content)
         return result, count
 
+    async def aget_content(
+        self,
+        limit: Optional[int] = None,
+        page: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: Optional[str] = None,
+    ) -> Tuple[List[Content], int]:
+        if self.contents_db is None:
+            raise ValueError("No contents db provided")
+
+        if isinstance(self.contents_db, AsyncBaseDb):
+            contents, count = await self.contents_db.get_knowledge_contents(
+                limit=limit, page=page, sort_by=sort_by, sort_order=sort_order
+            )
+        else:
+            contents, count = self.contents_db.get_knowledge_contents(
+                limit=limit, page=page, sort_by=sort_by, sort_order=sort_order
+            )
+
+        result = []
+        for content_row in contents:
+            # Create Content from database row
+            content = Content(
+                id=content_row.id,
+                name=content_row.name,
+                description=content_row.description,
+                metadata=content_row.metadata,
+                size=content_row.size,
+                file_type=content_row.type,
+                status=ContentStatus(content_row.status) if content_row.status else None,
+                status_message=content_row.status_message,
+                created_at=content_row.created_at,
+                updated_at=content_row.updated_at if content_row.updated_at else content_row.created_at,
+                external_id=content_row.external_id,
+            )
+            result.append(content)
+        return result, count
+
     def get_content_status(self, content_id: str) -> Tuple[Optional[ContentStatus], Optional[str]]:
         if self.contents_db is None:
             raise ValueError("No contents db provided")
+
+        if isinstance(self.contents_db, AsyncBaseDb):
+            raise ValueError(
+                "get_content_status() is not supported for async databases. Please use aget_content_status() instead."
+            )
+
         content_row = self.contents_db.get_knowledge_content(content_id)
+        if content_row is None:
+            return None, "Content not found"
+
+        # Convert string status to enum, defaulting to PROCESSING if unknown
+        status_str = content_row.status
+        try:
+            status = ContentStatus(status_str.lower()) if status_str else ContentStatus.PROCESSING
+        except ValueError:
+            # Handle legacy or unknown statuses
+            if status_str and "failed" in status_str.lower():
+                status = ContentStatus.FAILED
+            elif status_str and "completed" in status_str.lower():
+                status = ContentStatus.COMPLETED
+            else:
+                status = ContentStatus.PROCESSING
+
+        return status, content_row.status_message
+
+    async def aget_content_status(self, content_id: str) -> Tuple[Optional[ContentStatus], Optional[str]]:
+        if self.contents_db is None:
+            raise ValueError("No contents db provided")
+
+        if isinstance(self.contents_db, AsyncBaseDb):
+            content_row = await self.contents_db.get_knowledge_content(content_id)
+        else:
+            content_row = self.contents_db.get_knowledge_content(content_id)
+
         if content_row is None:
             return None, "Content not found"
 
@@ -1311,11 +1419,35 @@ class Knowledge:
         if self.contents_db is not None:
             self.contents_db.delete_knowledge_content(content_id)
 
+    async def aremove_content_by_id(self, content_id: str):
+        if self.vector_db is not None:
+            if self.vector_db.__class__.__name__ == "LightRag":
+                # For LightRAG, get the content first to find the external_id
+                content = await self.aget_content_by_id(content_id)
+                if content and content.external_id:
+                    self.vector_db.delete_by_external_id(content.external_id)  # type: ignore
+                else:
+                    log_warning(f"No external_id found for content {content_id}, cannot delete from LightRAG")
+            else:
+                self.vector_db.delete_by_content_id(content_id)
+
+        if self.contents_db is not None:
+            if isinstance(self.contents_db, AsyncBaseDb):
+                await self.contents_db.delete_knowledge_content(content_id)
+            else:
+                self.contents_db.delete_knowledge_content(content_id)
+
     def remove_all_content(self):
         contents, _ = self.get_content()
         for content in contents:
             if content.id is not None:
                 self.remove_content_by_id(content.id)
+
+    async def aremove_all_content(self):
+        contents, _ = await self.aget_content()
+        for content in contents:
+            if content.id is not None:
+                await self.aremove_content_by_id(content.id)
 
     # --- Reader Factory Integration ---
 

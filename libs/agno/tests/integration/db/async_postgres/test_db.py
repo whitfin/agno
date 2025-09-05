@@ -12,7 +12,7 @@ from agno.db.async_postgres.async_postgres import AsyncPostgresDb
 @pytest.mark.asyncio
 async def test_init_with_db_url():
     """Test initialization with actual database URL format"""
-    db_url = "postgresql+asyncpg://ai:ai@localhost:5532/ai"
+    db_url = "postgresql+psycopg_async://ai:ai@localhost:5532/ai"
 
     db = AsyncPostgresDb(db_url=db_url, session_table="test_async_pg_sessions")
     assert db.db_url == db_url

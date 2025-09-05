@@ -7,7 +7,7 @@ from agno.os import AgentOS
 from agno.team.team import Team
 
 # Setup the Postgres database
-db = AsyncPostgresDb(db_url="postgresql+psycopg://ai:ai@localhost:5532/ai")
+db = AsyncPostgresDb(db_url="postgresql+psycopg_async://ai:ai@localhost:5532/ai")
 
 # Setup a basic agent and a basic team
 agent = Agent(

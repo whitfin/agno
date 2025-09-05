@@ -1009,6 +1009,7 @@ class Team:
             # Add the RunOutput to Team Session even when cancelled
             session.upsert_run(run_response=run_response)
             self.save_session(session=session)
+            return run_response
         finally:
             # Always clean up the run tracking
             cleanup_run(run_response.run_id)  # type: ignore
@@ -1469,7 +1470,18 @@ class Team:
         await self._ahandle_reasoning(run_response=run_response, run_messages=run_messages)
 
         # Check for cancellation before model call
-        raise_if_cancelled(run_response.run_id)  # type: ignore
+        try:
+            raise_if_cancelled(run_response.run_id)  # type: ignore
+        except RunCancelledException as e:
+            # Handle run cancellation
+            log_info(f"Team run {run_response.run_id} was cancelled")
+            run_response.content = str(e)
+            run_response.status = RunStatus.cancelled
+
+            # Add the RunOutput to Team Session even when cancelled
+            team_session.upsert_run(run_response=run_response)
+            self.save_session(session=team_session)
+            return run_response
 
         # 9. Get the model response for the team leader
         self.model = cast(Model, self.model)
@@ -1788,6 +1800,8 @@ class Team:
                 await self.asave_session(session=team_session)
             else:
                 self.save_session(session=team_session)
+
+            return run_response
         finally:
             # Always clean up the run tracking
             cleanup_run(run_response.run_id)  # type: ignore
@@ -2012,17 +2026,6 @@ class Team:
                     import time
 
                     time.sleep(delay)
-            except RunCancelledException as e:
-                # Handle run cancellation
-                log_info(f"Team run {run_response.run_id} was cancelled")
-                run_response.content = str(e)
-                run_response.status = RunStatus.cancelled
-
-                # Add the RunOutput to Team Session even when cancelled
-                team_session.upsert_run(run_response=run_response)
-                self.save_session(session=team_session)
-
-                return run_response
             except KeyboardInterrupt:
                 run_response.content = "Operation cancelled by user"
                 run_response.status = RunStatus.cancelled

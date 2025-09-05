@@ -33,6 +33,10 @@ class FileGenerationTool(Toolkit):
         enable_pdf_generation: bool = True,
         enable_txt_generation: bool = True,
         save_to_tmp: bool = True,
+        # TODO: Implement S3 support
+        # save_to_s3: bool = False,
+        # s3_bucket: Optional[str] = None,
+        # s3_prefix: Optional[str] = None,
         tmp_dir: Optional[str] = None,
         all: bool = False,
         **kwargs,

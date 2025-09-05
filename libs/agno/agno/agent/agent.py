@@ -2471,19 +2471,25 @@ class Agent:
                 if stream:
                     return self._acontinue_run_stream(
                         run_response=run_response,
-                        run_messages=run_messages,
+                        updated_tools=updated_tools,
+                        knowledge_filters=knowledge_filters,
+                        session_state=session_state,
+                        run_id=run_id,
                         user_id=user_id,
-                        session=agent_session,
+                        session_id=session_id,
                         response_format=response_format,
-                        stream_intermediate_steps=stream_intermediate_steps,
                         dependencies=run_dependencies,
+                        stream_intermediate_steps=stream_intermediate_steps,
                     )
                 else:
                     return self._acontinue_run(  # type: ignore
                         run_response=run_response,
-                        run_messages=run_messages,
+                        updated_tools=updated_tools,
+                        knowledge_filters=knowledge_filters,
+                        session_state=session_state,
+                        run_id=run_id,
                         user_id=user_id,
-                        session=agent_session,
+                        session_id=session_id,
                         response_format=response_format,
                         dependencies=run_dependencies,
                     )
@@ -2525,9 +2531,12 @@ class Agent:
 
     async def _acontinue_run(
         self,
-        run_response: RunOutput,
-        run_messages: RunMessages,
-        session: AgentSession,
+        session_id: str,
+        run_response: Optional[RunOutput] = None,
+        updated_tools: Optional[List[ToolExecution]] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        session_state: Optional[Dict[str, Any]] = None,
+        run_id: Optional[str] = None,
         user_id: Optional[str] = None,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         dependencies: Optional[Dict[str, Any]] = None,
@@ -2535,24 +2544,83 @@ class Agent:
         """Continue a previous run.
 
         Steps:
-        1. Handle any updated tools
-        2. Generate a response from the Model
-        3. Add the run to memory
-        4. Update Agent Memory
-        5. Calculate session metrics
-        6. Save session to storage
-        7. Save output to file if save_response_to_file is set
+        1. Resolve dependencies
+        2. Read existing session from db
+        3. Get knowledge filters
+        4. Update session state
+        5. Prepare run response
+        6. Determine tools for model
+        7. Prepare run messages
+        8. Handle the updated tools
+        9. Process model response
+        10. Add the run to memory
+        11. Update Agent Memory
+        12. Calculate session metrics
+        13. Save output to file if save_response_to_file is set
+        14. Save session to storage
         """
-        # Resolving dependencies for async requirement
-        if dependencies is not None:
-            await self._aresolve_run_dependencies(dependencies)
+        # 1. Resolve dependencies
+        run_dependencies = dependencies if dependencies is not None else self.dependencies
+        if run_dependencies is not None:
+            await self._aresolve_run_dependencies(dependencies=run_dependencies)
+
+        # 2. Read existing session from db
+        agent_session = self._read_or_create_session(session_id=session_id, user_id=user_id)
+        self._update_metadata(session=agent_session)
+
+        # 3. Get knowledge filters
+        effective_filters = knowledge_filters
+        if self.knowledge_filters or knowledge_filters:
+            effective_filters = self._get_effective_filters(knowledge_filters)
+
+        # 4. Update session state
+        if session_state is not None:
+            session_state = self._update_session_state(session=agent_session, session_state=session_state)
+
+        # 5. Prepare run response
+        if run_response is not None:
+            # The run is continued from a provided run_response. This contains the updated tools.
+            input = run_response.messages or []
+        elif run_id is not None:
+            # The run is continued from a run_id. This requires the updated tools to be passed.
+            if updated_tools is None:
+                raise ValueError("Updated tools are required to continue a run from a run_id.")
+
+            runs = agent_session.runs
+            run_response = next((r for r in runs if r.run_id == run_id), None)  # type: ignore
+            if run_response is None:
+                raise RuntimeError(f"No runs found for run ID {run_id}")
+            run_response.tools = updated_tools
+            input = run_response.messages or []
+        else:
+            raise ValueError("Either run_response or run_id must be provided.")
+
+        run_response = cast(RunOutput, run_response)
+        run_response.status = RunStatus.running
+        log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
 
         self.model = cast(Model, self.model)
 
-        # 1. Handle the updated tools
+        # 6. Determine tools for model
+        self._determine_tools_for_model(
+            model=self.model,
+            run_response=run_response,
+            session=agent_session,
+            session_state=session_state,
+            user_id=user_id,
+            async_mode=True,
+            knowledge_filters=effective_filters,
+        )
+
+        # 7. Prepare run messages
+        run_messages: RunMessages = self._get_continue_run_messages(
+            input=input,
+        )
+
+        # 8. Handle the updated tools
         await self._ahandle_tool_call_updates(run_response=run_response, run_messages=run_messages)
 
-        # 2. Generate a response from the Model (includes running function calls)
+        # 9. Get model response
         model_response: ModelResponse = await self.model.aresponse(
             messages=run_messages.messages,
             response_format=response_format,
@@ -2562,22 +2630,23 @@ class Agent:
             tool_call_limit=self.tool_call_limit,
         )
 
+        # 10. Update the RunOutput with the model response
         self._update_run_response(model_response=model_response, run_response=run_response, run_messages=run_messages)
 
         # We should break out of the run function
         if any(tool_call.is_paused for tool_call in run_response.tools or []):
             return self._handle_agent_run_paused(
-                run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+                run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
             )
 
-        # 4. Update Agent Memory
+        # 11. Update Agent Memory
         async for _ in self._amake_memories_and_summaries(
-            run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+            run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
         ):
             pass
 
-        # 5. Calculate session metrics
-        self._update_session_metrics(session=session, run_response=run_response)
+        # 12. Calculate session metrics
+        self._update_session_metrics(session=agent_session, run_response=run_response)
 
         run_response.status = RunStatus.completed
 
@@ -2588,18 +2657,18 @@ class Agent:
         if run_response.metrics:
             run_response.metrics.stop_timer()
 
-        # 7. Save output to file if save_response_to_file is set
+        # 13. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(
             run_response=run_response, input=run_messages.user_message, session_id=session.session_id, user_id=user_id
         )
 
-        session.upsert_run(run=run_response)
+        agent_session.upsert_run(run=run_response)
 
-        # 6. Save session to storage
-        await self.asave_session(session=session)
+        # 14. Save session to storage
+        await self.asave_session(session=agent_session)
 
         # Log Agent Telemetry
-        await self._alog_agent_telemetry(session_id=session.session_id, run_id=run_response.run_id)
+        await self._alog_agent_telemetry(session_id=agent_session.session_id, run_id=run_response.run_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 

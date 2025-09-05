@@ -1,8 +1,9 @@
+from unittest.mock import Mock
+
 import pytest
 import pytest_asyncio
-from unittest.mock import Mock, AsyncMock
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from agno.db.async_postgres import AsyncPostgresDb
 

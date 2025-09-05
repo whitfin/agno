@@ -2659,7 +2659,10 @@ class Agent:
 
         # 13. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(
-            run_response=run_response, input=run_messages.user_message, session_id=session.session_id, user_id=user_id
+            run_response=run_response,
+            input=run_messages.user_message,
+            session_id=agent_session.session_id,
+            user_id=user_id,
         )
 
         agent_session.upsert_run(run=run_response)

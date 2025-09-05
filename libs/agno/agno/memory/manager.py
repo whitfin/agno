@@ -865,19 +865,34 @@ class MemoryManager:
 
         model_copy = deepcopy(self.model)
         # Update the Model (set defaults, add logit etc.)
-        self.determine_tools_for_model(
-            self._get_db_tools(
-                user_id,
-                db,
-                input_string,
-                agent_id=agent_id,
-                team_id=team_id,
-                enable_add_memory=add_memories,
-                enable_update_memory=update_memories,
-                enable_delete_memory=False,
-                enable_clear_memory=False,
-            ),
-        )
+        if isinstance(db, AsyncBaseDb):
+            self.determine_tools_for_model(
+                await self._aget_db_tools(
+                    user_id,
+                    db,
+                    input_string,
+                    agent_id=agent_id,
+                    team_id=team_id,
+                    enable_add_memory=add_memories,
+                    enable_update_memory=update_memories,
+                    enable_delete_memory=False,
+                    enable_clear_memory=False,
+                ),
+            )
+        else:
+            self.determine_tools_for_model(
+                self._get_db_tools(
+                    user_id,
+                    db,
+                    input_string,
+                    agent_id=agent_id,
+                    team_id=team_id,
+                    enable_add_memory=add_memories,
+                    enable_update_memory=update_memories,
+                    enable_delete_memory=False,
+                    enable_clear_memory=False,
+                ),
+            )
 
         # Prepare the List of messages to send to the Model
         messages_for_model: List[Message] = [

@@ -1353,7 +1353,7 @@ class Agent:
         self.model = cast(Model, self.model)
 
         # 6. Determine tools for model
-        self._determine_tools_for_model(
+        await self._adetermine_tools_for_model(
             model=self.model,
             run_response=run_response,
             session=agent_session,
@@ -2601,7 +2601,7 @@ class Agent:
         self.model = cast(Model, self.model)
 
         # 6. Determine tools for model
-        self._determine_tools_for_model(
+        await self._adetermine_tools_for_model(
             model=self.model,
             run_response=run_response,
             session=agent_session,
@@ -2750,7 +2750,7 @@ class Agent:
         self.model = cast(Model, self.model)
 
         # 6. Determine tools for model
-        self._determine_tools_for_model(
+        await self._adetermine_tools_for_model(
             model=self.model,
             run_response=run_response,
             session=agent_session,
@@ -3958,6 +3958,100 @@ class Agent:
 
         return agent_tools
 
+    async def aget_tools(
+        self,
+        run_response: RunOutput,
+        session: AgentSession,
+        async_mode: bool = False,
+        user_id: Optional[str] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+    ) -> Optional[List[Union[Toolkit, Callable, Function, Dict]]]:
+        agent_tools: List[Union[Toolkit, Callable, Function, Dict]] = []
+
+        # Add provided tools
+        if self.tools is not None:
+            agent_tools.extend(self.tools)
+
+            # If any of the tools has "agent" as parameter, set _rebuild_tools to True
+            for tool in agent_tools:
+                if isinstance(tool, Function):
+                    if "agent" in tool.parameters:
+                        self._rebuild_tools = True
+                        break
+                    if "team" in tool.parameters:
+                        self._rebuild_tools = True
+                        break
+                if isinstance(tool, Toolkit):
+                    for func in tool.functions.values():
+                        if "agent" in func.parameters:
+                            self._rebuild_tools = True
+                            break
+                        if "team" in func.parameters:
+                            self._rebuild_tools = True
+                            break
+                if callable(tool):
+                    from inspect import signature
+
+                    sig = signature(tool)
+                    if "agent" in sig.parameters:
+                        self._rebuild_tools = True
+                        break
+                    if "team" in sig.parameters:
+                        self._rebuild_tools = True
+                        break
+
+        # Add tools for accessing memory
+        if self.read_chat_history:
+            agent_tools.append(self._get_chat_history_function(session=session))
+            self._rebuild_tools = True
+        if self.read_tool_call_history:
+            agent_tools.append(self._get_tool_call_history_function(session=session))
+            self._rebuild_tools = True
+        if self.search_session_history:
+            agent_tools.append(
+                await self._aget_previous_sessions_messages_function(num_history_sessions=self.num_history_sessions)
+            )
+            self._rebuild_tools = True
+
+        if self.enable_agentic_memory:
+            agent_tools.append(self._get_update_user_memory_function(user_id=user_id, async_mode=async_mode))
+            self._rebuild_tools = True
+
+        if self.enable_agentic_state:
+            agent_tools.append(self.update_session_state)
+
+        # Add tools for accessing knowledge
+        if self.knowledge is not None or self.knowledge_retriever is not None:
+            # Check if knowledge retriever is an async function but used in sync mode
+            from inspect import iscoroutinefunction
+
+            if not async_mode and self.knowledge_retriever and iscoroutinefunction(self.knowledge_retriever):
+                log_warning(
+                    "Async knowledge retriever function is being used with synchronous agent.run() or agent.print_response(). "
+                    "It is recommended to use agent.arun() or agent.aprint_response() instead."
+                )
+
+            if self.search_knowledge:
+                # Use async or sync search based on async_mode
+                if self.enable_agentic_knowledge_filters:
+                    agent_tools.append(
+                        self._search_knowledge_base_with_agentic_filters_function(
+                            run_response=run_response, async_mode=async_mode, knowledge_filters=knowledge_filters
+                        )
+                    )
+                else:
+                    agent_tools.append(
+                        self._get_search_knowledge_base_function(
+                            run_response=run_response, async_mode=async_mode, knowledge_filters=knowledge_filters
+                        )
+                    )
+                self._rebuild_tools = True
+
+            if self.update_knowledge:
+                agent_tools.append(self.add_to_knowledge)
+
+        return agent_tools
+
     def _collect_joint_images(
         self,
         run_input: Optional[RunInput] = None,
@@ -4175,6 +4269,126 @@ class Agent:
             self._rebuild_tools = False
 
             agent_tools = self.get_tools(
+                run_response=run_response,
+                session=session,
+                async_mode=async_mode,
+                user_id=user_id,
+                knowledge_filters=knowledge_filters,
+            )
+
+            self._tools_for_model = []
+            self._functions_for_model = {}
+            self._tool_instructions = []
+
+            # Get Agent tools
+            if agent_tools is not None and len(agent_tools) > 0:
+                log_debug("Processing tools for model")
+
+                # Check if we need strict mode for the functions for the model
+                strict = False
+                if (
+                    self.output_schema is not None
+                    and (self.structured_outputs or (not self.use_json_mode))
+                    and model.supports_native_structured_outputs
+                ):
+                    strict = True
+
+                for tool in agent_tools:
+                    if isinstance(tool, Dict):
+                        # If a dict is passed, it is a builtin tool
+                        # that is run by the model provider and not the Agent
+                        self._tools_for_model.append(tool)
+                        log_debug(f"Included builtin tool {tool}")
+
+                    elif isinstance(tool, Toolkit):
+                        # For each function in the toolkit and process entrypoint
+                        for name, func in tool.functions.items():
+                            # If the function does not exist in self.functions
+                            if name not in self._functions_for_model:
+                                func._agent = self
+                                func.process_entrypoint(strict=strict)
+                                if strict and func.strict is None:
+                                    func.strict = True
+                                if self.tool_hooks is not None:
+                                    func.tool_hooks = self.tool_hooks
+                                self._functions_for_model[name] = func
+                                self._tools_for_model.append({"type": "function", "function": func.to_dict()})
+                                log_debug(f"Added tool {name} from {tool.name}")
+
+                        # Add instructions from the toolkit
+                        if tool.add_instructions and tool.instructions is not None:
+                            self._tool_instructions.append(tool.instructions)
+
+                    elif isinstance(tool, Function):
+                        if tool.name not in self._functions_for_model:
+                            tool._agent = self
+                            tool.process_entrypoint(strict=strict)
+                            if strict and tool.strict is None:
+                                tool.strict = True
+                            if self.tool_hooks is not None:
+                                tool.tool_hooks = self.tool_hooks
+                            self._functions_for_model[tool.name] = tool
+                            self._tools_for_model.append({"type": "function", "function": tool.to_dict()})
+                            log_debug(f"Added tool {tool.name}")
+
+                        # Add instructions from the Function
+                        if tool.add_instructions and tool.instructions is not None:
+                            self._tool_instructions.append(tool.instructions)
+
+                    elif callable(tool):
+                        try:
+                            function_name = tool.__name__
+                            if function_name not in self._functions_for_model:
+                                func = Function.from_callable(tool, strict=strict)
+                                func._agent = self
+                                if strict:
+                                    func.strict = True
+                                if self.tool_hooks is not None:
+                                    func.tool_hooks = self.tool_hooks
+                                self._functions_for_model[func.name] = func
+                                self._tools_for_model.append({"type": "function", "function": func.to_dict()})
+                                log_debug(f"Added tool {func.name}")
+                        except Exception as e:
+                            log_warning(f"Could not add tool {tool}: {e}")
+
+        # Update the session state for the functions
+        if self._functions_for_model:
+            from inspect import signature
+
+            # Check if any functions need media before collecting
+            needs_media = any(
+                any(param in signature(func.entrypoint).parameters for param in ["images", "videos", "audios", "files"])
+                for func in self._functions_for_model.values()
+                if func.entrypoint is not None
+            )
+
+            # Only collect media if functions actually need them
+            joint_images = self._collect_joint_images(run_response.input, session) if needs_media else None
+            joint_files = self._collect_joint_files(run_response.input) if needs_media else None
+            joint_audios = self._collect_joint_audios(run_response.input, session) if needs_media else None
+            joint_videos = self._collect_joint_videos(run_response.input, session) if needs_media else None
+
+            for func in self._functions_for_model.values():
+                func._session_state = session_state
+                func._images = joint_images
+                func._files = joint_files
+                func._audios = joint_audios
+                func._videos = joint_videos
+
+    async def _adetermine_tools_for_model(
+        self,
+        model: Model,
+        run_response: RunOutput,
+        session: AgentSession,
+        session_state: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        async_mode: bool = False,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if self._rebuild_tools:
+            self._rebuild_tools = False
+
+            agent_tools = await self.aget_tools(
                 run_response=run_response,
                 session=session,
                 async_mode=async_mode,
@@ -7566,6 +7780,69 @@ class Agent:
             return json.dumps([msg.to_dict() for msg in all_messages]) if all_messages else "No history found"
 
         return get_previous_session_messages
+
+    async def _aget_previous_sessions_messages_function(self, num_history_sessions: Optional[int] = 2) -> Callable:
+        """Factory function to create a get_previous_session_messages function.
+
+        Args:
+            num_history_sessions: The last n sessions to be taken from db
+
+        Returns:
+            Callable: A function that retrieves messages from previous sessions
+        """
+
+        async def aget_previous_session_messages() -> str:
+            """Use this function to retrieve messages from previous chat sessions.
+            USE THIS TOOL ONLY WHEN THE QUESTION IS EITHER "What was my last conversation?" or "What was my last question?" and similar to it.
+
+            Returns:
+                str: JSON formatted list of message pairs from previous sessions
+            """
+            # TODO: Review and Test this function
+            import json
+
+            if self.db is None:
+                return "Previous session messages not available"
+
+            if isinstance(self.db, AsyncBaseDb):
+                selected_sessions = await self.db.get_sessions(
+                    session_type=SessionType.AGENT, limit=num_history_sessions
+                )
+            else:
+                selected_sessions = self.db.get_sessions(session_type=SessionType.AGENT, limit=num_history_sessions)
+
+            all_messages = []
+            seen_message_pairs = set()
+
+            for session in selected_sessions:
+                if isinstance(session, AgentSession) and session.runs:
+                    message_count = 0
+                    for run in session.runs:
+                        messages = run.messages
+                        if messages is not None:
+                            for i in range(0, len(messages) - 1, 2):
+                                if i + 1 < len(messages):
+                                    try:
+                                        user_msg = messages[i]
+                                        assistant_msg = messages[i + 1]
+                                        user_content = user_msg.content
+                                        assistant_content = assistant_msg.content
+                                        if user_content is None or assistant_content is None:
+                                            continue  # Skip this pair if either message has no content
+
+                                        msg_pair_id = f"{user_content}:{assistant_content}"
+                                        if msg_pair_id not in seen_message_pairs:
+                                            seen_message_pairs.add(msg_pair_id)
+                                            all_messages.append(Message.model_validate(user_msg))
+                                            all_messages.append(Message.model_validate(assistant_msg))
+                                            message_count += 1
+                                    except Exception as e:
+                                        log_warning(f"Error processing message pair: {e}")
+                                        continue
+
+            return json.dumps([msg.to_dict() for msg in all_messages]) if all_messages else "No history found"
+
+        return aget_previous_session_messages
 
     ###########################################################################
     # Print Response

@@ -114,6 +114,22 @@ class MemoryManager:
             return memories
         return None
 
+    async def aread_from_db(self, user_id: Optional[str] = None):
+        if self.db:
+            # If no user_id is provided, read all memories
+            if user_id is None:
+                all_memories: List[UserMemory] = await self.db.get_user_memories()  # type: ignore
+            else:
+                all_memories = await self.db.get_user_memories(user_id=user_id)  # type: ignore
+
+            memories: Dict[str, List[UserMemory]] = {}
+            for memory in all_memories:
+                if memory.user_id is not None and memory.memory_id is not None:
+                    memories.setdefault(memory.user_id, []).append(memory)
+
+            return memories
+        return None
+
     def set_log_level(self):
         if self.debug_mode or getenv("AGNO_DEBUG", "false").lower() == "true":
             self.debug_mode = True
@@ -132,6 +148,20 @@ class MemoryManager:
                 user_id = "default"
             # Refresh from the Db
             memories = self.read_from_db(user_id=user_id)
+            if memories is None:
+                return []
+            return memories.get(user_id, [])
+        else:
+            log_warning("Memory Db not provided.")
+            return []
+
+    async def aget_user_memories(self, user_id: Optional[str] = None) -> Optional[List[UserMemory]]:
+        """Get the user memories for a given user id"""
+        if self.db:
+            if user_id is None:
+                user_id = "default"
+            # Refresh from the Db
+            memories = await self.aread_from_db(user_id=user_id)
             if memories is None:
                 return []
             return memories.get(user_id, [])
@@ -318,7 +348,10 @@ class MemoryManager:
         if user_id is None:
             user_id = "default"
 
-        memories = self.read_from_db(user_id=user_id)
+        if isinstance(self.db, AsyncBaseDb):
+            memories = await self.aread_from_db(user_id=user_id)
+        else:
+            memories = self.read_from_db(user_id=user_id)
         if memories is None:
             memories = {}
 
@@ -337,7 +370,10 @@ class MemoryManager:
         )
 
         # We refresh from the DB
-        self.read_from_db(user_id=user_id)
+        if isinstance(self.db, AsyncBaseDb):
+            memories = await self.aread_from_db(user_id=user_id)
+        else:
+            memories = self.read_from_db(user_id=user_id)
 
         return response
 
@@ -800,7 +836,7 @@ class MemoryManager:
         messages: List[Message],
         existing_memories: List[Dict[str, Any]],
         user_id: str,
-        db: BaseDb,
+        db: Union[BaseDb, AsyncBaseDb],
         agent_id: Optional[str] = None,
         team_id: Optional[str] = None,
         update_memories: bool = True,
@@ -970,7 +1006,7 @@ class MemoryManager:
     def _get_db_tools(
         self,
         user_id: str,
-        db: BaseDb,
+        db: Union[BaseDb, AsyncBaseDb],
         input_string: str,
         enable_add_memory: bool = True,
         enable_update_memory: bool = True,
@@ -1058,6 +1094,140 @@ class MemoryManager:
                 str: A message indicating if the memory was cleared successfully or not.
             """
             db.clear_memories()
+            log_debug("Memory cleared")
+            return "Memory cleared successfully"
+
+        functions: List[Callable] = []
+        if enable_add_memory:
+            functions.append(add_memory)
+        if enable_update_memory:
+            functions.append(update_memory)
+        if enable_delete_memory:
+            functions.append(delete_memory)
+        if enable_clear_memory:
+            functions.append(clear_memory)
+        return functions
+
+    async def _aget_db_tools(
+        self,
+        user_id: str,
+        db: Union[BaseDb, AsyncBaseDb],
+        input_string: str,
+        enable_add_memory: bool = True,
+        enable_update_memory: bool = True,
+        enable_delete_memory: bool = True,
+        enable_clear_memory: bool = True,
+        agent_id: Optional[str] = None,
+        team_id: Optional[str] = None,
+    ) -> List[Callable]:
+        async def add_memory(memory: str, topics: Optional[List[str]] = None) -> str:
+            """Use this function to add a memory to the database.
+            Args:
+                memory (str): The memory to be added.
+                topics (Optional[List[str]]): The topics of the memory (e.g. ["name", "hobbies", "location"]).
+            Returns:
+                str: A message indicating if the memory was added successfully or not.
+            """
+            from uuid import uuid4
+
+            from agno.db.base import UserMemory
+
+            try:
+                memory_id = str(uuid4())
+                if isinstance(db, AsyncBaseDb):
+                    await db.upsert_user_memory(
+                        UserMemory(
+                            memory_id=memory_id,
+                            user_id=user_id,
+                            agent_id=agent_id,
+                            team_id=team_id,
+                            memory=memory,
+                            topics=topics,
+                            input=input_string,
+                        )
+                    )
+                else:
+                    db.upsert_user_memory(
+                        UserMemory(
+                            memory_id=memory_id,
+                            user_id=user_id,
+                            agent_id=agent_id,
+                            team_id=team_id,
+                            memory=memory,
+                            topics=topics,
+                            input=input_string,
+                        )
+                    )
+                log_debug(f"Memory added: {memory_id}")
+                return "Memory added successfully"
+            except Exception as e:
+                log_warning(f"Error storing memory in db: {e}")
+                return f"Error adding memory: {e}"
+
+        async def update_memory(memory_id: str, memory: str, topics: Optional[List[str]] = None) -> str:
+            """Use this function to update an existing memory in the database.
+            Args:
+                memory_id (str): The id of the memory to be updated.
+                memory (str): The updated memory.
+                topics (Optional[List[str]]): The topics of the memory (e.g. ["name", "hobbies", "location"]).
+            Returns:
+                str: A message indicating if the memory was updated successfully or not.
+            """
+            from agno.db.base import UserMemory
+
+            try:
+                if isinstance(db, AsyncBaseDb):
+                    await db.upsert_user_memory(
+                        UserMemory(
+                            memory_id=memory_id,
+                            memory=memory,
+                            topics=topics,
+                            input=input_string,
+                        )
+                    )
+                else:
+                    db.upsert_user_memory(
+                        UserMemory(
+                            memory_id=memory_id,
+                            memory=memory,
+                            topics=topics,
+                            input=input_string,
+                        )
+                    )
+                log_debug("Memory updated")
+                return "Memory updated successfully"
+            except Exception as e:
+                log_warning(f"Error storing memory in db: {e}")
+                return f"Error adding memory: {e}"
+
+        async def delete_memory(memory_id: str) -> str:
+            """Use this function to delete a single memory from the database.
+            Args:
+                memory_id (str): The id of the memory to be deleted.
+            Returns:
+                str: A message indicating if the memory was deleted successfully or not.
+            """
+            try:
+                if isinstance(db, AsyncBaseDb):
+                    await db.delete_user_memory(memory_id=memory_id)
+                else:
+                    db.delete_user_memory(memory_id=memory_id)
+                log_debug("Memory deleted")
+                return "Memory deleted successfully"
+            except Exception as e:
+                log_warning(f"Error deleting memory in db: {e}")
+                return f"Error deleting memory: {e}"
+
+        async def clear_memory() -> str:
+            """Use this function to remove all (or clear all) memories from the database.
+
+            Returns:
+                str: A message indicating if the memory was cleared successfully or not.
+            """
+            if isinstance(db, AsyncBaseDb):
+                await db.clear_memories()
+            else:
+                db.clear_memories()
             log_debug("Memory cleared")
             return "Memory cleared successfully"
 

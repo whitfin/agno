@@ -724,6 +724,10 @@ class Team:
 
         return session_id, user_id, session_state  # type: ignore
 
+    def _has_async_db(self) -> bool:
+        """Return True if the db the team is equipped with is an Async implementation"""
+        return self.db is not None and isinstance(self.db, AsyncBaseDb)
+
     def initialize_team(self, debug_mode: Optional[bool] = None) -> None:
         # Make sure for the team, we are using the team logger
         use_team_logger()
@@ -1088,6 +1092,10 @@ class Team:
         **kwargs: Any,
     ) -> Union[TeamRunOutput, Iterator[Union[RunOutputEvent, TeamRunOutputEvent]]]:
         """Run the Team and return the response."""
+        if self._has_async_db():
+            raise Exception(
+                "This method is not supported with an async DB. Please use the async version of this method."
+            )
 
         # Validate input against input_schema if provided
         validated_input = self._validate_input(input)
@@ -2812,6 +2820,11 @@ class Team:
         debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
+        if self._has_async_db():
+            raise Exception(
+                "This method is not supported with an async DB. Please use the async version of this method."
+            )
+
         if not tags_to_include_in_markdown:
             tags_to_include_in_markdown = {"think", "thinking"}
 

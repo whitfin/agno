@@ -650,6 +650,10 @@ class Agent:
                 self.enable_session_summaries or self.session_summary_manager is not None
             )
 
+    def _has_async_db(self) -> bool:
+        """Return True if the db the agent is equipped with is an Async implementation"""
+        return self.db is not None and isinstance(self.db, AsyncBaseDb)
+
     def initialize_agent(self, debug_mode: Optional[bool] = None) -> None:
         self._set_default_model()
         self._set_debug(debug_mode=debug_mode)
@@ -1059,6 +1063,10 @@ class Agent:
         **kwargs: Any,
     ) -> Union[RunOutput, Iterator[Union[RunOutputEvent, RunOutput]]]:
         """Run the Agent and return the response."""
+        if self._has_async_db():
+            raise Exception(
+                "This method is not supported with an async DB. Please use the async version of this method."
+            )
 
         # Create a run_id for this specific run
         run_id = str(uuid4())
@@ -1272,42 +1280,119 @@ class Agent:
 
     async def _arun(
         self,
+        input: Union[str, List, Dict, Message, BaseModel, List[Message]],
         run_response: RunOutput,
-        run_messages: RunMessages,
-        session: AgentSession,
+        session_id: str,
+        session_state: Optional[Dict[str, Any]] = None,
+        audio: Optional[Sequence[Audio]] = None,
+        images: Optional[Sequence[Image]] = None,
+        videos: Optional[Sequence[Video]] = None,
+        files: Optional[Sequence[File]] = None,
         user_id: Optional[str] = None,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         dependencies: Optional[Dict[str, Any]] = None,
+        add_dependencies_to_context: Optional[bool] = None,
+        add_session_state_to_context: Optional[bool] = None,
+        add_history_to_context: Optional[bool] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> RunOutput:
         """Run the Agent and yield the RunOutput.
 
         Steps:
-        1. Reason about the task if reasoning is enabled
-        2. Generate a response from the Model (includes running function calls)
-        3. Update the RunOutput with the model response
-        4. Update Agent Memory
-        5. Calculate session metrics
-        6. Add RunOutput to Agent Session
-        7. Save session to storage
-        8. Optional: Save output to file if save_response_to_file is set
+        1. Resolve dependencies
+        2. Validate input against input_schema if provided
+        3. Get knowledge filters
+        4. Read or create session. Reads from the database if provided.
+        5. Update metadata and session state
+        6. Determine tools for model
+        7. Prepare run messages
+        8. Reason about the task if reasoning is enabled
+        9. Generate a response from the Model (includes running function calls)
+        10. Update the RunOutput with the model response
+        11. Update Agent Memory
+        12. Calculate session metrics
+        13. Add RunOutput to Agent Session
+        13. Save session to storage
         """
-        # Resolving here for async requirement
-        if dependencies is not None:
-            await self._aresolve_run_dependencies(dependencies)
-
         log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
+
+        # 1. Resolve dependencies
+        run_dependencies = dependencies if dependencies is not None else self.dependencies
+        if run_dependencies is not None:
+            await self._aresolve_run_dependencies(dependencies=run_dependencies)
+
+        add_dependencies = (
+            add_dependencies_to_context if add_dependencies_to_context is not None else self.add_dependencies_to_context
+        )
+        add_session_state = (
+            add_session_state_to_context
+            if add_session_state_to_context is not None
+            else self.add_session_state_to_context
+        )
+        add_history = add_history_to_context if add_history_to_context is not None else self.add_history_to_context
+
+        # 2. Validate input against input_schema if provided
+        validated_input = self._validate_input(input)
+
+        # 3. Get knowledge filters
+        effective_filters = knowledge_filters
+        if self.knowledge_filters or knowledge_filters:
+            effective_filters = self._get_effective_filters(knowledge_filters)
+
+        # 4. Read or create session. Reads from the database if provided.
+        if self._has_async_db():
+            agent_session = await self._aread_or_create_session(session_id=session_id, user_id=user_id)
+        else:
+            agent_session = self._read_or_create_session(session_id=session_id, user_id=user_id)
+
+        # 5. Update metadata and session state
+        self._update_metadata(session=agent_session)
+        if session_state is not None:
+            session_state = self._update_session_state(session=agent_session, session_state=session_state)
+
+        self.model = cast(Model, self.model)
+
+        # 6. Determine tools for model
+        self._determine_tools_for_model(
+            model=self.model,
+            run_response=run_response,
+            session=agent_session,
+            session_state=session_state,
+            user_id=user_id,
+            async_mode=True,
+            knowledge_filters=effective_filters,
+        )
+
+        # 7. Prepare run messages
+        run_messages: RunMessages = await self._aget_run_messages(
+            run_response=run_response,
+            input=validated_input,
+            session=agent_session,
+            session_state=session_state,
+            user_id=user_id,
+            audio=audio,
+            images=images,
+            videos=videos,
+            files=files,
+            knowledge_filters=effective_filters,
+            add_history_to_context=add_history,
+            dependencies=dependencies,
+            add_dependencies_to_context=add_dependencies,
+            add_session_state_to_context=add_session_state,
+            metadata=metadata,
+            **kwargs,
+        )
+        if len(run_messages.messages) == 0:
+            log_error("No messages to be sent to the model.")
+
+        run_messages = run_messages
 
         # Register run for cancellation tracking
         register_run(run_response.run_id)  # type: ignore
 
-        self.model = cast(Model, self.model)
-        # 1. Reason about the task if reasoning is enabled
-        await self._ahandle_reasoning(run_response=run_response, run_messages=run_messages)
-
-        # Check for cancellation before model call
-        raise_if_cancelled(run_response.run_id)  # type: ignore
-
-        # 2. Generate a response from the Model (includes running function calls)
+        # 9. Generate a response from the Model (includes running function calls)
         model_response: ModelResponse = await self.model.aresponse(
             messages=run_messages.messages,
             tools=self._tools_for_model,
@@ -1318,7 +1403,19 @@ class Agent:
         )
 
         # Check for cancellation after model call
-        raise_if_cancelled(run_response.run_id)  # type: ignore
+        try:
+            raise_if_cancelled(run_response.run_id)  # type: ignore
+        except RunCancelledException as e:
+            # Handle run cancellation
+            log_info(f"Run {run_response.run_id} was cancelled")
+            run_response.content = str(e)
+            run_response.status = RunStatus.cancelled
+
+            # Update the Agent Session before exiting
+            agent_session.upsert_run(run=run_response)
+            await self.asave_session(session=agent_session)
+
+            return run_response
 
         # If an output model is provided, generate output using the output model
         await self._agenerate_response_with_output_model(model_response=model_response, run_messages=run_messages)
@@ -1326,7 +1423,7 @@ class Agent:
         # If a parser model is provided, structure the response separately
         await self._aparse_response_with_parser_model(model_response=model_response, run_messages=run_messages)
 
-        # 3. Update the RunOutput with the model response
+        # 10. Update the RunOutput with the model response
         self._update_run_response(model_response=model_response, run_response=run_response, run_messages=run_messages)
 
         if self.store_media:
@@ -1337,17 +1434,17 @@ class Agent:
         # We should break out of the run function
         if any(tool_call.is_paused for tool_call in run_response.tools or []):
             return self._handle_agent_run_paused(
-                run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+                run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
             )
 
-        # 5. Update Agent Memory
+        # 11. Update Agent Memory
         async for _ in self._amake_memories_and_summaries(
-            run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+            run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
         ):
             pass
 
-        # 6. Calculate session metrics
-        self._update_session_metrics(session=session, run_response=run_response)
+        # 12. Calculate session metrics
+        self._update_session_metrics(session=agent_session, run_response=run_response)
 
         run_response.status = RunStatus.completed
 
@@ -1358,19 +1455,22 @@ class Agent:
         if run_response.metrics:
             run_response.metrics.stop_timer()
 
-        # 6. Optional: Save output to file if save_response_to_file is set
+        # Optional: Save output to file if save_response_to_file is set
         self.save_run_response_to_file(
-            run_response=run_response, input=run_messages.user_message, session_id=session.session_id, user_id=user_id
+            run_response=run_response,
+            input=run_messages.user_message,
+            session_id=agent_session.session_id,
+            user_id=user_id,
         )
 
-        # 7. Add RunOutput to Agent Session
-        session.upsert_run(run=run_response)
+        # 13. Add RunOutput to Agent Session
+        agent_session.upsert_run(run=run_response)
 
-        # 8. Save session to storage
-        self.save_session(session=session)
+        # 14. Save session to storage
+        await self.asave_session(session=agent_session)
 
         # Log Agent Telemetry
-        await self._alog_agent_telemetry(session_id=session.session_id, run_id=run_response.run_id)
+        await self._alog_agent_telemetry(session_id=agent_session.session_id, run_id=run_response.run_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -1381,33 +1481,116 @@ class Agent:
 
     async def _arun_stream(
         self,
+        input: Union[str, List, Dict, Message, BaseModel, List[Message]],
         run_response: RunOutput,
-        run_messages: RunMessages,
-        session: AgentSession,
+        session_id: str,
+        session_state: Optional[Dict[str, Any]] = None,
+        audio: Optional[Sequence[Audio]] = None,
+        images: Optional[Sequence[Image]] = None,
+        videos: Optional[Sequence[Video]] = None,
+        files: Optional[Sequence[File]] = None,
         user_id: Optional[str] = None,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
         workflow_context: Optional[Dict] = None,
         yield_run_response: Optional[bool] = None,
         dependencies: Optional[Dict[str, Any]] = None,
+        add_dependencies_to_context: Optional[bool] = None,
+        add_session_state_to_context: Optional[bool] = None,
+        add_history_to_context: Optional[bool] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> AsyncIterator[Union[RunOutputEvent, RunOutput]]:
         """Run the Agent and yield the RunOutput.
 
         Steps:
-        1. Reason about the task if reasoning is enabled
-        2. Generate a response from the Model (includes running function calls)
-        3. Add the RunOutput to the Agent Session
-        4. Update Agent Memory
-        5. Calculate session metrics
-        6. Add RunOutput to Agent Session
-        7. Save session to storage
+        1. Resolve dependencies
+        2. Validate input against input_schema if provided
+        3. Get knowledge filters
+        4. Read or create session. Reads from the database if provided.
+        5. Update metadata and session state
+        6. Determine tools for model
+        7. Prepare run messages
+        8. Reason about the task if reasoning is enabled
+        9. Generate a response from the Model (includes running function calls)
+        10. Update Agent Memory
+        11. Calculate session metrics
+        12. Add RunOutput to Agent Session
+        13. Save session to storage
         """
+        log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
+
+        # 1. Resolve dependencies
         run_dependencies = dependencies if dependencies is not None else self.dependencies
-        # Resolving here for async requirement
         if run_dependencies is not None:
             await self._aresolve_run_dependencies(dependencies=run_dependencies)
 
-        log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
+        add_dependencies = (
+            add_dependencies_to_context if add_dependencies_to_context is not None else self.add_dependencies_to_context
+        )
+        add_session_state = (
+            add_session_state_to_context
+            if add_session_state_to_context is not None
+            else self.add_session_state_to_context
+        )
+        add_history = add_history_to_context if add_history_to_context is not None else self.add_history_to_context
+
+        # 2. Validate input against input_schema if provided
+        validated_input = self._validate_input(input)
+
+        # 3. Get knowledge filters
+        effective_filters = knowledge_filters
+        if self.knowledge_filters or knowledge_filters:
+            effective_filters = self._get_effective_filters(knowledge_filters)
+
+        # 4. Read or create session. Reads from the database if provided.
+        if self._has_async_db():
+            agent_session = await self._aread_or_create_session(session_id=session_id, user_id=user_id)
+        else:
+            agent_session = self._read_or_create_session(session_id=session_id, user_id=user_id)
+
+        # 5. Update metadata and session state
+        self._update_metadata(session=agent_session)
+        if session_state is not None:
+            session_state = self._update_session_state(session=agent_session, session_state=session_state)
+
+        self.model = cast(Model, self.model)
+
+        # 6. Determine tools for model
+        self._determine_tools_for_model(
+            model=self.model,
+            run_response=run_response,
+            session=agent_session,
+            session_state=session_state,
+            user_id=user_id,
+            async_mode=True,
+            knowledge_filters=effective_filters,
+        )
+
+        # 7. Prepare run messages
+        run_messages: RunMessages = await self._aget_run_messages(
+            run_response=run_response,
+            input=validated_input,
+            session=agent_session,
+            session_state=session_state,
+            user_id=user_id,
+            audio=audio,
+            images=images,
+            videos=videos,
+            files=files,
+            knowledge_filters=effective_filters,
+            add_history_to_context=add_history,
+            dependencies=dependencies,
+            add_dependencies_to_context=add_dependencies,
+            add_session_state_to_context=add_session_state,
+            metadata=metadata,
+            **kwargs,
+        )
+        if len(run_messages.messages) == 0:
+            log_error("No messages to be sent to the model.")
+
+        run_messages = run_messages
 
         # Register run for cancellation tracking
         register_run(run_response.run_id)  # type: ignore
@@ -1417,18 +1600,15 @@ class Agent:
             if stream_intermediate_steps:
                 yield self._handle_event(create_run_started_event(run_response), run_response, workflow_context)
 
-            # 1. Reason about the task if reasoning is enabled
+            # 8. Reason about the task if reasoning is enabled
             async for item in self._ahandle_reasoning_stream(run_response=run_response, run_messages=run_messages):
                 raise_if_cancelled(run_response.run_id)  # type: ignore
                 yield item
 
-            # Check for cancellation before model processing
-            raise_if_cancelled(run_response.run_id)  # type: ignore
-
-            # 2. Generate a response from the Model
+            # 9. Generate a response from the Model
             if self.output_model is None:
                 async for event in self._ahandle_model_response_stream(
-                    session=session,
+                    session=agent_session,
                     run_response=run_response,
                     run_messages=run_messages,
                     response_format=response_format,
@@ -1444,7 +1624,7 @@ class Agent:
                 )  # type: ignore
 
                 async for event in self._ahandle_model_response_stream(
-                    session=session,
+                    session=agent_session,
                     run_response=run_response,
                     run_messages=run_messages,
                     response_format=response_format,
@@ -1463,7 +1643,7 @@ class Agent:
 
                 # If an output model is provided, generate output using the output model
                 async for event in self._agenerate_response_with_output_model_stream(
-                    session=session,
+                    session=agent_session,
                     run_response=run_response,
                     run_messages=run_messages,
                     workflow_context=workflow_context,
@@ -1477,26 +1657,26 @@ class Agent:
 
             # If a parser model is provided, structure the response separately
             async for event in self._aparse_response_with_parser_model_stream(
-                session=session, run_response=run_response, stream_intermediate_steps=stream_intermediate_steps
+                session=agent_session, run_response=run_response, stream_intermediate_steps=stream_intermediate_steps
             ):
                 yield event
 
             # We should break out of the run function
             if any(tool_call.is_paused for tool_call in run_response.tools or []):
                 for item in self._handle_agent_run_paused_stream(
-                    run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+                    run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
                 ):
                     yield item
                 return
 
-            # 5. Update Agent Memory
+            # 10. Update Agent Memory
             async for event in self._amake_memories_and_summaries(
-                run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+                run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
             ):
                 yield event
 
-            # 6. Calculate session metrics
-            self._update_session_metrics(session=session, run_response=run_response)
+            # 11. Calculate session metrics
+            self._update_session_metrics(session=agent_session, run_response=run_response)
 
             run_response.status = RunStatus.completed
 
@@ -1508,19 +1688,19 @@ class Agent:
             if run_response.metrics:
                 run_response.metrics.stop_timer()
 
-            # 8. Optional: Save output to file if save_response_to_file is set
+            # Optional: Save output to file if save_response_to_file is set
             self.save_run_response_to_file(
                 run_response=run_response,
                 input=run_messages.user_message,
-                session_id=session.session_id,
+                session_id=agent_session.session_id,
                 user_id=user_id,
             )
 
-            # 6. Add RunOutput to Agent Session
-            session.upsert_run(run=run_response)
+            # 12. Add RunOutput to Agent Session
+            agent_session.upsert_run(run=run_response)
 
-            # 7. Save session to storage
-            self.save_session(session=session)
+            # 13. Save session to storage
+            await self.asave_session(session=agent_session)
 
             if stream_intermediate_steps:
                 yield completed_event
@@ -1529,7 +1709,7 @@ class Agent:
                 yield run_response
 
             # Log Agent Telemetry
-            await self._alog_agent_telemetry(session_id=session.session_id, run_id=run_response.run_id)
+            await self._alog_agent_telemetry(session_id=agent_session.session_id, run_id=run_response.run_id)
 
             log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -1547,8 +1727,8 @@ class Agent:
             )
 
             # Add the RunOutput to Agent Session even when cancelled
-            session.upsert_run(run=run_response)
-            self.save_session(session=session)
+            agent_session.upsert_run(run=run_response)
+            await self.asave_session(session=agent_session)
         finally:
             # Always clean up the run tracking
             cleanup_run(run_response.run_id)  # type: ignore
@@ -1632,9 +1812,6 @@ class Agent:
         # Create a run_id for this specific run
         run_id = str(uuid4())
 
-        # Validate input against input_schema if provided
-        validated_input = self._validate_input(input)
-
         session_id, user_id, session_state = self._initialize_session(
             run_id=run_id, session_id=session_id, user_id=user_id, session_state=session_state
         )
@@ -1651,37 +1828,14 @@ class Agent:
             input_content=input, images=image_artifacts, videos=video_artifacts, audios=audio_artifacts, files=files
         )
 
-        # Read existing session from storage
-        agent_session = self._read_or_create_session(session_id=session_id, user_id=user_id)
-        self._update_metadata(session=agent_session)
-
-        # Update session state from DB
-        session_state = self._update_session_state(session=agent_session, session_state=session_state)
-
         # Determine run dependencies
         run_dependencies = dependencies if dependencies is not None else self.dependencies
 
         # Resolve callable dependencies if present
         if run_dependencies is not None:
             self._resolve_run_dependencies(dependencies=run_dependencies)
-
-        add_dependencies = (
-            add_dependencies_to_context if add_dependencies_to_context is not None else self.add_dependencies_to_context
-        )
-        add_session_state = (
-            add_session_state_to_context
-            if add_session_state_to_context is not None
-            else self.add_session_state_to_context
-        )
-        add_history = add_history_to_context if add_history_to_context is not None else self.add_history_to_context
-
         # Extract workflow context from kwargs if present
         workflow_context = kwargs.pop("workflow_context", None)
-
-        effective_filters = knowledge_filters
-        # When filters are passed manually
-        if self.knowledge_filters or knowledge_filters:
-            effective_filters = self._get_effective_filters(knowledge_filters)
 
         # Use stream override value when necessary
         if stream is None:
@@ -1727,16 +1881,6 @@ class Agent:
         run_response.metrics = Metrics()
         run_response.metrics.start_timer()
 
-        self._determine_tools_for_model(
-            model=self.model,
-            run_response=run_response,
-            session=agent_session,
-            session_state=session_state,
-            user_id=user_id,
-            async_mode=True,
-            knowledge_filters=effective_filters,
-        )
-
         # If no retries are set, use the agent's default retries
         retries = retries if retries is not None else self.retries
 
@@ -1745,51 +1889,49 @@ class Agent:
 
         for attempt in range(num_attempts):
             try:
-                # Prepare run messages
-                run_messages: RunMessages = self._get_run_messages(
-                    run_response=run_response,
-                    input=validated_input,
-                    session=agent_session,
-                    session_state=session_state,
-                    user_id=user_id,
-                    audio=audio,
-                    images=images,
-                    videos=videos,
-                    files=files,
-                    knowledge_filters=effective_filters,
-                    add_history_to_context=add_history,
-                    dependencies=dependencies,
-                    add_dependencies_to_context=add_dependencies,
-                    add_session_state_to_context=add_session_state,
-                    metadata=metadata,
-                    **kwargs,
-                )
-                if len(run_messages.messages) == 0:
-                    log_error("No messages to be sent to the model.")
-
-                run_messages = run_messages
-
                 # Pass the new run_response to _arun
                 if stream:
                     return self._arun_stream(  # type: ignore
+                        input=input,
                         run_response=run_response,
-                        run_messages=run_messages,
                         user_id=user_id,
-                        session=agent_session,
                         response_format=response_format,
                         stream_intermediate_steps=stream_intermediate_steps,
                         workflow_context=workflow_context,
                         yield_run_response=yield_run_response,
                         dependencies=run_dependencies,
+                        session_id=session_id,
+                        session_state=session_state,
+                        audio=audio,
+                        images=images,
+                        videos=videos,
+                        files=files,
+                        knowledge_filters=knowledge_filters,
+                        add_history_to_context=add_history_to_context,
+                        add_dependencies_to_context=add_dependencies_to_context,
+                        add_session_state_to_context=add_session_state_to_context,
+                        metadata=metadata,
+                        **kwargs,
                     )  # type: ignore[assignment]
                 else:
                     return self._arun(  # type: ignore
+                        input=input,
                         run_response=run_response,
-                        run_messages=run_messages,
                         user_id=user_id,
-                        session=agent_session,
                         response_format=response_format,
                         dependencies=run_dependencies,
+                        session_id=session_id,
+                        session_state=session_state,
+                        audio=audio,
+                        images=images,
+                        videos=videos,
+                        files=files,
+                        knowledge_filters=knowledge_filters,
+                        add_history_to_context=add_history_to_context,
+                        add_dependencies_to_context=add_dependencies_to_context,
+                        add_session_state_to_context=add_session_state_to_context,
+                        metadata=metadata,
+                        **kwargs,
                     )
             except ModelProviderError as e:
                 log_warning(f"Attempt {attempt + 1}/{num_attempts} failed: {str(e)}")
@@ -1804,17 +1946,6 @@ class Agent:
                     import time
 
                     time.sleep(delay)
-            except RunCancelledException as e:
-                # Handle run cancellation
-                log_info(f"Run {run_response.run_id} was cancelled")
-                run_response.content = str(e)
-                run_response.status = RunStatus.cancelled
-
-                # Add the RunOutput to Agent Session even when cancelled
-                agent_session.upsert_run(run=run_response)
-                self.save_session(session=agent_session)
-
-                return run_response
             except KeyboardInterrupt:
                 run_response.content = "Operation cancelled by user"
                 run_response.status = RunStatus.cancelled
@@ -2304,24 +2435,11 @@ class Agent:
         # Initialize the Agent
         self.initialize_agent(debug_mode=debug_mode)
 
-        # Read existing session from storage
-        agent_session = self._read_or_create_session(session_id=session_id, user_id=user_id)
-        self._update_metadata(session=agent_session)
-
-        # Update session state from DB
-        session_state = self._update_session_state(session=agent_session, session_state=session_state)
-
         run_dependencies = dependencies if dependencies is not None else self.dependencies
 
         # Resolve dependencies
         if run_dependencies is not None:
             self._resolve_run_dependencies(dependencies=run_dependencies)
-
-        effective_filters = knowledge_filters
-
-        # When filters are passed manually
-        if self.knowledge_filters or knowledge_filters:
-            effective_filters = self._get_effective_filters(knowledge_filters)
 
         # If no retries are set, use the agent's default retries
         retries = retries if retries is not None else self.retries
@@ -2342,53 +2460,13 @@ class Agent:
         self.stream = self.stream or stream
         self.stream_intermediate_steps = self.stream_intermediate_steps or (stream_intermediate_steps and self.stream)
 
-        # Run can be continued from previous run response or from passed run_response context
-        if run_response is not None:
-            # The run is continued from a provided run_response. This contains the updated tools.
-            input = run_response.messages or []
-        elif run_id is not None:
-            # The run is continued from a run_id. This requires the updated tools to be passed.
-            if updated_tools is None:
-                raise ValueError("Updated tools are required to continue a run from a run_id.")
-
-            runs = agent_session.runs
-            run_response = next((r for r in runs if r.run_id == run_id), None)  # type: ignore
-            if run_response is None:
-                raise RuntimeError(f"No runs found for run ID {run_id}")
-            run_response.tools = updated_tools
-            input = run_response.messages or []
-        else:
-            raise ValueError("Either run_response or run_id must be provided.")
-
         # Prepare arguments for the model
         response_format = self._get_response_format()
         self.model = cast(Model, self.model)
 
-        self._determine_tools_for_model(
-            model=self.model,
-            run_response=run_response,
-            session=agent_session,
-            session_state=session_state,
-            user_id=user_id,
-            async_mode=True,
-            knowledge_filters=effective_filters,
-        )
-
         last_exception = None
         num_attempts = retries + 1
         for attempt in range(num_attempts):
-            run_response = cast(RunOutput, run_response)
-
-            log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
-
-            # Prepare run messages
-            run_messages: RunMessages = self._get_continue_run_messages(
-                input=input,
-            )
-
-            # Reset the run paused state
-            run_response.status = RunStatus.running
-
             try:
                 if stream:
                     return self._acontinue_run_stream(
@@ -2518,7 +2596,7 @@ class Agent:
         session.upsert_run(run=run_response)
 
         # 6. Save session to storage
-        self.save_session(session=session)
+        await self.asave_session(session=session)
 
         # Log Agent Telemetry
         await self._alog_agent_telemetry(session_id=session.session_id, run_id=run_response.run_id)
@@ -2529,9 +2607,12 @@ class Agent:
 
     async def _acontinue_run_stream(
         self,
-        run_response: RunOutput,
-        run_messages: RunMessages,
-        session: AgentSession,
+        session_id: str,
+        run_response: Optional[RunOutput] = None,
+        updated_tools: Optional[List[ToolExecution]] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        session_state: Optional[Dict[str, Any]] = None,
+        run_id: Optional[str] = None,
         user_id: Optional[str] = None,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         stream_intermediate_steps: bool = False,
@@ -2540,32 +2621,90 @@ class Agent:
         """Continue a previous run.
 
         Steps:
-        1. Handle any updated tools
-        2. Generate a response from the Model
-        3. Add the run to memory
-        4. Update Agent Memory
-        5. Calculate session metrics
-        6. Save output to file if save_response_to_file is set
-        7. Save session to storage
+        1. Resolve dependencies
+        2. Read existing session from db
+        3. Get knowledge filters
+        4. Update session state
+        5. Prepare run response
+        6. Determine tools for model
+        7. Prepare run messages
+        8. Handle the updated tools
+        9. Process model response
+        10. Add the run to memory
+        11. Update Agent Memory
+        12. Calculate session metrics
+        13. Save output to file if save_response_to_file is set
+        14. Save session to storage
         """
-        # Resolving here for async requirement
+        # 1. Resolve dependencies
         run_dependencies = dependencies if dependencies is not None else self.dependencies
-
-        # Resolve dependencies
         if run_dependencies is not None:
             await self._aresolve_run_dependencies(dependencies=run_dependencies)
+
+        # 2. Read existing session from db
+        agent_session = self._read_or_create_session(session_id=session_id, user_id=user_id)
+        self._update_metadata(session=agent_session)
+
+        # 3. Get knowledge filters
+        effective_filters = knowledge_filters
+        if self.knowledge_filters or knowledge_filters:
+            effective_filters = self._get_effective_filters(knowledge_filters)
+
+        # 4. Update session state
+        if session_state is not None:
+            session_state = self._update_session_state(session=agent_session, session_state=session_state)
+
+        # 5. Prepare run response
+        if run_response is not None:
+            # The run is continued from a provided run_response. This contains the updated tools.
+            input = run_response.messages or []
+        elif run_id is not None:
+            # The run is continued from a run_id. This requires the updated tools to be passed.
+            if updated_tools is None:
+                raise ValueError("Updated tools are required to continue a run from a run_id.")
+
+            runs = agent_session.runs
+            run_response = next((r for r in runs if r.run_id == run_id), None)  # type: ignore
+            if run_response is None:
+                raise RuntimeError(f"No runs found for run ID {run_id}")
+            run_response.tools = updated_tools
+            input = run_response.messages or []
+        else:
+            raise ValueError("Either run_response or run_id must be provided.")
+
+        run_response = cast(RunOutput, run_response)
+        run_response.status = RunStatus.running
+        log_debug(f"Agent Run Start: {run_response.run_id}", center=True)
+
+        self.model = cast(Model, self.model)
+
+        # 6. Determine tools for model
+        self._determine_tools_for_model(
+            model=self.model,
+            run_response=run_response,
+            session=agent_session,
+            session_state=session_state,
+            user_id=user_id,
+            async_mode=True,
+            knowledge_filters=effective_filters,
+        )
+
+        # 7. Prepare run messages
+        run_messages: RunMessages = self._get_continue_run_messages(
+            input=input,
+        )
 
         # Start the Run by yielding a RunContinued event
         if stream_intermediate_steps:
             yield self._handle_event(create_run_continued_event(run_response), run_response)
 
-        # 1. Handle the updated tools
+        # 8. Handle the updated tools
         async for event in self._ahandle_tool_call_updates_stream(run_response=run_response, run_messages=run_messages):
             yield event
 
-        # 2. Process model response
+        # 9. Process model response
         async for event in self._ahandle_model_response_stream(
-            session=session,
+            session=agent_session,
             run_response=run_response,
             run_messages=run_messages,
             response_format=response_format,
@@ -2573,25 +2712,25 @@ class Agent:
         ):
             yield event
 
-        # 3. Add the run to memory
-        session.upsert_run(run=run_response)
+        # 10. Add the run to memory
+        agent_session.upsert_run(run=run_response)
 
         # We should break out of the run function
         if any(tool_call.is_paused for tool_call in run_response.tools or []):
             for item in self._handle_agent_run_paused_stream(
-                run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+                run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
             ):
                 yield item
             return
 
-        # 4. Update Agent Memory
+        # 11. Update Agent Memory
         async for event in self._amake_memories_and_summaries(
-            run_response=run_response, run_messages=run_messages, session=session, user_id=user_id
+            run_response=run_response, run_messages=run_messages, session=agent_session, user_id=user_id
         ):
             yield event
 
-        # 5. Calculate session metrics
-        self._update_session_metrics(session=session, run_response=run_response)
+        # 12. Calculate session metrics
+        self._update_session_metrics(session=agent_session, run_response=run_response)
 
         run_response.status = RunStatus.completed
 
@@ -2601,21 +2740,24 @@ class Agent:
         if run_response.metrics:
             run_response.metrics.stop_timer()
 
-        # 6. Save output to file if save_response_to_file is set
+        # 13. Save output to file if save_response_to_file is set
         self.save_run_response_to_file(
-            run_response=run_response, input=run_messages.user_message, session_id=session.session_id, user_id=user_id
+            run_response=run_response,
+            input=run_messages.user_message,
+            session_id=agent_session.session_id,
+            user_id=user_id,
         )
 
-        session.upsert_run(run=run_response)
+        agent_session.upsert_run(run=run_response)
 
-        # 6. Save session to storage
-        self.save_session(session=session)
+        # 14. Save session to storage
+        await self.asave_session(session=agent_session)
 
         if stream_intermediate_steps:
             yield completed_event
 
         # Log Agent Telemetry
-        await self._alog_agent_telemetry(session_id=session.session_id, run_id=run_response.run_id)
+        await self._alog_agent_telemetry(session_id=agent_session.session_id, run_id=run_response.run_id)
 
         log_debug(f"Agent Run End: {run_response.run_id}", center=True, symbol="*")
 
@@ -4176,6 +4318,16 @@ class Agent:
             log_warning(f"Error getting session from db: {e}")
             return None
 
+    async def _aread_session(self, session_id: str) -> Optional[AgentSession]:
+        """Get a Session from the database."""
+        try:
+            if not self.db:
+                raise ValueError("Db not initialized")
+            return await self.db.get_session(session_id=session_id, session_type=SessionType.AGENT)  # type: ignore
+        except Exception as e:
+            log_warning(f"Error getting session from db: {e}")
+            return None
+
     def _upsert_session(self, session: AgentSession) -> Optional[AgentSession]:
         """Upsert a Session into the database."""
 
@@ -4183,6 +4335,16 @@ class Agent:
             if not self.db:
                 raise ValueError("Db not initialized")
             return self.db.upsert_session(session=session)  # type: ignore
+        except Exception as e:
+            log_warning(f"Error upserting session into db: {e}")
+            return None
+
+    async def _aupsert_session(self, session: AgentSession) -> Optional[AgentSession]:
+        """Upsert a Session into the database."""
+        try:
+            if not self.db:
+                raise ValueError("Db not initialized")
+            return await self.db.upsert_session(session=session)  # type: ignore
         except Exception as e:
             log_warning(f"Error upserting session into db: {e}")
             return None
@@ -4250,6 +4412,42 @@ class Agent:
             log_debug(f"Reading AgentSession: {session_id}")
 
             agent_session = cast(AgentSession, self._read_session(session_id=session_id))
+
+        if agent_session is None:
+            # Creating new session if none found
+            log_debug(f"Creating new AgentSession: {session_id}")
+            agent_session = AgentSession(
+                session_id=session_id,
+                agent_id=self.id,
+                user_id=user_id,
+                agent_data=self._get_agent_data(),
+                session_data={},
+                metadata=self.metadata,
+                created_at=int(time()),
+            )
+
+        if self.cache_session:
+            self._agent_session = agent_session
+
+        return agent_session
+
+    async def _aread_or_create_session(
+        self,
+        session_id: str,
+        user_id: Optional[str] = None,
+    ) -> AgentSession:
+        from time import time
+
+        # Returning cached session if we have one
+        if self._agent_session is not None and self._agent_session.session_id == session_id:
+            return self._agent_session
+
+        # Try to load from database
+        agent_session = None
+        if self.db is not None and self.team_id is None and self.workflow_id is None:
+            log_debug(f"Reading AgentSession: {session_id}")
+
+            agent_session = cast(AgentSession, await self._aread_session(session_id=session_id))
 
         if agent_session is None:
             # Creating new session if none found
@@ -4387,6 +4585,27 @@ class Agent:
                 session.session_data["session_state"].pop("current_run_id", None)
 
             self._upsert_session(session=session)
+            log_debug(f"Created or updated AgentSession record: {session.session_id}")
+
+    async def asave_session(self, session: AgentSession) -> None:
+        """Save the AgentSession to storage
+
+        Returns:
+            Optional[AgentSession]: The saved AgentSession or None if not saved.
+        """
+        # If the agent is a member of a team, do not save the session to the database
+        if (
+            self.db is not None
+            and self.team_id is None
+            and self.workflow_id is None
+            and session.session_data is not None
+        ):
+            if session.session_data is not None and "session_state" in session.session_data:
+                session.session_data["session_state"].pop("current_session_id", None)
+                session.session_data["session_state"].pop("current_user_id", None)
+                session.session_data["session_state"].pop("current_run_id", None)
+
+            await self._aupsert_session(session=session)
             log_debug(f"Created or updated AgentSession record: {session.session_id}")
 
     def get_chat_history(self, session_id: Optional[str] = None) -> List[Message]:
@@ -4576,6 +4795,16 @@ class Agent:
             user_id = "default"
 
         return self.memory_manager.get_user_memories(user_id=user_id)
+
+    async def aget_user_memories(self, user_id: Optional[str] = None) -> Optional[List[UserMemory]]:
+        """Get the user memories for the given user ID."""
+        if self.memory_manager is None:
+            return None
+        user_id = user_id if user_id is not None else self.user_id
+        if user_id is None:
+            user_id = "default"
+
+        return await self.memory_manager.aget_user_memories(user_id=user_id)
 
     def _format_message_with_state_variables(
         self,
@@ -4812,7 +5041,286 @@ class Agent:
             if self.memory_manager is None:
                 self._set_memory_manager()
                 _memory_manager_not_set = True
+
             user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
+
+            if user_memories and len(user_memories) > 0:
+                system_message_content += (
+                    "You have access to memories from previous interactions with the user that you can use:\n\n"
+                )
+                system_message_content += "<memories_from_previous_interactions>"
+                for _memory in user_memories:  # type: ignore
+                    system_message_content += f"\n- {_memory.memory}"
+                system_message_content += "\n</memories_from_previous_interactions>\n\n"
+                system_message_content += (
+                    "Note: this information is from previous interactions and may be updated in this conversation. "
+                    "You should always prefer information from this conversation over the past memories.\n"
+                )
+            else:
+                system_message_content += (
+                    "You have the capability to retain memories from previous interactions with the user, "
+                    "but have not had any interactions with the user yet.\n"
+                )
+            if _memory_manager_not_set:
+                self.memory_manager = None
+
+            if self.enable_agentic_memory:
+                system_message_content += (
+                    "\n<updating_user_memories>\n"
+                    "- You have access to the `update_user_memory` tool that you can use to add new memories, update existing memories, delete memories, or clear all memories.\n"
+                    "- If the user's message includes information that should be captured as a memory, use the `update_user_memory` tool to update your memory database.\n"
+                    "- Memories should include details that could personalize ongoing interactions with the user.\n"
+                    "- Use this tool to add new memories or update existing memories that you identify in the conversation.\n"
+                    "- Use this tool if the user asks to update their memory, delete a memory, or clear all memories.\n"
+                    "- If you use the `update_user_memory` tool, remember to pass on the response to the user.\n"
+                    "</updating_user_memories>\n\n"
+                )
+
+        # 3.3.11 Then add a summary of the interaction to the system prompt
+        if self.add_session_summary_to_context and session.summary is not None:
+            system_message_content += "Here is a brief summary of your previous interactions:\n\n"
+            system_message_content += "<summary_of_previous_interactions>\n"
+            system_message_content += session.summary.summary
+            system_message_content += "\n</summary_of_previous_interactions>\n\n"
+            system_message_content += (
+                "Note: this information is from previous interactions and may be outdated. "
+                "You should ALWAYS prefer information from this conversation over the past summary.\n\n"
+            )
+
+        # 3.3.12 Add the system message from the Model
+        system_message_from_model = self.model.get_system_message_for_model(self._tools_for_model)
+        if system_message_from_model is not None:
+            system_message_content += system_message_from_model
+
+        # 3.3.13 Add the JSON output prompt if output_schema is provided and the model does not support native structured outputs or JSON schema outputs
+        # or if use_json_mode is True
+        if (
+            self.output_schema is not None
+            and self.parser_model is None
+            and not (
+                (self.model.supports_native_structured_outputs or self.model.supports_json_schema_outputs)
+                and (not self.use_json_mode or self.structured_outputs is True)
+            )
+        ):
+            system_message_content += f"{get_json_output_prompt(self.output_schema)}"  # type: ignore
+
+        # 3.3.14 Add the response model format prompt if output_schema is provided
+        if self.output_schema is not None and self.parser_model is not None:
+            system_message_content += f"{get_response_model_format_prompt(self.output_schema)}"
+
+        # 3.3.15 Add the session state to the system message
+        if self.add_session_state_to_context and session_state is not None:
+            system_message_content += f"\n<session_state>\n{session_state}\n</session_state>\n\n"
+
+        # Return the system message
+        return (
+            Message(role=self.system_message_role, content=system_message_content.strip())  # type: ignore
+            if system_message_content
+            else None
+        )
+
+    async def aget_system_message(
+        self,
+        session: AgentSession,
+        session_state: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        dependencies: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        add_session_state_to_context: Optional[bool] = None,
+    ) -> Optional[Message]:
+        """Return the system message for the Agent.
+
+        1. If the system_message is provided, use that.
+        2. If build_context is False, return None.
+        3. Build and return the default system message for the Agent.
+        """
+
+        # 1. If the system_message is provided, use that.
+        if self.system_message is not None:
+            if isinstance(self.system_message, Message):
+                return self.system_message
+
+            sys_message_content: str = ""
+            if isinstance(self.system_message, str):
+                sys_message_content = self.system_message
+            elif callable(self.system_message):
+                sys_message_content = self.system_message(agent=self)
+                if not isinstance(sys_message_content, str):
+                    raise Exception("system_message must return a string")
+
+            # Format the system message with the session state variables
+            if self.resolve_in_context:
+                sys_message_content = self._format_message_with_state_variables(
+                    sys_message_content,
+                    user_id=user_id,
+                    dependencies=dependencies,
+                    metadata=metadata,
+                    session_state=session_state,
+                )
+
+            # type: ignore
+            return Message(role=self.system_message_role, content=sys_message_content)
+
+        # 2. If build_context is False, return None.
+        if not self.build_context:
+            return None
+
+        if self.model is None:
+            raise Exception("model not set")
+
+        # 3. Build and return the default system message for the Agent.
+        # 3.1 Build the list of instructions for the system message
+        instructions: List[str] = []
+        if self.instructions is not None:
+            _instructions = self.instructions
+            if callable(self.instructions):
+                import inspect
+
+                signature = inspect.signature(self.instructions)
+                instruction_args: Dict[str, Any] = {}
+
+                # Check for agent parameter
+                if "agent" in signature.parameters:
+                    instruction_args["agent"] = self
+
+                # Check for session_state parameter
+                if "session_state" in signature.parameters:
+                    instruction_args["session_state"] = session_state or {}
+
+                _instructions = self.instructions(**instruction_args)
+
+            if isinstance(_instructions, str):
+                instructions.append(_instructions)
+            elif isinstance(_instructions, list):
+                instructions.extend(_instructions)
+
+        # 3.1.1 Add instructions from the Model
+        _model_instructions = self.model.get_instructions_for_model(self._tools_for_model)
+        if _model_instructions is not None:
+            instructions.extend(_model_instructions)
+
+        # 3.2 Build a list of additional information for the system message
+        additional_information: List[str] = []
+        # 3.2.1 Add instructions for using markdown
+        if self.markdown and self.output_schema is None:
+            additional_information.append("Use markdown to format your answers.")
+        # 3.2.2 Add the current datetime
+        if self.add_datetime_to_context:
+            from datetime import datetime
+
+            tz = None
+
+            if self.timezone_identifier:
+                try:
+                    from zoneinfo import ZoneInfo
+
+                    tz = ZoneInfo(self.timezone_identifier)
+                except Exception:
+                    log_warning("Invalid timezone identifier")
+
+            time = datetime.now(tz) if tz else datetime.now()
+
+            additional_information.append(f"The current time is {time}.")
+
+        # 3.2.3 Add the current location
+        if self.add_location_to_context:
+            from agno.utils.location import get_location
+
+            location = get_location()
+            if location:
+                location_str = ", ".join(
+                    filter(None, [location.get("city"), location.get("region"), location.get("country")])
+                )
+                if location_str:
+                    additional_information.append(f"Your approximate location is: {location_str}.")
+
+        # 3.2.4 Add agent name if provided
+        if self.name is not None and self.add_name_to_context:
+            additional_information.append(f"Your name is: {self.name}.")
+
+        # 3.2.5 Add information about agentic filters if enabled
+        if self.knowledge is not None and self.enable_agentic_knowledge_filters:
+            valid_filters = getattr(self.knowledge, "valid_metadata_filters", None)
+            if valid_filters:
+                valid_filters_str = ", ".join(valid_filters)
+                additional_information.append(
+                    dedent(f"""
+                    The knowledge base contains documents with these metadata filters: {valid_filters_str}.
+                    Always use filters when the user query indicates specific metadata.
+
+                    Examples:
+                    1. If the user asks about a specific person like "Jordan Mitchell", you MUST use the search_knowledge_base tool with the filters parameter set to {{'<valid key like user_id>': '<valid value based on the user query>'}}.
+                    2. If the user asks about a specific document type like "contracts", you MUST use the search_knowledge_base tool with the filters parameter set to {{'document_type': 'contract'}}.
+                    4. If the user asks about a specific location like "documents from New York", you MUST use the search_knowledge_base tool with the filters parameter set to {{'<valid key like location>': 'New York'}}.
+
+                    General Guidelines:
+                    - Always analyze the user query to identify relevant metadata.
+                    - Use the most specific filter(s) possible to narrow down results.
+                    - If multiple filters are relevant, combine them in the filters parameter (e.g., {{'name': 'Jordan Mitchell', 'document_type': 'contract'}}).
+                    - Ensure the filter keys match the valid metadata filters: {valid_filters_str}.
+
+                    You can use the search_knowledge_base tool to search the knowledge base and get the most relevant documents. Make sure to pass the filters as [Dict[str: Any]] to the tool. FOLLOW THIS STRUCTURE STRICTLY.
+                """)
+                )
+
+        # 3.3 Build the default system message for the Agent.
+        system_message_content: str = ""
+        # 3.3.1 First add the Agent description if provided
+        if self.description is not None:
+            system_message_content += f"{self.description}\n"
+        # 3.3.2 Then add the Agent role if provided
+        if self.role is not None:
+            system_message_content += f"\n<your_role>\n{self.role}\n</your_role>\n\n"
+        # 3.3.4 Then add instructions for the Agent
+        if len(instructions) > 0:
+            system_message_content += "<instructions>"
+            if len(instructions) > 1:
+                for _upi in instructions:
+                    system_message_content += f"\n- {_upi}"
+            else:
+                system_message_content += "\n" + instructions[0]
+            system_message_content += "\n</instructions>\n\n"
+        # 3.3.6 Add additional information
+        if len(additional_information) > 0:
+            system_message_content += "<additional_information>"
+            for _ai in additional_information:
+                system_message_content += f"\n- {_ai}"
+            system_message_content += "\n</additional_information>\n\n"
+        # 3.3.7 Then add instructions for the tools
+        if self._tool_instructions is not None:
+            for _ti in self._tool_instructions:
+                system_message_content += f"{_ti}\n"
+
+        # Format the system message with the session state variables
+        if self.resolve_in_context:
+            system_message_content = self._format_message_with_state_variables(
+                system_message_content,
+                user_id=user_id,
+                session_state=session_state,
+                dependencies=dependencies,
+                metadata=metadata,
+            )
+
+        # 3.3.7 Then add the expected output
+        if self.expected_output is not None:
+            system_message_content += f"<expected_output>\n{self.expected_output.strip()}\n</expected_output>\n\n"
+        # 3.3.8 Then add additional context
+        if self.additional_context is not None:
+            system_message_content += f"{self.additional_context}\n"
+        # 3.3.9 Then add memories to the system prompt
+        if self.add_memories_to_context:
+            _memory_manager_not_set = False
+            if not user_id:
+                user_id = "default"
+            if self.memory_manager is None:
+                self._set_memory_manager()
+                _memory_manager_not_set = True
+
+            if self._has_async_db():
+                user_memories = await self.memory_manager.aget_user_memories(user_id=user_id)  # type: ignore
+            else:
+                user_memories = self.memory_manager.get_user_memories(user_id=user_id)  # type: ignore
+
             if user_memories and len(user_memories) > 0:
                 system_message_content += (
                     "You have access to memories from previous interactions with the user that you can use:\n\n"
@@ -5104,6 +5612,194 @@ class Agent:
 
         # 1. Add system message to run_messages
         system_message = self.get_system_message(
+            session=session,
+            session_state=session_state,
+            user_id=user_id,
+            dependencies=run_dependencies,
+            metadata=metadata,
+            add_session_state_to_context=add_session_state_to_context,
+        )
+        if system_message is not None:
+            run_messages.system_message = system_message
+            run_messages.messages.append(system_message)
+
+        # 2. Add extra messages to run_messages if provided
+        if self.additional_input is not None:
+            messages_to_add_to_run_response: List[Message] = []
+            if run_messages.extra_messages is None:
+                run_messages.extra_messages = []
+
+            for _m in self.additional_input:
+                if isinstance(_m, Message):
+                    messages_to_add_to_run_response.append(_m)
+                    run_messages.messages.append(_m)
+                    run_messages.extra_messages.append(_m)
+                elif isinstance(_m, dict):
+                    try:
+                        _m_parsed = Message.model_validate(_m)
+                        messages_to_add_to_run_response.append(_m_parsed)
+                        run_messages.messages.append(_m_parsed)
+                        run_messages.extra_messages.append(_m_parsed)
+                    except Exception as e:
+                        log_warning(f"Failed to validate message: {e}")
+            # Add the extra messages to the run_response
+            if len(messages_to_add_to_run_response) > 0:
+                log_debug(f"Adding {len(messages_to_add_to_run_response)} extra messages")
+                if run_response.additional_input is None:
+                    run_response.additional_input = messages_to_add_to_run_response
+                else:
+                    run_response.additional_input.extend(messages_to_add_to_run_response)
+
+        # 3. Add history to run_messages
+        if add_history_to_context:
+            from copy import deepcopy
+
+            history: List[Message] = session.get_messages_from_last_n_runs(
+                last_n=self.num_history_runs,
+                skip_role=self.system_message_role,
+                agent_id=self.id if self.team_id is not None else None,
+            )
+
+            if len(history) > 0:
+                # Create a deep copy of the history messages to avoid modifying the original messages
+                history_copy = [deepcopy(msg) for msg in history]
+
+                # Tag each message as coming from history
+                for _msg in history_copy:
+                    _msg.from_history = True
+
+                log_debug(f"Adding {len(history_copy)} messages from history")
+
+                run_messages.messages += history_copy
+
+        # 4. Add user message to run_messages
+        user_message: Optional[Message] = None
+
+        # 4.1 Build user message if input is None, str or list and not a list of Message/dict objects
+        if (
+            input is None
+            or isinstance(input, str)
+            or (
+                isinstance(input, list)
+                and not (
+                    len(input) > 0
+                    and (isinstance(input[0], Message) or (isinstance(input[0], dict) and "role" in input[0]))
+                )
+            )
+        ):
+            user_message = self._get_user_message(
+                run_response=run_response,
+                session_state=session_state,
+                input=input,
+                audio=audio,
+                images=images,
+                videos=videos,
+                files=files,
+                knowledge_filters=knowledge_filters,
+                run_dependencies=run_dependencies,
+                add_dependencies_to_context=add_dependencies_to_context,
+                metadata=metadata,
+                **kwargs,
+            )
+
+        # 4.2 If input is provided as a Message, use it directly
+        elif isinstance(input, Message):
+            user_message = input
+
+        # 4.3 If input is provided as a dict, try to validate it as a Message
+        elif isinstance(input, dict):
+            try:
+                user_message = Message.model_validate(input)
+            except Exception as e:
+                log_warning(f"Failed to validate message: {e}")
+
+        # 4.4 If input is provided as a BaseModel, convert it to a Message
+        elif isinstance(input, BaseModel):
+            try:
+                # Create a user message with the BaseModel content
+                content = input.model_dump_json(indent=2, exclude_none=True)
+                user_message = Message(role=self.user_message_role, content=content)
+            except Exception as e:
+                log_warning(f"Failed to convert BaseModel to message: {e}")
+
+        # 5. Add input messages to run_messages if provided (List[Message] or List[Dict])
+        if (
+            isinstance(input, list)
+            and len(input) > 0
+            and (isinstance(input[0], Message) or (isinstance(input[0], dict) and "role" in input[0]))
+        ):
+            for _m in input:
+                if isinstance(_m, Message):
+                    run_messages.messages.append(_m)
+                    if run_messages.extra_messages is None:
+                        run_messages.extra_messages = []
+                    run_messages.extra_messages.append(_m)
+                elif isinstance(_m, dict):
+                    try:
+                        msg = Message.model_validate(_m)
+                        run_messages.messages.append(msg)
+                        if run_messages.extra_messages is None:
+                            run_messages.extra_messages = []
+                        run_messages.extra_messages.append(msg)
+                    except Exception as e:
+                        log_warning(f"Failed to validate message: {e}")
+
+        # Add user message to run_messages
+        if user_message is not None:
+            run_messages.user_message = user_message
+            run_messages.messages.append(user_message)
+
+        return run_messages
+
+    async def _aget_run_messages(
+        self,
+        *,
+        run_response: RunOutput,
+        input: Union[str, List, Dict, Message, BaseModel, List[Message]],
+        session: AgentSession,
+        session_state: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        audio: Optional[Sequence[Audio]] = None,
+        images: Optional[Sequence[Image]] = None,
+        videos: Optional[Sequence[Video]] = None,
+        files: Optional[Sequence[File]] = None,
+        knowledge_filters: Optional[Dict[str, Any]] = None,
+        add_history_to_context: Optional[bool] = None,
+        run_dependencies: Optional[Dict[str, Any]] = None,
+        add_dependencies_to_context: Optional[bool] = None,
+        add_session_state_to_context: Optional[bool] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> RunMessages:
+        """This function returns a RunMessages object with the following attributes:
+            - system_message: The system message for this run
+            - user_message: The user message for this run
+            - messages: List of messages to send to the model
+
+        To build the RunMessages object:
+        1. Add system message to run_messages
+        2. Add extra messages to run_messages if provided
+        3. Add history to run_messages
+        4. Add user message to run_messages (if input is single content)
+        5. Add input messages to run_messages if provided (if input is List[Message])
+
+        Returns:
+            RunMessages object with the following attributes:
+                - system_message: The system message for this run
+                - user_message: The user message for this run
+                - messages: List of all messages to send to the model
+
+        Typical usage:
+        run_messages = self._get_run_messages(
+            input=input, session_id=session_id, user_id=user_id, audio=audio, images=images, videos=videos, files=files, **kwargs
+        )
+        """
+
+        # Initialize the RunMessages object (no media here - that's in RunInput now)
+        run_messages = RunMessages()
+
+        # 1. Add system message to run_messages
+        system_message = await self.aget_system_message(
             session=session,
             session_state=session_state,
             user_id=user_id,
@@ -6831,6 +7527,11 @@ class Agent:
         debug_mode: Optional[bool] = None,
         **kwargs: Any,
     ) -> None:
+        if self._has_async_db():
+            raise Exception(
+                "This method is not supported with an async DB. Please use the async version of this method."
+            )
+
         add_history = add_history_to_context if add_history_to_context is not None else self.add_history_to_context
 
         if not tags_to_include_in_markdown:

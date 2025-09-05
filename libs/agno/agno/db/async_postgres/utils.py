@@ -13,8 +13,8 @@ from agno.utils.log import log_debug, log_error, log_warning
 try:
     from sqlalchemy import Table
     from sqlalchemy.dialects import postgresql
-    from sqlalchemy.inspection import inspect
     from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.inspection import inspect
     from sqlalchemy.sql.expression import text
 except ImportError:
     raise ImportError("`sqlalchemy` not installed. Please install it using `pip install sqlalchemy`")
@@ -85,13 +85,11 @@ async def is_table_available(session: AsyncSession, table_name: str, db_schema: 
 async def is_valid_table(db_engine: AsyncEngine, table_name: str, table_type: str, db_schema: str) -> bool:
     """
     Check if the existing table has the expected column names.
-
     Args:
         db_engine: The async database engine
         table_name (str): Name of the table to validate
         table_type (str): Type of the table to get schema for
         db_schema (str): Database schema name
-
     Returns:
         bool: True if table has all expected columns, False otherwise
     """
@@ -99,16 +97,15 @@ async def is_valid_table(db_engine: AsyncEngine, table_name: str, table_type: st
         expected_table_schema = get_table_schema_definition(table_type)
         expected_columns = {col_name for col_name in expected_table_schema.keys() if not col_name.startswith("_")}
 
-        # Get existing columns - we need to use a sync connection for inspection
         async with db_engine.connect() as conn:
-            def inspect_sync(connection):
-                return inspect(connection.sync_connection)
-            
-            inspector = await conn.run_sync(inspect_sync)
-            existing_columns_info = inspector.get_columns(table_name, schema=db_schema)
+
+            def inspect_sync(sync_conn):
+                inspector = inspect(sync_conn)
+                return inspector.get_columns(table_name, schema=db_schema)
+
+            existing_columns_info = await conn.run_sync(inspect_sync)
             existing_columns = set(col["name"] for col in existing_columns_info)
 
-        # Check if all expected columns exist
         missing_columns = expected_columns - existing_columns
         if missing_columns:
             log_warning(f"Missing columns {missing_columns} in table {db_schema}.{table_name}")
@@ -116,6 +113,7 @@ async def is_valid_table(db_engine: AsyncEngine, table_name: str, table_type: st
 
         log_debug(f"Table {db_schema}.{table_name} has all expected columns")
         return True
+
     except Exception as e:
         log_error(f"Error validating table schema for {db_schema}.{table_name}: {e}")
         return False

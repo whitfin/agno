@@ -245,7 +245,7 @@ class AsyncPostgresDb(AsyncBaseDb):
             async with self.db_engine.connect() as conn:
 
                 def create_table(connection):
-                    return Table(table_name, self.metadata, schema=db_schema, autoload_with=connection.sync_connection)
+                    return Table(table_name, self.metadata, schema=db_schema, autoload_with=connection)
 
                 table = await conn.run_sync(create_table)
                 return table

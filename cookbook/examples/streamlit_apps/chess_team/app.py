@@ -7,7 +7,6 @@ import streamlit as st
 from agents import get_chess_team
 from agno.utils.streamlit import (
     COMMON_CSS,
-    MODELS,
     about_section,
     add_message,
     display_chat_messages,
@@ -95,6 +94,12 @@ PIECE_SYMBOLS = {
     'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
 }
 
+MODELS = [
+    "gpt-4o",
+    "o3-mini",
+    "claude-sonnet-4-20250514",
+    "claude-opus-4-1-20250805",
+]
 
 class ChessBoard:
     """Chess board wrapper for python-chess."""
@@ -393,6 +398,74 @@ def main():
                 add_message("user", summary_prompt)
     
     ####################################################################
+    # Utility buttons
+    ####################################################################
+    if st.session_state.game_started:
+        st.sidebar.markdown("#### 🛠️ Utilities")
+        col1, col2 = st.sidebar.columns([1, 1])
+        
+        with col1:
+            if st.sidebar.button("🔄 New Chat", use_container_width=True):
+                restart_chess_game(selected_white, selected_black, selected_master)
+                st.rerun()
+                
+        with col2:
+            has_moves = st.session_state.get("move_history") and len(st.session_state.move_history) > 0
+            
+            if has_moves:
+                session_id = st.session_state.get("session_id")
+                filename = f"chess_game_{session_id or 'new'}.md"
+                
+                if st.sidebar.download_button(
+                    "💾 Export Game",
+                    export_chat_history("Chess Team Battle"),
+                    file_name=filename,
+                    mime="text/markdown",
+                    use_container_width=True,
+                    help=f"Export game with {len(st.session_state.move_history)} moves",
+                ):
+                    st.sidebar.success("Game exported!")
+            else:
+                st.sidebar.button(
+                    "💾 Export Game",
+                    disabled=True,
+                    use_container_width=True,
+                    help="No moves to export",
+                )
+    
+    ####################################################################
+    # Display Chat Messages
+    ####################################################################
+    if st.session_state.game_started:
+        display_chat_messages()
+        
+        # Generate response for user message
+        last_message = (
+            st.session_state["messages"][-1] if st.session_state.get("messages") else None
+        )
+        if last_message and last_message.get("role") == "user":
+            question = last_message["content"]
+            display_response(st.session_state.agent, question)
+    
+    ####################################################################
+    # Session management
+    ####################################################################
+    if st.session_state.game_started:
+        session_selector_widget(st.session_state.agent, selected_white, lambda model_id, session_id: get_chess_team(
+            white_model=selected_white,
+            black_model=selected_black, 
+            master_model=selected_master,
+            session_id=session_id,
+        ))
+    
+    ####################################################################
+    # About section
+    ####################################################################
+    about_section(
+        "This Chess Team Battle showcases AI agents competing in strategic chess matches. Watch different models play against each other with real-time move analysis and game coordination."
+    )
+
+    ####################################################################
     # Main Game Display
     ####################################################################
     if st.session_state.game_started and "chess_board" in st.session_state:
@@ -514,74 +587,6 @@ Do not include any other text in your response."""
                     st.error(f"Error getting move: {str(e)}")
     else:
         st.info("👈 Press 'Start Game' to begin the chess match!")
-    
-    ####################################################################
-    # Utility buttons
-    ####################################################################
-    if st.session_state.game_started:
-        st.sidebar.markdown("#### 🛠️ Utilities")
-        col1, col2 = st.sidebar.columns([1, 1])
-        
-        with col1:
-            if st.sidebar.button("🔄 New Chat", use_container_width=True):
-                restart_chess_game(selected_white, selected_black, selected_master)
-                st.rerun()
-                
-        with col2:
-            has_moves = st.session_state.get("move_history") and len(st.session_state.move_history) > 0
-            
-            if has_moves:
-                session_id = st.session_state.get("session_id")
-                filename = f"chess_game_{session_id or 'new'}.md"
-                
-                if st.sidebar.download_button(
-                    "💾 Export Game",
-                    export_chat_history("Chess Team Battle"),
-                    file_name=filename,
-                    mime="text/markdown",
-                    use_container_width=True,
-                    help=f"Export game with {len(st.session_state.move_history)} moves",
-                ):
-                    st.sidebar.success("Game exported!")
-            else:
-                st.sidebar.button(
-                    "💾 Export Game",
-                    disabled=True,
-                    use_container_width=True,
-                    help="No moves to export",
-                )
-    
-    ####################################################################
-    # Display Chat Messages
-    ####################################################################
-    if st.session_state.game_started:
-        display_chat_messages()
-        
-        # Generate response for user message
-        last_message = (
-            st.session_state["messages"][-1] if st.session_state.get("messages") else None
-        )
-        if last_message and last_message.get("role") == "user":
-            question = last_message["content"]
-            display_response(st.session_state.agent, question)
-    
-    ####################################################################
-    # Session management
-    ####################################################################
-    if st.session_state.game_started:
-        session_selector_widget(st.session_state.agent, selected_white, lambda model_id, session_id: get_chess_team(
-            white_model=selected_white,
-            black_model=selected_black, 
-            master_model=selected_master,
-            session_id=session_id,
-        ))
-    
-    ####################################################################
-    # About section
-    ####################################################################
-    about_section(
-        "This Chess Team Battle showcases AI agents competing in strategic chess matches. Watch different models play against each other with real-time move analysis and game coordination."
-    )
 
 
 if __name__ == "__main__":

@@ -27,8 +27,11 @@ View the README for instructions on how to run the application.
 from typing import Optional
 
 from agno.agent import Agent
+from agno.db.postgres import PostgresDb
 from agno.team.team import Team
-from agno.utils.streamlit import get_model_from_id
+from agno.utils.streamlit import get_model_with_provider
+
+db_url = "postgresql+psycopg://db_user:wc6%40YU8evhm1234@localhost:5433/ai"
 
 
 def get_chess_team(
@@ -51,15 +54,22 @@ def get_chess_team(
         Team instance configured for chess gameplay
     """
     
-    # Get model instances
-    white_model_instance = get_model_from_id(f"openai:{white_model}" if ":" not in white_model else white_model)
-    black_model_instance = get_model_from_id(f"anthropic:{black_model}" if ":" not in black_model else black_model)
-    master_model_instance = get_model_from_id(f"openai:{master_model}" if ":" not in master_model else master_model)
+    # Get model instances with correct provider auto-detection
+    white_model_instance = get_model_with_provider(white_model)
+    black_model_instance = get_model_with_provider(black_model)
+    master_model_instance = get_model_with_provider(master_model)
+
+    db = PostgresDb(
+        db_url=db_url,
+        session_table="sessions",
+        db_schema="ai",
+    )
 
     # Create specialized chess agents
     white_player_agent = Agent(
         name="White Player",
         model=white_model_instance,
+        db=db,
         id="white-chess-player",
         user_id=user_id,
         session_id=session_id,
@@ -93,6 +103,7 @@ def get_chess_team(
     black_player_agent = Agent(
         name="Black Player", 
         model=black_model_instance,
+        db=db,
         id="black-chess-player",
         user_id=user_id,
         session_id=session_id,
@@ -128,6 +139,7 @@ def get_chess_team(
     chess_team = Team(
         name="Chess Team",
         model=master_model_instance,
+        db=db,
         id="chess-game-team",
         user_id=user_id,
         session_id=session_id,

@@ -1065,7 +1065,7 @@ class Agent:
         """Run the Agent and return the response."""
         if self._has_async_db():
             raise Exception(
-                "This method is not supported with an async DB. Please use the async version of this method."
+                "`run()` is not supported with an async DB. Please use `arun()`."
             )
 
         # Create a run_id for this specific run

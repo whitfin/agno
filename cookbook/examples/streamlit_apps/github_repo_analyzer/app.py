@@ -153,10 +153,15 @@ def main():
 
         if has_messages:
             session_id = st.session_state.get("session_id")
-            if session_id and github_analyzer_agent.get_session_name():
-                filename = f"github_analyzer_chat_{github_analyzer_agent.get_session_name()}.md"
-            elif session_id:
-                filename = f"github_analyzer_chat_{session_id}.md"
+            if session_id:
+                try:
+                    session_name = github_analyzer_agent.get_session_name()
+                    if session_name:
+                        filename = f"github_analyzer_chat_{session_name}.md"
+                    else:
+                        filename = f"github_analyzer_chat_{session_id}.md"
+                except Exception:
+                    filename = f"github_analyzer_chat_{session_id}.md"
             else:
                 filename = "github_analyzer_chat_new.md"
 

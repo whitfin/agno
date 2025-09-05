@@ -119,7 +119,7 @@ def attach_routes(router: APIRouter, dbs: dict[str, Union[BaseDb, AsyncBaseDb]])
                 deserialize=False,
             )
         else:
-            user_memories, total_count = db.get_user_memories(
+            user_memories, total_count = db.get_user_memories(  # type: ignore
                 limit=limit,
                 page=page,
                 user_id=user_id,

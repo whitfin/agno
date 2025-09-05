@@ -61,7 +61,7 @@ def attach_routes(router: APIRouter, dbs: dict[str, Union[BaseDb, AsyncBaseDb]])
                 deserialize=False,
             )
         else:
-            sessions, total_count = db.get_sessions(
+            sessions, total_count = db.get_sessions(  # type: ignore
                 session_type=session_type,
                 component_id=component_id,
                 user_id=user_id,

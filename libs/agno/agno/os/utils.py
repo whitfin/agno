@@ -15,7 +15,7 @@ from agno.utils.log import logger
 from agno.workflow.workflow import Workflow
 
 
-def get_db(dbs: dict[str, Union[BaseDb, AsyncBaseDb]], db_id: Optional[str] = None) -> BaseDb:
+def get_db(dbs: dict[str, Union[BaseDb, AsyncBaseDb]], db_id: Optional[str] = None) -> Union[BaseDb, AsyncBaseDb]:
     """Return the database with the given ID, or the first database if no ID is provided."""
 
     # Raise if multiple databases are provided but no db_id is provided

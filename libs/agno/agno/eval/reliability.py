@@ -71,6 +71,9 @@ class ReliabilityEval:
     telemetry: bool = True
 
     def run(self, *, print_results: bool = False) -> Optional[ReliabilityResult]:
+        if isinstance(self.db, AsyncBaseDb):
+            raise ValueError("run() is not supported with an async DB. Please use arun() instead.")
+
         if self.agent_response is None and self.team_response is None:
             raise ValueError("You need to provide 'agent_response' or 'team_response' to run the evaluation.")
 

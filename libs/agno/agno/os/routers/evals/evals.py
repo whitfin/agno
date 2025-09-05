@@ -74,7 +74,7 @@ def attach_routes(
                 deserialize=False,
             )
         else:
-            eval_runs, total_count = db.get_eval_runs(
+            eval_runs, total_count = db.get_eval_runs(  # type: ignore
                 limit=limit,
                 page=page,
                 sort_by=sort_by,

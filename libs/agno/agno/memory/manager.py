@@ -288,6 +288,11 @@ class MemoryManager:
             log_warning("MemoryDb not provided.")
             return "Please provide a db to store memories"
 
+        if isinstance(self.db, AsyncBaseDb):
+            raise ValueError(
+                "create_user_memories() is not supported with an async DB. Please use acreate_user_memories() instead."
+            )
+
         if not messages and not message:
             raise ValueError("You must provide either a message or a list of messages")
 

@@ -491,6 +491,9 @@ class PerformanceEval:
         6. Print results as requested
         7. Log results to the Agno platform if requested
         """
+        if isinstance(self.db, AsyncBaseDb):
+            raise ValueError("run() is not supported with an async DB. Please use arun() instead.")
+
         from rich.console import Console
         from rich.live import Live
         from rich.status import Status

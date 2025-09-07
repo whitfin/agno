@@ -334,10 +334,12 @@ def process_research_workflow():
                     st.error(f"Web search error: {str(e)}")
                     status.update(label="❌ Web search failed", state="error")
 
-        # Step 4: Generate Final Blog
-        arxiv_results = st.session_state.get("arxiv_results")
+        # Display completed web search results
         exa_results = st.session_state.get("exa_results")
-        
+        arxiv_results = st.session_state.get("arxiv_results")
+
+
+        # Step 4: Generate Final Blog
         if (arxiv_results or exa_results) and not st.session_state.get("final_blog"):
             with st.status("📝 Generating comprehensive research blog...", expanded=True) as status:
                 try:
@@ -357,18 +359,7 @@ def process_research_workflow():
                     blog_response = agents["research_editor"].run(research_content)
                     st.session_state["final_blog"] = blog_response.content
                     
-                    # Display the blog
-                    st.markdown("### 📰 Generated Research Blog")
-                    st.markdown("---")
-                    st.markdown(blog_response.content)
-                    
                     status.update(label="✅ Research blog generated", state="complete", expanded=False)
-                    
-                    # Add to chat history
-                    add_message("assistant", f"✅ **Research Complete!**\n\nI've successfully researched '{topic}' and generated a comprehensive technical blog. The research covered:\n\n" + 
-                              (f"📚 {len(arxiv_results.results)} ArXiv papers\n" if arxiv_results else "") +
-                              (f"🌐 {len(exa_results.results)} web sources\n" if exa_results else "") +
-                              "\nThe generated blog synthesizes findings from multiple sources with proper citations.")
                     
                 except Exception as e:
                     st.error(f"Blog generation error: {str(e)}")

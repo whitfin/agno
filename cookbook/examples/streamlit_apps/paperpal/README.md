@@ -44,9 +44,8 @@ streamlit run cookbook/examples/streamlit_apps/paperpal/app.py
 1. **Topic Definition**: Enter your research topic or select from trending topics
 2. **Configuration**: Choose research sources (ArXiv, Web) and parameters
 3. **Search Term Generation**: AI creates strategic search terms
-4. **Multi-Source Research**: Parallel searches across selected databases
-5. **Content Analysis**: AI selects and analyzes most relevant sources
-6. **Blog Synthesis**: Generation of comprehensive technical blog with citations
+4. **Content Analysis**: AI selects and analyzes most relevant sources
+5. **Blog Synthesis**: Generation of comprehensive technical blog with citations
 
 ### Supported Research Areas
 

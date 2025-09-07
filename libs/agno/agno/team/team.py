@@ -100,7 +100,6 @@ from agno.utils.reasoning import (
 from agno.utils.response import (
     async_generator_wrapper,
     check_if_run_cancelled,
-    escape_markdown_tags,
     generator_wrapper,
 )
 from agno.utils.safe_formatter import SafeFormatter
@@ -1031,7 +1030,6 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
-        store_member_responses: Optional[bool] = None,
         add_history_to_context: Optional[bool] = None,
         add_dependencies_to_context: Optional[bool] = None,
         add_session_state_to_context: Optional[bool] = None,
@@ -1057,7 +1055,6 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
-        store_member_responses: Optional[bool] = None,
         add_history_to_context: Optional[bool] = None,
         add_dependencies_to_context: Optional[bool] = None,
         add_session_state_to_context: Optional[bool] = None,
@@ -1082,7 +1079,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        store_member_responses: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         add_history_to_context: Optional[bool] = None,
         add_dependencies_to_context: Optional[bool] = None,
@@ -1097,9 +1093,6 @@ class Team:
 
         # Validate input against input_schema if provided
         validated_input = self._validate_input(input)
-
-        if store_member_responses is not None:
-            self.store_member_responses = store_member_responses
 
         # Create a run_id for this specific run
         run_id = str(uuid4())
@@ -1159,9 +1152,6 @@ class Team:
         if stream is None:
             stream = False if self.stream is None else self.stream
 
-        if store_member_responses is None:
-            store_member_responses = False if self.store_member_responses is None else self.store_member_responses
-
         if stream_intermediate_steps is None:
             stream_intermediate_steps = (
                 False if self.stream_intermediate_steps is None else self.stream_intermediate_steps
@@ -1217,7 +1207,6 @@ class Team:
             audio=audio,
             files=files,
             workflow_context=workflow_context,
-            store_member_responses=store_member_responses,
             debug_mode=debug_mode,
             add_history_to_context=add_history,
             dependencies=run_dependencies,
@@ -1583,7 +1572,6 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
-        store_member_responses: Optional[bool] = None,
         add_history_to_context: Optional[bool] = None,
         add_dependencies_to_context: Optional[bool] = None,
         add_session_state_to_context: Optional[bool] = None,
@@ -1608,7 +1596,6 @@ class Team:
         images: Optional[Sequence[Image]] = None,
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
-        store_member_responses: Optional[bool] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         add_history_to_context: Optional[bool] = None,
         add_dependencies_to_context: Optional[bool] = None,
@@ -1635,7 +1622,6 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         files: Optional[Sequence[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
-        store_member_responses: Optional[bool] = None,
         add_history_to_context: Optional[bool] = None,
         add_dependencies_to_context: Optional[bool] = None,
         add_session_state_to_context: Optional[bool] = None,
@@ -1649,9 +1635,6 @@ class Team:
 
         # Validate input against input_schema if provided
         validated_input = self._validate_input(input)
-
-        if store_member_responses is not None:
-            self.store_member_responses = store_member_responses
 
         # Create a run_id for this specific run
         run_id = str(uuid4())
@@ -1709,9 +1692,6 @@ class Team:
         if stream is None:
             stream = False if self.stream is None else self.stream
 
-        if store_member_responses is None:
-            store_member_responses = False if self.store_member_responses is None else self.store_member_responses
-
         if stream_intermediate_steps is None:
             stream_intermediate_steps = (
                 False if self.stream_intermediate_steps is None else self.stream_intermediate_steps
@@ -1768,7 +1748,6 @@ class Team:
             audio=audio,
             files=files,
             workflow_context=workflow_context,
-            store_member_responses=store_member_responses,
             debug_mode=debug_mode,
             add_history_to_context=add_history_to_context,
             dependencies=dependencies,
@@ -2976,32 +2955,6 @@ class Team:
                     return member.name or entity_id
         return entity_id
 
-    def _parse_response_content(
-        self,
-        run_response: Union[TeamRunOutput, RunOutput],
-        tags_to_include_in_markdown: Set[str],
-        show_markdown: bool = True,
-    ) -> Any:
-        from rich.json import JSON
-        from rich.markdown import Markdown
-
-        if isinstance(run_response.content, str):
-            if show_markdown:
-                escaped_content = escape_markdown_tags(run_response.content, tags_to_include_in_markdown)
-                return Markdown(escaped_content)
-            else:
-                return run_response.get_content_as_string(indent=4)
-        elif isinstance(run_response.content, BaseModel):
-            try:
-                return JSON(run_response.content.model_dump_json(exclude_none=True), indent=2)
-            except Exception as e:
-                log_warning(f"Failed to convert response to JSON: {e}")
-        else:
-            try:
-                return JSON(json.dumps(run_response.content), indent=4)
-            except Exception as e:
-                log_warning(f"Failed to convert response to JSON: {e}")
-
     def _scrub_media_from_run_output(self, run_response: TeamRunOutput) -> None:
         """
         Completely remove all media from RunOutput when store_media=False.
@@ -3990,7 +3943,6 @@ class Team:
         audio: Optional[Sequence[Audio]] = None,
         files: Optional[Sequence[File]] = None,
         workflow_context: Optional[Dict] = None,
-        store_member_responses: bool = False,
         debug_mode: Optional[bool] = None,
         add_history_to_context: Optional[bool] = None,
         dependencies: Optional[Dict[str, Any]] = None,
@@ -4060,25 +4012,24 @@ class Team:
             )
 
         delegate_task_func = self._get_delegate_task_function(
-                run_response=run_response,
-                session=session,
-                session_state=session_state,
-                team_run_context=team_run_context,
-                input=user_message,
-                user_id=user_id,
-                stream=self.stream or False,
-                stream_intermediate_steps=self.stream_intermediate_steps,
-                async_mode=async_mode,
-                images=images,  # type: ignore
-                videos=videos,  # type: ignore
-                audio=audio,  # type: ignore
-                files=files,  # type: ignore
-                knowledge_filters=knowledge_filters,
-                workflow_context=workflow_context,
-                store_member_responses=store_member_responses,
-                debug_mode=debug_mode,
-                add_history_to_context=add_history_to_context,
-            )
+            run_response=run_response,
+            session=session,
+            session_state=session_state,
+            team_run_context=team_run_context,
+            input=user_message,
+            user_id=user_id,
+            stream=self.stream or False,
+            stream_intermediate_steps=self.stream_intermediate_steps,
+            async_mode=async_mode,
+            images=images,  # type: ignore
+            videos=videos,  # type: ignore
+            audio=audio,  # type: ignore
+            files=files,  # type: ignore
+            knowledge_filters=knowledge_filters,
+            workflow_context=workflow_context,
+            debug_mode=debug_mode,
+            add_history_to_context=add_history_to_context,
+        )
 
         _tools.append(delegate_task_func)
         if self.get_member_information_tool:
@@ -5173,7 +5124,6 @@ class Team:
 
         return None
 
-
     def _get_delegate_task_function(
         self,
         run_response: TeamRunOutput,
@@ -5191,11 +5141,9 @@ class Team:
         files: Optional[List[File]] = None,
         knowledge_filters: Optional[Dict[str, Any]] = None,
         workflow_context: Optional[Dict] = None,
-        store_member_responses: bool = False,
         debug_mode: Optional[bool] = None,
         add_history_to_context: Optional[bool] = None,
     ) -> Function:
-
         if not images:
             images = []
         if not videos:
@@ -5205,7 +5153,9 @@ class Team:
         if not files:
             files = []
 
-        def _setup_delegate_task_to_member(member_agent: Union[Agent, "Team"], task_description: str, expected_output: Optional[str] = None):
+        def _setup_delegate_task_to_member(
+            member_agent: Union[Agent, "Team"], task_description: str, expected_output: Optional[str] = None
+        ):
             # 1. Initialize the member agent
             self._initialize_member(member_agent)
 
@@ -5246,7 +5196,6 @@ class Team:
                 if member_agent.output_schema is not None:
                     self._member_response_model = member_agent.output_schema
 
-
             # 6. Handle enable_agentic_knowledge_filters on the member agent
             if self.enable_agentic_knowledge_filters and not member_agent.enable_agentic_knowledge_filters:
                 member_agent.enable_agentic_knowledge_filters = self.enable_agentic_knowledge_filters
@@ -5257,22 +5206,29 @@ class Team:
             member_agent_run_response: Optional[Union[TeamRunOutput, RunOutput]],
             member_agent: Union[Agent, "Team"],
             member_agent_task: Union[str, Message],
-            member_session_state_copy: Dict[str, Any]):
+            member_session_state_copy: Dict[str, Any],
+        ):
             # Add team run id to the member run
             if member_agent_run_response is not None:
                 member_agent_run_response.parent_run_id = run_response.run_id  # type: ignore
 
             # Update the team run context
-            member_name = member_agent.name if member_agent.name else member_agent.id
+            member_name = member_agent.name if member_agent.name else member_agent.id if member_agent.id else "Unknown"
+            if isinstance(member_agent_task, str):
+                normalized_task = member_agent_task
+            elif member_agent_task.content:
+                normalized_task = str(member_agent_task.content)
+            else:
+                normalized_task = ""
             self._add_interaction_to_team_run_context(
                 team_run_context=team_run_context,
                 member_name=member_name,
-                task=member_agent_task if isinstance(member_agent_task, str) else member_agent_task.content,
+                task=normalized_task,
                 run_response=member_agent_run_response,  # type: ignore
             )
 
             # Add the member run to the team run response if enabled
-            if store_member_responses and run_response and member_agent_run_response:
+            if run_response and member_agent_run_response:
                 run_response.add_member_run(member_agent_run_response)
 
             # Add the member run to the team session
@@ -5401,7 +5357,9 @@ class Team:
             # Afterward, switch back to the team logger
             use_team_logger()
 
-            _process_delegate_task_to_member(member_agent_run_response, member_agent, member_agent_task, member_session_state_copy)
+            _process_delegate_task_to_member(
+                member_agent_run_response, member_agent, member_agent_task, member_session_state_copy
+            )
 
         async def adelegate_task_to_member(
             member_id: str, task_description: str, expected_output: Optional[str] = None
@@ -5514,14 +5472,16 @@ class Team:
             # Afterward, switch back to the team logger
             use_team_logger()
 
-            _process_delegate_task_to_member(member_agent_run_response, member_agent, member_agent_task, member_session_state_copy)
+            _process_delegate_task_to_member(
+                member_agent_run_response, member_agent, member_agent_task, member_session_state_copy
+            )
 
         # When the task should be delegated to all members
         def delegate_task_to_members(
             task_description: str, expected_output: Optional[str] = None
         ) -> Iterator[Union[RunOutputEvent, TeamRunOutputEvent, str]]:
             """
-            Use this function to delegate a task akk the member agents and return a response.
+            Use this function to delegate a task to all the member agents and return a response.
             You must provide a clear and concise description of the task the member should achieve AND the expected output.
 
             Args:
@@ -5533,7 +5493,9 @@ class Team:
 
             # Run all the members sequentially
             for member_agent_index, member_agent in enumerate(self.members):
-                member_agent_task, history = _setup_delegate_task_to_member(member_agent, task_description, expected_output)
+                member_agent_task, history = _setup_delegate_task_to_member(
+                    member_agent, task_description, expected_output
+                )
 
                 member_session_state_copy = copy(session_state)
                 if stream:
@@ -5609,11 +5571,12 @@ class Team:
                     except Exception as e:
                         yield f"Agent {member_agent.name}: Error - {str(e)}"
 
-                _process_delegate_task_to_member(member_agent_run_response, member_agent, member_agent_task, member_session_state_copy)
+                _process_delegate_task_to_member(
+                    member_agent_run_response, member_agent, member_agent_task, member_session_state_copy
+                )
 
             # After all the member runs, switch back to the team logger
             use_team_logger()
-
 
         # When the task should be delegated to all members
         async def adelegate_task_to_members(
@@ -5635,7 +5598,9 @@ class Team:
                 queue: "asyncio.Queue[Union[RunOutputEvent, TeamRunOutputEvent, str, object]]" = asyncio.Queue()
 
                 async def stream_member(agent: Union[Agent, "Team"], idx: int) -> None:
-                    member_agent_task, history = _setup_delegate_task_to_member(agent, task_description, expected_output)
+                    member_agent_task, history = _setup_delegate_task_to_member(
+                        agent, task_description, expected_output
+                    )
                     member_session_state_copy = copy(session_state)
 
                     member_stream = agent.arun(  # type: ignore
@@ -5665,7 +5630,9 @@ class Team:
                             check_if_run_cancelled(member_agent_run_output_event)
                             await queue.put(member_agent_run_output_event)
                     finally:
-                        _process_delegate_task_to_member(member_agent_run_response, member_agent, member_agent_task, member_session_state_copy)
+                        _process_delegate_task_to_member(
+                            member_agent_run_response, member_agent, member_agent_task, member_session_state_copy
+                        )
 
                 # Initialize and launch all members
                 tasks: List[asyncio.Task[None]] = []
@@ -5694,14 +5661,15 @@ class Team:
                         with contextlib.suppress(Exception):
                             await t
 
-
             else:
                 # Non-streaming concurrent run of members; collect results when done
                 tasks = []
                 for member_agent_index, member_agent in enumerate(self.members):
                     current_agent = member_agent
                     current_index = member_agent_index
-                    member_agent_task, history = _setup_delegate_task_to_member(current_agent, task_description, expected_output)
+                    member_agent_task, history = _setup_delegate_task_to_member(
+                        current_agent, task_description, expected_output
+                    )
 
                     async def run_member_agent(agent=current_agent) -> str:
                         member_session_state_copy = copy(session_state)
@@ -5723,7 +5691,9 @@ class Team:
                         )
                         check_if_run_cancelled(member_agent_run_response)
 
-                        _process_delegate_task_to_member(member_agent_run_response, member_agent, member_agent_task, member_session_state_copy)
+                        _process_delegate_task_to_member(
+                            member_agent_run_response, member_agent, member_agent_task, member_session_state_copy
+                        )
 
                         member_name = member_agent.name if member_agent.name else f"agent_{member_agent_index}"
                         try:
@@ -5779,8 +5749,6 @@ class Team:
             delegate_func.show_result = True
 
         return delegate_func
-
-
 
     ###########################################################################
     # Session Management
@@ -5928,6 +5896,10 @@ class Team:
 
             return team_session
 
+        import traceback
+
+        traceback.print_stack()
+
         log_warning(f"TeamSession {session_id_to_load} not found in db")
         return None
 
@@ -5938,6 +5910,12 @@ class Team:
                 session.session_data["session_state"].pop("current_session_id", None)  # type: ignore
                 session.session_data["session_state"].pop("current_user_id", None)  # type: ignore
                 session.session_data["session_state"].pop("current_run_id", None)  # type: ignore
+
+            # scrub the member responses if not storing them
+            if not self.store_member_responses and session.runs is not None:
+                for run in session.runs:
+                    if hasattr(run, "member_responses"):
+                        run.member_responses = []
             self._upsert_session(session=session)
             log_debug(f"Created or updated TeamSession record: {session.session_id}")
 

@@ -473,7 +473,6 @@ class Knowledge:
 
                 # TODO: Here we should download the file
 
-
                 if content.reader:
                     reader = content.reader
                 else:

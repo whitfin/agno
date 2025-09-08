@@ -4001,11 +4001,11 @@ class Team:
                 run_response=run_response,
                 session_state=session_state,
                 input_message=input_message,
+                user_id=user_id,
                 audio=audio,
                 images=images,
                 videos=videos,
                 files=files,
-                user_id=user_id,
                 dependencies=dependencies,
                 add_dependencies_to_context=add_dependencies_to_context,
                 metadata=metadata,
@@ -5164,15 +5164,17 @@ class Team:
                 team_run_context, images, videos, audio
             )
 
+            member_agent_task: Union[str, Message]
+
             # 3. Create the member agent task or use the input directly
             if self.use_input_directly:
-                member_agent_task = input
+                member_agent_task = input  # type: ignore
             else:
                 # Don't override the expected output of a member agent
                 if member_agent.expected_output is not None:
                     expected_output = None
 
-                member_agent_task = format_member_agent_task(
+                member_agent_task = format_member_agent_task(  # type: ignore
                     task_description, expected_output, team_member_interactions_str
                 )
 

@@ -428,8 +428,8 @@ def print_response_stream(
                     reasoning_steps = resp.reasoning_steps  # type: ignore
 
                 # Collect team tool calls, avoiding duplicates
-                if resp.event == TeamRunEvent.tool_call_completed and resp.tool: # type: ignore
-                    tool = resp.tool # type: ignore
+                if resp.event == TeamRunEvent.tool_call_completed and resp.tool:  # type: ignore
+                    tool = resp.tool  # type: ignore
                     # Generate a unique ID for this tool call
                     if tool.tool_call_id:
                         tool_id = tool.tool_call_id

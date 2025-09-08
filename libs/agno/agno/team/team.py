@@ -733,6 +733,12 @@ class Team:
         # Make sure for the team, we are using the team logger
         use_team_logger()
 
+        if self.delegate_to_all_members and self.respond_directly:
+            log_warning(
+                "Delegate to all members and respond directly are both enabled. Respond directly will be ignored."
+            )
+            self.respond_directly = False
+
         self._set_default_model()
 
         # Set debug mode
@@ -5494,7 +5500,7 @@ class Team:
             """
 
             # Run all the members sequentially
-            for member_agent_index, member_agent in enumerate(self.members):
+            for _, member_agent in enumerate(self.members):
                 member_agent_task, history = _setup_delegate_task_to_member(
                     member_agent, task_description, expected_output
                 )
@@ -5514,6 +5520,9 @@ class Team:
                         stream=True,
                         stream_intermediate_steps=stream_intermediate_steps,
                         workflow_context=workflow_context,
+                        knowledge_filters=knowledge_filters
+                        if not member_agent.knowledge_filters and member_agent.knowledge
+                        else None,
                         debug_mode=debug_mode,
                         add_history_to_context=add_history_to_context,
                         yield_run_response=True,
@@ -5546,6 +5555,9 @@ class Team:
                         files=files,
                         stream=False,
                         workflow_context=workflow_context,
+                        knowledge_filters=knowledge_filters
+                        if not member_agent.knowledge_filters and member_agent.knowledge
+                        else None,
                         debug_mode=debug_mode,
                         add_history_to_context=add_history_to_context,
                     )
@@ -5618,6 +5630,9 @@ class Team:
                         stream_intermediate_steps=stream_intermediate_steps,
                         workflow_context=workflow_context,
                         debug_mode=debug_mode,
+                        knowledge_filters=knowledge_filters
+                        if not member_agent.knowledge_filters and member_agent.knowledge
+                        else None,
                         add_history_to_context=add_history_to_context,
                         yield_run_response=True,
                     )
@@ -5689,6 +5704,9 @@ class Team:
                             stream_intermediate_steps=stream_intermediate_steps,
                             debug_mode=debug_mode,
                             workflow_context=workflow_context,
+                            knowledge_filters=knowledge_filters
+                            if not member_agent.knowledge_filters and member_agent.knowledge
+                            else None,
                             add_history_to_context=add_history_to_context,
                         )
                         check_if_run_cancelled(member_agent_run_response)

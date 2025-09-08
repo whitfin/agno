@@ -37,7 +37,7 @@ class CSVReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.FILE, ContentType.CSV, ContentType.XLSX, ContentType.XLS]
+        return [ContentType.CSV, ContentType.XLSX, ContentType.XLS, ContentType.URL_CSV, ContentType.URL_XLSX, ContentType.URL_XLS, ContentType.URL_FILE]
 
     def read(
         self, file: Union[Path, IO[Any]], delimiter: str = ",", quotechar: str = '"', name: Optional[str] = None

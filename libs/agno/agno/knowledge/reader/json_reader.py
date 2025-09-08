@@ -34,7 +34,7 @@ class JSONReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.JSON]
+        return [ContentType.JSON, ContentType.URL_JSON, ContentType.URL_FILE]
 
     def read(self, path: Union[Path, IO[Any]], name: Optional[str] = None) -> List[Document]:
         try:

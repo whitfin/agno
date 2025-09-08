@@ -324,7 +324,7 @@ class PDFReader(BasePDFReader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.PDF]
+        return [ContentType.PDF, ContentType.URL_PDF, ContentType.URL_FILE]
 
     def read(
         self, pdf: Union[str, Path, IO[Any]], name: Optional[str] = None, password: Optional[str] = None

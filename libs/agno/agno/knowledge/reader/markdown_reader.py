@@ -46,7 +46,7 @@ class MarkdownReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.MARKDOWN]
+        return [ContentType.MARKDOWN, ContentType.URL_MD, ContentType.URL_FILE]
 
     def __init__(
         self,

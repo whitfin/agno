@@ -35,7 +35,7 @@ class DocxReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.DOCX, ContentType.DOC]
+        return [ContentType.DOCX, ContentType.DOC, ContentType.URL_DOCX, ContentType.URL_DOC, ContentType.URL_FILE]
 
     def read(self, file: Union[Path, IO[Any]], name: Optional[str] = None) -> List[Document]:
         """Read a docx file and return a list of documents"""

@@ -30,7 +30,7 @@ class TextReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.TXT]
+        return [ContentType.TXT, ContentType.URL_TXT, ContentType.URL_FILE]
 
     def read(self, file: Union[Path, IO[Any]], name: Optional[str] = None) -> List[Document]:
         try:

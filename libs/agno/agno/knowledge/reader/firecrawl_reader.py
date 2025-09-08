@@ -55,7 +55,7 @@ class FirecrawlReader(Reader):
 
     @classmethod
     def get_supported_content_types(self) -> List[ContentType]:
-        return [ContentType.URL]
+        return [ContentType.WEBSITE, ContentType.URL_HTML, ContentType.URL_HTM, ContentType.URL_RTF, ContentType.URL_FILE, ContentType.URL_XLSX, ContentType.URL_XLS, ContentType.URL_CSV, ContentType.URL_XML, ContentType.URL_PDF, ContentType.URL_DOCX, ContentType.URL_DOC, ContentType.URL_JSON, ContentType.URL_MD, ContentType.URL_TXT]
 
     def scrape(self, url: str, name: Optional[str] = None) -> List[Document]:
         """

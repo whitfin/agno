@@ -29,7 +29,6 @@ team = Team(
     db=db,
     enable_user_memories=True,
     members=[agent],
-    debug_mode=True,
 )
 
 # Setup the AgentOS

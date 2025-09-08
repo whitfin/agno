@@ -2,7 +2,7 @@
 
 This example shows how to create an interactive CLI app with a collaborative writing team.
 
-Run `pip install openai agno duckduckgo-search` to install dependencies.
+Run `pip install openai agno ddgs` to install dependencies.
 """
 
 from textwrap import dedent

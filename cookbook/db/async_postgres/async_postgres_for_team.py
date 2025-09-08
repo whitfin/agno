@@ -1,8 +1,9 @@
 """
-1. Run: `pip install openai duckduckgo-search newspaper4k lxml_html_clean agno` to install the dependencies
+1. Run: `pip install openai ddgs newspaper4k lxml_html_clean agno` to install the dependencies
 2. Run: `python cookbook/storage/postgres_storage/postgres_storage_for_team.py` to run the team
 """
 
+import asyncio
 from typing import List
 
 from agno.agent import Agent
@@ -55,4 +56,4 @@ hn_team = Team(
     show_members_responses=True,
 )
 
-hn_team.print_response("Write an article about the top 2 stories on hackernews")
+asyncio.run(hn_team.aprint_response("Write an article about the top 2 stories on hackernews"))

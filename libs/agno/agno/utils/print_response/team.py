@@ -1182,7 +1182,7 @@ async def aprint_response_stream(
         # Dict to track member response panels by member_id
         member_response_panels = {}
 
-         final_run_response = None
+        final_run_response = None
         async for resp in team.arun(  # type: ignore
             input=input,
             audio=audio,

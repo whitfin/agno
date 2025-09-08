@@ -658,7 +658,7 @@ Remember: You must only compare the agent_output to the expected_output. The exp
         # Log results to the Agno DB if requested
         if self.db:
             if isinstance(self.db, AsyncBaseDb):
-                log_error("You are using an async DB in an async method. The evaluation won't be stored in the DB.")
+                log_error("You are using an async DB in a non-async method. The evaluation won't be stored in the DB.")
 
             else:
                 if self.agent is not None:

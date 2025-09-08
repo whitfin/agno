@@ -35,7 +35,7 @@ multi_language_team = Team(
         "For unsupported languages like Italian, respond in English with the above message.",
     ],
     respond_directly=True,
-    determine_input_for_member=False,
+    determine_input_for_members=False,
     show_members_responses=True,
 )
 

@@ -5140,7 +5140,7 @@ class Team:
         stream: bool = False,
         stream_intermediate_steps: bool = False,
         async_mode: bool = False,
-        input: Optional[Message] = None,  # Used for determine_input_for_member=False
+        input: Optional[Message] = None,  # Used for determine_input_for_members=False
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
         audio: Optional[List[Audio]] = None,

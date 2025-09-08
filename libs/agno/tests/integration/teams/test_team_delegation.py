@@ -48,7 +48,7 @@ def test_respond_directly():
     team = Team(
         name="Content Team",
         model=OpenAIChat("gpt-4o"),
-        determine_input_for_member=False,
+        determine_input_for_members=False,
         respond_directly=True,
         members=[english_agent, spanish_agent],
         instructions=[
@@ -81,7 +81,7 @@ def test_use_input_directly_structured_input():
     team = Team(
         name="Content Team",
         model=OpenAIChat("gpt-4o"),
-        determine_input_for_member=False,
+        determine_input_for_members=False,
         members=[researcher],
         instructions=[
             "Have the Researcher gather information on the topic.",

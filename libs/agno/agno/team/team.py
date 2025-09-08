@@ -130,12 +130,12 @@ class Team:
     role: Optional[str] = None
 
     # If True, the team leader won't process responses from the members and instead will return them directly
-    # Should not be used in combination with delegate_to_all_members
+    # Should not be used in combination with delegate_task_to_all_members
     respond_directly: bool = False
     # If True, the team leader will delegate to all members automatically, without any decision from the team leader
-    delegate_to_all_members: bool = False
-    # If True, the team leader will use the input directly, without synthesizing its own input
-    use_input_directly: bool = False
+    delegate_task_to_all_members: bool = False
+    # Set to false if you want to send the run input directly to the member agents
+    determine_input_for_member: bool = True
 
     # --- If this Team is part of a workflow ---
     # Optional workflow ID. Indicates this team is part of a workflow.
@@ -355,8 +355,8 @@ class Team:
         name: Optional[str] = None,
         role: Optional[str] = None,
         respond_directly: bool = False,
-        use_input_directly: bool = False,
-        delegate_to_all_members: bool = False,
+        determine_input_for_member: bool = True,
+        delegate_task_to_all_members: bool = False,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
         session_state: Optional[Dict[str, Any]] = None,
@@ -442,8 +442,8 @@ class Team:
         self.role = role
 
         self.respond_directly = respond_directly
-        self.use_input_directly = use_input_directly
-        self.delegate_to_all_members = delegate_to_all_members
+        self.determine_input_for_member = determine_input_for_member
+        self.delegate_task_to_all_members = delegate_task_to_all_members
 
         self.user_id = user_id
         self.session_id = session_id
@@ -733,7 +733,7 @@ class Team:
         # Make sure for the team, we are using the team logger
         use_team_logger()
 
-        if self.delegate_to_all_members and self.respond_directly:
+        if self.delegate_task_to_all_members and self.respond_directly:
             log_warning(
                 "Delegate to all members and respond directly are both enabled. Respond directly will be ignored."
             )
@@ -4002,7 +4002,7 @@ class Team:
 
         # Get the user message if we are using the input directly
         user_message = None
-        if self.use_input_directly:
+        if self.determine_input_for_member is False:
             user_message = self._get_user_message(
                 run_response=run_response,
                 session_state=session_state,
@@ -4315,7 +4315,7 @@ class Team:
 
         system_message_content += "\n<how_to_respond>\n"
 
-        if self.delegate_to_all_members:
+        if self.delegate_task_to_all_members:
             system_message_content += (
                 "- You can either respond directly or use the `delegate_task_to_members` tool to delegate a task to all members in your team to get a collaborative response.\n"
                 "- To delegate a task to all members in your team, call `delegate_task_to_members` ONLY once. This will delegate a task to all members in your team.\n"
@@ -5140,7 +5140,7 @@ class Team:
         stream: bool = False,
         stream_intermediate_steps: bool = False,
         async_mode: bool = False,
-        input: Optional[Message] = None,  # Used for use_input_directly
+        input: Optional[Message] = None,  # Used for determine_input_for_member=False
         images: Optional[List[Image]] = None,
         videos: Optional[List[Video]] = None,
         audio: Optional[List[Audio]] = None,
@@ -5173,7 +5173,7 @@ class Team:
             member_agent_task: Union[str, Message]
 
             # 3. Create the member agent task or use the input directly
-            if self.use_input_directly:
+            if self.determine_input_for_member is False:
                 member_agent_task = input  # type: ignore
             else:
                 # Don't override the expected output of a member agent
@@ -5749,7 +5749,7 @@ class Team:
             # After all the member runs, switch back to the team logger
             use_team_logger()
 
-        if self.delegate_to_all_members:
+        if self.delegate_task_to_all_members:
             if async_mode:
                 delegate_function = adelegate_task_to_members  # type: ignore
             else:

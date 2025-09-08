@@ -48,7 +48,7 @@ def test_respond_directly():
     team = Team(
         name="Content Team",
         model=OpenAIChat("gpt-4o"),
-        use_input_directly=True,
+        determine_input_for_member=False,
         respond_directly=True,
         members=[english_agent, spanish_agent],
         instructions=[
@@ -81,7 +81,7 @@ def test_use_input_directly_structured_input():
     team = Team(
         name="Content Team",
         model=OpenAIChat("gpt-4o"),
-        use_input_directly=True,
+        determine_input_for_member=False,
         members=[researcher],
         instructions=[
             "Have the Researcher gather information on the topic.",
@@ -127,7 +127,7 @@ def test_delegate_to_all_members():
 
     team = Team(
         name="Collaborative Team",
-        delegate_to_all_members=True,
+        delegate_task_to_all_members=True,
         model=OpenAIChat("gpt-4o"),
         members=[agent1, agent2],
         instructions=[

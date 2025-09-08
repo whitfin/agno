@@ -156,7 +156,7 @@ def test_team_memory_impact_with_gc_monitoring(shared_db):
         model=OpenAIChat(id="gpt-4o-mini"),
         members=[calculator_agent, text_agent],
         respond_directly=True,
-        use_input_directly=True,
+        determine_input_for_member=False,
         db=shared_db,
         enable_user_memories=True,
         instructions="Route mathematical questions to the calculator agent and text processing questions to the text processor agent.",
@@ -446,7 +446,7 @@ async def test_team_memory_with_multiple_members(shared_db):
         model=MockModel(id="gpt-4o-mini"),  # type: ignore
         members=[agent1, agent2, agent3],
         respond_directly=True,
-        use_input_directly=True,
+        determine_input_for_member=False,
         db=shared_db,
         enable_user_memories=True,
         add_history_to_context=True,

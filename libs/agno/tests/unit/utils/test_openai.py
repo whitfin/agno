@@ -174,7 +174,7 @@ def test_audio_to_message_url(url, expected_format, mocker):
     mock_content = b"mocked_audio_content_for_" + url.encode()
     mock_audio = Audio(url=url)
     # Mock the property that fetches URL content
-    mocker.patch.object(Audio, "audio_url_content", new_callable=mocker.PropertyMock, return_value=mock_content)
+    mocker.patch.object(Audio, "get_content_bytes", new_callable=mocker.PropertyMock, return_value=mock_content)
 
     result = audio_to_message([mock_audio])
     assert len(result) == 1
@@ -187,7 +187,7 @@ def test_audio_to_message_url(url, expected_format, mocker):
 def test_audio_to_message_url_no_fetch(mocker):
     """Test audio_to_message when URL fetch returns None."""
     mock_audio = Audio(url="http://example.com/bad_audio.wav")
-    mocker.patch.object(Audio, "audio_url_content", new_callable=mocker.PropertyMock, return_value=None)
+    mocker.patch.object(Audio, "get_content_bytes", new_callable=mocker.PropertyMock, return_value=None)
     result = audio_to_message([mock_audio])
     assert result == []  # Should skip if content is None
 
@@ -197,7 +197,7 @@ def test_audio_to_message_mixed(tmp_wav_file, dummy_audio_bytes, mocker):
     mock_content = b"more_mock_audio"
     # Configure mock to return content first time, None second time for the same object if needed,
     # but here we use different objects anyway. Patching the class affects all instances.
-    mock_prop = mocker.patch.object(Audio, "audio_url_content", new_callable=mocker.PropertyMock)
+    mock_prop = mocker.patch.object(Audio, "get_content_bytes", new_callable=mocker.PropertyMock)
     mock_prop.side_effect = [mock_content, None]  # Define side effects for consecutive calls
 
     audios = [

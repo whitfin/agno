@@ -55,7 +55,6 @@ multi_language_team = Team(
     name="Multi Language Team",
     model=OpenAIChat("o3-mini"),
     respond_directly=True,
-    # use_input_directly=True,
     members=[
         english_agent,
         spanish_agent,

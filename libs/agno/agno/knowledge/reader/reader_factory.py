@@ -190,13 +190,29 @@ class ReaderFactory:
 
     @classmethod
     def get_all_reader_keys(cls) -> List[str]:
-        """Get all available reader keys."""
+        """Get all available reader keys in priority order."""
         # Extract reader keys from method names
+
+        PREFIX = "_get_"
+        SUFFIX = "_reader"
+
         reader_keys = []
         for attr_name in dir(cls):
-            if attr_name.startswith("_get_") and attr_name.endswith("_reader"):
-                reader_key = attr_name[5:-7]  # Remove "_get_" prefix and "_reader" suffix
+            if attr_name.startswith(PREFIX) and attr_name.endswith(SUFFIX):
+                reader_key = attr_name[len(PREFIX) : -len(SUFFIX)]  # Remove "_get_" prefix and "_reader" suffix
                 reader_keys.append(reader_key)
+
+        # Define priority order for URL readers
+        url_reader_priority = ["url", "website", "firecrawl", "pdf_url", "csv_url", "youtube", "web_search"]
+
+        # Sort with URL readers in priority order, others alphabetically
+        def sort_key(reader_key):
+            if reader_key in url_reader_priority:
+                return (0, url_reader_priority.index(reader_key))
+            else:
+                return (1, reader_key)
+
+        reader_keys.sort(key=sort_key)
         return reader_keys
 
     @classmethod

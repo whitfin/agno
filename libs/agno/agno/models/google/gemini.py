@@ -10,7 +10,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.exceptions import ModelProviderError
-from agno.media import Audio, File, ImageArtifact, Video
+from agno.media import Audio, File, Image, Video
 from agno.models.base import Model
 from agno.models.message import Citations, Message, UrlCitation
 from agno.models.metrics import Metrics
@@ -815,7 +815,7 @@ class Gemini(Model):
                     if model_response.images is None:
                         model_response.images = []
                     model_response.images.append(
-                        ImageArtifact(
+                        Image(
                             id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
                         )
                     )
@@ -929,7 +929,7 @@ class Gemini(Model):
                         if model_response.images is None:
                             model_response.images = []
                         model_response.images.append(
-                            ImageArtifact(
+                            Image(
                                 id=str(uuid4()), content=part.inline_data.data, mime_type=part.inline_data.mime_type
                             )
                         )

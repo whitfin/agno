@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from pydantic import BaseModel
 
-from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
+from agno.media import Audio, AudioResponse, Image, Video
 from agno.models.message import Citations, Message, MessageReferences
 from agno.models.metrics import Metrics
 from agno.models.response import ToolExecution
@@ -60,21 +60,15 @@ class BaseRunOutputEvent:
         if hasattr(self, "images") and self.images is not None:
             _dict["images"] = []
             for img in self.images:
-                if isinstance(img, ImageArtifact):
+                if isinstance(img, Image):
                     _dict["images"].append(img.to_dict())
                 else:
                     _dict["images"].append(img)
 
-        if hasattr(self, "image") and self.image is not None:
-            if isinstance(self.image, ImageArtifact):
-                _dict["image"] = self.image.to_dict()
-            else:
-                _dict["image"] = self.image
-
         if hasattr(self, "videos") and self.videos is not None:
             _dict["videos"] = []
             for vid in self.videos:
-                if isinstance(vid, VideoArtifact):
+                if isinstance(vid, Video):
                     _dict["videos"].append(vid.to_dict())
                 else:
                     _dict["videos"].append(vid)
@@ -82,7 +76,7 @@ class BaseRunOutputEvent:
         if hasattr(self, "audio") and self.audio is not None:
             _dict["audio"] = []
             for aud in self.audio:
-                if isinstance(aud, AudioArtifact):
+                if isinstance(aud, Audio):
                     _dict["audio"].append(aud.to_dict())
                 else:
                     _dict["audio"].append(aud)
@@ -140,19 +134,15 @@ class BaseRunOutputEvent:
 
         images = data.pop("images", None)
         if images:
-            data["images"] = [ImageArtifact.model_validate(image) for image in images]
-
-        image = data.pop("image", None)
-        if image:
-            data["image"] = ImageArtifact.model_validate(image)
+            data["images"] = [Image.model_validate(image) for image in images]
 
         videos = data.pop("videos", None)
         if videos:
-            data["videos"] = [VideoArtifact.model_validate(video) for video in videos]
+            data["videos"] = [Video.model_validate(video) for video in videos]
 
         audio = data.pop("audio", None)
         if audio:
-            data["audio"] = [AudioArtifact.model_validate(audio) for audio in audio]
+            data["audio"] = [Audio.model_validate(audio) for audio in audio]
 
         response_audio = data.pop("response_audio", None)
         if response_audio:

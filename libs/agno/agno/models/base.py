@@ -21,7 +21,7 @@ from uuid import uuid4
 from pydantic import BaseModel
 
 from agno.exceptions import AgentRunException
-from agno.media import Audio, AudioArtifact, AudioResponse, Image, ImageArtifact, Video, VideoArtifact
+from agno.media import Audio, AudioResponse, Image, Video
 from agno.models.message import Citations, Message
 from agno.models.metrics import Metrics
 from agno.models.response import ModelResponse, ModelResponseEvent, ToolExecution
@@ -44,8 +44,8 @@ class MessageData:
     response_tool_calls: List[Dict[str, Any]] = field(default_factory=list)
 
     response_audio: Optional[AudioResponse] = None
-    response_image: Optional[ImageArtifact] = None
-    response_video: Optional[VideoArtifact] = None
+    response_image: Optional[Image] = None
+    response_video: Optional[Video] = None
 
     # Data from the provider that we might need on subsequent messages
     response_provider_data: Optional[Dict[str, Any]] = None
@@ -502,7 +502,7 @@ class Model(ABC):
         if assistant_message.citations is not None:
             model_response.citations = assistant_message.citations
         if assistant_message.audio_output is not None:
-            if isinstance(assistant_message.audio_output, AudioArtifact):
+            if isinstance(assistant_message.audio_output, Audio):
                 model_response.audios = [assistant_message.audio_output]
             elif isinstance(assistant_message.audio_output, AudioResponse):
                 model_response.audio = assistant_message.audio_output
@@ -557,7 +557,7 @@ class Model(ABC):
         if assistant_message.citations is not None:
             model_response.citations = assistant_message.citations
         if assistant_message.audio_output is not None:
-            if isinstance(assistant_message.audio_output, AudioArtifact):
+            if isinstance(assistant_message.audio_output, Audio):
                 model_response.audios = [assistant_message.audio_output]
             elif isinstance(assistant_message.audio_output, AudioResponse):
                 model_response.audio = assistant_message.audio_output
@@ -1104,41 +1104,10 @@ class Model(ABC):
         audios = None
 
         if success and function_execution_result:
-            # Convert ImageArtifacts to Images for message compatibility
-            if function_execution_result.images:
-                from agno.media import Image
-
-                images = []
-                for img_artifact in function_execution_result.images:
-                    if img_artifact.url:
-                        images.append(Image(url=img_artifact.url))
-                    elif img_artifact.content:
-                        images.append(Image(content=img_artifact.content))
-
-            # Convert VideoArtifacts to Videos for message compatibility
-            if function_execution_result.videos:
-                from agno.media import Video
-
-                videos = []
-                for vid_artifact in function_execution_result.videos:
-                    if vid_artifact.url:
-                        videos.append(Video(url=vid_artifact.url))
-                    elif vid_artifact.content:
-                        videos.append(Video(content=vid_artifact.content))
-
-            # Convert AudioArtifacts to Audio for message compatibility
-            if function_execution_result.audios:
-                from agno.media import Audio
-
-                audios = []
-                for aud_artifact in function_execution_result.audios:
-                    if aud_artifact.url:
-                        audios.append(Audio(url=aud_artifact.url))
-                    elif aud_artifact.base64_audio:
-                        import base64
-
-                        audio_bytes = base64.b64decode(aud_artifact.base64_audio)
-                        audios.append(Audio(content=audio_bytes))
+            # With unified classes, no conversion needed - use directly
+            images = function_execution_result.images
+            videos = function_execution_result.videos
+            audios = function_execution_result.audios
 
         return Message(
             role=self.tool_message_role,
@@ -1654,17 +1623,17 @@ class Model(ABC):
                         function_execution_result.audios = tool_result.audios
                 else:
                     function_call_output = str(function_call.result)
-                
+
                 if function_call.function.show_result:
                     yield ModelResponse(content=function_call_output)
 
             # Create and yield function call result
             function_call_result = self.create_function_call_result(
-                function_call, 
-                success=function_call_success, 
-                output=function_call_output, 
+                function_call,
+                success=function_call_success,
+                output=function_call_output,
                 timer=function_call_timer,
-                function_execution_result=function_execution_result
+                function_execution_result=function_execution_result,
             )
             yield ModelResponse(
                 content=f"{function_call.get_call_str()} completed in {function_call_timer.elapsed:.4f}s.",

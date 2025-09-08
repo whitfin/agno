@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
-from agno.media import AudioArtifact, AudioResponse, ImageArtifact, VideoArtifact
+from agno.media import Audio, AudioResponse, Image, Video
 from agno.run.agent import RunOutput
 from agno.run.base import RunStatus
 from agno.run.team import TeamRunOutput
@@ -179,9 +179,9 @@ class StepCompletedEvent(BaseWorkflowRunOutputEvent):
     content_type: str = "str"
 
     # Media content fields
-    images: Optional[List[ImageArtifact]] = None
-    videos: Optional[List[VideoArtifact]] = None
-    audio: Optional[List[AudioArtifact]] = None
+    images: Optional[List[Image]] = None
+    videos: Optional[List[Video]] = None
+    audio: Optional[List[Audio]] = None
     response_audio: Optional[AudioResponse] = None
 
     # Store actual step execution results as StepOutput objects
@@ -358,15 +358,15 @@ class StepOutputEvent(BaseWorkflowRunOutputEvent):
         return self.step_output.content if self.step_output else None
 
     @property
-    def images(self) -> Optional[List[ImageArtifact]]:
+    def images(self) -> Optional[List[Image]]:
         return self.step_output.images if self.step_output else None
 
     @property
-    def videos(self) -> Optional[List[VideoArtifact]]:
+    def videos(self) -> Optional[List[Video]]:
         return self.step_output.videos if self.step_output else None
 
     @property
-    def audio(self) -> Optional[List[AudioArtifact]]:
+    def audio(self) -> Optional[List[Audio]]:
         return self.step_output.audio if self.step_output else None
 
     @property
@@ -430,9 +430,9 @@ class WorkflowRunOutput:
     session_id: Optional[str] = None
 
     # Media content fields
-    images: Optional[List[ImageArtifact]] = None
-    videos: Optional[List[VideoArtifact]] = None
-    audio: Optional[List[AudioArtifact]] = None
+    images: Optional[List[Image]] = None
+    videos: Optional[List[Video]] = None
+    audio: Optional[List[Audio]] = None
     response_audio: Optional[AudioResponse] = None
 
     # Store actual step execution results as StepOutput objects
@@ -551,13 +551,13 @@ class WorkflowRunOutput:
         metadata = data.pop("metadata", None)
 
         images = data.pop("images", [])
-        images = [ImageArtifact.model_validate(image) for image in images] if images else None
+        images = [Image.model_validate(image) for image in images] if images else None
 
         videos = data.pop("videos", [])
-        videos = [VideoArtifact.model_validate(video) for video in videos] if videos else None
+        videos = [Video.model_validate(video) for video in videos] if videos else None
 
         audio = data.pop("audio", [])
-        audio = [AudioArtifact.model_validate(audio) for audio in audio] if audio else None
+        audio = [Audio.model_validate(audio) for audio in audio] if audio else None
 
         response_audio = data.pop("response_audio", None)
         response_audio = AudioResponse.model_validate(response_audio) if response_audio else None

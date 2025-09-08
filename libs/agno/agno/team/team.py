@@ -33,7 +33,7 @@ from agno.agent import Agent
 from agno.db.base import BaseDb, SessionType, UserMemory
 from agno.exceptions import ModelProviderError, RunCancelledException
 from agno.knowledge.knowledge import Knowledge
-from agno.media import Audio, AudioArtifact, AudioResponse, File, Image, ImageArtifact, Video, VideoArtifact
+from agno.media import Audio, AudioResponse, File, Image, Video
 from agno.memory import MemoryManager
 from agno.models.base import Model
 from agno.models.message import Message, MessageReferences
@@ -537,11 +537,11 @@ class Team:
 
         # TODO: Remove these
         # Images generated during this session
-        self.images: Optional[List[ImageArtifact]] = None
+        self.images: Optional[List[Image]] = None
         # Audio generated during this session
-        self.audio: Optional[List[AudioArtifact]] = None
+        self.audio: Optional[List[Audio]] = None
         # Videos generated during this session
-        self.videos: Optional[List[VideoArtifact]] = None
+        self.videos: Optional[List[Video]] = None
 
         # Team session
         self._team_session: Optional[TeamSession] = None
@@ -3048,57 +3048,40 @@ class Team:
         videos: Optional[Sequence[Video]] = None,
         audios: Optional[Sequence[Audio]] = None,
     ) -> tuple:
-        """Convert raw Image/Video/Audio objects to ImageArtifact/VideoArtifact/AudioArtifact objects."""
-        from uuid import uuid4
-
-        from agno.media import AudioArtifact, ImageArtifact, VideoArtifact
-
-        image_artifacts = None
+        """Convert raw Image/Video/Audio objects - now unified, so just return as-is."""
+        # With unified classes, no conversion needed - just ensure IDs are set
+        image_list = None
         if images:
-            image_artifacts = []
+            image_list = []
             for img in images:
-                try:
-                    artifact_id = img.id if hasattr(img, "id") and img.id else str(uuid4())
+                # Ensure ID is set (validation should handle this, but double-check)
+                if not img.id:
+                    from uuid import uuid4
 
-                    if img.url:
-                        image_artifacts.append(ImageArtifact(id=artifact_id, url=img.url))
-                    elif img.content:
-                        image_artifacts.append(ImageArtifact(id=artifact_id, content=img.content))
-                except Exception as e:
-                    log_warning(f"Error creating ImageArtifact: {e}")
-                    continue
+                    img.id = str(uuid4())
+                image_list.append(img)
 
-        video_artifacts = None
+        video_list = None
         if videos:
-            video_artifacts = []
+            video_list = []
             for vid in videos:
-                try:
-                    artifact_id = vid.id if hasattr(vid, "id") and vid.id else str(uuid4())
+                if not vid.id:
+                    from uuid import uuid4
 
-                    if vid.url:
-                        video_artifacts.append(VideoArtifact(id=artifact_id, url=vid.url))
-                    elif vid.content:
-                        video_artifacts.append(VideoArtifact(id=artifact_id, content=vid.content))
-                except Exception as e:
-                    log_warning(f"Error creating VideoArtifact: {e}")
-                    continue
+                    vid.id = str(uuid4())
+                video_list.append(vid)
 
-        audio_artifacts = None
+        audio_list = None
         if audios:
-            audio_artifacts = []
+            audio_list = []
             for aud in audios:
-                try:
-                    artifact_id = aud.id if hasattr(aud, "id") and aud.id else str(uuid4())
+                if not aud.id:
+                    from uuid import uuid4
 
-                    if aud.url:
-                        audio_artifacts.append(AudioArtifact(id=artifact_id, url=aud.url))
-                    elif aud.content:
-                        audio_artifacts.append(AudioArtifact(id=artifact_id, content=aud.content))
-                except Exception as e:
-                    log_warning(f"Error creating AudioArtifact: {e}")
-                    continue
+                    aud.id = str(uuid4())
+                audio_list.append(aud)
 
-        return image_artifacts, video_artifacts, audio_artifacts
+        return image_list, video_list, audio_list
 
     def cli_app(
         self,
@@ -3779,15 +3762,7 @@ class Team:
 
         # 1. Add images from current input
         if run_input and run_input.images:
-            for artifact in run_input.images:
-                try:
-                    if artifact.url:
-                        joint_images.append(Image(url=artifact.url))
-                    elif artifact.content:
-                        joint_images.append(Image(content=artifact.content))
-                except Exception as e:
-                    log_warning(f"Error converting ImageArtifact to Image: {e}")
-                    continue
+            joint_images.extend(run_input.images)
             log_debug(f"Added {len(run_input.images)} input images to joint list")
 
         # 2. Add images from session history (from both input and generated sources)
@@ -3796,30 +3771,14 @@ class Team:
                 for historical_run in session.runs:
                     # Add generated images from previous runs
                     if historical_run.images:
-                        for artifact in historical_run.images:
-                            try:
-                                if artifact.url:
-                                    joint_images.append(Image(url=artifact.url))
-                                elif artifact.content:
-                                    joint_images.append(Image(content=artifact.content))
-                            except Exception as e:
-                                log_warning(f"Error converting historical ImageArtifact to Image: {e}")
-                                continue
+                        joint_images.extend(historical_run.images)
                         log_debug(
                             f"Added {len(historical_run.images)} generated images from historical run {historical_run.run_id}"
                         )
 
                     # Add input images from previous runs
                     if historical_run.input and historical_run.input.images:
-                        for artifact in historical_run.input.images:
-                            try:
-                                if artifact.url:
-                                    joint_images.append(Image(url=artifact.url))
-                                elif artifact.content:
-                                    joint_images.append(Image(content=artifact.content))
-                            except Exception as e:
-                                log_warning(f"Error converting input ImageArtifact to Image: {e}")
-                                continue
+                        joint_images.extend(historical_run.input.images)
                         log_debug(
                             f"Added {len(historical_run.input.images)} input images from historical run {historical_run.run_id}"
                         )
@@ -3840,15 +3799,7 @@ class Team:
 
         # 1. Add videos from current input
         if run_input and run_input.videos:
-            for artifact in run_input.videos:
-                try:
-                    if artifact.url:
-                        joint_videos.append(Video(url=artifact.url))
-                    elif artifact.content:
-                        joint_videos.append(Video(content=artifact.content))
-                except Exception as e:
-                    log_warning(f"Error converting VideoArtifact to Video: {e}")
-                    continue
+            joint_videos.extend(run_input.videos)
             log_debug(f"Added {len(run_input.videos)} input videos to joint list")
 
         # 2. Add videos from session history (from both input and generated sources)
@@ -3857,30 +3808,14 @@ class Team:
                 for historical_run in session.runs:
                     # Add generated videos from previous runs
                     if historical_run.videos:
-                        for artifact in historical_run.videos:
-                            try:
-                                if artifact.url:
-                                    joint_videos.append(Video(url=artifact.url))
-                                elif artifact.content:
-                                    joint_videos.append(Video(content=artifact.content))
-                            except Exception as e:
-                                log_warning(f"Error converting historical VideoArtifact to Video: {e}")
-                                continue
+                        joint_videos.extend(historical_run.videos)
                         log_debug(
                             f"Added {len(historical_run.videos)} generated videos from historical run {historical_run.run_id}"
                         )
 
                     # Add input videos from previous runs
                     if historical_run.input and historical_run.input.videos:
-                        for artifact in historical_run.input.videos:
-                            try:
-                                if artifact.url:
-                                    joint_videos.append(Video(url=artifact.url))
-                                elif artifact.content:
-                                    joint_videos.append(Video(content=artifact.content))
-                            except Exception as e:
-                                log_warning(f"Error converting input VideoArtifact to Video: {e}")
-                                continue
+                        joint_videos.extend(historical_run.input.videos)
                         log_debug(
                             f"Added {len(historical_run.input.videos)} input videos from historical run {historical_run.run_id}"
                         )
@@ -3901,15 +3836,7 @@ class Team:
 
         # 1. Add audios from current input
         if run_input and run_input.audios:
-            for artifact in run_input.audios:
-                try:
-                    if artifact.url:
-                        joint_audios.append(Audio(url=artifact.url))
-                    elif artifact.base64_audio:
-                        joint_audios.append(Audio(content=artifact.base64_audio))
-                except Exception as e:
-                    log_warning(f"Error converting AudioArtifact to Audio: {e}")
-                    continue
+            joint_audios.extend(run_input.audios)
             log_debug(f"Added {len(run_input.audios)} input audios to joint list")
 
         # 2. Add audios from session history (from both input and generated sources)
@@ -3918,30 +3845,14 @@ class Team:
                 for historical_run in session.runs:
                     # Add generated audios from previous runs
                     if historical_run.audio:
-                        for artifact in historical_run.audio:
-                            try:
-                                if artifact.url:
-                                    joint_audios.append(Audio(url=artifact.url))
-                                elif artifact.base64_audio:
-                                    joint_audios.append(Audio(content=artifact.base64_audio))
-                            except Exception as e:
-                                log_warning(f"Error converting historical AudioArtifact to Audio: {e}")
-                                continue
+                        joint_audios.extend(historical_run.audio)
                         log_debug(
                             f"Added {len(historical_run.audio)} generated audios from historical run {historical_run.run_id}"
                         )
 
                     # Add input audios from previous runs
                     if historical_run.input and historical_run.input.audios:
-                        for artifact in historical_run.input.audios:
-                            try:
-                                if artifact.url:
-                                    joint_audios.append(Audio(url=artifact.url))
-                                elif artifact.base64_audio:
-                                    joint_audios.append(Audio(content=artifact.base64_audio))
-                            except Exception as e:
-                                log_warning(f"Error converting input AudioArtifact to Audio: {e}")
-                                continue
+                        joint_audios.extend(historical_run.input.audios)
                         log_debug(
                             f"Added {len(historical_run.input.audios)} input audios from historical run {historical_run.run_id}"
                         )
@@ -6739,7 +6650,7 @@ class Team:
             team_member_interactions_str += "</member interactions>\n"
         return team_member_interactions_str
 
-    def _get_team_run_context_images(self, team_run_context: Dict[str, Any]) -> List[ImageArtifact]:
+    def _get_team_run_context_images(self, team_run_context: Dict[str, Any]) -> List[Image]:
         if not team_run_context:
             return []
         images = []
@@ -6749,7 +6660,7 @@ class Team:
                     images.extend(interaction["run_response"].images)
         return images
 
-    def _get_team_run_context_videos(self, team_run_context: Dict[str, Any]) -> List[VideoArtifact]:
+    def _get_team_run_context_videos(self, team_run_context: Dict[str, Any]) -> List[Video]:
         if not team_run_context:
             return []
         videos = []
@@ -6759,7 +6670,7 @@ class Team:
                     videos.extend(interaction["run_response"].videos)
         return videos
 
-    def _get_team_run_context_audio(self, team_run_context: Dict[str, Any]) -> List[AudioArtifact]:
+    def _get_team_run_context_audio(self, team_run_context: Dict[str, Any]) -> List[Audio]:
         if not team_run_context:
             return []
         audio = []
@@ -6773,21 +6684,21 @@ class Team:
     # Handle images, videos and audio
     ###########################################################################
 
-    def _add_image(self, image: ImageArtifact, run_response: TeamRunOutput) -> None:
+    def _add_image(self, image: Image, run_response: TeamRunOutput) -> None:
         """Add an image to both the agent's stateful storage and the current run response"""
         # Add to run response
         if run_response.images is None:
             run_response.images = []
         run_response.images.append(image)
 
-    def _add_video(self, video: VideoArtifact, run_response: TeamRunOutput) -> None:
+    def _add_video(self, video: Video, run_response: TeamRunOutput) -> None:
         """Add a video to both the agent's stateful storage and the current run response"""
         # Add to run response
         if run_response.videos is None:
             run_response.videos = []
         run_response.videos.append(video)
 
-    def _add_audio(self, audio: AudioArtifact, run_response: TeamRunOutput) -> None:
+    def _add_audio(self, audio: Audio, run_response: TeamRunOutput) -> None:
         """Add audio to both the agent's stateful storage and the current run response"""
         # Add to run response
         if run_response.audio is None:

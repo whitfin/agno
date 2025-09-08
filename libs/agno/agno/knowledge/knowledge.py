@@ -471,12 +471,10 @@ class Knowledge:
             elif file_extension and file_extension is not None:
                 log_info(f"Detected file type: {file_extension} from URL: {content.url}")
 
-                # TODO: Here we should download the file
-
                 if content.reader:
                     reader = content.reader
                 else:
-                    reader = self._select_reader(file_extension)
+                    reader = self._select_url_file_reader(file_extension)
                 if reader is not None:
                     log_info(f"Selected reader: {reader.__class__.__name__}")
                     # TODO: We will refactor this to eventually pass authorization to all readers

@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import io
 import time
+from collections.abc import Awaitable
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
@@ -209,7 +210,7 @@ class Knowledge:
             upsert: Whether to update existing content if it already exists
             skip_if_exists: Whether to skip adding content if it already exists
         """
-        asyncio.run(self.add_contents_async(*args, **kwargs))
+        self._run_on_loop(self.add_contents_async(*args, **kwargs))
 
     # --- Add Content ---
 
@@ -336,7 +337,7 @@ class Knowledge:
             upsert: Whether to update existing content if it already exists
             skip_if_exists: Whether to skip adding content if it already exists
         """
-        asyncio.run(
+        self._run_on_loop(
             self.add_content_async(
                 name=name,
                 description=description,
@@ -354,6 +355,19 @@ class Knowledge:
                 auth=auth,
             )
         )
+
+    def _run_on_loop(self, main: Awaitable[None]) -> None:
+        """
+        Run an awaitable coroutine on an asyncio loop.
+
+        Args:
+            main: The coroutine to execute on the asyncio loop.
+        """
+        try:
+            asyncio.get_running_loop()
+            asyncio.ensure_future(main)
+        except RuntimeError:
+            asyncio.run(main)
 
     def _should_skip(self, content_hash: str, skip_if_exists: bool) -> bool:
         """

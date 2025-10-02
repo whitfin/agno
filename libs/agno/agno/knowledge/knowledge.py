@@ -2,14 +2,13 @@ import asyncio
 import hashlib
 import io
 import time
-from collections.abc import Awaitable
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from io import BytesIO
 from os.path import basename
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast, overload
+from typing import Any, Coroutine, Dict, List, Optional, Set, Tuple, Union, cast, overload
 
 from httpx import AsyncClient
 
@@ -356,7 +355,7 @@ class Knowledge:
             )
         )
 
-    def _run_on_loop(self, main: Awaitable[None]) -> None:
+    def _run_on_loop(self, main: Coroutine[Any, Any, None]) -> None:
         """
         Run an awaitable coroutine on an asyncio loop.
 
